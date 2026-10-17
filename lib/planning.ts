@@ -1,4 +1,7 @@
 import type { Workspace, Task, TaskInput, MilestoneInput, CaptureInput, Capture, Recommendation } from './types.ts';
+import { currentWeek, isCurrentWeek } from './calendar.ts';
+import { parseWorkspaceExport } from './workspace-validation.ts';
+import { applyProjectBaseline, BASELINE_ID } from './project-baselines.ts';
 
 const TASK_FIELDS = ['projectId', 'milestoneId', 'title', 'notes', 'status', 'horizon', 'priority', 'dueDate', 'weekly', 'dependsOn', 'blocker', 'sourceUrl', 'evidence'];
 const MILESTONE_FIELDS = ['projectId', 'title', 'description', 'acceptance', 'status', 'targetDate', 'evidence'];
@@ -145,7 +148,7 @@ function validateTaskGraph(workspace: Workspace): void {
   }
   for (const task of workspace.tasks) visit(task.id);
   for (const task of workspace.tasks) {
-    if (task.status !== 'done') continue;
+    if (task.status !== 'done' && !(task.status === 'archived' && task.archivedFromStatus === 'done')) continue;
     const blockers = getBlockers(task, workspace);
     if (blockers.length) throw new Error(`Completed task “${task.title}” would be blocked: ${blockers.join(' ')} Clear its blockers or reopen the dependent task first.`);
   }
@@ -160,11 +163,33 @@ export function applyCommand(workspace: Workspace, command: unknown, now?: strin
   let activityProject: string | null;
 
   switch (data.type) {
+    case 'baseline.apply': {
+      fields(data, ['type', 'projectId', 'baselineId'], 'Command');
+      const project = projectId(data.projectId, next);
+      const baseline = choice(data.baselineId, [BASELINE_ID] as const, 'Baseline');
+      return applyProjectBaseline(next, project, baseline, at);
+    }
+    case 'workspace.restore': {
+      fields(data, ['type', 'workspace'], 'Command');
+      return parseWorkspaceExport(data.workspace);
+    }
+    case 'task.restore': {
+      fields(data, ['type', 'id'], 'Command');
+      const existing = findById(next.tasks, data.id, 'Task');
+      if (existing.status !== 'archived') throw new Error('Only archived tasks can be restored.');
+      existing.status = existing.archivedFromStatus ?? (existing.completedAt ? 'done' : 'todo');
+      existing.archivedFromStatus = null;
+      existing.updatedAt = at;
+      validateTaskGraph(next);
+      activityText = `Restored task: ${existing.title}`;
+      activityProject = existing.projectId;
+      break;
+    }
     case 'task.create': {
       fields(data, ['type', 'task'], 'Command');
       capacity(next.tasks.length, 2000, 'tasks');
       const input = validateTask(data.task, next);
-      const created: Task = { ...input, id: crypto.randomUUID(), createdAt: at, updatedAt: at, completedAt: input.status === 'done' ? at : null };
+      const created: Task = { ...input, id: crypto.randomUUID(), createdAt: at, updatedAt: at, completedAt: input.status === 'done' ? at : null, weeklyWeek: input.weekly ? currentWeek(at) : null, archivedFromStatus: input.status === 'archived' ? 'todo' : null };
       next.tasks.push(created);
       validateTaskGraph(next);
       activityText = `Created task: ${created.title}`;
@@ -177,8 +202,12 @@ export function applyCommand(workspace: Workspace, command: unknown, now?: strin
       const patch = fields(data.patch, TASK_FIELDS, 'Task patch');
       const input = validateTask({ ...pick(existing, TASK_FIELDS), ...patch }, next);
       if (input.projectId !== existing.projectId) throw new Error('An existing task cannot move to another project. Create a new task in that project instead.');
-      const completedAt = input.status === 'done' ? existing.completedAt ?? at : null;
-      Object.assign(existing, input, { updatedAt: at, completedAt });
+      const archivedFromStatus = input.status === 'archived'
+        ? existing.status === 'archived' ? existing.archivedFromStatus ?? (existing.completedAt ? 'done' : 'todo') : existing.status
+        : null;
+      const completedAt = input.status === 'done' || input.status === 'archived' && archivedFromStatus === 'done' ? existing.completedAt ?? at : null;
+      const weeklyWeek = input.weekly ? ('weekly' in patch && patch.weekly === true ? currentWeek(at) : existing.weeklyWeek ?? currentWeek(existing.updatedAt)) : null;
+      Object.assign(existing, input, { updatedAt: at, completedAt, archivedFromStatus, weeklyWeek });
       validateTaskGraph(next);
       activityText = `Updated task: ${existing.title}`;
       activityProject = existing.projectId;
@@ -249,7 +278,7 @@ export function applyCommand(workspace: Workspace, command: unknown, now?: strin
         dependsOn: [], blocker: '', sourceUrl: existing.sourceUrl, evidence: '',
       }, next);
       const id = crypto.randomUUID();
-      next.tasks.push({ ...input, id, createdAt: at, updatedAt: at, completedAt: null });
+      next.tasks.push({ ...input, id, createdAt: at, updatedAt: at, completedAt: null, weeklyWeek: null, archivedFromStatus: null });
       existing.projectId = input.projectId;
       existing.status = 'filed';
       existing.convertedTaskId = id;
@@ -272,7 +301,8 @@ export function getBlockers(task: Task, workspace: Workspace): string[] {
     const dependency = workspace.tasks.find((candidate) => candidate.id === id);
     if (!dependency) blockers.push('A dependency is missing or unavailable.');
     else if (dependency.projectId !== task.projectId) blockers.push(`Dependency “${dependency.title}” belongs to another project.`);
-    else if (dependency.status === 'archived') blockers.push(`Archived dependency “${dependency.title}” must be restored and completed, or removed.`);
+    else if (dependency.status === 'archived' && dependency.archivedFromStatus !== 'done') blockers.push(`Archived dependency “${dependency.title}” must be restored and completed, or removed.`);
+    else if (dependency.status === 'archived' && dependency.archivedFromStatus === 'done') continue;
     else if (dependency.status !== 'done') blockers.push(`Complete “${dependency.title}” first.`);
   }
   return blockers;
@@ -285,7 +315,7 @@ function dateDistance(target: string, today: string): number {
 function rank(task: Task, today: string): { score: number; reason: string } {
   let score = { high: 60, normal: 25, low: 0 }[task.priority] + { now: 25, next: 10, later: 0 }[task.horizon];
   const reasons: string[] = [];
-  if (task.weekly) { score += 100; reasons.push('selected for weekly focus'); }
+  if (isCurrentWeek({ ...task, weeklyWeek: task.weeklyWeek ?? currentWeek(task.updatedAt) }, today)) { score += 100; reasons.push('selected for weekly focus'); }
   if (task.priority === 'high') reasons.push('high priority');
   if (task.status === 'review') { score += 40; reasons.push('ready for your review'); }
   if (task.status === 'doing') { score += 30; reasons.push('already in progress'); }

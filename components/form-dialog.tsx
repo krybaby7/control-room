@@ -1,21 +1,24 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { AlertCircle, LoaderCircle, X } from 'lucide-react';
+import { SessionExpiredContext } from './session-state';
 
 export function FormDialog({ title, subtitle, dirty, onClose, onSave, submitLabel = 'Save changes', children }: { title: string; subtitle?: string; dirty: boolean; onClose: () => void; onSave: () => Promise<void>; submitLabel?: string; children: ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const expired = useContext(SessionExpiredContext);
   const titleId = useId();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const close = () => { if (!saving && (!dirty || window.confirm('Discard your unsaved changes?'))) onClose(); };
-  useEffect(() => { const dialog = ref.current; dialog?.showModal(); return () => dialog?.close(); }, []);
+  useEffect(() => { const dialog = ref.current; if (!expired) dialog?.showModal(); return () => dialog?.close(); }, [expired]);
   useEffect(() => {
     if (!dirty) return;
     const handler = (event: BeforeUnloadEvent) => { event.preventDefault(); };
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
   }, [dirty]);
+  if (expired) return null;
   return <dialog ref={ref} className="editor-dialog" aria-labelledby={titleId} onCancel={event => { event.preventDefault(); close(); }}>
     <form onSubmit={async event => { event.preventDefault(); if (saving) return; setSaving(true); setError(''); try { await onSave(); onClose(); } catch (cause) { setError(cause instanceof Error ? cause.message : 'We could not save this. Your draft is still here.'); } finally { setSaving(false); } }}>
       <header className="dialog-header"><div><p className="eyebrow">YOUR WORKSPACE</p><h2 id={titleId}>{title}</h2>{subtitle && <p>{subtitle}</p>}</div><button type="button" className="icon-button" aria-label="Close editor" onClick={close} disabled={saving}><X size={21} /></button></header>

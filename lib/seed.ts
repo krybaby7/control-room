@@ -18,7 +18,7 @@ export function createSeedWorkspace(now?: string): Workspace {
 
   function task(projectId: string, milestoneId: string, title: string, notes: string, sourceUrl: string, horizon: Horizon = 'now', priority: Priority = 'normal', dependsOn: string[] = []): string {
     const id = crypto.randomUUID();
-    tasks.push({ id, projectId, milestoneId, title, notes, sourceUrl, horizon, priority, dependsOn, status: 'proposed', dueDate: null, weekly: false, blocker: '', evidence: '', createdAt: at, updatedAt: at, completedAt: null });
+    tasks.push({ id, projectId, milestoneId, title, notes, sourceUrl, horizon, priority, dependsOn, status: 'proposed', dueDate: null, weekly: false, weeklyWeek: null, archivedFromStatus: null, blocker: '', evidence: '', createdAt: at, updatedAt: at, completedAt: null });
     return id;
   }
 
@@ -77,7 +77,7 @@ export function createSeedWorkspace(now?: string): Workspace {
     'https://github.com/krybaby7/trade-graph', 'later', 'normal', [operationReview]);
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     projects: [
       { id: tamenni, name: 'TAMENNI', color: 'orange', priority: 'equal',
         description: 'Android product and map experience, with explicit acceptance for reliability, launch coverage, integration, scaling and economics.',

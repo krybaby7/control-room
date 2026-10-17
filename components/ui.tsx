@@ -1,12 +1,12 @@
 import { ArrowUpRight, Check, Circle, CircleDashed, CircleDot, Clock3, GitBranch, Mountain, Pin, Sparkles } from 'lucide-react';
 import type { Project, Task, TaskStatus, Workspace } from '@/lib/types';
 import { getBlockers } from '@/lib/planning';
+import { cairoDate, isCurrentWeek } from '@/lib/calendar';
 
 export const statusLabels: Record<TaskStatus, string> = { proposed: 'Proposed', todo: 'To do', doing: 'In progress', review: 'In review', done: 'Done', archived: 'Archived' };
 export const horizonLabels = { now: 'Now', next: 'Next', later: 'Later' };
 export function cairoToday() {
-  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Cairo', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
-  return `${parts.find(p => p.type === 'year')?.value}-${parts.find(p => p.type === 'month')?.value}-${parts.find(p => p.type === 'day')?.value}`;
+  return cairoDate();
 }
 export function dateLabel(value: string | null, full = false) {
   if (!value) return 'No target date';
@@ -27,6 +27,7 @@ export function TaskRow({ task, workspace, reason, onEdit, onPin, busy, showProj
   const project = workspace.projects.find(p => p.id === task.projectId);
   const blockers = getBlockers(task, workspace);
   const overdue = task.dueDate && task.dueDate < cairoToday() && !['done', 'archived'].includes(task.status);
+  const pinned = isCurrentWeek(task);
   return <article className={`task-row ${task.status === 'done' ? 'task-done' : ''}`}>
     <button className="task-open" onClick={() => onEdit(task)} aria-label={`Edit task: ${task.title}`}>
       <span className={`task-check ${task.status}`} aria-hidden="true">{task.status === 'done' ? <Check size={15} /> : task.status === 'doing' ? <span /> : null}</span>
@@ -35,7 +36,7 @@ export function TaskRow({ task, workspace, reason, onEdit, onPin, busy, showProj
         {blockers.length > 0 && <span className="blocker-text">Blocked: {blockers.join(' · ')}</span>}
       </span>
     </button>
-    <button className={`icon-button pin-button ${task.weekly ? 'pinned' : ''}`} aria-label={`${task.weekly ? 'Remove from' : 'Add to'} weekly focus: ${task.title}`} title={task.weekly ? 'Remove from weekly focus' : 'Add to weekly focus'} aria-pressed={task.weekly} disabled={busy || task.status === 'archived'} onClick={() => onPin(task)}><Pin size={16} /></button>
+    <button className={`icon-button pin-button ${pinned ? 'pinned' : ''}`} aria-label={`${pinned ? 'Remove from' : 'Add to'} this week's focus: ${task.title}`} title={pinned ? "Remove from this week's focus" : "Add to this week's focus"} aria-pressed={pinned} disabled={busy || task.status === 'archived'} onClick={() => onPin(task)}><Pin size={16} /></button>
   </article>;
 }
 export function ProjectCard({ project, workspace, onOpen }: { project: Project; workspace: Workspace; onOpen: () => void }) {

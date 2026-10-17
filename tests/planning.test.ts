@@ -122,13 +122,16 @@ test('editing a done task preserves its completion date and reopening clears it'
   assert.equal(reopened.tasks[0].completedAt, null);
 });
 
-test('reopening or archiving a completed predecessor cannot invalidate completed dependents', () => {
+test('reopening a completed predecessor cannot invalidate completed dependents; archive preserves completion', () => {
   const original = workspace();
   original.tasks = [task('a', { title: 'Operating review', status: 'done' }), task('b', { title: 'Profit evaluation', status: 'done', dependsOn: ['a'] })];
-  for (const status of ['todo', 'archived']) {
+  for (const status of ['todo']) {
     assert.throws(() => applyCommand(original, { type: 'task.update', id: 'a', patch: { status } }, LATER), /Profit evaluation|dependent/i);
   }
   assert.equal(original.tasks[0].status, 'done');
+  const archived = applyCommand(original, { type: 'task.update', id: 'a', patch: { status: 'archived' } }, LATER);
+  assert.equal(archived.tasks[0].completedAt, NOW);
+  assert.deepEqual(getBlockers(archived.tasks[1], archived), []);
 });
 
 test('archiving a task clears its weekly commitment and can be reversed', () => {
