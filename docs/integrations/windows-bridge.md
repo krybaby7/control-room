@@ -12,6 +12,8 @@ The CLI accepts doctor, enroll, run --once, run and revoke-local with --config f
     & $NodePath $BridgeModule enroll --config $ConfigPath
     & $NodePath $BridgeModule run --once --config $ConfigPath
 
+Use pcCommandCenter.instanceId = pc-command-center in the shipped configuration: it must match the owner-selected cloud adapter's fixed endpointAlias exactly. The cloud does not infer or rename an instance from a device label. Select the exact local GPU ID explicitly; an absent selection stays unknown rather than using the first GPU.
+
 Follow the shipped strict configuration schema. Never put credentials in arguments or config, add arbitrary endpoint paths, or configure execution commands. Enrollment uses masked interactive input. Confirm owner, device and privacy before enrolling. Unsupported ingress must remain visibly disconnected. An absent collector stays absent; doctor and run never launch it.
 
 Credentials use DPAPI CurrentUser with fixed non-secret application entropy. The fixed PowerShell script accepts only -Mode Protect or -Mode Unprotect. Plaintext JSON and protected base64 travel through redirected private anonymous stdin/stdout pipes; console use is refused. Plaintext is limited to 16 KiB. Only ciphertext is persisted; decrypted values are not console output, arguments or logs. A copied protected blob does not enroll another device. Verify actual current-user NTFS permissions locally: POSIX mode hints do not prove Windows ACLs. Memory clearing is best effort, not protection against a compromised process already running as the same user.

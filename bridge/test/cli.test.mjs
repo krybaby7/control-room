@@ -14,7 +14,7 @@ test('window precedes actual sample and confirmed fresh receipt precedes unchang
     async ack(id,options){events.push('ack-'+id);assert.equal(options.classification,id==='new'?'live':'history');},
     async pending(){events.push('pending');return [{id:'old',heartbeatBytes:canonical(old),liveWindowId:'old-window'}];}
   };
-  const transport={async liveWindow(body){events.push('window');assert.deepEqual(body,{bootId:'boot',generation:2,sequence:1});return window();},async heartbeat(envelope){events.push(envelope.delivery);if(envelope.delivery==='history')assert.deepEqual(envelope.heartbeat,old);return receipt(envelope.heartbeat,envelope.delivery);}};
+  const transport={async liveWindow(body){events.push('window');assert.deepEqual(body,{bootId:'boot',generation:2,sequence:1});return window();},async heartbeat(envelope){events.push(envelope.delivery);if(envelope.delivery==='history'){assert.deepEqual(envelope.heartbeat,old);assert.equal(canonical(envelope.heartbeat),canonical(old),'historical retry keeps exact canonical payload bytes');assert.equal(envelope.liveWindowId,null,'history never carries a live window or promotes a queued payload');assert.equal(receipt(envelope.heartbeat,'history').heartbeatHash,createHash('sha256').update(canonical(old)).digest('hex'));}return receipt(envelope.heartbeat,envelope.delivery);}};
   await runBridgeOnce({config,session,sequence:1,outbox,transport,now:()=>stamp,sample:async()=>{events.push('sample');return {source:'pc-command-center'};}});
   assert.deepEqual(events,['window','sample','persist','live','ack-new','pending','history','ack-old']);
 });

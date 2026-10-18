@@ -6,7 +6,7 @@ import {join} from 'node:path';
 import {DEFAULT_CONFIG,validateConfig,readConfig,canonicalJson,timestamp} from '../src/config.mjs';
 const config=()=>JSON.parse(JSON.stringify(DEFAULT_CONFIG));
 test('configuration defaults disabled and rejects authority/endpoints',()=>{
- const value=validateConfig(config());assert.equal(value.pcCommandCenter.enabled,false);assert.ok(value.adapters.every(a=>!a.enabled));
+ const value=validateConfig(config());assert.equal(value.pcCommandCenter.enabled,false);assert.equal(value.pcCommandCenter.instanceId,'pc-command-center','default must match fixed registered cloud endpoint alias');assert.ok(value.adapters.every(a=>!a.enabled));
  for(const patch of [{token:'secret'},{path:'C:/private'},{proxy:'https://example.com'}])assert.throws(()=>validateConfig({...config(),...patch}));
  const changed=config();changed.pcCommandCenter.url='http://localhost:1';assert.throws(()=>validateConfig(changed));
  for(const origin of ['http://example.com','https://example.com/','https://user:secret@example.com','https://example.com/path'])assert.throws(()=>validateConfig({...config(),cloudBaseUrl:origin}));

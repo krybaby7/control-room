@@ -10,7 +10,7 @@ import {DeviceStoreError,redeemDeviceEnrollment,registerDeviceSession,issueDevic
 export interface DeviceHttpDependencies {db:SqlDatabase|null;ingress:PrivateIngressVerifier;now:()=>string;ingest?:(db:SqlDatabase,principal:DevicePrincipal,value:HeartbeatEnvelopeV1,now:string)=>Promise<HeartbeatReceipt>;afterHeartbeat?:(db:SqlDatabase,principal:DevicePrincipal,now:string)=>Promise<unknown>;bodyTimeoutMs?:number}
 export type DeviceHttpAction='enroll'|'session'|'live-window'|'heartbeat'|'rotate';
 export const deviceHttpHeaders={'Cache-Control':'no-store, private','Pragma':'no-cache','X-Content-Type-Options':'nosniff'};
-class BodyFailure extends Error {constructor(readonly status:number){super('Device request body was rejected.');}}
+class BodyFailure extends Error {readonly status:number;constructor(status:number){super('Device request body was rejected.');this.status=status;}}
 async function cancelWithin(body:ReadableStream<Uint8Array>|null):Promise<void>{if(!body||body.locked)return;let timer:ReturnType<typeof setTimeout>|undefined;try{await Promise.race([body.cancel().catch(()=>{}),new Promise<void>(resolve=>{timer=setTimeout(resolve,100);})]);}finally{if(timer!==undefined)clearTimeout(timer);}}
 /** Ingress and credential authentication must complete before this reader is called. */
 async function readBody(request:Request,timeoutMs:number):Promise<Uint8Array>{

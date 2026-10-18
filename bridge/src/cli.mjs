@@ -39,7 +39,7 @@ export async function runBridgeOnce({config,session,sequence,transport,outbox,sa
     // pending's limit equals the entire 240-record capacity, so skipping cannot
     // hide current-device records behind a foreign-device prefix.
     if(original.deviceId!==config.deviceId)continue;
-    const received=await transport.heartbeat({schemaVersion:1,delivery:'history',liveWindowId:pending.liveWindowId,heartbeat:original});
+    const received=await transport.heartbeat({schemaVersion:1,delivery:'history',liveWindowId:null,heartbeat:original});
     if(!receiptMatches(received,original))throw new Error('Historical receipt differs.');
     await outbox.ack(pending.id,{classification:received.classification});
   }
