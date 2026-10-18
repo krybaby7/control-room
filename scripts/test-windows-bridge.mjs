@@ -16,10 +16,17 @@ const fixturePs=String.raw`param([Parameter(Mandatory=$true)][string]$Root,[Vali
 $ErrorActionPreference='Stop'
 $fixtureStage='scope';[Console]::Error.WriteLine('{"stage":"scope","progress":true}')
 try {
-  $local=[IO.Path]::GetFullPath([Environment]::GetFolderPath('LocalApplicationData')).TrimEnd('\')
+  $local=[IO.Path]::GetFullPath($env:LOCALAPPDATA).TrimEnd('\')
+  $fixtureStage='full-path';[Console]::Error.WriteLine('{"stage":"full-path","progress":true}')
   $full=[IO.Path]::GetFullPath($Root).TrimEnd('\')
+  $fixtureStage='scope-compare';[Console]::Error.WriteLine('{"stage":"scope-compare","progress":true}')
   if ([IO.Path]::GetDirectoryName($full) -ine $local -or [IO.Path]::GetFileName($full) -notmatch '^ControlRoomSyntheticBridge-[A-Za-z0-9]+$') {throw 'scope'}
-  if ((Get-Item -LiteralPath $full -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) {throw 'scope'}
+  $fixtureStage='scope-metadata';[Console]::Error.WriteLine('{"stage":"scope-metadata","progress":true}')
+  if (([IO.DirectoryInfo]::new($full)).Attributes -band [IO.FileAttributes]::ReparsePoint) {throw 'scope'}
+  $fixtureStage='management-module';[Console]::Error.WriteLine('{"stage":"management-module","progress":true}')
+  Import-Module ([IO.Path]::Combine($env:PSModulePath,'Microsoft.PowerShell.Management\Microsoft.PowerShell.Management.psd1')) -ErrorAction Stop
+  $fixtureStage='security-module';[Console]::Error.WriteLine('{"stage":"security-module","progress":true}')
+  Import-Module ([IO.Path]::Combine($env:PSModulePath,'Microsoft.PowerShell.Security\Microsoft.PowerShell.Security.psd1')) -ErrorAction Stop
   $fixtureStage='identity';[Console]::Error.WriteLine('{"stage":"identity","progress":true}')
   $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User
   $system=New-Object Security.Principal.SecurityIdentifier('S-1-5-18')
