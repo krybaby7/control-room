@@ -1,9 +1,11 @@
-# Command-runner outage and cloud continuation
+# Cloud implementation checkpoint
 
-The workspace command runner disconnected across all workers; even read-only commands and patch calls stall. Pending calls were stopped. Existing local Phase6 WIP must be inspected, preserved and compared before any future reset or sync; its complete state is not verified.
+Implementation source: `51dc1b4fda3b3cd4f7ccf05d3ad06b7f2085ca1a` on `feat/control-room-completion-cloud`; draft PR #1 remains unmerged.
 
-GitHub source reads, blob/tree/commit creation and existing GitHub Actions cloud execution still work. Read-only access and unchanged-tree SHA composition were verified through supported APIs. The same accepted exact `gpt-6.1-sol` workers prepare bounded orphan leaf commits; only the integrator updates the implementation branch. Actual Node24 checks, migration generation, SQLite/D1 fixtures, build and Chromium run in GitHub Actions. This is an explicit cloud-only continuation, not another model or a local Windows execution fallback.
+Exact `gpt-6.1-sol` selections were accepted by supported worker controls. Existing six bounded workers continue; no model substitution. The workspace command runner is unavailable; supported GitHub source APIs and GitHub Actions provide cloud implementation and actual Node24/D1/Chromium execution.
 
-Phase5 source `af221ccf6f74d47233e0d99b989d80f8f204856e` passed full CI39161269563/job117774922683:48default+3R2 Chromium and all nonbrowser gates. Phase6 bootstrap remains incomplete and requires fresh cloud checks. The closed schema probe runs only locked installation and Drizzle additive migration generation, emitting generated public metadata in bounded chunks for integrator review; it has no production credentials or owner data and cannot write repository refs.
+Phase5 AF gate:1301Node,48defaultChromium,3R2Chromium and all build/D1/HTTP checks passed. Phase6 migration0021 was generated in successful cloud run39162797902. Source0f1b20 ran1343Node tests:1326passed,17old registry fixtures failed. Those17 corrections are included in51dc; full CI39163449560 is pending. New device/runtime ingestion/retention tests passed at0f1b20, including real eight-source D1 transaction and rollback.
 
-Preserve the existing private Site identity/access. No deployment, private ingress renewal, live provider/model, Windows/device execution, trading effect or unrestricted shell is enabled. Progress and the gap ledger retain those separate acceptance gates.
+Phase6 owner/runtime/bridge integration is implemented but not yet fully accepted. Native fixture endpoint alias alignment and full D1 acceptance fixture are in progress. Real Windows, private service ingress renewal, provider and physical device acceptance remain external. No new Site deployment or live execution is claimed; paid inference and operational/trading effects remain disabled.
+
+Next action: inspect CI39163449560, fix source-specific failures, integrate complete runtime D1 acceptance fixture, finishPhase6 gates, then Phase7/8. G48 oversized-owner recovery is still an implementation gap. Local AF checkout/WIP must be compared with remote source before any merge/reset when command execution returns.

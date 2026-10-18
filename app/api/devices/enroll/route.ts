@@ -1,3 +1,4 @@
+import {settleUploadBody} from '../../../../lib/upload-body-settlement';
 import {env} from 'cloudflare:workers';
 import {z} from 'zod';
 import {getChatGPTUser} from '../../../chatgpt-auth';
@@ -24,5 +25,5 @@ export async function POST(request:Request){
  if(error instanceof RecoverabilityCapacityError||error instanceof WorkspaceCapacityError)return failure(error.message,error.code,429);
  if(error instanceof CommandValidationError||error instanceof z.ZodError)return failure('The enrollment request is invalid.','command_invalid',400);
  return failure('Enrollment outcome is uncertain. Keep the original request open and retry it.','storage_unavailable',503);
- }
+ }finally{if(!request.bodyUsed)await settleUploadBody(request.body);}
 }
