@@ -1,3 +1,4 @@
+import {compareSqliteText} from './sqlite-text-order.ts';
 import type {RegisteredOwnerTable} from './workspace-modules.ts';
 import type {ExportModule} from './workspace-export.ts';
 
@@ -26,7 +27,7 @@ function ownerRow(value:unknown,validate:(value:unknown)=>void):void {
 
 export async function boundedPages<T extends {id:string}>(page:(after:string)=>Promise<T[]>):Promise<T[]> {
   const rows:T[]=[]; let after='';
-  for (;;) { const next=await page(after); if (next.length>BUNDLE_LIMITS.pageSize) throw new Error('Page exceeds limit.'); for (const row of next) { if (typeof row.id!=='string' || row.id<=after) throw new Error('Invalid pagination order.'); after=row.id; rows.push(row); if(rows.length>BUNDLE_LIMITS.rows) throw new Error('Export row limit exceeded.'); } if(next.length<BUNDLE_LIMITS.pageSize) return rows; }
+  for (;;) { const next=await page(after); if (next.length>BUNDLE_LIMITS.pageSize) throw new Error('Page exceeds limit.'); for (const row of next) { if (typeof row.id!=='string' || compareSqliteText(row.id,after)<=0) throw new Error('Invalid pagination order.'); after=row.id; rows.push(row); if(rows.length>BUNDLE_LIMITS.rows) throw new Error('Export row limit exceeded.'); } if(next.length<BUNDLE_LIMITS.pageSize) return rows; }
 }
 export function ownerExportModule(table:RegisteredOwnerTable,validate:(value:unknown)=>void):ExportModule {
   return {key:table,tables:[table],schemaVersion:1,policy:'replace',async exportRows(ctx) { const rows=await boundedPages(after=>ctx.query.list(table,{after,limit:BUNDLE_LIMITS.pageSize})); return rows.map(row=>{ const value=JSON.parse(row.payload_json); assertPortable(value); validate(value); const exported={id:row.id,rowRevision:row.row_revision,contentHash:row.content_hash,value}; ownerRow(exported,validate); return exported; }); },parseAndMigrate(input) { if(input.schemaVersion!==1) throw new Error('Unknown adapter version.'); for(const row of input.records) ownerRow(row,validate); return input.records; }};

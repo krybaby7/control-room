@@ -19,6 +19,7 @@ import {agentIdSchema,agentDigestSchema} from './contracts.ts';
 import {agentArtifactTypeSchema} from './artifacts.ts';
 import {agentArtifactCommandHandlers,agentArtifactReserveValueSchema,validateAgentArtifactMetadata,normalizeAgentArtifactMime} from './artifact-handlers.ts';
 import {authorizeAgentArtifactAttempt,assertAgentArtifactReservationCapacity,readOwnedAgentArtifact,AgentArtifactStoreError,type AgentArtifactMaterial} from './artifact-store.ts';
+import {PrivateCapacityError} from '../private-capacity.ts';
 import {RecoverabilityCapacityError} from '../recoverability-admission.ts';
 import {RetiredMutationError,MutationIdReuseError,ModuleConflictError,CommandValidationError} from '../workspace-errors.ts';
 export type AgentArtifactHttpAction='mutation-id'|'reserve'|'finalize'|'content';
@@ -68,13 +69,30 @@ export async function handleAgentArtifactHttp(action:AgentArtifactHttpAction,req
   if(action==='reserve'){
    const selected=reserve.parse(input),value=validateAgentArtifactMetadata({filename:selected.filename,mimeType:selected.mimeType,expectedBytes:selected.expectedBytes},selected.logicalType),auth=await authorizeAgentArtifactAttempt(db,principal,credentials,fresh);await assertAgentArtifactReservationCapacity(db,principal.ownerId,auth.attemptId,selected.expectedBytes,selected.mutationId);material={attemptId:auth.attemptId,logicalType:selected.logicalType,sha256:selected.sha256,bytes:selected.expectedBytes,guard:auth.guard};command={type:'jobs.artifact.reserve',value:{filename:selected.filename,mimeType:selected.mimeType,expectedBytes:value.expectedBytes},logicalType:selected.logicalType,sha256:selected.sha256};
   }else{const selected=finalize.parse(input),owned=await readOwnedAgentArtifact(db,principal,credentials,selected.id,fresh);material=owned.material;command={type:'jobs.artifact.finalize',id:selected.id};}
-  const access=await ownerAttachmentServices(db,principal.ownerId,fresh,deps.bucket),result=await executeWorkspaceCommand(principal.ownerId,{protocolVersion:1,expectedRevision:input.revision,mutationId:input.mutationId,command},{db,now:()=>fresh,handlers:new Map([...workspaceHandlers,...agentArtifactCommandHandlers]),...access,agentArtifact:material});
+  const agentArtifactAtAdmission=async()=>{
+   const admittedAt=evidenceDateSchema.parse(clock());if(Date.parse(admittedAt)<Date.parse(fresh))throw new AgentArtifactStoreError('agent_unauthorized',401);
+   // Headers/private ingress are checked again after the owner queue ticket.
+   // The JSON body is already parsed and is never consumed a second time.
+   const currentPrincipal=await authenticateDevice(request,'jobs:poll',db,deps.ingress??unavailablePrivateIngress,admittedAt);
+   if(!currentPrincipal||!currentPrincipal.scopes.includes('jobs:report')||currentPrincipal.ownerId!==principal.ownerId||currentPrincipal.deviceId!==principal.deviceId||currentPrincipal.credentialId!==principal.credentialId)throw new AgentArtifactStoreError('agent_unauthorized',401);
+   await activeMutation(db,currentPrincipal.ownerId,input.mutationId);
+   let refreshedMaterial:AgentArtifactMaterial;
+   if(action==='reserve'){
+    const selected=reserve.parse(input),auth=await authorizeAgentArtifactAttempt(db,currentPrincipal,credentials,admittedAt);
+    await assertAgentArtifactReservationCapacity(db,currentPrincipal.ownerId,auth.attemptId,selected.expectedBytes,selected.mutationId);
+    refreshedMaterial={attemptId:auth.attemptId,logicalType:selected.logicalType,sha256:selected.sha256,bytes:selected.expectedBytes,guard:auth.guard};
+   }else refreshedMaterial=(await readOwnedAgentArtifact(db,currentPrincipal,credentials,finalize.parse(input).id,admittedAt)).material;
+   const services=await ownerAttachmentServices(db,currentPrincipal.ownerId,admittedAt,deps.bucket);
+   return {now:admittedAt,material:refreshedMaterial,attachmentAccess:services.attachmentAccess,verifyAttachment:services.verifyAttachment};
+  };
+  const access=await ownerAttachmentServices(db,principal.ownerId,fresh,deps.bucket),result=await executeWorkspaceCommand(principal.ownerId,{protocolVersion:1,expectedRevision:input.revision,mutationId:input.mutationId,command},{db,now:()=>fresh,handlers:new Map([...workspaceHandlers,...agentArtifactCommandHandlers]),...access,agentArtifact:material,agentArtifactAtAdmission});
   if(result.status==='conflict')return response({status:'conflict',currentRevision:result.currentRevision},409);
   let id:string;if(action==='finalize')id=finalize.parse(input).id;else{const rows=(await db.prepare("SELECT a.id FROM attachments a JOIN agent_artifacts b ON b.user_id=a.user_id AND b.artifact_id=a.id WHERE a.user_id=? AND b.attempt_id=? AND json_extract(a.payload_json,'$.uploadMutationId')=? LIMIT 2").bind(principal.ownerId,input.attemptId,input.mutationId).all<{id:string}>()).results;if(rows.length!==1)throw new AgentArtifactStoreError('artifact_commit_unconfirmed',503);id=rows[0].id;}
   const owned=await readOwnedAgentArtifact(db,principal,credentials,id,evidenceDateSchema.parse(clock()));return response({status:result.status,receipt:result.receipt,currentRevision:result.envelope.revision,artifact:publicArtifact(owned)});
  }catch(error){
   if(error instanceof MutationEpochError)return rejected(400,'active_mutation_required');
   if(error instanceof z.ZodError||error instanceof SyntaxError||error instanceof CommandValidationError)return rejected(400);
+  if(error instanceof PrivateCapacityError)return rejected(409,error.code);
   if(error instanceof RecoverabilityCapacityError||error instanceof RetiredMutationError||error instanceof MutationIdReuseError||error instanceof ModuleConflictError||error instanceof AttachmentReplayMismatchError)return rejected(409);
   if(error instanceof AttachmentPolicyError)return rejected(error.code==='file_too_large'||error.code==='length_mismatch'?413:error.code==='upload_timeout'?408:422);
   if(error instanceof AgentArtifactStoreError)return rejected(error.status,error.code);return rejected(503,'agent_artifact_unavailable');

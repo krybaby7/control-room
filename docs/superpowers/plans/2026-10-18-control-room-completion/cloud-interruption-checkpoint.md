@@ -1,21 +1,25 @@
 # Cloud implementation checkpoint
 
-Parent source: 2c5a4c37d7ff0b3a278ddbbb43d14cd20a9ad42b. Resolve the branch head for this checkpoint's own commit.
+Parent source commit: a3895568fc26588decc66c06c20e0996e1adc5b6. Resolve the branch ref for this checkpoint's own commit.
 
 GitHub source APIs and actual GitHub Actions Node 24 cloud runners. Supported workspace execution remains unavailable.
 
-Accepted runtime model: `gpt-6.1-sol` for the integrator and six worker IDs recorded in progress.json. No model substitution.
+The runtime accepted explicit `gpt-6.1-sol` selection for the integrator and all six worker IDs recorded in progress.json. Follow-up tasks retain that configuration.
 
-2c5a: agent tests, global typecheck/lint, runtime/agents D1, maintenance, streaming and three-browser acceptance passed. Mobile readiness/long tasks passed. Near-bound concurrent save p95 SQLite2008.26ms/D111451.22ms exceeded2000ms. HTTP20-session test encountered an empty response; no valid p95 was obtained.
+Exact a389: focused160/160 tests, type/lint, actual artifact D1/R2, agents/runtime D1, maintenance, SSE and all three browser engines passed. Segmented recovery passed10080 rows/79segments/17,767,523bytes with actual files and staged artifacts, inert target. HTTP20-session p95=812.57ms passed2000ms; near-bound SQLite savep95=1428.75ms passed, D1savep95=10591.05ms failed. Full Node1660/1668 passed; eight specific failures are addressed in this unvalidated revision.
 
-## Known failures and unfinished tasks
+## Included changes awaiting validation
 
-- Artifact PUT still exceeded D1 depth100 after dual CTEs. Exact balanced authority predicates are included here; actual rerun pending.
-- Queued work is changed to resume in its original request context, with a native Miniflare cross-request regression. Actual HTTP rerun pending.
-- Near-bound concurrent save latency remains above2000ms; no threshold was raised. Batched coherent reads are being reviewed.
-- Full source suite and 46-table segmented rehearsal remain unfinished; no final package or new deployment is claimed.
-- Hosted/provider/runtime/owner-device acceptance and supported Sites helper execution remain external.
+Closed batched owner snapshot reads; SQLite UTF-8 ID ordering; fresh artifact authorization after queue admission; exact archive-stage growth; compact scheduled-source authority bindings; typed receipt-capacity precedence; isolated independent-process race fixtures; current native UI fixture; bounded live Node diagnostics. No test, quota, timeout or performance budget is relaxed.
 
-This revision adds request-local admission continuation, a cheap stale-revision check after epoch/replay handling, balanced artifact authority SQL, and focused cloud regression selection. Existing private Site, owner data and access remain unchanged. Paid inference and operational effects remain disabled.
+## Known failures and remaining work
 
-Next command: Read exact-head focused and full Actions logs; resolve remaining native/performance/recovery failures, then hold a final revision for all gates and candidate packaging.
+- Current source changes require fresh complete gates; no new source/package pass is claimed.
+- Actual a389 full Node had eight failures: two recursive in-isolate race fixtures, duplicate backup-intent fixtures, TSX test-loader mismatch, original-history diagnostic mismatch, scheduled-source D1 binding overflow, and receipt-capacity error precedence. Corrections are included here and require validation.
+- Near-bound D1 concurrent-save p95 still exceeded2000ms at a389. Batched coherent reads and exact Unicode ordering are included here; budget unchanged.
+- Review found unquoted stage-commit growth and artifact authority aging while queued. Exact growth guards and fresh post-admission authorization with five no-effect regressions are included here; tests pending.
+- Real hosted/provider/runtime/device acceptance and supported Sites publishing helper execution remain external.
+
+Existing private Site and audience remain unchanged. No new publication, owner-data reset, paid inference or operational effect.
+
+Next command: GET https://api.github.com/repos/krybaby7/control-room/git/ref/heads/feat/control-room-completion-cloud; inspect actions/runs for that exact returned SHA, then terminal focused/full/performance/recovery logs.

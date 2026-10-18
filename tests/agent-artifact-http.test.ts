@@ -1,11 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {artifactFixture,artifactNow} from './fixtures/agent-artifact.ts';
+import {artifactFixture,artifactNow,artifactLater} from './fixtures/agent-artifact.ts';
 import {handleAgentArtifactHttp} from '../lib/agents/artifact-http.ts';
 import {attachmentHash,createR2BlobStore,readReadyAttachment} from '../lib/attachments.ts';
 import {getWorkspaceNamespaces} from '../lib/workspace-namespaces.ts';
 import {ownerReader} from '../lib/workspace-modules.ts';
 import type {SqlDatabase,SqlStatement} from '../lib/workspace-store.ts';
+import {executeWorkspaceCommand} from '../lib/workspace-transaction.ts';
+import {readCurrent} from '../lib/workspace-store.ts';
+import {workspaceAdmission} from '../lib/workspace-admission.ts';
+import {canonical} from '../lib/canonical-json.ts';
 import {retireEpoch,mutationEpoch} from '../lib/idempotency-retention.ts';
 type Fixture=Awaited<ReturnType<typeof artifactFixture>>;
 const deps=(f:Fixture)=>({db:f.db,bucket:f.bucket,ingress:f.ingress,now:()=>artifactNow});
@@ -50,4 +54,31 @@ test('ambiguous PUT keeps its nonexpiring pending fence and never invents finali
 
 test('known full attempt quota rejects growth while the original receipted reservation still replays',async t=>{
  const f=await artifactFixture();t.after(()=>f.sqlite.close());const bytes=new TextEncoder().encode('one'),first=await reserve(f,bytes);assert.equal(first.response.status,200);const large=await reserve(f,bytes,{filename:'synthetic-large.txt',expectedBytes:10*1024*1024-bytes.length,sha256:'a'.repeat(64)});assert.equal(large.response.status,200);const overflow=await reserve(f,bytes,{filename:'synthetic-overflow.txt',expectedBytes:1,sha256:'b'.repeat(64)});assert.equal(overflow.response.status,409);const replay=await handleAgentArtifactHttp('reserve',request(f,'reserve',first.value),deps(f));assert.equal(replay.status,200);assert.equal((await replay.json() as {status:string}).status,'replayed');assert.equal(count(f,'agent_artifacts'),2);assert.equal(count(f,'attachments'),2);assert.equal(f.objects.size,0);
+});
+
+test('actual owner queue rechecks artifact lease deadline credential and private ingress before any receipted effect',async()=>{
+ for(const defect of ['lease','deadline','credential','ingress','epoch'] as const){
+  const f=await artifactFixture();let release!:()=>void,entered!:()=>void;
+  const settling:Promise<unknown>[]=[];
+  const released=new Promise<void>(resolve=>{release=resolve;}),started=new Promise<void>(resolve=>{entered=resolve;});let currentNow=artifactNow,ingressAvailable=true;
+  try{
+   const issued=await identity(f),bytes=new TextEncoder().encode('Synthetic queued artifact.'),value={...lease(f),...issued,filename:'queued-report.txt',mimeType:'text/plain',expectedBytes:bytes.length,logicalType:'summary',sha256:await attachmentHash(bytes)};
+   if(defect==='lease')f.sqlite.prepare('UPDATE job_attempts SET lease_expires_at=? WHERE user_id=?').run(artifactLater(1),f.owner);
+   if(defect==='deadline')f.sqlite.prepare('UPDATE job_attempts SET deadline_at=? WHERE user_id=?').run(artifactLater(1),f.owner);
+   if(defect==='credential')f.sqlite.prepare('UPDATE device_credentials SET expires_at=? WHERE user_id=?').run(artifactLater(1),f.owner);
+   const snapshot=()=>canonical(Object.fromEntries(['attachments','attachment_usage','attachment_blob_objects','agent_artifacts','audit_events','workspace_mutations','workspaces'].map(table=>[table,f.sqlite.prepare('SELECT * FROM '+table+' WHERE user_id=? ORDER BY rowid').all(f.owner)]))),before=snapshot(),current=await readCurrent(f.db,f.owner,artifactNow);
+   // A real public shared-executor invocation owns the same owner ticket and
+   // later fails validation, so it does not advance the editor revision.
+   const blocker=executeWorkspaceCommand(f.owner,{protocolVersion:1,expectedRevision:current.revision,mutationId:'synthetic-queue-block-'+crypto.randomUUID(),command:{type:'synthetic.queue.reject'}},{db:f.db,now:()=>currentNow,handlers:new Map([['synthetic.queue.reject',{async prepare(){entered();await released;throw new Error('Synthetic queued predecessor rejected.');}}]])});
+   const rejectedBlocker=assert.rejects(blocker,/Synthetic queued predecessor rejected/);settling.push(rejectedBlocker);await started;
+   const pending=handleAgentArtifactHttp('reserve',request(f,'reserve',value),{...deps(f),now:()=>currentNow,ingress:{async verify(){return ingressAvailable?{serviceIdentity:'synthetic-private-artifact-ingress'}:null;}}});
+   settling.push(pending);const waitUntil=Date.now()+2000;while(workspaceAdmission.snapshot().waiting===0&&Date.now()<waitUntil)await new Promise(resolve=>setTimeout(resolve,1));
+   assert.equal(workspaceAdmission.snapshot().waiting,1,'the actual artifact command must be queued before the clock changes');
+   currentNow=artifactLater(2);if(defect==='ingress')ingressAvailable=false;if(defect==='epoch')f.sqlite.prepare('UPDATE workspace_execution_state SET epoch=epoch+1 WHERE user_id=?').run(f.owner);release();
+   const response=await pending;await rejectedBlocker;assert.equal(response.status,defect==='lease'||defect==='deadline'?409:401,defect);
+   assert.equal(snapshot(),before,defect+' must not create metadata, bindings, ledger, audit or receipt');assert.equal(f.objects.size,0);
+   assert.equal((await readCurrent(f.db,f.owner,currentNow)).revision,current.revision);
+   const body=await response.text();assert.equal(body.includes(f.deviceSecret),false);assert.equal(body.includes(f.lease.leaseToken),false);
+  }finally{release?.();await Promise.allSettled(settling);f.sqlite.close();}
+ }
 });

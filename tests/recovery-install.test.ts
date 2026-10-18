@@ -30,6 +30,11 @@ test('privileged installer retains unknown journal, event receipt, occupied slot
   const event={schemaVersion:1,attemptId,epoch:0,sequence:1,observedAt:NOW,diagnostic:'ok',kind:'accepted',details:{specSha256:specHash,capabilitySha256:await contentHash(canonical(cap))}},eventHash=await contentHash(canonical(event)),receipt={attemptId,epoch:0,sequence:1,payloadSha256:eventHash,receivedAt:NOW};
   source.sqlite.prepare('INSERT INTO job_events(user_id,attempt_id,epoch,sequence,payload_hash,payload_json,receipt_json,received_at,applied_at) VALUES(?,?,0,1,?,?,?,?,?)').run(OWNER,attemptId,eventHash,canonical(event),canonical(receipt),NOW,NOW);
 
+ const pendingToken=crypto.randomUUID(),pendingId=crypto.randomUUID(),pendingKey='attachments/'+crypto.randomUUID()+'/'+pendingId;
+ const pendingNamespace=pendingKey.split('/')[1];
+ source.sqlite.prepare('INSERT INTO attachment_blob_objects(user_id,storage_key,attachment_id,namespace,bytes,sha256,created_at,verified_at,purged_at) VALUES(?,?,?,?,0,NULL,?,NULL,NULL)').run(OWNER,pendingKey,pendingId,pendingNamespace,NOW);
+ // A definite no-PUT journal is original owner history, captured before freeze.
+ source.sqlite.prepare('INSERT INTO attachment_upload_attempts(user_id,token,attachment_id,storage_key,created_at,settled_at) VALUES(?,?,?,?,?,?)').run(OWNER,pendingToken,pendingId,pendingKey,NOW,NOW);
  const previousBytes=encodePlanning(workspace);
  source.sqlite.prepare('INSERT INTO workspace_recovery(user_id,content,revision,updated_at) VALUES(?,?,1,?)').run(OWNER,previousBytes,NOW);
  const schema=await inspectRecoveryMaintenanceSchema(source.db);
@@ -57,12 +62,14 @@ test('privileged installer retains unknown journal, event receipt, occupied slot
  assert.deepEqual({...budget},{enabled:0,reserved_jobs:1,reserved_seconds:120,charged_seconds:0});
  assert.equal(target.sqlite.prepare('SELECT revoked_at FROM job_approvals').get()!.revoked_at,NOW);
  assert.equal(target.sqlite.prepare('SELECT epoch FROM workspace_execution_state').get()!.epoch,1);
- const pendingToken=crypto.randomUUID(),pendingId=crypto.randomUUID(),pendingKey='attachments/'+crypto.randomUUID()+'/'+pendingId;
- await writable.prepare('INSERT INTO attachment_upload_attempts(user_id,token,attachment_id,storage_key,created_at,settled_at) VALUES(?,?,?,?,?,NULL)').bind(OWNER,pendingToken,pendingId,pendingKey,NOW).run();
+ // Simulate an incomplete target journal copy without inventing a new history row.
+ // Independent source/body comparison rejects this before the later pending-PUT check.
+ await writable.prepare('UPDATE attachment_upload_attempts SET settled_at=NULL WHERE user_id=? AND token=?').bind(OWNER,pendingToken).run();
  const pendingInventory=await recoveryTargetInventorySha256(target.db,targetReceipt);
- await assert.rejects(markRecoveryTargetReady(target.db,source.db,sourceReceipt,targetReceipt,{privateSha256:continuity.sha256,inventorySha256:pendingInventory,actualInventorySha256:()=>recoveryTargetInventorySha256(target.db,targetReceipt)}),/upload settlement/i);
- // This fixture has not invoked PUT, so a definitive no-write settlement is safe.
+ await assert.rejects(markRecoveryTargetReady(target.db,source.db,sourceReceipt,targetReceipt,{privateSha256:continuity.sha256,inventorySha256:pendingInventory,actualInventorySha256:()=>recoveryTargetInventorySha256(target.db,targetReceipt)}),/Private owner history differs at target: attachment_upload_attempts/);
+ // Restore the exact source's original definitive no-write settlement.
  await writable.prepare('UPDATE attachment_upload_attempts SET settled_at=? WHERE token=?').bind(NOW,pendingToken).run();
+ assert.deepEqual(target.sqlite.prepare('SELECT * FROM attachment_upload_attempts WHERE user_id=? AND token=?').get(OWNER,pendingToken),source.sqlite.prepare('SELECT * FROM attachment_upload_attempts WHERE user_id=? AND token=?').get(OWNER,pendingToken));
  const inventorySha256=await recoveryTargetInventorySha256(target.db,targetReceipt);
  await markRecoveryTargetReady(target.db,source.db,sourceReceipt,targetReceipt,{privateSha256:continuity.sha256,inventorySha256,actualInventorySha256:()=>recoveryTargetInventorySha256(target.db,targetReceipt)});
  await assert.rejects(writable.prepare('UPDATE agent_budgets SET enabled=1').run(),/maintenance|state|inactive/i);

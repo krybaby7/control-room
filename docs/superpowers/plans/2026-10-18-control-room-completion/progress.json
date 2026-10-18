@@ -175,7 +175,8 @@
         "Actual D1/R2 artifact39173998824 and runtime39173998849 at61da terminalsuccess. Agent contracts/type39173998790 pass; lint modal ref defect corrected31c, rerun pending.",
         "Local explicit redaction/refusal and bounded server sensitive-content rejection precede any upload/R2 PUT; all four textual MIME inputs normalize honestly to native safe storage while preserving raw command replay identity. Exact gates pending.",
         "Owner-only GET job/event pagination, immutable frozen repo/base/input/runtime provenance and verified owner/attempt-bound artifact download links integrated778/6691. Local redaction/server sensitive rejection and all4safe textual MIME inputs integrated0d25; actualartifact39174868947passed.",
-        "Bounded same-owner mutation admission, complete private writer guards, first-cancel and 20-device revocation funding are integrated; actual 18e agent regression passed 103 tests. Production upstream executor remains unavailable."
+        "Bounded same-owner mutation admission, complete private writer guards, first-cancel and 20-device revocation funding are integrated; actual 18e agent regression passed 103 tests. Production upstream executor remains unavailable.",
+        "Exact a389 artifact run39177956095/job117824444169 passed15 Node and actual27-migration D1/R2 reserve/PUT/finalize/replay, digest/quota/owner checks. Focused39177956103/job117824444343 passed160 tests/type/lint. Fresh queued authorization is an additional pending regression in the next source."
       ],
       "blockers": [
         "Actual pinned upstream runtime extraction and Windows owned process/sandbox acceptance unavailable; production executor remains not_installed.",
@@ -201,7 +202,8 @@
         "Source8ea/0d5 expands private recovery to42typedtables including source/review/backup journals and dated telemetry, plus independent source->inerttarget history comparison. Finite native journal and pendingPUT settlement reserves, exact physical/backup/draft positive-write guards integrated; fullwritercoverage and new regressions pending.",
         "Newactual20session SQLite/D1/HTTP and network/CPU browser performance gates exposed fixture errors and p953026.7ms>3000 target; pending correction/optimization, not a pass.",
         "New integration enforces private positive-growth admission atomically across central receipts/intents/grants, epochs/drafts, background schedules/source/reviews, runtime/device telemetry and physical/file-backup writers. Native first-cancel receives strictly bounded held-row/byte funding; no capraise, eviction or repeated noop credit. Exact regressions pending.",
-        "Private recovery now preserves 46 closed tables including staged original import chunks, archive stages and paid-analysis journals. Current file and offline staged ZIP proofs are required; new source awaits actual cloud regressions."
+        "Private recovery now preserves 46 closed tables including staged original import chunks, archive stages and paid-analysis journals. Current file and offline staged ZIP proofs are required; new source awaits actual cloud regressions.",
+        "Exact a389 segmented39177959085/job117824511970 terminal success:10080rows/79segments/17,767,523bytes, actual fresh attachments, staged artifacts and backup rekey, inert fenced target with native IDs/grants preserved. Three-browser and HTTP20-session performance pass; near-bound D1 latency remains above2000ms."
       ],
       "blockers": [
         "Exact final coherent source/full browser/packaging gates still in progress.",
@@ -210,7 +212,7 @@
       ]
     }
   ],
-  "nextAction": "Read exact-head focused and full Actions logs; resolve remaining native/performance/recovery failures, then hold a final revision for all gates and candidate packaging.",
+  "nextAction": "GET https://api.github.com/repos/krybaby7/control-room/git/ref/heads/feat/control-room-completion-cloud; inspect actions/runs for that exact returned SHA, then terminal focused/full/performance/recovery logs.",
   "allowedStatuses": [
     "not_started",
     "in_progress",
@@ -237,17 +239,17 @@
     "evidence": "Explicit supported model selection accepted and worker IDs returned."
   },
   "checkpoint": {
-    "implementationHead": "2c5a4c37d7ff0b3a278ddbbb43d14cd20a9ad42b",
+    "implementationHead": "a3895568fc26588decc66c06c20e0996e1adc5b6",
     "headMeaning": "Parent of this checkpoint commit; resolve the branch ref for the checkpoint commit itself.",
     "executionMode": "GitHub source APIs and actual GitHub Actions Node 24 cloud runners. Supported workspace execution remains unavailable.",
-    "tests": "2c5a: agent tests, global typecheck/lint, runtime/agents D1, maintenance, streaming and three-browser acceptance passed. Mobile readiness/long tasks passed. Near-bound concurrent save p95 SQLite2008.26ms/D111451.22ms exceeded2000ms. HTTP20-session test encountered an empty response; no valid p95 was obtained.",
+    "tests": "Exact a389: focused160/160 tests, type/lint, actual artifact D1/R2, agents/runtime D1, maintenance, SSE and all three browser engines passed. Segmented recovery passed10080 rows/79segments/17,767,523bytes with actual files and staged artifacts, inert target. HTTP20-session p95=812.57ms passed2000ms; near-bound SQLite savep95=1428.75ms passed, D1savep95=10591.05ms failed. Full Node1660/1668 passed; eight specific failures are addressed in this unvalidated revision.",
     "knownFailures": [
-      "Artifact PUT still exceeded D1 depth100 after dual CTEs. Exact balanced authority predicates are included here; actual rerun pending.",
-      "Queued work is changed to resume in its original request context, with a native Miniflare cross-request regression. Actual HTTP rerun pending.",
-      "Near-bound concurrent save latency remains above2000ms; no threshold was raised. Batched coherent reads are being reviewed.",
-      "Full source suite and 46-table segmented rehearsal remain unfinished; no final package or new deployment is claimed.",
-      "Hosted/provider/runtime/owner-device acceptance and supported Sites helper execution remain external."
+      "Current source changes require fresh complete gates; no new source/package pass is claimed.",
+      "Actual a389 full Node had eight failures: two recursive in-isolate race fixtures, duplicate backup-intent fixtures, TSX test-loader mismatch, original-history diagnostic mismatch, scheduled-source D1 binding overflow, and receipt-capacity error precedence. Corrections are included here and require validation.",
+      "Near-bound D1 concurrent-save p95 still exceeded2000ms at a389. Batched coherent reads and exact Unicode ordering are included here; budget unchanged.",
+      "Review found unquoted stage-commit growth and artifact authority aging while queued. Exact growth guards and fresh post-admission authorization with five no-effect regressions are included here; tests pending.",
+      "Real hosted/provider/runtime/device acceptance and supported Sites publishing helper execution remain external."
     ],
-    "nextCommand": "Read exact-head focused and full Actions logs; resolve remaining native/performance/recovery failures, then hold a final revision for all gates and candidate packaging."
+    "nextCommand": "GET https://api.github.com/repos/krybaby7/control-room/git/ref/heads/feat/control-room-completion-cloud; inspect actions/runs for that exact returned SHA, then terminal focused/full/performance/recovery logs."
   }
 }

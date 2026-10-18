@@ -33,7 +33,10 @@ export interface MutationPlan { fileBackupRemoval?:import('./automations/backup-
 export interface PrepareContext { agentArtifact?:import('./agents/artifact-store.ts').AgentArtifactMaterial; agentRuntime?:import('./agents/command-contracts.ts').AgentCommandContext; deviceRuntime?:import('./runtime/command-contracts.ts').DeviceRuntimeContext; baselineRuntime?:{preview:(input:import('./baselines/contracts.ts').BaselinePreviewInput)=>Promise<import('./baselines/contracts.ts').BaselineRevisionPreview>}; automationRuntime?:{canResume:(schedule:import('./automations/contracts.ts').AutomationSchedule)=>Promise<boolean>}; sourceRuntime?:{state:(sourceId:string)=>Promise<import('./sources/contracts.ts').SourceSyncState|null>;canResume:(connection:import('./sources/contracts.ts').SourceConnection,target:import('./sources/contracts.ts').SourceTarget)=>Promise<boolean>};mutationId?:string; userId: string; before: WorkspaceEnvelope; command: WorkspaceCommand; now: string; query: OwnerScopedReader; backups?:{prepareFileRemoval?:(input:import('./backup-removal.ts').BackupRemoval)=>Promise<import('./automations/backup-archive-removal.ts').FileBackupRemovalControl>;get:(id:string)=>ReturnType<typeof readWorkspaceBackup>;list:()=>ReturnType<typeof listWorkspaceBackups>};readAuditGroup?:(eventId:string)=>Promise<import('./history-command-group.ts').AuditCommandGroup|null>;trustedAcceptanceRecord?:(id:string,hash:string)=>Promise<boolean>;trustedDecisionVersion?:(id:string,version:number,hash:string)=>Promise<boolean>;attachmentAccess?:{hasPhysicalIdentity?:(record:import('./evidence-contract.ts').AttachmentRecord)=>Promise<boolean>;ownerNamespace:string;store:import('./attachments.ts').BlobStore;resolveNamespace?:(record:import('./evidence-contract.ts').AttachmentRecord)=>Promise<string|null>};verifyAttachment?:(record:import('./evidence-contract.ts').AttachmentRecord)=>Promise<import('./evidence-requirements.ts').VerifiedAttachment|null>;readImport:(id:string)=>ReturnType<typeof readStagedImport>; }
 export interface CommandHandler { prepare(context: PrepareContext): Promise<MutationPlan>; }
 export type CommandHandlerRegistry = ReadonlyMap<string, CommandHandler>;
-export interface WorkspaceTransactionDeps { fileBackupServices?:import('./automations/backup-archive-store.ts').FileBackupServices; agentArtifact?:import('./agents/artifact-store.ts').AgentArtifactMaterial; deviceEnrollment?:import('./runtime/command-contracts.ts').DeviceEnrollmentMaterial; db: SqlDatabase; now:()=>string; handlers: CommandHandlerRegistry; verifyAttachment?:PrepareContext['verifyAttachment'];attachmentAccess?:PrepareContext['attachmentAccess']; }
+export interface WorkspaceTransactionDeps {
+ /** Trusted server callback, evaluated only after the request's admission ticket. */
+ agentArtifactAtAdmission?:()=>Promise<{now:string;material:import('./agents/artifact-store.ts').AgentArtifactMaterial;attachmentAccess?:WorkspaceTransactionDeps['attachmentAccess'];verifyAttachment?:WorkspaceTransactionDeps['verifyAttachment']}>;
+ fileBackupServices?:import('./automations/backup-archive-store.ts').FileBackupServices; agentArtifact?:import('./agents/artifact-store.ts').AgentArtifactMaterial; deviceEnrollment?:import('./runtime/command-contracts.ts').DeviceEnrollmentMaterial; db: SqlDatabase; now:()=>string; handlers: CommandHandlerRegistry; verifyAttachment?:PrepareContext['verifyAttachment'];attachmentAccess?:PrepareContext['attachmentAccess']; }
 export function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
   if (value && typeof value === 'object') return `{${Object.entries(value).sort(([a],[b])=>a < b ? -1 : a > b ? 1 : 0).map(([key,item])=>`${JSON.stringify(key)}:${canonicalJson(item)}`).join(',')}}`;
@@ -54,7 +57,14 @@ export async function mutationOutcome(db:SqlDatabase,user:string,id:string):Prom
 /** Every side effect is guarded by a transient transaction claim, never merely a historical receipt. */
 export async function executeWorkspaceCommand(userId:string,input:{protocolVersion:number;expectedRevision:number;mutationId:string;command:unknown},deps:WorkspaceTransactionDeps):Promise<CommandResult> {
   if (!userId || input.protocolVersion!==1 || !Number.isSafeInteger(input.expectedRevision) || input.expectedRevision<1 || !validId(input.mutationId)) throw new CommandValidationError('A valid command envelope is required.');
-  return withWorkspaceAdmission(userId,()=>executeWorkspaceCommandAdmitted(userId,input,deps));
+  return withWorkspaceAdmission(userId,async()=>{
+    if(!deps.agentArtifactAtAdmission)return executeWorkspaceCommandAdmitted(userId,input,deps);
+    const commandType=(input.command as {type?:unknown}|null)?.type;
+    if(commandType!=='jobs.artifact.reserve'&&commandType!=='jobs.artifact.finalize')throw new CommandValidationError('Fresh artifact authorization is limited to artifact commands.');
+    const refreshed=await deps.agentArtifactAtAdmission();
+    if(!Number.isFinite(Date.parse(refreshed.now)))throw new CommandValidationError('Fresh artifact authorization requires a valid server clock.');
+    return executeWorkspaceCommandAdmitted(userId,input,{...deps,agentArtifactAtAdmission:undefined,agentArtifact:refreshed.material,attachmentAccess:refreshed.attachmentAccess,verifyAttachment:refreshed.verifyAttachment,now:()=>refreshed.now});
+  });
 }
 async function executeWorkspaceCommandAdmitted(userId:string,input:{protocolVersion:number;expectedRevision:number;mutationId:string;command:unknown},deps:WorkspaceTransactionDeps):Promise<CommandResult> {
   if (!userId || input.protocolVersion!==1 || !Number.isSafeInteger(input.expectedRevision) || input.expectedRevision<1 || !validId(input.mutationId)) throw new CommandValidationError('A valid command envelope is required.');
@@ -112,6 +122,7 @@ async function executeWorkspaceCommandAdmitted(userId:string,input:{protocolVers
     if((await checkMutationEpoch(db,userId,id)).status==='retired')throw new RetiredMutationError('This mutation epoch is retired.');
     const concurrentReplay=await checkReceipt();if(concurrentReplay)return concurrentReplay;
     const current=await readCurrent(db,userId,now);if(current.revision!==revision)return {status:'conflict',currentRevision:current.revision};
+    if(await receiptCount(db,userId)>=RECEIPT_CAPACITY.hard)throw new WorkspaceCapacityError();
     throw error;
   }
   const privateQuote=await workspacePrivateCapacityGrowth(db,userId,{plan,before,command,mutationId:id,commandHash:hash,now,preparedBackup,agentArtifact});

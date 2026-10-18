@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {database} from './helpers/sqlite.ts';
+import {openPlanningCasDatabase} from './helpers/planning-cas-database.ts';
+import {Worker} from 'node:worker_threads';
+import {mkdtemp,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
 import {createSeedWorkspace} from '../lib/seed.ts';
 import {loadWorkspace,readCurrent} from '../lib/workspace-store.ts';
 import {executeWorkspaceCommand,type PrepareContext} from '../lib/workspace-transaction.ts';
@@ -42,8 +47,31 @@ test('failed capacity materialization is atomic and archived targets produce an 
  const before=await readCurrent(db,'a',now);before.workspace.milestones[0].archivedAt=now;const context:PrepareContext={userId:'a',before,command:{type:'recurrence.materialize',id:rule.id,from:'2026-01-01',through:'2026-01-01'},now,query:ownerReader(db,'a'),async readImport(){throw new Error('unused');}};await assert.rejects(planningHandlers.get('recurrence.materialize')!.prepare(context),/needs attention/);assert.equal((await ownerReader(db,'a').list('recurrence_occurrences')).length,0);sqlite.close();
 });
 test('simultaneous generators share workspace CAS and occurrence insertion cannot partially commit',async()=>{
- const {db,sqlite}=await setup();const rule=await createRule(db);const revision=(await readCurrent(db,'a',now)).revision;const command={type:'recurrence.materialize',id:rule.id,from:'2026-01-01',through:'2026-01-02'};let raced=false;const racing={...db,async batch(statements:Parameters<typeof db.batch>[0]){if(!raced){raced=true;await run(db,command,revision);}return db.batch(statements);}};
- const outcome=await run(racing,command,revision);assert.equal(outcome.status,'conflict');assert.equal((await ownerReader(db,'a').list('recurrence_occurrences')).length,2);assert.equal((await readCurrent(db,'a',now)).workspace.tasks.filter(task=>task.id.startsWith('repeat:')).length,2);sqlite.close();
+ const directory=await mkdtemp(join(tmpdir(),'control-room-planning-cas-')),path=join(directory,'synthetic.sqlite'),{db,sqlite}=openPlanningCasDatabase(path,true);
+ try{
+  const seed=createSeedWorkspace(now);seed.tasks[0].status='todo';seed.tasks[1].status='doing';await loadWorkspace(db,'a',()=>seed,now);
+  const rule=await createRule(db),revision=(await readCurrent(db,'a',now)).revision,command={type:'recurrence.materialize',id:rule.id,from:'2026-01-01',through:'2026-01-02'};
+  const sql=new WeakMap<Parameters<typeof db.batch>[0][number],string>();let raced=false;
+  const racing:typeof db={prepare(text){const statement=db.prepare(text);sql.set(statement,text);return statement;},async batch(statements){
+   // Read-only snapshot batches are not mutation boundaries. The independent
+   // isolate owns its own admission queue and native connection, like another
+   // Worker process; it still uses the real public command compiler and CAS.
+   if(!raced&&statements.some(statement=>/UPDATE\s+workspaces\s+SET\s+content=/iu.test(sql.get(statement)??''))){
+    raced=true;
+    await new Promise<void>((resolve,reject)=>{
+     const worker=new Worker(new URL('./helpers/planning-cas-worker.mjs',import.meta.url),{execArgv:['--experimental-strip-types'],workerData:{path,revision,command,now,mutationId:'planning-independent-winner-'+crypto.randomUUID()}});let received=false;
+     const timer=setTimeout(()=>{void worker.terminate();reject(new Error('Synthetic independent CAS worker exceeded its deadline.'));},15000);
+     worker.once('message',(message:{status?:string;error?:string})=>{received=true;clearTimeout(timer);if(message.status==='committed')resolve();else reject(new Error(message.error??'Independent command did not commit.'));});
+     worker.once('error',error=>{clearTimeout(timer);reject(error);});
+     worker.once('exit',code=>{clearTimeout(timer);if(!received)reject(new Error('Independent CAS worker exited without a result: '+code));});
+    });
+   }
+   return db.batch(statements);
+  }};
+  const outcome=await run(racing,command,revision);assert.equal(raced,true);assert.equal(outcome.status,'conflict');
+  assert.equal((await readCurrent(db,'a',now)).revision,revision+1);
+  assert.equal((await ownerReader(db,'a').list('recurrence_occurrences')).length,2);assert.equal((await readCurrent(db,'a',now)).workspace.tasks.filter(task=>task.id.startsWith('repeat:')).length,2);
+ }finally{sqlite.close();await rm(directory,{recursive:true,force:true});}
 });
 test('legacy task pin, unpin and bulk archive synchronize current canonical membership atomically without rewriting old weeks',async()=>{
  const {syncLegacyWeeklyPins}=await import('../lib/planning-module.ts');const {applyCommand}=await import('../lib/planning.ts');const {applyWorkflowCommand}=await import('../lib/planning-workflows.ts');

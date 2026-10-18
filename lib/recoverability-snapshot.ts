@@ -1,9 +1,10 @@
+import {compareSqliteText} from './sqlite-text-order.ts';
 import {REFERENCE_LIMITS} from './workspace-references.ts';
 import {prepareHistoricalAuditRows} from './audit-import.ts';
 import type {Workspace} from './types.ts';
 import type {SqlDatabase} from './workspace-store.ts';
 import {readCurrent} from './workspace-store.ts';
-import {OWNER_TABLES,ownerReader,ownerTable,type GuardedWrite,type ModuleRow,type OwnerScopedReader,type RegisteredOwnerTable} from './workspace-modules.ts';
+import {OWNER_TABLES,ownerTable,type GuardedWrite,type ModuleRow,type OwnerScopedReader,type RegisteredOwnerTable} from './workspace-modules.ts';
 import type {AuditEventDraft,JsonValue} from './workspace-protocol.ts';
 import type {ModuleReplacement,MutationPlan} from './workspace-transaction.ts';
 import {moduleProjection} from './module-columns.ts';
@@ -16,6 +17,39 @@ import {canonicalJsonValue} from './audit-events.ts';
 import {getWorkspaceNamespaces} from './workspace-namespaces.ts';
 import {parseWorkspaceExport} from './workspace-validation.ts';
 const streams:Partial<Record<RegisteredOwnerTable,string>>={agent_results:'agents',evaluation_runs:'agents',source_observations:'sources',source_sync_runs:'sources',integration_history:'sources',review_snapshots:'reviews',review_analysis_runs:'reviews',notification_events:'notifications',automation_occurrences:'automations'};
+
+type CapturedPhysicalRow=ModuleRow&{stream_sequence?:number};
+/** Closed read-only batches retain independent key cursors, exact row shapes,
+ * source sequence, page and row bounds. No JSON aggregate exceeds a row limit. */
+async function readPhysicalImage(db:SqlDatabase,owner:string):Promise<Map<RegisteredOwnerTable,CapturedPhysicalRow[]>>{
+ const image=new Map<RegisteredOwnerTable,CapturedPhysicalRow[]>(),after=new Map<RegisteredOwnerTable,string>();
+ let pending=[...OWNER_TABLES],retainedBytes=0;
+ for(const table of pending){image.set(table,[]);after.set(table,'');}
+ while(pending.length){
+  const following:RegisteredOwnerTable[]=[];
+  for(let offset=0;offset<pending.length;offset+=12){
+   const tables=pending.slice(offset,offset+12),statements=tables.map(table=>db.prepare(`SELECT id, row_revision, payload_json, content_hash${streams[table]?', stream_sequence':''} FROM ${ownerTable(table)} WHERE user_id = ? AND id > ? ORDER BY id LIMIT ?`).bind(owner,after.get(table)!,BUNDLE_LIMITS.pageSize));
+   const batches=await db.batch(statements);
+   if(!Array.isArray(batches)||batches.length!==tables.length)throw new Error('Invalid physical snapshot batch.');
+   for(const [index,table]of tables.entries()){
+    const page=batches[index].results;
+    if(!Array.isArray(page)||page.length>BUNDLE_LIMITS.pageSize)throw new Error('Physical snapshot batch must return bounded rows.');
+    const rows=image.get(table)!,keys=['content_hash','id','payload_json','row_revision',...(streams[table]?['stream_sequence']:[])].sort();
+    for(const raw of page){
+     if(!raw||typeof raw!=='object'||Array.isArray(raw)||canonical(Object.keys(raw).sort())!==canonical(keys))throw new Error('Invalid physical snapshot row shape.');
+     const row=raw as CapturedPhysicalRow;
+     if(typeof row.id!=='string'||compareSqliteText(row.id,after.get(table)!)<=0||!Number.isSafeInteger(row.row_revision)||row.row_revision<1||typeof row.payload_json!=='string'||typeof row.content_hash!=='string'||!/^[a-f0-9]{64}$/u.test(row.content_hash)||streams[table]&&(!Number.isSafeInteger(row.stream_sequence)||row.stream_sequence!<0))throw new Error('Invalid physical snapshot row.');
+     retainedBytes+=new TextEncoder().encode(row.payload_json).byteLength;if(retainedBytes>BUNDLE_LIMITS.bytes)throw new Error('Physical snapshot byte bound exceeded.');
+     rows.push({...row});after.set(table,row.id);if(rows.length>BUNDLE_LIMITS.rows)throw new Error('Export row limit exceeded.');
+    }
+    if(page.length===BUNDLE_LIMITS.pageSize)following.push(table);
+   }
+  }
+  pending=following;
+ }
+ return image;
+}
+
 export interface ProspectiveRecoverabilityInput {
  agentTerminalReserveDelta?:number;
  now:string;planningAfter?:Workspace;writes?:GuardedWrite[];replacements?:ModuleReplacement[];
@@ -46,15 +80,16 @@ export async function measureProspectiveRecoverability(db:SqlDatabase,owner:stri
  const capturedAudit=await readAudit();
  const watermarks={...(input.operationalWatermarksAfter??boundaryWatermarks)};validateOperationalWatermarks(watermarks);
  for(const [stream,sequence]of Object.entries(boundaryWatermarks))if((watermarks[stream]??-1)<sequence)throw new Error('Prospective operational watermarks cannot move backwards.');
- const reader=ownerReader(db,owner),physical=new Map<RegisteredOwnerTable,Map<string,ModuleRow>>(),beforeRows=new Map<RegisteredOwnerTable,ModuleRow[]>(),sequences=new Map<string,number>(),beforeSequences=new Map<RegisteredOwnerTable,Array<{id:string;stream_sequence:number}>>();
+ const capturedPhysical=await readPhysicalImage(db,owner);
+ const physical=new Map<RegisteredOwnerTable,Map<string,ModuleRow>>(),beforeRows=new Map<RegisteredOwnerTable,ModuleRow[]>(),sequences=new Map<string,number>();
  let retainedBytes=0;
  for(const table of OWNER_TABLES){
-  const rows=await boundedPages(after=>reader.list(table,{after,limit:BUNDLE_LIMITS.pageSize}));
+  const rawRows=capturedPhysical.get(table)!,rows:ModuleRow[]=rawRows.map(({id,row_revision,payload_json,content_hash})=>({id,row_revision,payload_json,content_hash}));
   for(const row of rows){retainedBytes+=new TextEncoder().encode(row.payload_json).length;if(retainedBytes>BUNDLE_LIMITS.bytes)throw new Error('Physical snapshot byte bound exceeded.');if(await contentHash(canonical(JSON.parse(row.payload_json)))!==row.content_hash)throw new Error('Current normalized content hash differs.');}
   beforeRows.set(table,rows);physical.set(table,new Map(rows.map(row=>[row.id,{...row}])));
-  const stream=streams[table];if(stream){const indexed=await boundedPages(async after=>(await db.prepare(`SELECT id,stream_sequence FROM ${table} WHERE user_id=? AND id>? ORDER BY id LIMIT ?`).bind(owner,after,BUNDLE_LIMITS.pageSize).all<{id:string;stream_sequence:number}>()).results);if(indexed.length!==rows.length||indexed.some((row,i)=>row.id!==rows[i].id||!Number.isSafeInteger(row.stream_sequence)||row.stream_sequence<0||row.stream_sequence>(boundaryWatermarks[stream]??0)))throw new Error('Operational physical snapshot changed or exceeds boundary.');beforeSequences.set(table,indexed);for(const row of indexed)sequences.set(`${table}:${row.id}`,row.stream_sequence);}
+  const stream=streams[table];if(stream){const indexed=rawRows.map(row=>({id:row.id,stream_sequence:row.stream_sequence!}));if(indexed.some(row=>row.stream_sequence>(boundaryWatermarks[stream]??0)))throw new Error('Operational physical snapshot changed or exceeds boundary.');for(const row of indexed)sequences.set(`${table}:${row.id}`,row.stream_sequence);}
  }
- const virtual:OwnerScopedReader={async get(table,id){return physical.get(ownerTable(table))!.get(id)??null;},async list(table,options={}){const key=ownerTable(table),limit=options.limit??100;if(!Number.isSafeInteger(limit)||limit<1||limit>BUNDLE_LIMITS.pageSize)throw new Error('Invalid virtual page bound.');const stream=streams[key];return [...physical.get(key)!.values()].filter(row=>row.id>(options.after??'')&&(!stream||(sequences.get(`${key}:${row.id}`)??0)<=(watermarks[stream]??0))).sort((a,b)=>a.id<b.id?-1:a.id>b.id?1:0).slice(0,limit);}};
+ const virtual:OwnerScopedReader={async get(table,id){return physical.get(ownerTable(table))!.get(id)??null;},async list(table,options={}){const key=ownerTable(table),limit=options.limit??100;if(!Number.isSafeInteger(limit)||limit<1||limit>BUNDLE_LIMITS.pageSize)throw new Error('Invalid virtual page bound.');const stream=streams[key];return [...physical.get(key)!.values()].filter(row=>compareSqliteText(row.id,options.after??'')>0&&(!stream||(sequences.get(`${key}:${row.id}`)??0)<=(watermarks[stream]??0))).sort((a,b)=>compareSqliteText(a.id,b.id)).slice(0,limit);}};
  // Omit operationalWatermarks intentionally: the virtual owner reader already filters
  // stream rows. Adapter serializers therefore never need an SQL imitation.
  const blockedDb:SqlDatabase={prepare(){throw new Error('Prospective serializer unexpectedly requested SQL.');},async batch(){throw new Error('Prospective measurement cannot write.');}};
@@ -91,10 +126,10 @@ export async function measureProspectiveRecoverability(db:SqlDatabase,owner:stri
   if(!audit.has(entry.id))audit.set(entry.id,eventRow(event,prospectiveRevision,ordinal,null,null)); // Actual compiler uses ON CONFLICT DO NOTHING.
  }
  for(const {event,streamId,sequence}of input.operationalEvents??[]){if(!/^[a-z][a-z0-9_-]{0,63}$/.test(streamId)||!Number.isSafeInteger(sequence)||sequence<1||sequence<=(boundaryWatermarks[streamId]??0)||sequence>(watermarks[streamId]??0)||audit.has(event.id))throw new Error('Operational audit is outside its prospective watermark.');audit.set(event.id,eventRow(event,null,null,streamId,sequence));}
- modules.audit_events={schemaVersion:exportRegistry.get('audit_events').schemaVersion,records:[...audit.values()].sort((a,b)=>(a as {id:string}).id<(b as {id:string}).id?-1:1)};
+ modules.audit_events={schemaVersion:exportRegistry.get('audit_events').schemaVersion,records:[...audit.values()].sort((a,b)=>compareSqliteText((a as {id:string}).id,(b as {id:string}).id))};
  const bundle=await buildWorkspaceBundle({planning,modules,workspaceRevision:prospectiveRevision,operationalWatermarks:watermarks,...(original.source.auditNamespace?{auditNamespace:original.source.auditNamespace}:{}),exportedAt:input.now},{enforceByteLimit:false});
  const tables:RecoverabilityTableInput[]=[],expandedRecords:string[]=[],futureTableArguments:Array<{name:string;serialized:string}>=[];
- for(const table of OWNER_TABLES){const before=beforeRows.get(table)!,after=[...physical.get(table)!.values()].sort((a,b)=>a.id<b.id?-1:1),expanded=[];
+ for(const table of OWNER_TABLES){const before=beforeRows.get(table)!,after=[...physical.get(table)!.values()].sort((a,b)=>compareSqliteText(a.id,b.id)),expanded=[];
   for(const row of after){const value=JSON.parse(row.payload_json) as JsonValue;expandedRecords.push(JSON.stringify({id:row.id,value}));expanded.push({...row,...await moduleProjection(table,row.id,value)});}
   tables.push({table,beforeRowsJson:canonical(before.map(({id,row_revision,content_hash})=>({id,row_revision,content_hash}))),expandedAfterPayloadJson:canonical(expanded),beforeRowCount:before.length,afterRowCount:after.length});
   const futureExpanded=expanded.map(row=>{if(!Number.isSafeInteger(row.row_revision+1))throw new Error('Future restore row revision exceeds supported capacity.');return {...row,row_revision:row.row_revision+1};});
@@ -115,9 +150,8 @@ export async function measureProspectiveRecoverability(db:SqlDatabase,owner:stri
  if(current.revision!==boundaryRevision||canonical(current.workspace)!==canonical(original.planning)||canonical(await readOperationalWatermarks(db,owner))!==canonical(boundaryWatermarks))throw new Error('Workspace boundary changed during recoverability measurement.');
  // Re-read all physical sets: the returned revision/vector alone does not detect an
  // unguarded same-revision mutation, and must never certify a stale normalized set.
- for(const table of OWNER_TABLES){const latest=await boundedPages(after=>reader.list(table,{after,limit:BUNDLE_LIMITS.pageSize}));if(canonical(latest)!==canonical(beforeRows.get(table)))throw new Error('Normalized row set changed during recoverability measurement.');
-  if(beforeSequences.has(table)){const indexed=await boundedPages(async after=>(await db.prepare(`SELECT id,stream_sequence FROM ${table} WHERE user_id=? AND id>? ORDER BY id LIMIT ?`).bind(owner,after,BUNDLE_LIMITS.pageSize).all<{id:string;stream_sequence:number}>()).results);if(canonical(indexed)!==canonical(beforeSequences.get(table)))throw new Error('Operational row sequence changed during recoverability measurement.');}
- }
+ const latestPhysical=await readPhysicalImage(db,owner);
+ for(const table of OWNER_TABLES)if(canonical(latestPhysical.get(table))!==canonical(capturedPhysical.get(table)))throw new Error('Normalized row set changed (including operational sequence) during recoverability measurement.');
  if(canonical(await readAudit())!==canonical(capturedAudit))throw new Error('Audit row set changed during recoverability measurement.');
  if((await getWorkspaceNamespaces(db,owner))?.auditNamespace!==namespaces?.auditNamespace)throw new Error('Audit namespace changed during recoverability measurement.');
  return {agentTerminalReserveRows:terminalReserveRows,measurement,boundaryRevision,boundaryWatermarks:{...boundaryWatermarks},boundaryRows:OWNER_TABLES.map(table=>({table,rows:beforeRows.get(table)!.map(({id,row_revision,content_hash})=>({id,row_revision,content_hash}))}))};

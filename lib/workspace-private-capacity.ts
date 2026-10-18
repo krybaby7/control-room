@@ -49,6 +49,13 @@ export async function workspacePrivateCapacityGrowth(db:SqlDatabase,owner:string
  await insert('workspace_mutations',{mutation_id:input.mutationId,command_hash:input.commandHash,revision:input.before.revision+1,committed_at:now});
  for(const job of plan.jobs)await insert('workspace_job_intents',{id:job.id,kind:job.kind,dedupe_key:job.dedupeKey,payload_json:canonical(job.payload),not_before:job.notBefore,status:job.kind==='agent.execute'?'awaiting_approval':'pending',execution_epoch:epoch,cancel_requested:0});
  if(plan.restoreEpoch)update('workspace_job_intents',{status:'cancelled',cancel_requested:1},await count('workspace_job_intents'));
+ if(plan.importSource){
+  // Match the compiler's exact activation scope. A status transition still has
+  // positive physical bytes, even though no new stage row is inserted.
+  const source=plan.importSource,predicate="import_id=? AND import_hash=? AND status='verified' AND target_revision=? AND expires_at>?";
+  const affected=await count('attachment_archive_stages',predicate,[source.id,source.hash,input.before.revision,now]);
+  update('attachment_archive_stages',{status:'committed'},affected);
+ }
  if(input.preparedBackup){const backup=input.preparedBackup.manifest;await insert('workspace_backups',{id:backup.id,source_revision:input.before.revision,created_at:now,reason:backup.reason,bytes:backup.bytes,sha256:backup.sha256,content:input.preparedBackup.content,status:'ready',pinned:backup.reason==='manual'?1:0});}
  if(plan.backup?.reason==='restore'){
   // The compiler copies persisted planning bytes, not a hydrated weekly view.

@@ -15,7 +15,7 @@ export interface SqlStatement {
 }
 export interface SqlDatabase {
   prepare(sql: string): SqlStatement;
-  batch(statements: SqlStatement[]): Promise<{ meta: { changes?: number } }[]>;
+  batch(statements: SqlStatement[]): Promise<{ meta: { changes?: number }; results?:unknown[] }[]>;
 }
 interface Row { content: string; revision: number; updated_at: string; }
 function owner(userId:string): void { if (!userId) throw new Error('A signed-in user is required.'); }
