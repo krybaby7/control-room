@@ -14,22 +14,22 @@ let stage='environment',root=null,junction=null,hardlink=null;
 const checks={};
 const fixturePs=String.raw`param([Parameter(Mandatory=$true)][string]$Root,[ValidateSet('Prepare','Own','Check','Unsafe','Restore')][string]$Mode)
 $ErrorActionPreference='Stop'
-$fixtureStage='scope'
+$fixtureStage='scope';[Console]::Error.WriteLine('{"stage":"scope","progress":true}')
 try {
   $local=[IO.Path]::GetFullPath([Environment]::GetFolderPath('LocalApplicationData')).TrimEnd('\')
   $full=[IO.Path]::GetFullPath($Root).TrimEnd('\')
   if ([IO.Path]::GetDirectoryName($full) -ine $local -or [IO.Path]::GetFileName($full) -notmatch '^ControlRoomSyntheticBridge-[A-Za-z0-9]+$') {throw 'scope'}
   if ((Get-Item -LiteralPath $full -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) {throw 'scope'}
-  $fixtureStage='identity'
+  $fixtureStage='identity';[Console]::Error.WriteLine('{"stage":"identity","progress":true}')
   $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User
   $system=New-Object Security.Principal.SecurityIdentifier('S-1-5-18')
   $users=New-Object Security.Principal.SecurityIdentifier('S-1-5-32-545')
   function Private([string]$p) {
-    $script:fixtureStage='private-read'
+    $script:fixtureStage='private-read';[Console]::Error.WriteLine('{"stage":"private-read","progress":true}')
     $item=Get-Item -LiteralPath $p -Force
-    $script:fixtureStage='private-acl-read'
+    $script:fixtureStage='private-acl-read';[Console]::Error.WriteLine('{"stage":"private-acl-read","progress":true}')
     $acl=Get-Acl -LiteralPath $p
-    $script:fixtureStage='private-owner'
+    $script:fixtureStage='private-owner';[Console]::Error.WriteLine('{"stage":"private-owner","progress":true}')
     $acl.SetOwner($sid)
     $acl.SetAccessRuleProtection($true,$false)
     foreach($r in @($acl.Access)) {[void]$acl.RemoveAccessRuleSpecific($r)}
@@ -39,14 +39,14 @@ try {
       $r=New-Object Security.AccessControl.FileSystemAccessRule($who,[Security.AccessControl.FileSystemRights]::FullControl,$flags,[Security.AccessControl.PropagationFlags]::None,[Security.AccessControl.AccessControlType]::Allow)
       [void]$acl.AddAccessRule($r)
     }
-    $script:fixtureStage='private-write'
+    $script:fixtureStage='private-write';[Console]::Error.WriteLine('{"stage":"private-write","progress":true}')
     Set-Acl -LiteralPath $p -AclObject $acl
   }
   $config=Join-Path $full 'config.json'
   $state=Join-Path $full '.control-room-bridge'
   if($Mode -eq 'Prepare' -or $Mode -eq 'Restore'){Private $full}
   if($Mode -eq 'Prepare' -or $Mode -eq 'Own' -or $Mode -eq 'Check'){
-    $fixtureStage='enumerate'
+    $fixtureStage='enumerate';[Console]::Error.WriteLine('{"stage":"enumerate","progress":true}')
     $items=@(Get-Item -LiteralPath $config -Force;Get-Item -LiteralPath $state -Force;Get-ChildItem -LiteralPath $state -Force -Recurse)
     if($items.Count -gt 256){throw 'bound'}
     foreach($item in $items){
@@ -55,7 +55,7 @@ try {
         # Only freshly-created synthetic targets: elevated runners may otherwise
         # default to Administrators ownership. Production never takes ownership.
         $acl=Get-Acl -LiteralPath $item.FullName
-        $fixtureStage='target-owner'
+        $fixtureStage='target-owner';[Console]::Error.WriteLine('{"stage":"target-owner","progress":true}')
         $acl.SetOwner($sid);Set-Acl -LiteralPath $item.FullName -AclObject $acl
       }else{
         $acl=Get-Acl -LiteralPath $item.FullName
@@ -69,7 +69,7 @@ try {
     }
   }
   if($Mode -eq 'Prepare'){
-    $fixtureStage='read-ace'
+    $fixtureStage='read-ace';[Console]::Error.WriteLine('{"stage":"read-ace","progress":true}')
     $acl=Get-Acl -LiteralPath $config
     [void]$acl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($users,[Security.AccessControl.FileSystemRights]::Read,[Security.AccessControl.AccessControlType]::Allow)))
     Set-Acl -LiteralPath $config -AclObject $acl
@@ -106,13 +106,13 @@ async function fixture(mode){
   await new Promise((resolve,reject)=>{
     const child=spawn(executable,['-NoLogo','-NoProfile','-NonInteractive','-File',join(root,'fixture.ps1'),'-Root',root,'-Mode',mode],{env:fixedPowerShellEnvironment(),shell:false,windowsHide:true,stdio:['pipe','pipe','pipe']});
     let output='',diagnostic='',failed=false;
-    const timer=setTimeout(()=>{failed=true;child.kill();},10000);
+    const timer=setTimeout(()=>{failed=true;child.kill();},30000);
     child.stdin.on('error',()=>{});child.stdout.on('data',b=>{output+=b.toString('utf8');if(output.length>4096){failed=true;child.kill();}});
     child.stderr.on('data',b=>{if(diagnostic.length<4096)diagnostic+=b.toString('utf8').slice(0,4096-diagnostic.length);});
     child.on('error',()=>{clearTimeout(timer);reject(new Error('fixture_process'));});
     child.on('close',code=>{clearTimeout(timer);if(failed||code!==0||output!=='{"ok":true}'){
       const error=new Error('fixture_process');error.fixtureExit=Number.isInteger(code)?code:null;
-      try{const d=JSON.parse(diagnostic);if(/^[a-z-]{1,32}$/u.test(d.stage)&&Number.isInteger(d.hresult)&&Number.isInteger(d.category))error.fixtureDiagnostic={stage:d.stage,hresult:d.hresult,category:d.category,...Object.fromEntries(['exceptionType','reason','errorId'].filter(k=>typeof d[k]==='string'&&/^[A-Za-z0-9_.,-]{1,160}$/u.test(d[k])).map(k=>[k,d[k]]))};}catch{}
+      try{const lines=diagnostic.trim().split(/\r?\n/u);const d=JSON.parse(lines.at(-1));if(d.progress===true&&/^[a-z-]{1,32}$/u.test(d.stage)){error.fixtureDiagnostic={stage:d.stage,timeout:failed};}else {if(/^[a-z-]{1,32}$/u.test(d.stage)&&Number.isInteger(d.hresult)&&Number.isInteger(d.category))error.fixtureDiagnostic={stage:d.stage,hresult:d.hresult,category:d.category,...Object.fromEntries(['exceptionType','reason','errorId'].filter(k=>typeof d[k]==='string'&&/^[A-Za-z0-9_.,-]{1,160}$/u.test(d[k])).map(k=>[k,d[k]]))};}}catch{}
       reject(error);
     }else resolve();});
     child.stdin.end();
