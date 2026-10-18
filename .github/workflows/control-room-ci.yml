@@ -29,6 +29,7 @@ jobs:
       - run: npm run test:reviews-d1
       - run: npm run test:scheduled-backup-d1
       - run: npm run test:scheduled-source-d1
+      - run: npm run test:runtime-d1
       - run: npm run test:fixture
       - run: npm run test:attachments-r2
       - run: npm run test:attachment-recovery-r2

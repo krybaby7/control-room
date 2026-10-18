@@ -23,7 +23,7 @@ const enrollmentResultSchema=z.object({deviceId:deviceIdSchema,enrollmentId:devi
 type ConfigurationRow=RuntimeRead['configurations'][number];
 export function buildRuntimeConfiguration(value:unknown,row?:ConfigurationRow):WorkspaceCommand{
  const input=configInputSchema.parse(value);
- if(input.manifest.id!=='pc-command-center')throw new Error('Only the PC adapter can be configured here.');
+ if(input.manifest.id!=='pc-command-center'||input.manifest.endpointAlias!=='pc-command-center')throw new Error('Only the registered PC adapter endpoint can be configured here.');
  if(row&&row.value.deviceId!==input.deviceId)throw new Error('Reopen configuration to select another device.');
  return {type:'runtime.adapter.configure',...(row?{id:row.value.id,expectedRowRevision:row.rowRevision}:{}),value:input};
 }
@@ -38,14 +38,14 @@ async function readJson(response:Response):Promise<unknown>{
  try{for(;;){const chunk=await reader.read();if(chunk.done)break;size+=chunk.value.byteLength;if(size>2*1024*1024){void reader.cancel().catch(()=>{});throw new Error('Runtime response exceeds its limit.');}text+=decoder.decode(chunk.value,{stream:true});}return JSON.parse(text+decoder.decode());}finally{reader.releaseLock();}
 }
 function PCConfiguration({row,deviceId,envelope,disabled,onSave,onClose,onDirty}:{row?:ConfigurationRow;deviceId:string;envelope:WorkspaceEnvelope;disabled:boolean;onSave:(command:WorkspaceCommand)=>Promise<boolean>;onClose:(saved?:boolean)=>void;onDirty:(dirty:boolean)=>void}){
- const [draft,setDraft]=useState(()=>({projectId:row?.value.projectId??'',enabled:row?.value.manifest.enabled??false,endpointAlias:row?.value.manifest.endpointAlias??'pc-local',selectedGpuAlias:row?.value.selectedGpuAlias??''})),[baseline]=useState(()=>canonical(draft)),[error,setError]=useState('');
+ const [draft,setDraft]=useState(()=>({projectId:row?.value.projectId??'',enabled:row?.value.manifest.enabled??false,endpointAlias:'pc-command-center',selectedGpuAlias:row?.value.selectedGpuAlias??''})),[baseline]=useState(()=>canonical(draft)),[error,setError]=useState('');
  useEffect(()=>{onDirty(canonical(draft)!==baseline);},[draft,baseline,onDirty]);
  return <form aria-label="PC adapter configuration" className="capture-preview" onSubmit={event=>{event.preventDefault();setError('');let command:WorkspaceCommand;try{command=buildRuntimeConfiguration({deviceId,projectId:draft.projectId||null,manifest:{id:'pc-command-center',version:1,enabled:draft.enabled,capabilities:['read.health','read.summary'],endpointAlias:draft.endpointAlias},selectedGpuAlias:draft.selectedGpuAlias||null},row);}catch{setError('Use valid opaque aliases, an explicit device and a selected project or no project.');return;}void onSave(command).then(saved=>{if(saved)onClose(true);});}}>
   <h3>PC adapter configuration</h3><fieldset disabled={disabled}><label>Runtime project<select value={draft.projectId} onChange={event=>setDraft({...draft,projectId:event.target.value})}><option value="">No project association</option>{envelope.workspace.projects.filter(project=>!project.archivedAt||project.id===draft.projectId).map(project=><option key={project.id} value={project.id}>{project.name}{project.archivedAt?' · archived':''}</option>)}</select></label>
-  <label>PC endpoint alias<input required maxLength={64} pattern="[A-Za-z0-9][A-Za-z0-9_-]*" value={draft.endpointAlias} onChange={event=>setDraft({...draft,endpointAlias:event.target.value})}/></label>
+  <label>PC endpoint alias<input readOnly value={draft.endpointAlias}/></label>
   <label>Selected GPU alias (optional)<input maxLength={64} pattern="[A-Za-z0-9][A-Za-z0-9_-]*" value={draft.selectedGpuAlias} onChange={event=>setDraft({...draft,selectedGpuAlias:event.target.value})}/></label>
   <label><input type="checkbox" checked={draft.enabled} onChange={event=>setDraft({...draft,enabled:event.target.checked})}/>Enable PC adapter</label>
-  <p className="field-hint">Configuration does not establish a connection. The bridge resolves opaque aliases on your device. This website does not contact localhost. Agent Lab and Trade Graph remain disabled until their adapters are verified.</p>
+  <p className="field-hint">Configuration does not establish a connection. The bridge uses the registered PC endpoint on your device. The endpoint cannot be changed into a URL. This website does not contact localhost. Agent Lab and Trade Graph remain disabled until their adapters are verified.</p>
   {error&&<p role="alert">{error}</p>}<div className="dialog-actions"><button type="button" className="button secondary" onClick={()=>onClose()}>Close configuration</button><button className="button primary">Save PC adapter configuration</button></div></fieldset>
  </form>;
 }

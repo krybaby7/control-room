@@ -27,7 +27,8 @@
     "test:scheduled-backup-d1": "node --experimental-strip-types scripts/test-scheduled-backup-d1.mjs",
     "test:reviews-migration-d1": "node --experimental-strip-types scripts/test-reviews-migration-d1.mjs",
     "test:scheduled-source-d1": "node --experimental-strip-types scripts/test-scheduled-source-d1.mjs",
-    "test:bridge": "node --test --test-timeout=30000 bridge/test/*.test.mjs"
+    "test:bridge": "node --test --test-timeout=30000 bridge/test/*.test.mjs",
+    "test:runtime-d1": "node --experimental-strip-types scripts/test-runtime-d1.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

@@ -4,7 +4,7 @@ import {spawnSync} from 'node:child_process';
 import {readdir,readFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 const before=new Set(await readdir('drizzle'));
-const result=spawnSync('npm',['run','db:generate','--','--name=devices_runtime'],{stdio:'inherit',shell:false});
+const result=spawnSync('npm',['run','db:generate','--','--name=runtime_selection'],{stdio:'inherit',shell:false});
 if(result.status!==0)process.exit(result.status??1);
 const names=(await readdir('drizzle')).filter(name=>!before.has(name)&&/^\d+.*\.sql$/.test(name));
 if(names.length!==1)throw new Error('Expected exactly one additive migration.');
