@@ -35,6 +35,12 @@ export async function smokeFixture(){
  const denied=await fetch(`${FIXTURE_ORIGIN}/api/workspace`,{method:'POST',headers:{...headers,origin:'https://foreign.invalid'},body:JSON.stringify(body)});if(denied.status!==403)throw new Error('Fixture proxy weakened the origin check.');
  console.log('Synthetic fixture HTTP GET/POST/replay/CSRF smoke passed.');
 }
+/** Keep failed HTTP assertions actionable without consuming the caller's response. */
+export async function assertFixtureStatus(response,expected,step){
+ if(response.status===expected)return;
+ let body;try{body=(await response.clone().text()).slice(0,4096);}catch{body='[response body unavailable]';}
+ assert.equal(response.status,expected,`${step}: expected HTTP ${expected}, received ${response.status}; response body: ${body||'[empty]'}`);
+}
 export async function smokeAttachments(){
  const headers={cookie:'fixture_session=a',origin:FIXTURE_ORIGIN,'Content-Type':'application/json'};
  const request=(url,options={})=>fetch(`${FIXTURE_ORIGIN}${url}`,{...options,headers:{...headers,...options.headers}});
@@ -49,12 +55,12 @@ export async function smokeAttachments(){
  const record=await reserve(filename,'text/plain',bytes),url=`/api/attachments/${record.id}/content`;
  const put=(data,extra={})=>request(url,{method:'PUT',headers:{'Content-Type':'text/plain',...extra},body:data});
  let response=await put(bytes);assert.equal(response.status,200,await response.clone().text());const staged=await response.json();assert.equal(staged.status,'staged');assert.equal(staged.finalized,false);
- assert.equal((await request(url)).status,404);
+ await assertFixtureStatus(await request(url),404,'GET staged attachment before finalization (owner A)');
  assert.equal((await json('/api/evidence')).attachments.find(row=>row.id===record.id).status,'reserved');
  response=await put(bytes);assert.equal(response.status,200);assert.equal((await response.json()).replayed,true);
  assert.equal((await put(Buffer.from('Synthetic HTTP R2 fixture body.!'))).status,409);
  assert.equal((await put(bytes,{origin:'https://foreign.invalid'})).status,403);
- assert.equal((await put(bytes,{cookie:'fixture_session=b'})).status,404);
+ await assertFixtureStatus(await put(bytes,{cookie:'fixture_session=b'}),404,'PUT owner A reserved attachment as owner B');
  assert.equal((await put(bytes,{cookie:'fixture_session=expired'})).status,401);
  const finalize=await command({type:'attachment.finalize',id:record.id});
  for(let i=0;i<2;i++){response=await post(finalize);assert.equal(response.status,200,await response.clone().text());}
@@ -62,12 +68,12 @@ export async function smokeAttachments(){
  response=await request(url);assert.equal(response.status,200);const downloaded=Buffer.from(await response.arrayBuffer());assert.deepEqual(downloaded,bytes);
  const sha256=createHash('sha256').update(downloaded).digest('hex');assert.equal(sha256,staged.sha256);
  assert.equal(response.headers.get('content-type'),'text/plain');assert.equal(response.headers.get('x-content-type-options'),'nosniff');assert.match(response.headers.get('cache-control')??'',/no-store/);assert.match(response.headers.get('content-disposition')??'',/^attachment;/);assert.ok(response.headers.get('content-disposition').includes(filename));
- assert.equal((await request(url,{headers:{cookie:'fixture_session=b'}})).status,404);
+ await assertFixtureStatus(await request(url,{headers:{cookie:'fixture_session=b'}}),404,'GET owner A ready attachment as owner B');
  assert.equal((await request(url,{headers:{cookie:'fixture_session=expired'}})).status,401);
  const forgedBytes=Buffer.from('This is a forged PNG body.');const forged=await reserve(`forged-${randomUUID()}.png`,'image/png',forgedBytes);const forgedUrl=`/api/attachments/${forged.id}/content`;
  response=await request(forgedUrl,{method:'PUT',headers:{'Content-Type':'image/png'},body:forgedBytes});assert.equal(response.status,422);assert.equal((await response.json()).finalized,false);
  response=await post(await command({type:'attachment.finalize',id:forged.id}));assert.ok(!response.ok,'A forged PNG cannot finalize');
- assert.equal((await request(forgedUrl)).status,404);assert.equal((await json('/api/evidence')).attachments.find(row=>row.id===forged.id).status,'reserved');
+ await assertFixtureStatus(await request(forgedUrl),404,'GET forged PNG after rejected staging and finalization');assert.equal((await json('/api/evidence')).attachments.find(row=>row.id===forged.id).status,'reserved');
  console.log(`Synthetic fixture HTTP R2 reserve/stage/finalize/replay/download/isolation/forgery smoke passed. bytes=${downloaded.length} sha256=${sha256}`);
 }
 export async function startFixture(args){

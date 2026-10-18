@@ -22,10 +22,10 @@ jobs:
       - run: npm run build
       - run: npm run test:fixture
       - run: npm run test:attachments-r2
-      - run: npm run test:attachments-http
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
       - run: npm run test:e2e:r2
+      - run: npm run test:attachments-http
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

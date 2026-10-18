@@ -164,11 +164,11 @@
     "evidence": "Explicit supported model selection accepted and worker IDs returned."
   },
   "checkpoint": {
-    "publishedCommit": "cf1c2e1b97690030c40c4066d41c97f732594cb5",
-    "workingTree": "Integrated protected criterion/link/assessment/decision-action/attachment UI and isolated R2 fixture checkpoint. Native archive export/import helpers remain independent uncommitted work.",
+    "publishedCommit": "d52b7c380dec5e433d1bc5cc631cec9ad9f4d62b",
+    "workingTree": "Uncommitted native archive helpers, stablecitation reader/view/codec, persistentblobfence schema/helpers/compilerintegration underdevelopment. Preserveallfiles.",
     "tests": "Integrated source:639 Node pass (includes5 independently developing archive-export tests); typecheck/lint/build pass. Local Miniflare R2 direct and authenticated HTTP fixtures pass; download32bytes SHA256 ee8061dff83dd68f205b6597c2333557be9e2b07a15c5dab79b35e707fb8104e. Default35 Chromium and separate1 R2 Chromium discovered, execution pending cloud CI.",
     "knownFailures": [
-      "Publishedcf1c2e1bCIhas1of31browserfailure:attentionfixtureglobal100reviewtaskassumption now101afternewlegacyjourney. Uncommittedfixtureisolationfixpreservesalloriginalmerge/search/Arabic/keyboard/mobileassertions;rerunpending."
+      "CloudHTTPR2one404assertionreturned503;notreproducedlocally. Everyexpected404nowhasexactstepandresponsebodydiagnostics. BrowsergatewillrunbeforeindependentHTTPR2soallchecksproduceevidence."
     ],
     "unfinished": [
       "Phase3 coherent integration, guarded attachment lifecycle, protected UI and real-browser evidence/history regression; explicit private blob gate",
@@ -176,8 +176,8 @@
       "External hosted/provider/device/renewable runner/private blob acceptance"
     ],
     "nextCommand": "Run cloud CI on this protected UI checkpoint; inspect actual Chromium results. Continue exact-version citations, native archive staged restore and persistent SQL blob fences before Phase3 acceptance, then Phases4\u20138.",
-    "publishedTree": "9404aa4c4bdf1d6361c407a7b34fc839065cc256",
-    "cloudRun": "39140792141/job117714617857 atcf1c2e1b terminalfailure:617Node/allprebrowsergatespass,30/31Chromium. Allmergejourneysnowpass;soleattentionpaginationfixtureglobalreviewcountassumption correctedlocallywithownsyntheticproject.",
-    "currentCommit": "cf1c2e1b97690030c40c4066d41c97f732594cb5"
+    "publishedTree": "172c4a7d94333be2a56f6e206064773c54e5a270",
+    "cloudRun": "39142840159/job117720607626 terminalfailure:634Node/type/lint/build/defaultHTTP/directR2pass;HTTPR2got503where404expected;Chromiumskipped. Improvedrequestdiagnosticspendingrerun;localHTTPR2passes.",
+    "currentCommit": "d52b7c380dec5e433d1bc5cc631cec9ad9f4d62b"
   }
 }

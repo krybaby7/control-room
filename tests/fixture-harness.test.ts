@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import {parseFixtureArgs,fixtureConfig,fixtureEnvironment,SYNTHETIC_DB_ID,FIXTURE_ORIGIN} from '../scripts/test-fixtures.mjs';
-import {fixtureProxy,requireFreePort} from '../scripts/test-worker.mjs';
+import {fixtureProxy,requireFreePort,assertFixtureStatus} from '../scripts/test-worker.mjs';
 const source={main:'index.js',assets:{directory:'../client'},compatibility_date:'2026-05-15',d1_databases:[{binding:'DB',database_id:SYNTHETIC_DB_ID}],r2_buckets:[]};
 test('harness accepts only explicit local fixture flags and rejects deployment bindings',()=>{
  assert.deepEqual(parseFixtureArgs(['--target','local-fixture']),{serve:false,withR2:false});assert.equal(parseFixtureArgs(['--target','local-fixture','--serve']).serve,true);
@@ -32,4 +32,14 @@ test('R2 option is explicit and only adds an isolated synthetic local binding',(
  assert.throws(()=>fixtureConfig({...source,r2_buckets:[{binding:'BUCKET',bucket_name:'production'}]},{withR2:true}));
  // @ts-expect-error runtime rejects untyped CLI/config callers too
  assert.throws(()=>fixtureConfig(source,{withR2:'yes'}));
+});
+
+test('HTTP fixture status failures identify exact step and body without consuming response',async()=>{
+ const response=new Response('{"error":"This attachment is unavailable."}',{status:503});
+ await assert.rejects(assertFixtureStatus(response,404,'GET staged attachment before finalization (owner A)'),error=>{
+  assert.ok(error instanceof Error);assert.match(error.message,/GET staged attachment before finalization \(owner A\)/);assert.match(error.message,/expected HTTP 404, received 503/);assert.match(error.message,/This attachment is unavailable/);return true;
+ });
+ assert.equal(await response.text(),'{"error":"This attachment is unavailable."}');
+ await assertFixtureStatus(new Response(null,{status:404}),404,'expected not found');
+ const large=new Response('x'.repeat(5000),{status:503});await assert.rejects(assertFixtureStatus(large,404,'bounded'),error=>{assert.ok(error instanceof Error);assert.ok(error.message.length<4400);return true;});
 });
