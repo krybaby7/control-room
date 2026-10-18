@@ -155,7 +155,8 @@
         "94b4dc8 CI39164067744:1370Node+39bridge/type/lint/build andpriorD1/R2/HTTP passed;48/49default+3/3R2. Review snapshot stale-index helper corrected; lostsecret alert beingclearedbyruntime refresh confirmedfromsyntheticartifact and fixedbf34cb4.",
         "Private Windows state helper added; actual cloud Windows selectedunit/structuraltests passed39165557212, actual synthetic ACL/DPAPI fixture failedpreparation atsynthetic-ownership. Diagnostic-onlyfollowup pending; no ownerWindows/device acceptance claim.",
         "3d9d993c full CI39166693216/job117791010617 terminalsuccess: all Node/bridge/type/lint/build/23migration D1/R2/HTTP,50/50defaultChromium+3/3R2; bridgepackage artifact12151126759 source3d9d993c packageSHA2566b5530225fcaf1b7e1015197e5682198faf6a9744fe61a8dc16e3b26d6c76088.",
-        "60e50fc Windows39167078521/job117792148035 terminalsuccess: actual synthetic ACL,DPAPI,SQLite spool ACL,unsafeparent,hardlink,junction rejection. Fixed trusted module loading inside PowerShell. No ownerdevice/TaskScheduler/livecollector claim."
+        "60e50fc Windows39167078521/job117792148035 terminalsuccess: actual synthetic ACL,DPAPI,SQLite spool ACL,unsafeparent,hardlink,junction rejection. Fixed trusted module loading inside PowerShell. No ownerdevice/TaskScheduler/livecollector claim.",
+        "Exact60e50fc full cloud CI39167082234/job117792158864 terminalsuccess:1370 Node,39bridge,type/lint/build,23migration D1/R2/HTTP,50default+3R2Chromium and bridgepackage generated."
       ],
       "blockers": [
         "Workspace command runner unavailable. GitHub source APIs and actual Actions cloud execution remain functional; implementation continues there, no local runtime/model substitution.",
@@ -166,18 +167,30 @@
       "id": 7,
       "status": "in_progress",
       "evidence": [
-        "Exact fourteen-field job contracts, full provider/runtime/executable/tool-policy binding, pure transitions, sanitized evaluation import and result-artifact validation integrated for cloud regression; owner commands, private leases, UI and executor journal remain in bounded implementation."
+        "Exact fourteen-field job contracts, full provider/runtime/executable/tool-policy binding, pure transitions, sanitized evaluation import and result-artifact validation integrated for cloud regression; owner commands, private leases, UI and executor journal remain in bounded implementation.",
+        "Source0a03f05afcb25a3dad78512f8d909d585e8f1576 agent checks39168864253/job117797532444 terminalsuccess:82 agent/evaluation tests including real D1 lease/lifecycle; typecheck/lint pass. Isolated agents D1 39168864334 terminalsuccess.",
+        "Source87929724377b0243b325b5dee4762c7a76a1f5c9 isolated agents D139169280294, runtimeD139169276929, segmented recovery39169280284 and executor39169277012 terminalsuccess. Full source gate failed valid-fixture and enrollment typing issues; corrections integrated ca4f15ba150de009e557a4ee412c21e50cf4bce3, rerun pending.",
+        "Native owner jobs, explicit finite budget, separate executor/evaluation enrollment, immutable approvals, single lease/attempt, ordered exact event receipts, frozen task/grant, retained unknown/reconciliation and explicit result acceptance implemented; artifact upload/production verification and authenticated executor transport still in progress."
       ],
-      "blockers": []
+      "blockers": [
+        "Actual pinned upstream runtime extraction and Windows owned process/sandbox acceptance unavailable; production executor remains not_installed.",
+        "Default private ingress denies until supported connection/renewal configured; no live jobs or model calls."
+      ]
     },
     {
       "id": 8,
-      "status": "not_started",
-      "evidence": [],
-      "blockers": []
+      "status": "in_progress",
+      "evidence": [
+        "Actual isolated segmented D1/R2 >10000-audit/>8MB recovery rehearsal terminalsuccess at69e6 and879; preserves refs/projections and fresh blob identities. Private continuity capture/validation integrated; operator freeze/target handoff implementation underway, no existing Site mutation.",
+        "Unified bounded Attention findings and real axe/multibrowser workflow integrated ca4f15b; first cloud run pending. Normalized reviewed merge, file-inclusive scheduled backup, controlled performance and release packaging in progress."
+      ],
+      "blockers": [
+        "Production recovery/cutover requires proven private continuity and operator freeze; rehearsal alone is insufficient.",
+        "No new private Sites deployment; final exact candidate gates/package not yet complete."
+      ]
     }
   ],
-  "nextAction": "Run cloud Phase7 pure checks and isolated segmented recovery rehearsal; integrate coordinator schema, owner command/control store, scoped routes and UI; complete Phase7 then release gates.",
+  "nextAction": "Inspect Actions for ca4f15ba; integrate authenticated executor wire, reviewed normalized merge and scheduled file archive; complete isolated freeze, accessibility/performance and exact candidate release gates.",
   "allowedStatuses": [
     "not_started",
     "in_progress",
@@ -204,21 +217,14 @@
     "evidence": "Explicit supported model selection accepted and worker IDs returned."
   },
   "checkpoint": {
-    "implementationHead": "60e50fc16218a25ea04374d69a4ff9680ac5fb91",
-    "executionMode": "Supported GitHub source API and actual Linux/Windows GitHub Actions cloud runners; exact selected gpt-6.1-sol workers retained. Workspace exec unavailable.",
-    "tests": "Full source3d9d993c passed39166693216; actual Windows60e50fc passed39167078521. Exact60e50fc fullCI39167082234 still running; runtimeD1 quick passed. New Phase7 pure files/Phase8 isolated recovery tests await their first cloud run.",
+    "implementationHead": "ca4f15ba150de009e557a4ee412c21e50cf4bce3",
+    "executionMode": "Supported GitHub source APIs and actual GitHub Actions Node24 Linux/Windows cloud runners; exact selected gpt-6.1-sol workers retained. Workspace execution unavailable.",
+    "tests": "Phase6 full source+Windows passed. Phase7 coordinator isolated D1 and executor pass; latest Attention/accessibility/frozen-admission delta awaits Actions.",
     "knownFailures": [
-      "Workspace command runner remains disconnected; preserve unpublished local work if it recovers.",
-      "Phase7 coordinator integration and tests remain in progress, not production execution.",
-      "Segmented replacement rehearsal is isolated verification, not a production recovery/cutover installer; G48 remains open pending private continuity and safe cutover policy.",
-      "Private ingress, owner PC/TaskScheduler, actual AgentLab runtime extraction, providers and private Sites deployment remain unavailable/not-run. Paid inference and operational/trading effects remain disabled."
+      "879 fullCI rejected an oversize notes test fixture, stale backup registry fixture path and enrollment type mismatches; corrected ca4f15ba pending actual rerun.",
+      "No live provider/device/Site acceptance; paid inference and operational/trading effects disabled.",
+      "Remaining feasible code: normalized reviewed merge, file-inclusive scheduled backup, actual artifact upload/verification, private recovery freeze/target handoff, controlled performance and final packaging."
     ],
-    "nextCommand": "Run cloud Phase7 pure checks and isolated segmented recovery rehearsal; integrate coordinator schema, owner command/control store, scoped routes and UI; complete Phase7 then release gates.",
-    "pendingOrphans": {
-      "agentUi": "168b9eac2d5f64f104283c244b1d0656cf4eb6bc",
-      "agentBrowser": "817fbe648b01c993d4502b145fa46502d1b4aa96",
-      "rootCommands": "d97f1c4c04dbc010aa02ff7d0dc009abca2f6729",
-      "schemaGeneration": "a54e93d9b1fa9904b666997dcf63af8cab3a553f"
-    }
+    "nextCommand": "Inspect Actions for ca4f15ba; integrate authenticated executor wire, reviewed normalized merge and scheduled file archive; complete isolated freeze, accessibility/performance and exact candidate release gates."
   }
 }

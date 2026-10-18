@@ -1,19 +1,31 @@
 # Cloud implementation checkpoint
 
-Source before this checkpoint: `60e50fc16218a25ea04374d69a4ff9680ac5fb91`.
+Source before this checkpoint: `ca4f15ba150de009e557a4ee412c21e50cf4bce3`.
 
-Explicit supported selection `gpt-6.1-sol` accepted for the integrator and workers `/root/foundation_review`, `/root/codec`, `/root/save_client`, `/root/export_registry`, `/root/drafts`, `/root/runtime_probe`. No resolved-model telemetry is required by the corrected launch.
+Supported runtime model parameter `gpt-6.1-sol` was accepted for the integrator and workers `/root/foundation_review`, `/root/codec`, `/root/save_client`, `/root/export_registry`, `/root/drafts`, `/root/runtime_probe`. These workers remain selected; no fallback model or local Windows implementation.
 
-## Verified cloud evidence
+## Verified evidence
 
-- Full CI39166693216/job117791010617 at3d9d993c passed all source checks,23migration D1/R2/HTTP journeys,50Chromium and3R2 Chromium tests. Package artifact12151126759 source3d9d993c has tarball SHA256 `6b5530225fcaf1b7e1015197e5682198faf6a9744fe61a8dc16e3b26d6c76088`.
-- Windows39167078521/job117792148035 at60e50fc passed actual synthetic ACL/DPAPI/spool protection and unsafe-parent/hardlink/junction rejection. Owner device, collector and Task Scheduler acceptance were not run.
-- Exact60e50fc full CI39167082234 still running; quick runtime D1 passed.
+- Phase6 exact60e50fc full CI39167082234/job117792158864 and Windows39167078521/job117792148035 passed. Windows evidence is isolated synthetic ACL/DPAPI/SQLite safety, not owner installation.
+- Phase7 source0a03f05 agent checks39168864253/job117797532444 passed82 tests, typecheck and lint; isolated actual D1 lifecycle39168864334 passed.
+- Source879297 isolated agents D139169280294, runtimeD139169276929, segmented recovery39169280284 and executor39169277012 passed.
+- Latest full879 gate failed: UTF8 fixture exceeded workspace notes validation; backup fixture installed at wrong test path; enrollment typing. Corrected inca4f15ba, actual rerun pending. No false green candidate claim.
+- ca4f15ba adds unified bounded Attention findings, exact frozen admission facts,5 native Agents journeys, actual axe/Chromium/Firefox/WebKit acceptance workflow, and read-only private recovery continuity inspection. New checks not yet verified.
 
-## Current work
+## Work in progress
 
-Phase7 pure policy, transitions, evaluation and artifact validators now enter cloud tests. Coordinator schema generation is isolated on prep/control-room-agent-schema; shared command/control/store integration, scoped protocol routes, owner UI and durable executor remain unfinished. Phase8 segmented D1/R2 rehearsal uses synthetic isolated databases/buckets only and does not install or cut over an existing Site.
+- Authenticated executor wire branding and durable journal, never an invented server approval.
+- Reviewed insert-only normalized module merge preserving original owner IDs/records and native nonexecution grants.
+- Explicit file-inclusive scheduled backup using bounded immutable R2 chunks and protected quota.
+- Privileged offline database freeze/isolated target handoff and actual delayed-delete proof; no production freeze.
+- Attempt-scoped artifact upload/physical verification, controlled performance and final source/package release gates.
 
-The workspace command runner is disconnected. Source APIs and actual GitHub Actions Linux/Windows runners remain available. Preserve existing local unpublished work on recovery; do not reset or blindly merge it. The rejected inspection checkpoint remains local and is absent from the publication branch.
+No new Site deployment. Existing private identity/access and owner data preserved. Paid inference, unattended provider/device connections and operational/trading effects remain disabled.
 
-Next command: inspect the new pure-policy/recovery runs, integrate generated additive schema and bounded Phase7 workers, then run actual coordinator D1/browser acceptance before Phase8 release packaging. G48 remains open until a reviewed private-continuity/cutover workflow exists. Private service ingress, provider consent/runtime installation and hosted deployment remain explicit external gates. No new Site, production data reset, paid inference, or operational/trading effect has occurred.
+Workspace execution is disconnected. Continue via supported GitHub source APIs and actual cloud Actions. If workspace access recovers, preserve unpublished local changes before reconciliation. Rejected inspection checkpoint remains local only and is excluded from public branch ancestry.
+
+## Next action
+
+Inspect Actions for ca4f15ba; integrate authenticated executor wire, reviewed normalized merge and scheduled file archive; complete isolated freeze, accessibility/performance and exact candidate release gates.
+
+Draft PR: https://github.com/krybaby7/control-room/pull/1 (unmerged).
