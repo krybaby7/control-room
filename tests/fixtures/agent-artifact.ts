@@ -37,14 +37,17 @@ async function baseFixture(timeoutSeconds=120,notes=''){
  const options:AgentStoreOptions={now,context};
  return {...f,owner,principal,jobId,intentId,record,binding,capability,context,options};
 }
-export async function artifactFixture(){
+export async function artifactSeedFixture(){
  const f=await baseFixture(),deviceSecret='synthetic_device_artifact_credential_00000000000001';f.sqlite.prepare('UPDATE device_credentials SET token_hash=? WHERE user_id=? AND id=?').run(await contentHash(deviceSecret),f.owner,f.principal.credentialId);await getOrCreateWorkspaceNamespaces(f.db,f.owner);
- const lease=await claimAgentJob(f.db,f.principal,{jobId:f.jobId,journalNonce:nonce},f.options);if(!lease)throw new Error('Synthetic artifact claim failed.');
  type ObjectValue={bytes:Uint8Array;httpMetadata:{contentType:string};customMetadata:{sha256:string}};const objects=new Map<string,ObjectValue>(),bucket:AttachmentBucket={
   async put(key,bytes,options){if(objects.has(key))return null;objects.set(key,{bytes:bytes.slice(),httpMetadata:{...options.httpMetadata},customMetadata:{...options.customMetadata}});return {size:bytes.length};},
   async head(key){const object=objects.get(key);return object?{size:object.bytes.length,httpMetadata:{...object.httpMetadata},customMetadata:{...object.customMetadata}}:null;},
   async get(key){const object=objects.get(key);return object?{size:object.bytes.length,body:new ReadableStream<Uint8Array>({start(controller){controller.enqueue(object.bytes.slice());controller.close();}}),httpMetadata:{...object.httpMetadata},customMetadata:{...object.customMetadata}}:null;},
   async delete(key){objects.delete(key);}
  };
- return {...f,lease,deviceSecret,bucket,objects,ingress:{async verify(){return {serviceIdentity:'synthetic-private-artifact-ingress'};}}};
+ return {...f,deviceSecret,bucket,objects,ingress:{async verify(){return {serviceIdentity:'synthetic-private-artifact-ingress'};}}};
+}
+
+export async function artifactFixture(){
+ const f=await artifactSeedFixture(),lease=await claimAgentJob(f.db,f.principal,{jobId:f.jobId,journalNonce:nonce},f.options);if(!lease)throw new Error('Synthetic artifact claim failed.');return {...f,lease};
 }

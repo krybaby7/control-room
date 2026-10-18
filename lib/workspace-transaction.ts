@@ -69,7 +69,7 @@ export async function executeWorkspaceCommand(userId:string,input:{protocolVersi
   let normalizedMerge:NormalizedMergeControl|null=null;
   if(plan.normalizedMerge!==undefined){try{normalizedMerge=await validateNormalizedMergePlan(db,userId,revision,command,plan);plan.normalizedMerge=normalizedMerge;}catch(error){throw error instanceof CommandValidationError?error:new CommandValidationError('Invalid normalized merge control.');}}
   if(plan.attachmentMetadataDiscard!==undefined){try{await validateAttachmentMetadataDiscard(db,userId,command,plan,before.workspace);}catch(error){throw error instanceof CommandValidationError?error:new CommandValidationError('Invalid attachment metadata discard.');}}
-  const agentArtifact=validateAgentArtifactPlan(userId,command,plan,before.workspace,deps.agentArtifact);
+  const agentArtifact=await validateAgentArtifactPlan(db,userId,command,plan,before.workspace,deps.agentArtifact,now,id);
   if(plan.preserveModules && (command.type!=='workspace.import.commit'||command.mode!=='merge'||plan.replacements?.length||plan.writes.length||!plan.restoreEpoch||plan.backup?.reason!=='restore'||!plan.referenceSnapshot))throw new CommandValidationError('Only a reviewed planning merge may preserve normalized modules.');
   if(plan.backup?.reason==='restore'&&!plan.preserveModules&&!normalizedMerge){const query=ownerReader(db,userId);for(const table of OWNER_TABLES)if((await query.list(table,{limit:1})).length && !plan.replacements?.some(replacement=>replacement.table===table))throw new CommandValidationError('This restore requires a complete normalized bundle. Export all modules before replacing planning records.');}
   if(plan.writes.length>200 || plan.events.length>200 || plan.jobs.length>50)throw new CommandValidationError('Command batch is too large.');
@@ -77,7 +77,7 @@ export async function executeWorkspaceCommand(userId:string,input:{protocolVersi
   if(new Set((plan.replacements??[]).map(replacement=>replacement.table)).size!==(plan.replacements??[]).length)throw new CommandValidationError('Duplicate replacement module.');
   for(const replacement of plan.replacements??[]){ownerTable(replacement.table);if(plan.backup?.reason!=='restore' || !plan.restoreEpoch)throw new CommandValidationError('Module replacement requires reviewed recovery authority.');if(plan.writes.some(write=>write.table===replacement.table) || replacement.beforeRows.length>10000 || replacement.records.length>10000)throw new CommandValidationError('Invalid replacement scope.');}
   // Preserve command validation and conflict semantics before serializing a prospective image.
-  for(const event of plan.events)if(event.actorId!==userId||event.origin!=='owner'||event.occurredAt!==now)throw new CommandValidationError('Owner event authority is invalid.');
+  for(const event of plan.events)if(event.actorId!==userId||event.origin!==(agentArtifact?'connector':'owner')||event.occurredAt!==now)throw new CommandValidationError('Owner event authority is invalid.');
   const preparationReader=ownerReader(db,userId);
   for(const pre of plan.preconditions??[]){const row=await preparationReader.get(pre.table,pre.id);if(!row||row.row_revision!==pre.expectedRowRevision||pre.expectedHash!==undefined&&row.content_hash!==pre.expectedHash)throw new ModuleConflictError('An accepted source changed. Refresh and review again.');}
   for(const write of plan.writes){if(IMMUTABLE_MODULE_TABLES.has(write.table)&&write.operation!=='insert')throw new CommandValidationError('Immutable history cannot be updated or deleted.');const row=await preparationReader.get(write.table,write.id);if(write.operation==='insert'?Boolean(row):!row||row.row_revision!==write.expectedRowRevision)throw new ModuleConflictError('A related record changed. Refresh and review again.');}
@@ -246,7 +246,7 @@ export async function executeWorkspaceCommand(userId:string,input:{protocolVersi
     if(value.status==='decided'&&value.decidedAt===now&&value.recordedAt===now)statements.push(db.prepare(`INSERT INTO decision_owner_grants(user_id,decision_id,version,content_hash) SELECT ?,?,?,? WHERE ${claim}`).bind(userId,value.id,value.version,await hashJson(value),...guard));
   }
   for(const [ordinal,event] of plan.events.entries()){
-    if(event.actorId!==userId || event.origin!=='owner' || event.occurredAt!==now)throw new CommandValidationError('Owner event authority is invalid.');
+    if(event.actorId!==userId || event.origin!==(agentArtifact?'connector':'owner') || event.occurredAt!==now)throw new CommandValidationError('Owner event authority is invalid.');
     statements.push(db.prepare(`INSERT INTO audit_events (user_id,event_id,workspace_revision,ordinal,stream_id,stream_sequence,kind,entity_type,entity_id,occurred_at,payload_json,origin,actor_id,source_ref,undo_of) SELECT ?,?,?,?,NULL,NULL,?,?,?,?,?,?,?,?,? WHERE ${claim}`).bind(userId,event.id,revision+1,ordinal,event.kind,event.entityType,event.entityId,now,canonicalJson(event),event.origin,event.actorId,event.sourceRef,event.undoOf,...guard));
     for(const projectId of auditProjectIds(event,before.workspace,plan.planningAfter))statements.push(db.prepare(`INSERT INTO audit_project_links(user_id,event_id,project_id) SELECT ?,?,? WHERE ${claim}`).bind(userId,event.id,projectId,...guard));
   }
