@@ -1,3 +1,5 @@
+import {PRIVATE_JOURNAL_RESERVATION as AGENT_JOURNAL_RESERVATION,requirePrivateCapacity} from '../private-capacity.ts';
+export {privateCapacityGuard as agentPrivateCapacityGuard} from '../private-capacity.ts';
 import {z} from 'zod';
 import type {SqlDatabase,SqlStatement} from '../workspace-store.ts';
 import {readCurrent} from '../workspace-store.ts';
@@ -55,14 +57,28 @@ async function one(db:SqlDatabase,table:string,owner:string,field:string,id:stri
 interface Snapshot {sql:string;bindings:Bind[]}
 /** Complete row sets, including payload bytes, guard absent-row insertion races.
  * Table/column identifiers originate only in this closed server implementation. */
+
+async function chunkedAgentSnapshot(db:SqlDatabase,owner:string,table:string):Promise<Snapshot[]>{
+ const primary=(await db.prepare('PRAGMA table_info('+table+')').all<{name:string;pk:number}>()).results.filter(column=>column.pk>0&&column.name!=='user_id').sort((a,b)=>a.pk-b.pk).map(column=>column.name);if(!primary.length||primary.some(key=>!/^[a-z_][a-z0-9_]*$/u.test(key)))fail('invalid_server_schema');
+ const rows:Row[]=[];let after:Row|null=null,bytes=0;
+ for(;;){
+  const where=after?' AND ('+primary.join(',')+')>('+primary.map(()=>'?').join(',')+')':'',values=after?primary.map(key=>after![key]):[];
+  const page=(await db.prepare('SELECT * FROM '+table+' WHERE user_id=?'+where+' ORDER BY '+primary.join(',')+' LIMIT 200').bind(owner,...values).all<Row>()).results;
+  for(const row of page){rows.push(row);bytes+=new TextEncoder().encode(canonical(row)).length;if(rows.length>100000||bytes>67108864)fail('agent_snapshot_capacity');after=row;}if(page.length<200)break;
+ }
+ const result:Snapshot[]=[{sql:'(SELECT COUNT(*) FROM '+table+' WHERE user_id=?)=?',bindings:[owner,rows.length]}];let group:Row[]=[],groupBytes=2;
+ function flush(){if(!group.length)return;const keys=Object.keys(group[0]).sort();if(keys.some(key=>!/^[a-z_][a-z0-9_]*$/u.test(key)))fail('invalid_server_schema');const left=keys.map(key=>'"'+key+'"').join(','),right=keys.map(key=>"json_extract(value,'$."+key+"')").join(','),first=group[0],last=group[group.length-1],range='user_id=? AND ('+primary.join(',')+')>=('+primary.map(()=>'?').join(',')+') AND ('+primary.join(',')+')<=('+primary.map(()=>'?').join(',')+')',rangeBindings=[owner,...primary.map(key=>first[key]),...primary.map(key=>last[key])];result.push({sql:'(SELECT COUNT(*) FROM '+table+' WHERE '+range+')=? AND NOT EXISTS(SELECT '+left+' FROM '+table+' WHERE '+range+' EXCEPT SELECT '+right+' FROM json_each(?))',bindings:[...rangeBindings,group.length,...rangeBindings,canonical(group)]});group=[];groupBytes=2;}
+ for(const row of rows){const size=new TextEncoder().encode(canonical(row)).length+1;if(size>1800000)fail('agent_snapshot_capacity');if(groupBytes+size>524288)flush();group.push(row);groupBytes+=size;}flush();if(result.length>256)fail('agent_snapshot_capacity');return result;
+}
 async function snapshot(db:SqlDatabase,owner:string,tables:readonly string[]):Promise<Snapshot[]>{
  let bytes=0;const proofs:Snapshot[]=[];
  for(const table of [...new Set(tables)]){
+  if((privateSnapshots as readonly string[]).includes(table)||table==='operational_stream_heads'){proofs.push(...await chunkedAgentSnapshot(db,owner,table));continue;}
   const rows=(await db.prepare('SELECT * FROM '+table+' WHERE user_id=? LIMIT 10001').bind(owner).all<Row>()).results;
   if(rows.length>10000)fail('agent_snapshot_capacity');
   const serialized=canonical(rows);bytes+=new TextEncoder().encode(serialized).length;if(bytes>8000000||new TextEncoder().encode(serialized).length>1800000)fail('agent_snapshot_capacity');
   if(!rows.length){proofs.push({sql:'NOT EXISTS(SELECT 1 FROM '+table+' WHERE user_id=?)',bindings:[owner]});continue;}
-  const keys=Object.keys(rows[0]).sort();if(keys.some(k=>!/^[a-z_]+$/u.test(k)))fail('invalid_server_schema');
+  const keys=Object.keys(rows[0]).sort();if(keys.some(k=>!/^[a-z_][a-z0-9_]*$/u.test(k)))fail('invalid_server_schema');
   const left=keys.map(k=>'"'+k+'"').join(','),right=keys.map(k=>"json_extract(value,'$."+k+"')").join(',');
   proofs.push({sql:'(SELECT COUNT(*) FROM '+table+' WHERE user_id=?)=? AND NOT EXISTS(SELECT '+left+' FROM '+table+' WHERE user_id=? EXCEPT SELECT '+right+' FROM json_each(?))',bindings:[owner,rows.length,owner,serialized]});
  }
@@ -138,7 +154,9 @@ export async function claimAgentJob(db:SqlDatabase,p:DevicePrincipal,raw:unknown
  const slot=await one(db,'agent_device_slots',p.ownerId,'device_id',p.deviceId);if(slot&&slot.released_at===null)fail('device_slot_unavailable');
  const id=crypto.randomUUID(),deadline=new Date(Date.parse(options.now)+c.record.spec.timeoutSeconds*1000).toISOString(),expires=new Date(Math.min(Date.parse(options.now)+AGENT_LIMITS.leaseMs,Date.parse(deadline))).toISOString(),identity=canonical({record:c.record,executionBinding:c.envelope.executionBinding,approvalEnvelope:c.envelope,taskInput:c.taskInput,frozenAdmission,budgetId:c.envelope.reservationId});
  const row:Row={user_id:p.ownerId,id,job_id:input.jobId,device_id:p.deviceId,approval_id:c.approval.id,execution_epoch:c.state.execution_epoch,journal_nonce_hash:nonce,lease_token_hash:hash,lease_expires_at:expires,deadline_at:deadline,created_at:options.now,launched_at:null,exited_at:null,cancel_acknowledged_at:null,last_applied_sequence:0,operational_revision:1,identity_json:identity,result_json:null,reconciled_at:null};
+ const identityRow:Row={...row};delete identityRow.user_id;if(new TextEncoder().encode(canonical(identityRow)).length+1>AGENT_JOURNAL_RESERVATION.newIdentityBytes)fail('frozen_identity_capacity');
  const response=await lease(row,c.record,c.envelope.executionBinding,secret,false,options.now);
+ c.proofs.push(await requirePrivateCapacity(db,p.ownerId,{newAttempts:1}));
  const ok=await atomic(db,p,c.auth,c.proofs,(gate,b)=>[
   db.prepare('INSERT INTO job_attempts(user_id,id,job_id,device_id,approval_id,execution_epoch,journal_nonce_hash,lease_token_hash,lease_expires_at,deadline_at,created_at,operational_revision,identity_json) SELECT ?,?,?,?,?,?,?,?,?,?,?,1,? WHERE '+gate).bind(p.ownerId,id,input.jobId,p.deviceId,c.approval.id,c.state.execution_epoch,nonce,hash,expires,deadline,options.now,identity,...b),
   db.prepare('UPDATE job_approvals SET consumed_at=? WHERE user_id=? AND id=? AND '+gate).bind(options.now,p.ownerId,c.approval.id,...b),
@@ -222,6 +240,7 @@ async function persistAgentEvents(db:SqlDatabase,p:DevicePrincipal,raw:unknown,o
  const applied=protocol(events,record,identity.executionBinding,a.attempt,state);
  if(!inserts.length){if(!await db.prepare('SELECT 1 WHERE '+a.auth.sql).bind(...a.auth.bindings).first())fail('device_authority_unavailable',401);return {receipts,lastAppliedSequence:integer(a.attempt,'last_applied_sequence')};}
  if(events.size>1024||[...events.values()].reduce((n,e)=>n+new TextEncoder().encode(text(e.row,'payload_json')).length,0)>2097152)fail('attempt_event_capacity');
+ if([...events.values()].reduce((sum,{row})=>{const physical:Row={...row,applied_at:options.now};delete physical.user_id;return sum+new TextEncoder().encode(canonical(physical)).length+1;},0)>AGENT_JOURNAL_RESERVATION.eventBytes)fail('attempt_event_capacity');
  if(!await atomic(db,p,attemptGuard(a.auth,p,a.attempt,options.now,!!reconciliation),proofs,(gate,b)=>[
   ...inserts.map(row=>db.prepare('INSERT INTO job_events(user_id,attempt_id,epoch,sequence,payload_hash,payload_json,receipt_json,received_at) SELECT ?,?,?,?,?,?,?,? WHERE '+gate).bind(p.ownerId,row.attempt_id,row.epoch,row.sequence,row.payload_hash,row.payload_json,row.receipt_json,row.received_at,...b)),
   db.prepare('UPDATE job_events SET applied_at=COALESCE(applied_at,?) WHERE user_id=? AND attempt_id=? AND sequence<=? AND '+gate).bind(options.now,p.ownerId,a.attempt.id,applied.sequence,...b),

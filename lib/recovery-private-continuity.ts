@@ -1,3 +1,4 @@
+import {PRIVATE_PROFILE_TABLES} from './private-profile.ts';
 import {z} from 'zod';
 import {canonical,contentHash} from './canonical-json.ts';
 import {readCurrent,type SqlDatabase} from './workspace-store.ts';
@@ -16,6 +17,18 @@ import {parseAuditEvent} from './audit-events.ts';
 export const PRIVATE_CONTINUITY_LIMITS=Object.freeze({bytes:64*1024*1024,rows:200000,tableRows:100000,page:8});
 const digest=z.string().regex(/^[a-f0-9]{64}$/),integer=z.number().int().nonnegative().safe(),positive=integer.min(1),stamp=z.string().datetime({offset:true}),nullableStamp=stamp.nullable(),id=z.string().min(1).max(500),json=z.string().max(1800000),flag=z.union([z.literal(0),z.literal(1)]);
 const schemas={
+ integration_jobs:z.object({intent_id:id,source_id:id.nullable(),job_subject_kind:id,subject_id:id.nullable(),schedule_id:id.nullable(),schedule_configuration_hash:digest.nullable(),occurrence_due_at:stamp.nullable(),configuration_hash:digest,operational_revision:integer,lease_token:id.nullable(),lease_expires_at:stamp.nullable(),lease_access_mode:id.nullable(),lease_principal_ref:id.nullable(),attempt_count:integer,retry_after:id.nullable()}).strict(),
+ integration_job_attempts:z.object({intent_id:id,attempt:integer,execution_epoch:integer,started_at:stamp,finished_at:stamp.nullable(),outcome:id.nullable(),failure:id.nullable()}).strict(),
+ automation_occurrence_claims:z.object({schedule_id:id,due_at:stamp,intent_id:id,configuration_hash:digest,execution_epoch:integer,admitted_at:stamp,missed_periods:integer,principal_ref:id}).strict(),
+ automation_runtime:z.object({schedule_id:id,configuration_hash:digest,operational_revision:integer,execution_epoch:integer,paused:flag,next_due_at:stamp,last_attempt_at:stamp.nullable(),last_success_at:stamp.nullable(),failure:id.nullable(),retry_at:stamp.nullable(),principal_ref:id.nullable(),last_runner_at:stamp.nullable()}).strict(),
+ source_sync_state:z.object({source_id:id,operational_revision:integer,configuration_hash:digest,execution_epoch:integer,paused:flag,cursor:z.string().max(1800000).nullable(),etag:z.string().max(1800000).nullable(),attempted_at:stamp.nullable(),last_success_at:stamp.nullable(),last_source_revision:id.nullable(),failure:id.nullable(),retry_at:stamp.nullable(),failure_count:integer}).strict(),
+ device_runtime:z.object({device_id:id,operational_revision:integer,execution_epoch:integer,current_generation:integer,current_boot_id:id.nullable(),last_live_received_at:stamp.nullable(),revoked_at:stamp.nullable(),last_request_at:stamp.nullable()}).strict(),
+ device_sessions:z.object({device_id:id,boot_id:id,generation:integer,execution_epoch:integer,bridge_version:id,created_at:stamp,retired_at:stamp.nullable(),compacted_through_sequence:integer,last_window_sequence:integer}).strict(),
+ device_live_windows:z.object({device_id:id,id:id,boot_id:id,generation:integer,sequence:integer,execution_epoch:integer,issued_at:stamp,expires_at:stamp,consumed_at:stamp.nullable()}).strict(),
+ device_heartbeats:z.object({device_id:id,boot_id:id,sequence:integer,generation:integer,payload_hash:digest,payload_json:json,received_at:stamp,classification:id,receipt_json:json}).strict(),
+ runtime_latest:z.object({device_id:id,source:id,instance_id:id,generation:integer,sequence:integer,boot_id:id,payload_json:json,payload_hash:digest,receipt_json:json,last_successful_sample_at:stamp.nullable(),configuration_hash:digest.nullable(),configuration_revision:positive.nullable()}).strict(),
+ runtime_observations:z.object({device_id:id,boot_id:id,sequence:integer,source:id,instance_id:id,generation:integer,observed_at:stamp.nullable(),reported_age_seconds:z.number().finite().nonnegative().nullable(),received_at:stamp,payload_json:json,payload_hash:digest}).strict(),
+ runtime_minute_aggregates:z.object({device_id:id,source:id,instance_id:id,bucket_at:stamp,payload_json:json}).strict(),
  acceptance_owner_grants:z.object({record_id:id,content_hash:digest}).strict(),
  decision_owner_grants:z.object({decision_id:id,version:positive,content_hash:digest}).strict(),
  review_ack_grants:z.object({ack_id:id,ack_hash:digest,snapshot_id:id,snapshot_hash:digest,created_at:stamp}).strict(),
@@ -48,8 +61,21 @@ const schemas={
  agent_artifacts:z.object({attempt_id:id,artifact_id:id,logical_type:id,sha256:digest,bytes:integer,created_at:stamp}).strict(),
 };
 type Table=keyof typeof schemas;
-export const PRIVATE_CONTINUITY_TABLES=Object.freeze(Object.keys(schemas) as Table[]);
+export const PRIVATE_CONTINUITY_TABLES=PRIVATE_PROFILE_TABLES;
+if(JSON.stringify([...PRIVATE_CONTINUITY_TABLES].sort())!==JSON.stringify(Object.keys(schemas).sort()))throw new Error('Closed private profile schema differs.');
 const keys:Record<Table,readonly string[]>={
+integration_jobs:["intent_id"],
+integration_job_attempts:["intent_id","attempt"],
+automation_occurrence_claims:["schedule_id","due_at"],
+automation_runtime:["schedule_id"],
+source_sync_state:["source_id"],
+device_runtime:["device_id"],
+device_sessions:["device_id","boot_id"],
+device_live_windows:["device_id","id"],
+device_heartbeats:["device_id","boot_id","sequence"],
+runtime_latest:["device_id","source","instance_id"],
+runtime_observations:["device_id","boot_id","sequence","source","instance_id"],
+runtime_minute_aggregates:["device_id","source","instance_id","bucket_at"],
  acceptance_owner_grants:['record_id','content_hash'],decision_owner_grants:['decision_id','version','content_hash'],
  review_ack_grants:['ack_id'],notification_read_state:['notification_id'],audit_import_identities:['source_identity'],
  audit_project_links:['event_id','project_id'],project_baseline_heads:['project_id'],workspace_drafts:['id'],backup_archive_retained_objects:['storage_key'],operational_stream_heads:['stream_id'],workspace_recovery:['revision'],workspace_backups:['id'],backup_archive_cleanup_claims:['storage_key'],attachment_blob_fences:['storage_key'],attachment_blob_objects:['storage_key'],attachment_upload_attempts:['token'],attachment_blob_namespaces:['namespace'],attachment_archive_cleanup_claims:['storage_key'],workspace_mutation_epochs:['epoch'],workspace_mutations:['mutation_id'],workspace_job_intents:['id'],agent_job_state:['job_id'],job_approvals:['id'],job_attempts:['id'],job_events:['attempt_id','epoch','sequence'],agent_device_slots:['device_id'],agent_budgets:['id'],agent_artifacts:['attempt_id','artifact_id'],backup_archives:['id'],backup_archive_objects:['archive_id','part_number']};
@@ -91,6 +117,10 @@ export async function validateRecoveryPrivateContinuity(raw:unknown,expected:Pri
  let count=value.baselineRemovalFences.length;
  for(const table of PRIVATE_CONTINUITY_TABLES){const rows=value.tables[table] as unknown as Row[];count+=rows.length;ordered(rows,keys[table]);}
  if(count>PRIVATE_CONTINUITY_LIMITS.rows)throw new Error('Private continuity row limit exceeded.');
+ for(const table of ['integration_job_attempts','automation_occurrence_claims','automation_runtime','source_sync_state','device_runtime','device_sessions','device_live_windows'] as const)for(const row of value.tables[table])if(row.execution_epoch>value.sourceContext.executionEpoch)throw new Error('Private history epoch exceeds frozen source context.');
+ for(const table of ['device_heartbeats','runtime_latest','runtime_observations'] as const)for(const row of value.tables[table])if(await contentHash(canonical(parseJson(row.payload_json)))!==row.payload_hash)throw new Error('Runtime historical payload digest differs.');
+ for(const row of value.tables.runtime_minute_aggregates)parseJson(row.payload_json);
+
  for(const row of [...value.tables.attachment_blob_fences,...value.tables.attachment_blob_objects])checkedObjectKey(row);
  for(const claim of value.tables.attachment_archive_cleanup_claims){const object=value.tables.attachment_blob_objects.find(row=>row.storage_key===claim.storage_key&&row.namespace===claim.namespace);if(!object)throw new Error('Archive cleanup physical identity is unavailable.');checkedObjectKey(object);}
  for(const upload of value.tables.attachment_upload_attempts)if(!value.tables.attachment_blob_objects.some(row=>row.storage_key===upload.storage_key&&row.attachment_id===upload.attachment_id))throw new Error('Retained upload physical identity is unavailable.');

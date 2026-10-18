@@ -393,6 +393,13 @@ try{
   assert.equal((await rawTarget.prepare("SELECT enabled FROM agent_budgets WHERE user_id=? AND id='synthetic-private-budget'").bind(OWNER).first()).enabled,0);
   assert.deepEqual((await rawTarget.prepare('SELECT identity_json FROM job_attempts WHERE user_id=?').bind(OWNER).all()).results,privateContinuity.tables.job_attempts.map(row=>({identity_json:row.identity_json})));
   assert.deepEqual((await rawTarget.prepare('SELECT receipt_json FROM job_events WHERE user_id=?').bind(OWNER).all()).results,privateContinuity.tables.job_events.map(row=>({receipt_json:row.receipt_json})));
+  for(const table of ['integration_job_attempts','automation_occurrence_claims'] ){
+   const expected=privateContinuity.tables[table];for(const row of expected){const columns=Object.keys(row);const all=(await rawTarget.prepare('SELECT '+columns.join(',')+' FROM '+table+' WHERE user_id=?').bind(OWNER).all()).results;assert.ok(all.some(actual=>canonical(actual)===canonical(row)),'Original native journal identity retained: '+table);}
+  }
+  for(const row of privateContinuity.tables.integration_jobs){
+   const actual=await rawTarget.prepare('SELECT * FROM integration_jobs WHERE user_id=? AND intent_id=?').bind(OWNER,row.intent_id).first();assert.ok(actual);
+   const expected={user_id:OWNER,...row,lease_token:null,lease_expires_at:null,lease_access_mode:null,lease_principal_ref:null};assert.deepEqual(actual,expected);
+  }
   for(const row of privateContinuity.tables.workspace_mutations){
    assert.deepEqual(await rawTarget.prepare('SELECT command_hash,revision,committed_at FROM workspace_mutations WHERE user_id=? AND mutation_id=?').bind(OWNER,row.mutation_id).first(),{command_hash:row.command_hash,revision:row.revision,committed_at:row.committed_at});
   }

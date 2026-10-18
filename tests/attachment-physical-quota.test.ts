@@ -89,3 +89,19 @@ test('post-purge fresh generation requires trusted identical history and settled
  else{await assert.rejects(reserveArchiveObjects(db,'a',value),ArchiveObjectReservationError);assert.deepEqual(state(sqlite),before);}
  }finally{sqlite.close();}}
 });
+
+test('late private namespace capacity race rolls back stage and physical reservations without erasing history',async()=>{
+ const {db,sqlite}=await fixture();try{
+  const value=input([]);let inserted=false;
+  const raced:SqlDatabase={...db,async batch(statements){
+   if(!inserted){inserted=true;sqlite.exec("WITH RECURSIVE n(i) AS(SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<100000) INSERT INTO attachment_blob_namespaces(user_id,namespace,created_at,purpose,source_import_id) SELECT 'a',printf('00000000-0000-4000-8000-%012d',i),'2026-10-18T12:00:00.000Z','archive-stage',NULL FROM n");}
+   return db.batch(statements);
+  }};
+  await assert.rejects(reserveArchiveObjects(raced,'a',value),ArchiveObjectReservationError);
+  assert.equal(sqlite.prepare("SELECT COUNT(*) count FROM attachment_blob_namespaces WHERE user_id='a'").get()!.count,100000);
+  assert.equal(sqlite.prepare('SELECT COUNT(*) count FROM attachment_archive_stages').get()!.count,0);
+  assert.equal(sqlite.prepare('SELECT COUNT(*) count FROM attachment_blob_objects').get()!.count,0);
+  assert.equal(sqlite.prepare('SELECT COUNT(*) count FROM workspace_assertions').get()!.count,0);
+  await reserveArchiveObjects(db,'b',input([]));
+ }finally{sqlite.close();}
+});

@@ -1,3 +1,4 @@
+import {privateCapacityGuard,privateRowGrowth} from './private-capacity.ts';
 import {z} from 'zod';
 import type {SqlDatabase,SqlStatement} from './workspace-store.ts';
 import {ATTACHMENT_POLICY} from './attachment-policy.ts';
@@ -33,8 +34,12 @@ export async function readPhysicalAttachmentUsage(db:SqlDatabase,userId:string):
 export async function reserveArchiveObjects(db:SqlDatabase,userId:string,input:ArchiveObjectReservation):Promise<{stageId:string;namespace:string;records:Array<{id:string;storageKey:string;bytes:number;sha256:string}>;usage:PhysicalAttachmentUsage}>{
  const owner=ownerSchema.parse(userId),value=reservationSchema.parse(input),records=value.records.map(row=>({...row,storageKey:attachmentStorageKey(value.namespace,row.id)}));const requestedBytes=records.reduce((total,row)=>total+row.bytes,0);if(requestedBytes>ATTACHMENT_POLICY.ownerBytes)throw new ArchiveObjectReservationError();
  const payload=JSON.stringify(records.map(row=>({storageKey:row.storageKey,id:row.id,bytes:row.bytes,sha256:row.sha256})));
+ const objectGrowth=records.map(row=>privateRowGrowth('attachment_blob_objects',null,{storage_key:row.storageKey,attachment_id:row.id,namespace:value.namespace,bytes:row.bytes,sha256:row.sha256,created_at:value.createdAt,verified_at:null,purged_at:null}));
+ const growth=[{table:'attachment_blob_objects' as const,bytes:objectGrowth.reduce((sum,row)=>sum+row.bytes,0),rows:objectGrowth.length},privateRowGrowth('attachment_blob_namespaces',null,{namespace:value.namespace,created_at:value.createdAt,purpose:'archive-stage',source_import_id:null})];
+ const capacity=await privateCapacityGuard(db,owner,{growth});
  const assertionId=`archive-reservation-${crypto.randomUUID()}`,statements:SqlStatement[]=[];
  const assert=(condition:string,params:(string|number|null)[])=>statements.push(db.prepare(`INSERT INTO workspace_assertions(user_id,mutation_id,valid) VALUES(?,?,CASE WHEN ${condition} THEN 1 ELSE 0 END)`).bind(owner,assertionId,...params));
+ assert(capacity.sql,capacity.bindings);
  assert('EXISTS(SELECT 1 FROM workspaces WHERE user_id=? AND revision=?)',[owner,value.targetRevision]);
  assert('NOT EXISTS(SELECT 1 FROM attachment_archive_stages WHERE user_id=? AND id=?)',[owner,value.stageId]);
  // A namespace addresses physical keys in the shared private bucket; never reuse it for another owner.

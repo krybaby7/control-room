@@ -15,3 +15,15 @@ test('malformed inputs, private scope and settlement ownership cannot release an
 test('private fence and attempt tables survive normalized module replacement boundaries',async()=>{const f=await fixture();const token=await beginUpload(f.db,'a',f.input);assert.ok(token);assert.equal(claim(f,'b'),1);for(const table of OWNER_TABLES)f.sqlite.exec(`DELETE FROM ${table} WHERE user_id='a'`);assert.equal(f.sqlite.prepare("SELECT COUNT(*) n FROM attachment_upload_attempts WHERE user_id='a'").get()!.n,1);assert.equal(await isBlobFenced(f.db,'b',{attachmentId:id,storageKey:f.record.storageKey}),true);assert.ok(!([...OWNER_TABLES] as string[]).some(t=>['attachment_blob_fences','attachment_upload_attempts','attachment_blob_namespaces'].includes(t)));f.sqlite.close();});
 
 test('only exact charged private object ledger permits an upload attempt',async()=>{for(const mode of ['missing','foreign-owner','id','namespace','bytes','purged']){const f=await fixture();if(mode==='missing')f.sqlite.prepare("DELETE FROM attachment_blob_objects WHERE user_id='a'").run();if(mode==='foreign-owner'){f.sqlite.prepare("DELETE FROM attachment_blob_objects WHERE user_id='b'").run();f.sqlite.prepare("UPDATE attachment_blob_objects SET user_id='b' WHERE user_id='a'").run();}if(mode==='id')f.sqlite.prepare("UPDATE attachment_blob_objects SET attachment_id='44444444-4444-4444-8444-444444444444' WHERE user_id='a'").run();if(mode==='namespace')f.sqlite.prepare("UPDATE attachment_blob_objects SET namespace='44444444-4444-4444-8444-444444444444' WHERE user_id='a'").run();if(mode==='bytes')f.sqlite.prepare("UPDATE attachment_blob_objects SET bytes=6 WHERE user_id='a'").run();if(mode==='purged')f.sqlite.prepare("UPDATE attachment_blob_objects SET purged_at=? WHERE user_id='a'").run(now);assert.equal(await beginUpload(f.db,'a',f.input),null,mode);assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM attachment_upload_attempts').get()!.n,0);f.sqlite.close();}});
+
+test('private per-table capacity atomically refuses a new PUT token and preserves every retained attempt',async()=>{
+ const f=await fixture();try{
+  // Synthetic completed history: capacity is not made by deleting retained tokens.
+  f.sqlite.exec("WITH RECURSIVE n(i) AS(SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<100000) INSERT INTO attachment_upload_attempts(user_id,token,attachment_id,storage_key,created_at,settled_at) SELECT 'a',printf('00000000-0000-4000-8000-%012d',i),'22222222-2222-4222-8222-222222222222','synthetic-retained-key','2026-10-18T12:00:00.000Z','2026-10-18T12:00:00.000Z' FROM n");
+  assert.equal(await beginUpload(f.db,'a',f.input),null);
+  assert.equal(f.sqlite.prepare("SELECT COUNT(*) count FROM attachment_upload_attempts WHERE user_id='a'").get()!.count,100000);
+  assert.equal(f.sqlite.prepare("SELECT COUNT(*) count FROM attachment_upload_attempts WHERE user_id='a' AND settled_at IS NULL").get()!.count,0);
+  const foreign=await beginUpload(f.db,'b',f.input);assert.ok(foreign,'another owner capacity is independent');
+  assert.equal(await finishUpload(f.db,'b',{token:foreign,now,definitivelySettled:true}),true);
+ }finally{f.sqlite.close();}
+});

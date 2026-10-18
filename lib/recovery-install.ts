@@ -75,6 +75,11 @@ export async function installRecoveryPrivateContinuity(
     const row={...original};
     if(table==='workspace_mutation_epochs'){row.status='retired';row.retired_at=row.retired_at??now;}
     if(table==='job_approvals')row.revoked_at=row.revoked_at??now;
+    if(table==='integration_jobs'){row.lease_token=null;row.lease_expires_at=null;row.lease_access_mode=null;row.lease_principal_ref=null;}
+    if(table==='automation_runtime'){row.paused=1;row.principal_ref=null;}
+    if(table==='source_sync_state')row.paused=1;
+    if(table==='device_runtime')row.revoked_at=row.revoked_at??now;
+    if(table==='device_sessions')row.retired_at=row.retired_at??now;
     if(table==='agent_budgets'){row.enabled=0;const payload=JSON.parse(String(row.payload_json));if(!payload||typeof payload!=='object'||Array.isArray(payload)||typeof payload.enabled!=='boolean')throw new Error('Budget configuration shape unavailable.');row.payload_json=canonical({...payload,enabled:false});}
     if(table==='workspace_job_intents'){
      if(row.status==='pending'||row.status==='awaiting_approval')row.status='cancelled';

@@ -1,3 +1,5 @@
+import {OWNER_TABLES} from './workspace-modules.ts';
+import {PRIVATE_PROFILE_TABLES} from './private-profile.ts';
 import {z} from 'zod';
 import {canonical,contentHash} from './canonical-json.ts';
 import type {SqlDatabase,SqlStatement} from './workspace-store.ts';
@@ -8,6 +10,12 @@ import {readOperationalWatermarks} from './operational-watermarks.ts';
 import {verifyRecoveryOwnerAttributionContinuity,captureRecoveryPrivateContinuity,validateRecoveryPrivateContinuity,type RecoveryPrivateContinuity} from './recovery-private-continuity.ts';
 const TABLES=["acceptance_owner_grants","acceptance_records","agent_artifacts","agent_budgets","agent_capabilities","agent_device_slots","agent_job_state","agent_jobs","agent_protocol_claims","agent_results","attachment_archive_cleanup_claims","attachment_archive_stages","attachment_blob_fences","attachment_blob_namespaces","attachment_blob_objects","attachment_upload_attempts","attachment_usage","attachments","audit_events","audit_import_identities","audit_project_links","automation_capabilities","automation_occurrence_claims","automation_occurrences","automation_runtime","automation_schedules","backup_archive_cleanup_claims","backup_archive_objects","backup_archive_retained_objects","backup_archives","decision_owner_grants","decision_records","decision_versions","decisions","device_credentials","device_enrollments","device_heartbeats","device_live_windows","device_rate_buckets","device_runtime","device_sessions","devices","evaluation_runs","evidence_links","evidence_mappings","evidence_records","evidence_requirements","evidence_versions","integration_history","integration_job_attempts","integration_jobs","integration_service_principals","job_approvals","job_attempts","job_events","notification_events","notification_read_state","operational_stream_heads","project_baseline_heads","project_baseline_revisions","recurrence_occurrences","recurrence_rules","review_ack_grants","review_acknowledgements","review_analysis_consents","review_analysis_requests","review_analysis_runs","review_settings","review_snapshots","runtime_adapter_configurations","runtime_evidence","runtime_latest","runtime_minute_aggregates","runtime_observations","source_access_grants","source_connections","source_observations","source_proposals","source_sync_runs","source_sync_state","source_targets","weekly_plans","weekly_reviews","workspace_assertions","workspace_backups","workspace_command_guards","workspace_configuration","workspace_drafts","workspace_execution_state","workspace_import_chunks","workspace_imports","workspace_job_intents","workspace_mutation_epochs","workspace_mutations","workspace_recovery","workspace_source_namespaces","workspaces"] as const;
 export const RECOVERY_APPLICATION_TABLES:readonly string[]=Object.freeze(TABLES);
+/** Revoked execution/provider/paid authority only; no dated owner data is dropped. */
+export const RECOVERY_AUTHORITY_EXCLUSIONS=Object.freeze(['agent_capabilities','automation_capabilities','device_credentials','device_enrollments','integration_service_principals','source_access_grants','review_analysis_consents'] as const);
+export const RECOVERY_REQUIRED_EMPTY=Object.freeze(['agent_protocol_claims','workspace_assertions','workspace_command_guards','workspace_imports','workspace_import_chunks','attachment_archive_stages','review_analysis_requests','workspace_configuration'] as const);
+const classified=new Set<string>([...OWNER_TABLES,...PRIVATE_PROFILE_TABLES,'workspaces','workspace_source_namespaces','workspace_execution_state','audit_events',...RECOVERY_AUTHORITY_EXCLUSIONS,...RECOVERY_REQUIRED_EMPTY,'device_rate_buckets']);
+if(classified.size!==TABLES.length||TABLES.some(table=>!classified.has(table)))throw new Error('Recovery table preservation policy is incomplete.');
+
 const CONTROL='operator_recovery_maintenance',PREFIX='operator_recovery_guard_',META=['_cf_METADATA','_cf_KV','d1_migrations','__drizzle_migrations'];
 const hash=z.string().regex(/^[a-f0-9]{64}$/),uuid=z.string().uuid(),stamp=z.string().datetime({offset:true}),integer=z.number().int().nonnegative().safe();
 const context=z.object({workspaceRevision:integer.min(1),executionEpoch:integer,operationalWatermarks:z.record(integer).refine(value=>Object.keys(value).length<=32)}).strict();
@@ -66,11 +74,11 @@ async function assertSingleOwnerRecoverySource(db:SqlDatabase,owner:string){
   if(await db.prepare('SELECT 1 FROM "'+table+'" WHERE user_id IS NULL OR user_id<>? LIMIT 1').bind(owner).first())throw new Error('Single-owner recovery source contains another owner; no database freeze or cutover is permitted.');
 }
 function singleOwnerFreezeGuard():string{
- const tables=RECOVERY_APPLICATION_TABLES.filter(table=>table!=='device_rate_buckets'),groups:string[]=[];
- // D1 limits compound SELECT terms more tightly than ordinary SQLite. Keep
- // each veto group below that bound while checking every closed owner table.
- for(let offset=0;offset<tables.length;offset+=16)groups.push('NOT EXISTS('+tables.slice(offset,offset+16).map(table=>'SELECT 1 FROM "'+table+'" foreign_row CROSS JOIN recovery_owner WHERE foreign_row.user_id IS NULL OR foreign_row.user_id<>recovery_owner.owner').join(' UNION ALL ')+')');
- return '('+groups.join(' AND ')+')';
+ const clauses=RECOVERY_APPLICATION_TABLES.filter(table=>table!=='device_rate_buckets').map(table=>'NOT EXISTS(SELECT 1 FROM "'+table+'" foreign_row CROSS JOIN recovery_owner WHERE foreign_row.user_id IS NULL OR foreign_row.user_id<>recovery_owner.owner)');
+ // D1 counts compound SELECT terms across nested subqueries. No UNION is
+ // needed: balance conjunctions to also remain below its expression depth.
+ const balanced=(values:string[]):string=>values.length===1?values[0]:'('+balanced(values.slice(0,Math.floor(values.length/2)))+' AND '+balanced(values.slice(Math.floor(values.length/2)))+')';
+ return balanced(clauses);
 }
 /** The caller must durably retain operationId/token before invocation; an exact retry
  * recovers the same DB freeze, while package JSON alone is never a receipt. */
@@ -114,7 +122,7 @@ export async function prepareInactiveRecoveryTarget(target:SqlDatabase,source:Sq
  await verifyFrozenRecoveryDatabase(source,sourceReceipt);const sourceRow=await authenticatedControl(source,sourceReceipt,['source-frozen']);
  if(sourceRow.private_hash!==hash.parse(options.expectedPrivateSha256))throw new Error('Actual frozen private root is required.');
  for(const table of RECOVERY_APPLICATION_TABLES.filter(table=>table!=='device_rate_buckets'))if(await source.prepare('SELECT 1 FROM "'+table+'" WHERE user_id IS NULL OR user_id<>? LIMIT 1').bind(sourceReceipt.ownerId).first())throw new Error('Multiple-owner replacement requires complete trusted owner manifests.');
- for(const table of ['workspace_imports','workspace_import_chunks','attachment_archive_stages','review_analysis_requests'])if(await source.prepare('SELECT 1 FROM '+table+' LIMIT 1').first())throw new Error('Persistent '+table+' requires a reviewed staging/blob handoff; no owner inputs were discarded.');
+ for(const table of RECOVERY_REQUIRED_EMPTY)if(await source.prepare('SELECT 1 FROM '+table+' LIMIT 1').first())throw new Error('Persistent '+table+' requires a reviewed typed staging/journal handoff; no owner inputs were discarded.');
  if(await source.prepare('SELECT 1 FROM workspace_configuration LIMIT 1').first())throw new Error('Reserved workspace configuration requires a typed recovery adapter.');
  await prepareRecoveryMaintenance(target,sourceReceipt.schemaFingerprint);
  if(await target.prepare('SELECT 1 FROM '+CONTROL).first())throw new Error('Target has previous maintenance state; use a new empty inactive target.');
@@ -175,6 +183,11 @@ export async function markRecoveryTargetReady(target:SqlDatabase,source:SqlDatab
  for(const table of forbidden)if((await target.prepare('SELECT COUNT(*) n FROM '+table).first<{n:number}>())!.n!==0)throw new Error('Target cannot regain credential, grant or dispatch authority.');
  if(await target.prepare('SELECT 1 FROM job_approvals WHERE revoked_at IS NULL LIMIT 1').first())throw new Error('Approval history must be irrevocably revoked.');
  if(await target.prepare("SELECT 1 FROM workspace_job_intents j WHERE status IN('pending','awaiting_approval') OR (status='running' AND (cancel_requested<>1 OR kind<>'agent.execute' OR NOT EXISTS(SELECT 1 FROM agent_job_state s WHERE s.user_id=j.user_id AND s.intent_id=j.id AND s.status='reconcile_required' AND s.attempt_id IS NOT NULL))) LIMIT 1").first())throw new Error('Target pending work must be cancelled; uncertainty must remain fenced.');
+ for(const table of RECOVERY_REQUIRED_EMPTY)if(await target.prepare('SELECT 1 FROM '+table+' LIMIT 1').first())throw new Error('Unsupported target persistent/transient state: '+table);
+ if(await target.prepare('SELECT 1 FROM integration_jobs WHERE lease_token IS NOT NULL OR lease_expires_at IS NOT NULL OR lease_access_mode IS NOT NULL OR lease_principal_ref IS NOT NULL LIMIT 1').first())throw new Error('Target integration lease authority must remain revoked.');
+ if(await target.prepare('SELECT 1 FROM automation_runtime WHERE principal_ref IS NOT NULL LIMIT 1').first())throw new Error('Target automation principal must remain unbound.');
+ if(await target.prepare('SELECT 1 FROM device_runtime WHERE revoked_at IS NULL LIMIT 1').first())throw new Error('Target device runtime must remain revoked.');
+ if(await target.prepare('SELECT 1 FROM device_sessions WHERE retired_at IS NULL LIMIT 1').first())throw new Error('Target device sessions must remain retired.');
  for(const [table,where]of [['agent_budgets','enabled<>0'],['automation_runtime','paused<>1'],['source_sync_state','paused<>1']] as const)if(await target.prepare('SELECT 1 FROM '+table+' WHERE '+where+' LIMIT 1').first())throw new Error('Target private execution must remain paused.');
  const physical=await target.prepare('SELECT COUNT(*) count,COALESCE(SUM(bytes),0) bytes FROM attachment_blob_objects WHERE user_id=? AND purged_at IS NULL').bind(value.ownerId).first<{count:number;bytes:number}>();if(!physical||!Number.isSafeInteger(physical.count)||physical.count>500||!Number.isSafeInteger(physical.bytes)||physical.bytes<0||physical.bytes>209715200)throw new Error('Target physical attachment quota exceeds verified headroom.');
  if(await target.prepare('SELECT 1 FROM attachment_upload_attempts WHERE settled_at IS NULL LIMIT 1').first()||await target.prepare('SELECT 1 FROM backup_archive_objects WHERE pending_token IS NOT NULL AND settled_at IS NULL LIMIT 1').first())throw new Error('Target upload settlement is incomplete.');

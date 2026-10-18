@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { SqlDatabase } from './workspace-store.ts';
+import {requirePrivateCapacity,privateRowGrowth} from './private-capacity.ts';
 
 export const DRAFT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 export const DRAFT_MAX_BYTES = 64 * 1024;
@@ -45,9 +46,13 @@ export async function saveDraft(db: SqlDatabase, userId: string, value: unknown,
   if (!Number.isFinite(Date.parse(now)) || Date.parse(input.createdAt) > Date.parse(now)) throw new Error('Invalid draft creation time.');
   const draft = validateDraft({...input, updatedAt:now, expiresAt:new Date(Date.parse(now)+DRAFT_TTL_MS).toISOString()});
   if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 0 || draft.expiresAt <= now) throw new Error('Invalid draft revision or expiry.');
+  const physical=await db.prepare('SELECT id,row_revision,payload_json,expires_at FROM workspace_drafts WHERE user_id=? AND id=?').bind(userId,draft.id).first<{id:string;row_revision:number;payload_json:string;expires_at:string}>();
+  if(physical ? physical.row_revision!==expectedRevision || physical.expires_at<=now : expectedRevision!==0)return {status:'conflict',draft:physical&&physical.expires_at>now?decode(physical):null};
+  const payload=JSON.stringify(draft),after={id:draft.id,row_revision:expectedRevision+1,payload_json:payload,expires_at:draft.expiresAt};
+  const capacity=await requirePrivateCapacity(db,userId,{growth:[privateRowGrowth('workspace_drafts',physical,after)]});
   const result = expectedRevision === 0
-    ? await db.prepare('INSERT INTO workspace_drafts(user_id,id,row_revision,payload_json,expires_at) SELECT ?,?,1,?,? WHERE (SELECT COUNT(*) FROM workspace_drafts WHERE user_id = ? AND expires_at > ?) < 100 ON CONFLICT(user_id,id) DO NOTHING').bind(userId,draft.id,JSON.stringify(draft),draft.expiresAt,userId,now).run()
-    : await db.prepare('UPDATE workspace_drafts SET row_revision=row_revision+1,payload_json=?,expires_at=? WHERE user_id=? AND id=? AND row_revision=? AND expires_at > ?').bind(JSON.stringify(draft),draft.expiresAt,userId,draft.id,expectedRevision,now).run();
+    ? await db.prepare('INSERT INTO workspace_drafts(user_id,id,row_revision,payload_json,expires_at) SELECT ?,?,1,?,? WHERE (SELECT COUNT(*) FROM workspace_drafts WHERE user_id = ? AND expires_at > ?) < 100 AND '+capacity.sql+' ON CONFLICT(user_id,id) DO NOTHING').bind(userId,draft.id,payload,draft.expiresAt,userId,now,...capacity.bindings).run()
+    : await db.prepare('UPDATE workspace_drafts SET row_revision=row_revision+1,payload_json=?,expires_at=? WHERE user_id=? AND id=? AND row_revision=? AND expires_at > ? AND '+capacity.sql).bind(payload,draft.expiresAt,userId,draft.id,expectedRevision,now,...capacity.bindings).run();
   const row = await db.prepare('SELECT payload_json,row_revision FROM workspace_drafts WHERE user_id=? AND id=? AND expires_at > ?').bind(userId,draft.id,now).first<Row>();
   if (result.meta.changes !== 1) return { status:'conflict', draft:row ? decode(row) : null };
   return { status:'saved', draft:{...draft,draftRevision:expectedRevision+1} };

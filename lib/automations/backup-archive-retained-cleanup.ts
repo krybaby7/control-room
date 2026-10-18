@@ -1,3 +1,4 @@
+import {requirePrivateCapacity,privateRowGrowth,type PrivateGrowth} from '../private-capacity.ts';
 import {z} from 'zod';
 import type {SqlDatabase} from '../workspace-store.ts';
 import {canonical,contentHash} from '../canonical-json.ts';
@@ -52,9 +53,10 @@ function proof(owner:string,value:Generation):{sql:string;bindings:(string|numbe
  return {sql:clauses.map(clause=>'('+clause+')').join(' AND '),bindings};
 }
 async function settle(db:SqlDatabase,owner:string,value:Generation,row:Retained,token:string,now:string){
+ const capacity=await requirePrivateCapacity(db,owner,{growth:[await privateBackupUpdates(db,owner,'backup_archive_retained_objects','storage_key=?',[row.storage_key],{purged_at:now}),await privateBackupUpdates(db,owner,'backup_archive_cleanup_claims','storage_key=?',[row.storage_key],{purged_at:now})]});
  const guard=proof(owner,value),mutation='retained-backup-cleanup-'+crypto.randomUUID(),claim=crypto.randomUUID(),gate='EXISTS(SELECT 1 FROM workspace_command_guards WHERE user_id=? AND mutation_id=? AND claim_token=? AND valid=1)',binds=[owner,mutation,claim];
  await db.batch([
- db.prepare('INSERT INTO workspace_command_guards(user_id,mutation_id,claim_token,valid) SELECT ?,?,?,1 WHERE '+guard.sql+' AND EXISTS(SELECT 1 FROM backup_archive_cleanup_claims WHERE user_id=? AND storage_key=? AND archive_id=? AND part_number=? AND token=?)').bind(...binds,...guard.bindings,owner,row.storage_key,row.source_archive_id,row.part_number,token),
+ db.prepare('INSERT INTO workspace_command_guards(user_id,mutation_id,claim_token,valid) SELECT ?,?,?,1 WHERE '+guard.sql+' AND EXISTS(SELECT 1 FROM backup_archive_cleanup_claims WHERE user_id=? AND storage_key=? AND archive_id=? AND part_number=? AND token=?) AND '+capacity.sql).bind(...binds,...guard.bindings,owner,row.storage_key,row.source_archive_id,row.part_number,token,...capacity.bindings),
  db.prepare('UPDATE backup_archive_retained_objects SET purged_at=? WHERE user_id=? AND storage_key=? AND purged_at IS NULL AND '+gate).bind(now,owner,row.storage_key,...binds),
  db.prepare('UPDATE backup_archive_cleanup_claims SET purged_at=COALESCE(purged_at,?) WHERE user_id=? AND storage_key=? AND token=? AND '+gate).bind(now,owner,row.storage_key,token,...binds),
  db.prepare('DELETE FROM workspace_command_guards WHERE user_id=? AND mutation_id=? AND claim_token=?').bind(...binds),
@@ -99,8 +101,8 @@ export async function cleanupRetainedFileBackup(db:SqlDatabase,owner:string,inpu
    const previous=await db.prepare('SELECT archive_id,part_number,token FROM backup_archive_cleanup_claims WHERE user_id=? AND storage_key=?').bind(owner,row.storage_key).first<{archive_id:string;part_number:number;token:string}>();
    if(previous&&(previous.archive_id!==command.id||previous.part_number!==row.part_number||!z.string().uuid().safeParse(previous.token).success))throw new Error('Cleanup claim identity differs.');
    if(previous&&present)return result('uncertain','cleanup_unconfirmed');
-   const token=previous?.token??crypto.randomUUID();
-   await db.prepare('INSERT OR IGNORE INTO backup_archive_cleanup_claims(user_id,storage_key,archive_id,part_number,token,claimed_at,purged_at) SELECT ?,?,?,?,?,?,NULL WHERE '+guard.sql).bind(owner,row.storage_key,command.id,row.part_number,token,now,...guard.bindings).run();
+   const token=previous?.token??crypto.randomUUID(),capacity=await requirePrivateCapacity(db,owner,{growth:previous?[]:[privateRowGrowth('backup_archive_cleanup_claims',null,{storage_key:row.storage_key,archive_id:command.id,part_number:row.part_number,token,claimed_at:now,purged_at:null})]});
+   await db.prepare('INSERT OR IGNORE INTO backup_archive_cleanup_claims(user_id,storage_key,archive_id,part_number,token,claimed_at,purged_at) SELECT ?,?,?,?,?,?,NULL WHERE '+guard.sql+' AND '+capacity.sql).bind(owner,row.storage_key,command.id,row.part_number,token,now,...guard.bindings,...capacity.bindings).run();
    // INSERT OR IGNORE may observe a concurrent winner. Only this invocation's
    // newly inserted token can authorize a first DELETE; never repeat another.
    const admitted=await db.prepare('SELECT 1 WHERE '+guard.sql+' AND EXISTS(SELECT 1 FROM backup_archive_cleanup_claims WHERE user_id=? AND storage_key=? AND token=?)').bind(...guard.bindings,owner,row.storage_key,token).first();
@@ -116,4 +118,11 @@ export async function cleanupRetainedFileBackup(db:SqlDatabase,owner:string,inpu
   }
   return result('completed');
  }catch{return result('uncertain','cleanup_unconfirmed');}finally{clearTimeout(timer);}
+}
+
+type PrivatePhysicalRow=Record<string,string|number|null>;
+async function privateBackupUpdates(db:SqlDatabase,owner:string,table:PrivateGrowth['table'],where:string,bindings:(string|number|null)[],changes:PrivatePhysicalRow):Promise<PrivateGrowth>{
+ const rows=(await db.prepare('SELECT * FROM '+table+' WHERE user_id=? AND '+where+' LIMIT 6').bind(owner,...bindings).all<PrivatePhysicalRow>()).results;
+ if(rows.length>5)throw new Error('Private backup growth selection exceeds its bound.');
+ return rows.reduce((total,row)=>{const growth=privateRowGrowth(table,null,{...row,...changes});return {table,bytes:total.bytes+growth.bytes,rows:0};},{table,bytes:0,rows:0});
 }

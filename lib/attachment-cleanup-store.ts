@@ -1,3 +1,4 @@
+import {privateCapacityGuard,privateRowGrowth} from './private-capacity.ts';
 import {z} from 'zod';
 import type {SqlDatabase} from './workspace-store.ts';
 import {OWNER_TABLES,ownerReader} from './workspace-modules.ts';
@@ -66,7 +67,9 @@ export function createAttachmentCleanupStore(db:SqlDatabase,userId:string,option
   completed:completedExact,
   async read(id){return (await load(id))?.snapshot??null;},
   async claim(input){const loaded=await load(input.attachmentId);if(!loaded||!eligible(loaded)||loaded.snapshot.claim||loaded.snapshot.rowRevision!==input.expectedRowRevision||loaded.snapshot.referenceRevision!==input.referenceRevision||loaded.snapshot.record.storageKey!==input.storageKey)return null;const guard=guards(loaded),token=crypto.randomUUID(),now=options.now();evidenceDateSchema.parse(now);
-   const result=await db.prepare(`${guard.cte} INSERT INTO attachment_blob_fences(user_id,storage_key,attachment_id,namespace,token,created_at,purged_at) SELECT ?,?,?,?,?,?,NULL WHERE ${guard.where} AND NOT EXISTS(SELECT 1 FROM attachment_blob_fences WHERE user_id=? AND storage_key=?)`).bind(...guard.params.slice(0,2),userId,input.storageKey,input.attachmentId,namespace,token,now,...guard.params.slice(2),userId,input.storageKey).run();if(result.meta.changes!==1)return null;return authorize({token,attachmentId:input.attachmentId,storageKey:input.storageKey});
+   const capacity=await privateCapacityGuard(db,userId,{growth:[privateRowGrowth('attachment_blob_fences',null,{storage_key:input.storageKey,attachment_id:input.attachmentId,namespace,token,created_at:now,purged_at:null})]});
+   const statement=db.prepare(`${guard.cte} INSERT INTO attachment_blob_fences(user_id,storage_key,attachment_id,namespace,token,created_at,purged_at) SELECT ?,?,?,?,?,?,NULL WHERE ${guard.where} AND NOT EXISTS(SELECT 1 FROM attachment_blob_fences WHERE user_id=? AND storage_key=?)`).bind(...guard.params.slice(0,2),userId,input.storageKey,input.attachmentId,namespace,token,now,...guard.params.slice(2),userId,input.storageKey);
+   const assertionId='attachment-fence-capacity-'+crypto.randomUUID();const result=await db.batch([db.prepare('INSERT INTO workspace_assertions(user_id,mutation_id,valid) SELECT ?,?,CASE WHEN '+capacity.sql+' THEN 1 ELSE 0 END').bind(userId,assertionId,...capacity.bindings),statement,db.prepare('DELETE FROM workspace_assertions WHERE user_id=? AND mutation_id=?').bind(userId,assertionId)]);if(result[1].meta.changes!==1)return null;return authorize({token,attachmentId:input.attachmentId,storageKey:input.storageKey});
   },
   authorize,
   async complete(claim){
@@ -78,7 +81,13 @@ export function createAttachmentCleanupStore(db:SqlDatabase,userId:string,option
    const ledgerParams=[userId,claim.storageKey,claim.attachmentId,namespace,loaded.snapshot.record.expectedBytes];
    const fence=db.prepare(`${guard.cte} UPDATE attachment_blob_fences SET purged_at=COALESCE(purged_at,?) WHERE user_id=? AND storage_key=? AND attachment_id=? AND namespace=? AND token=? AND ${guard.where} AND ${matchingLedger}`).bind(...guard.params.slice(0,2),now,userId,claim.storageKey,claim.attachmentId,namespace,claim.token,...guard.params.slice(2),...ledgerParams);
    const ledger=db.prepare(`${guard.cte} UPDATE attachment_blob_objects SET purged_at=COALESCE(purged_at,?) WHERE user_id=? AND storage_key=? AND attachment_id=? AND namespace=? AND bytes=? AND EXISTS(SELECT 1 FROM attachment_blob_fences WHERE user_id=? AND storage_key=? AND attachment_id=? AND namespace=? AND token=? AND purged_at IS NOT NULL) AND ${guard.where}`).bind(...guard.params.slice(0,2),now,...ledgerParams,userId,claim.storageKey,claim.attachmentId,namespace,claim.token,...guard.params.slice(2));
-   const result=await db.batch([fence,ledger]);return result[0]?.meta.changes===1;
+   const fenceBefore=await db.prepare('SELECT storage_key,attachment_id,namespace,token,created_at,purged_at FROM attachment_blob_fences WHERE user_id=? AND storage_key=?').bind(userId,claim.storageKey).first<Record<string,string|number|null>>();
+   const objectBefore=await db.prepare('SELECT storage_key,attachment_id,namespace,bytes,sha256,created_at,verified_at,purged_at FROM attachment_blob_objects WHERE user_id=? AND storage_key=?').bind(userId,claim.storageKey).first<Record<string,string|number|null>>();
+   if(!fenceBefore)return false;
+   const growth=[privateRowGrowth('attachment_blob_fences',fenceBefore,{...fenceBefore,purged_at:fenceBefore.purged_at??now})];
+   if(objectBefore)growth.push(privateRowGrowth('attachment_blob_objects',objectBefore,{...objectBefore,purged_at:objectBefore.purged_at??now}));
+   const capacity=await privateCapacityGuard(db,userId,{growth}),assertionId='attachment-purge-capacity-'+crypto.randomUUID();
+   const result=await db.batch([db.prepare('INSERT INTO workspace_assertions(user_id,mutation_id,valid) SELECT ?,?,CASE WHEN '+capacity.sql+' THEN 1 ELSE 0 END').bind(userId,assertionId,...capacity.bindings),fence,ledger,db.prepare('DELETE FROM workspace_assertions WHERE user_id=? AND mutation_id=?').bind(userId,assertionId)]);return result[1]?.meta.changes===1;
   },
  };
 }
