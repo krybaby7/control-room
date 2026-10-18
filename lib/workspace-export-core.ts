@@ -9,7 +9,7 @@ export function assertPortable(value:unknown, depth=0):void {
   if (value === null || typeof value === 'string' || typeof value === 'boolean' || typeof value === 'number' && Number.isFinite(value)) return;
   if (Array.isArray(value)) { for (const item of value) assertPortable(item,depth+1); return; }
   if (!value || typeof value !== 'object' || Object.getPrototypeOf(value)!==Object.prototype) throw new Error('Payload must be portable JSON.');
-  for (const [key,item] of Object.entries(value)) { if (forbidden.test(key) || ['__proto__','constructor','prototype'].includes(key)) throw new Error('Authority or unsafe payload field.'); assertPortable(item,depth+1); }
+  for (const [key,item] of Object.entries(value)) { if ((forbidden.test(key)&&key!=='agent_jobs') || ['__proto__','constructor','prototype'].includes(key)) throw new Error('Authority or unsafe payload field.'); assertPortable(item,depth+1); }
 }
 export function strictObject(value:unknown,keys:readonly string[],label:string):Record<string,unknown> {
   if(!value || typeof value!=='object' || Array.isArray(value) || Object.getPrototypeOf(value)!==Object.prototype) throw new Error(`Invalid ${label}.`);

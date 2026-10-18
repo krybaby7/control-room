@@ -147,3 +147,31 @@ test('late journal exit proof reconciles expired lease without a new attempt or 
  assert.equal(f.sqlite.prepare('SELECT status FROM workspace_job_intents').get()!.status,'completed');assert.notEqual(f.sqlite.prepare('SELECT released_at FROM agent_device_slots').get()!.released_at,null);
  assert.equal(f.sqlite.prepare('SELECT charged_seconds FROM agent_budgets').get()!.charged_seconds,120);
 }finally{f.sqlite.close();}});
+
+test('actual Miniflare D1 atomically claims, renews, commits 50 ordered events and portable terminal result',async()=>{
+ const {Miniflare}=await import('miniflare'),f=await fixture(),mf=new Miniflare({modules:true,script:'export default {fetch(){return new Response("synthetic agent store fixture");}}',compatibilityDate:'2026-05-15',d1Databases:['DB'],d1Persist:false,cf:false});
+ try{
+  const d1=await mf.getD1Database('DB');
+  for(const row of f.sqlite.prepare("SELECT sql FROM sqlite_master WHERE type IN ('table','index') AND sql IS NOT NULL AND name NOT LIKE 'sqlite_%' ORDER BY CASE WHEN type='table' THEN 0 ELSE 1 END,rowid").all())await d1.prepare(row.sql as string).run();
+  const inserts=[d1.prepare('PRAGMA defer_foreign_keys=ON')];
+  for(const row of f.sqlite.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY rowid").all()){
+   const table=row.name as string;
+   for(const data of f.sqlite.prepare('SELECT * FROM '+table).all()){
+    const keys=Object.keys(data);inserts.push(d1.prepare('INSERT INTO '+table+'('+keys.join(',')+') VALUES('+keys.map(()=>'?').join(',')+')').bind(...Object.values(data)));
+   }
+  }
+  await d1.batch(inserts);const db=d1 as unknown as SqlDatabase;
+  const lease=await claim(f,db),renewed=await renewAgentLease(db,f.principal,{attemptId:lease.attemptId,leaseToken:lease.leaseToken},{...f.options,now:later(15)});
+  assert.equal(renewed.deadlineAt,lease.deadlineAt);
+  const value=result(lease),proof=await proofEvents(lease,value),progress=Array.from({length:48},(_,i)=>({schemaVersion:1,attemptId:lease.attemptId,epoch:lease.executionEpoch,sequence:i+3,observedAt:later(16),diagnostic:'ok',kind:'progress',details:{stage:'executing',completedUnits:i,totalUnits:48}}));
+  const first=await reportAgentEvents(db,f.principal,{attemptId:lease.attemptId,leaseToken:lease.leaseToken,events:[proof[0],proof[1],...progress]},{...f.options,now:later(16)});
+  assert.equal(first.lastAppliedSequence,50);
+  await reportAgentEvents(db,f.principal,{attemptId:lease.attemptId,leaseToken:lease.leaseToken,events:[{...proof[2],sequence:51},{...proof[3],sequence:52}]},{...f.options,now:later(17)});
+  // Labelled synthetic trusted verifier exercises SQL admission only, not a live
+  // provider, actual process execution, physical artifacts or paid inference.
+  const done=await completeAgentAttempt(db,f.principal,{attemptId:lease.attemptId,leaseToken:lease.leaseToken,result:value},{...f.options,now:later(18),verifyResult:async()=>({adapterChecksPassed:true})});
+  assert.equal(done.result.disposition,'succeeded');
+  assert.equal((await db.prepare('SELECT COUNT(*) n FROM agent_results').first<{n:number}>())!.n,1);
+  assert.equal((await db.prepare('SELECT revision FROM workspaces WHERE user_id=?').bind(f.owner).first<{revision:number}>())!.revision,1);
+ }finally{await mf.dispose();f.sqlite.close();}
+});
