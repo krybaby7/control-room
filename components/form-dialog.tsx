@@ -9,13 +9,15 @@ export const OriginalSaveContext=createContext<{check?:()=>Promise<string>}>({})
 export function FormDialog({ title, subtitle, dirty, onClose, onSave, submitLabel = 'Save changes', children }: { title: string; subtitle?: string; dirty: boolean; onClose: () => void; onSave: () => Promise<void>; submitLabel?: string; children: ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null);
   const expired = useContext(SessionExpiredContext);
+  const sessionExpired = useRef(expired); sessionExpired.current = expired;
+  const opener = useRef<HTMLElement | null>(typeof document === 'undefined' ? null : document.activeElement instanceof HTMLElement ? document.activeElement : null);
   const originalSave=useContext(OriginalSaveContext);
   const [checking,setChecking]=useState(false);const [outcome,setOutcome]=useState('');
   const titleId = useId();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const close = () => { if (!saving && (!dirty || window.confirm('Discard your unsaved changes?'))) onClose(); };
-  useEffect(() => { const dialog = ref.current; if (!expired && dialog) { dialog.showModal(); dialog.querySelector<HTMLElement>('[data-editor-autofocus="true"]')?.focus(); } return () => dialog?.close(); }, [expired]);
+  useEffect(() => { const dialog = ref.current; if (!expired && dialog) { dialog.showModal(); dialog.querySelector<HTMLElement>('[data-editor-autofocus="true"]')?.focus(); } return () => { dialog?.close(); if (!sessionExpired.current && opener.current?.isConnected) opener.current.focus(); }; }, [expired]);
   useEffect(() => {
     if (!dirty) return;
     const handler = (event: BeforeUnloadEvent) => { event.preventDefault(); };
@@ -23,7 +25,16 @@ export function FormDialog({ title, subtitle, dirty, onClose, onSave, submitLabe
     return () => window.removeEventListener('beforeunload', handler);
   }, [dirty]);
   if (expired) return null;
-  return <dialog ref={ref} className="editor-dialog" aria-labelledby={titleId} onCancel={event => { event.preventDefault(); close(); }}>
+  return <dialog ref={ref} className="editor-dialog" aria-labelledby={titleId} onKeyDown={event => {
+    if (event.key !== 'Tab') return;
+    const dialog = ref.current; if (!dialog) return;
+    const controls = Array.from(dialog.querySelectorAll<HTMLElement>('button,input,select,textarea,a[href],[tabindex]')).filter(node => !node.matches(':disabled,[hidden],[tabindex="-1"]') && node.getClientRects().length > 0);
+    const first = controls[0], last = controls.at(-1);
+    if (!first || !last) { event.preventDefault(); dialog.focus(); return; }
+    const active = document.activeElement;
+    if (event.shiftKey && (active === first || !dialog.contains(active))) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && (active === last || !dialog.contains(active))) { event.preventDefault(); first.focus(); }
+  }} onCancel={event => { event.preventDefault(); close(); }}>
     <form onSubmit={async event => { event.preventDefault(); if (saving) return; setSaving(true); setError(''); try { await onSave(); onClose(); } catch (cause) { setError(cause instanceof Error ? cause.message : 'We could not save this. Your draft is still here.'); } finally { setSaving(false); } }}>
       <header className="dialog-header"><div><p className="eyebrow">YOUR WORKSPACE</p><h2 id={titleId}>{title}</h2>{subtitle && <p>{subtitle}</p>}</div><button type="button" className="icon-button" aria-label="Close editor" onClick={close} disabled={saving}><X size={21} /></button></header>
       <fieldset className="dialog-fields" disabled={saving}>{children}</fieldset>

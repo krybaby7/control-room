@@ -71,7 +71,7 @@ export async function runRecoveryMaintenanceFixture(source:SqlDatabase,target:Sq
  await assert.rejects(target.prepare('UPDATE workspaces SET revision=revision+1 WHERE user_id=?').bind(owner).run(),/operator_recovery_frozen/);
  await assert.rejects(writeInactiveRecoveryTarget(target,inactive,[target.prepare('UPDATE workspaces SET revision=revision+1 WHERE user_id=?').bind(owner)]),/authority/);
  assert.equal((await target.prepare('SELECT COUNT(*) n FROM device_credentials').first<{n:number}>())!.n,0);
- assert.deepEqual(await target.prepare('SELECT storage_key,purged_at FROM attachment_blob_fences').first(),{storage_key:oldKey,purged_at:null});
+ const restoredFence=await target.prepare('SELECT storage_key,purged_at FROM attachment_blob_fences').first<{storage_key:string;purged_at:string|null}>();assert.ok(restoredFence);assert.deepEqual({...restoredFence},{storage_key:oldKey,purged_at:null});
  assert.equal((await target.prepare('SELECT status FROM workspace_mutation_epochs').first<{status:string}>())!.status,'retired');
  await assert.rejects(releaseRecoverySource(source,frozen,{operationId:frozen.operationId,reason:'no'}),/Explicit reviewed/);
  await releaseRecoverySource(source,frozen,{operationId:frozen.operationId,reason:'Synthetic fixture rollback after verifying the inactive target.'});
