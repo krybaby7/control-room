@@ -6,7 +6,7 @@ import {automationScheduleSchema} from './validation.ts';
 import {evidenceDateSchema,evidenceIdSchema} from '../evidence-validation.ts';
 import {canonical,contentHash} from '../canonical-json.ts';
 /** Server registry only. Portable schedules and request bodies cannot provide this proof. */
-export interface SourceAutomationResumeOptions {sourceAdapterAvailable?:(ownerId:string,connection:SourceConnection,target:SourceTarget)=>Promise<boolean>}
+export interface SourceAutomationResumeOptions {fileBackupAvailable?:(ownerId:string,schedule:AutomationSchedule)=>Promise<boolean>;sourceAdapterAvailable?:(ownerId:string,connection:SourceConnection,target:SourceTarget)=>Promise<boolean>}
 /** Read-only preparation hint, never a lease, principal authentication or execution
  * authority. The central command and runner must independently recheck their proofs. */
 export async function canResumeAutomation(db:SqlDatabase,owner:string,input:AutomationSchedule,now:string,options:SourceAutomationResumeOptions={}):Promise<boolean>{
@@ -24,6 +24,7 @@ export async function canResumeAutomation(db:SqlDatabase,owner:string,input:Auto
   // The registry may await host checks; recheck all private/configuration proofs after it.
   return !!await db.prepare(`SELECT 1 WHERE ${authority.sql}`).bind(...authority.bindings).first();
  }
+ if(schedule.kind==='backup'&&schedule.backupMode==='files'&&(!options.fileBackupAvailable||!await options.fileBackupAvailable(owner,structuredClone(schedule))))return false;
  const proof=await db.prepare("SELECT c.principal_ref,c.verified_at,c.expires_at,p.token_hash,p.scope_json,p.renewable_verified_at,p.expires_at principal_expires_at,p.revoked_at FROM automation_capabilities c JOIN automation_schedules s ON s.user_id=c.user_id AND s.id=c.resource_id AND s.kind=c.kind JOIN integration_service_principals p ON p.user_id=c.user_id AND p.id=c.principal_ref WHERE c.user_id=? AND c.kind=? AND c.resource_id=? AND c.proof_kind='live-unattended' AND s.row_revision=? AND s.content_hash=? AND s.payload_json=? AND s.enabled=1 AND s.archived_at IS NULL AND p.revoked_at IS NULL AND EXISTS(SELECT 1 FROM workspaces WHERE user_id=? AND revision=?) LIMIT 2").bind(owner,schedule.kind,schedule.id,row.row_revision,configurationHash,row.payload_json,owner,workspace.revision).all<{principal_ref:string;verified_at:string;expires_at:string;token_hash:string;scope_json:string;renewable_verified_at:string;principal_expires_at:string;revoked_at:string|null}>();if(proof.results.length!==1)return false;const value=proof.results[0];
  if(!evidenceIdSchema.safeParse(value.principal_ref).success||/[\u0000-\u001f\u007f]/u.test(value.principal_ref)||typeof value.token_hash!=='string'||!/^[a-f0-9]{64}$/.test(value.token_hash)||typeof value.scope_json!=='string'||value.scope_json.length>128||value.revoked_at!==null)return false;
  for(const stamp of [value.verified_at,value.expires_at,value.renewable_verified_at,value.principal_expires_at])if(!evidenceDateSchema.safeParse(stamp).success)return false;const clock=Date.parse(now);if(Date.parse(value.verified_at)>clock||Date.parse(value.expires_at)<=clock||Date.parse(value.renewable_verified_at)>clock||Date.parse(value.principal_expires_at)<=clock)return false;

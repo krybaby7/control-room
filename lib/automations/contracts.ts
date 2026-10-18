@@ -1,7 +1,7 @@
 export type AutomationKind='source_refresh'|'daily_review'|'weekly_review'|'backup';
 export type AutomationRecurrence={frequency:'daily';localTime:string}|{frequency:'weekly';localTime:string;weekday:number}|{frequency:'interval';minutes:number;anchorAt:string};
 /** Owner configuration only. Imported enabled flags never establish runtime authority. */
-export interface AutomationSchedule {id:string;kind:AutomationKind;timezone:'Africa/Cairo';enabled:boolean;configurationVersion:number;recurrence:AutomationRecurrence;sourceId:string|null;projectIds:string[];catchUp:'latest_only';createdAt:string;updatedAt:string;archivedAt:string|null}
+export interface AutomationSchedule {id:string;kind:AutomationKind;timezone:'Africa/Cairo';enabled:boolean;configurationVersion:number;recurrence:AutomationRecurrence;sourceId:string|null;projectIds:string[];catchUp:'latest_only';backupMode?:'metadata'|'files';fileBackupConsent?:boolean;createdAt:string;updatedAt:string;archivedAt:string|null}
 export type AutomationFailure='unsupported'|'principal_unavailable'|'configuration_changed'|'storage_unavailable'|'storage_capacity'|'timeout'|'cancelled'|'execution_failed';
 export interface AutomationRuntime {scheduleId:string;configurationHash:string;operationalRevision:number;executionEpoch:number;paused:boolean;nextDueAt:string;lastAttemptAt:string|null;lastSuccessAt:string|null;failure:AutomationFailure|null;retryAt:string|null}
 /** Terminal portable history, never a queue or executable intent. */

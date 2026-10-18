@@ -1,0 +1,20 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {validateCandidateBuildPath,validateBridgePackageInventory,type CandidatePackageFile} from '../lib/release-package-policy.ts';
+const source='a'.repeat(40),hash='b'.repeat(64);
+const required=['package.json','src/cli.mjs','src/credentials.mjs','src/transport.mjs','windows/protect-credential.ps1','windows/run-bridge.ps1','windows/install-task.ps1','windows/uninstall-task.ps1','config.example.json','executor/cli.mjs','executor/runtime.mjs','executor/journal.mjs','executor/config.example.json'];
+function fixture(){return {format:'control-room-bridge-package',version:1,sourceCommit:source,filename:'control-room-windows-bridge-0.2.0.tgz',bytes:123,sha256:hash,files:required.map(path=>({path,bytes:10,sha256:hash})),acceptance:{automated:'See source-specific CI checks.',windows:'not-run',privateIngress:'unavailable',execution:'disabled'}};}
+function actual():CandidatePackageFile[]{return [{path:'manifest.json',bytes:1000,sha256:'c'.repeat(64)},{path:'control-room-windows-bridge-0.2.0.tgz',bytes:123,sha256:hash}];}
+test('production client/server artifacts retain maps/fonts/wrangler configuration without admitting private roots',()=>{
+ for(const path of ['dist/client/assets/app-Ab1.js','dist/client/assets/app.css.map','dist/client/fonts/example.woff2','dist/client/icon.svg','dist/client/_headers','dist/server/index.js','dist/server/wrangler.json'])assert.equal(validateCandidateBuildPath(path),path);
+ for(const path of ['dist/.openai/hosting.json','dist/server/.dev.vars','dist/server/.env.production','dist/server/.wrangler/state.json','dist/client/credentials.json','dist/server/private-key.pem','dist/server/live.db','dist/server/job-journal.ndjson','dist/server/node_modules/x.js','dist/server/../client/a.js','/dist/client/a.js','dist/client/a\\b.js','dist/client/.assetsignore','dist/other/index.js','dist/server/a.js/../secret.json'])assert.throws(()=>validateCandidateBuildPath(path),/inventory/);
+});
+test('bridge inventory binds exact source, package bytes/hash and disabled acceptance without leaking private output siblings',()=>{
+ assert.doesNotThrow(()=>validateBridgePackageInventory(fixture(),actual(),source));
+ for(const changed of [{...fixture(),sourceCommit:'d'.repeat(40)},{...fixture(),bytes:124},{...fixture(),sha256:'e'.repeat(64)},{...fixture(),filename:'../private.tgz'},{...fixture(),acceptance:{...fixture().acceptance,execution:'enabled'}},{...fixture(),files:[...fixture().files,{path:'credentials.json',bytes:10,sha256:hash}]},{...fixture(),files:[...fixture().files,fixture().files[0]]}])assert.throws(()=>validateBridgePackageInventory(changed,actual(),source));
+ for(const files of [[...actual(),{path:'private.json',bytes:1,sha256:hash}],actual().slice(1),[actual()[0],{...actual()[1],sha256:'f'.repeat(64)}],[actual()[0],{...actual()[1],path:'control-room-windows-bridge-0.1.0.tgz'}]])assert.throws(()=>validateBridgePackageInventory(fixture(),files,source));
+});
+test('strict inventory parsing rejects unknown fields, prototype values and unsafe sizes rather than guessing',()=>{
+ for(const changed of [{...fixture(),token:'private'},Object.assign(Object.create({}),fixture()),{...fixture(),bytes:-1},{...fixture(),bytes:Number.MAX_SAFE_INTEGER},{...fixture(),sha256:'not-a-digest'}])assert.throws(()=>validateBridgePackageInventory(changed,actual(),source));
+ assert.throws(()=>validateBridgePackageInventory(fixture(),actual(),'short'));
+});

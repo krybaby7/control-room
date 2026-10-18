@@ -52,3 +52,9 @@
 .nav-item.active{color:#5047a8}.text-button,.text-button.muted{color:#514a99}
 .field input::placeholder,.field textarea::placeholder{color:#59677d;opacity:1}
 .review-panel h3{color:#625174}.review-panel .text-button,.review-link{color:#594478}
+
+/* The weekly variant has a more specific heading rule than other empty states. */
+.weekly-panel .empty-state h3{color:#59677d}
+/* Page actions wrap with the heading rather than imposing their combined
+   intrinsic width on narrow workspace and touch viewports. */
+.page-heading{flex-wrap:wrap}.page-heading>div{min-width:0;max-width:100%}.page-heading>.dialog-actions{flex-wrap:wrap}.page-heading>.dialog-actions .button{white-space:normal}

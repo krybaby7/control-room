@@ -4,15 +4,25 @@ import { readStagedImport,discardStagedImport } from '../../../../../lib/import-
 import { readCurrent } from '../../../../../lib/workspace-store';
 import { exportWorkspaceBundle } from '../../../../../lib/workspace-export';
 import { previewPlanningMerge,type PlanningMergeSelection } from '../../../../../lib/workspace-merge';
+import { ownerReader } from '../../../../../lib/workspace-modules';
+import { ownerAttachmentServices } from '../../../../../lib/attachment-services';
+import { prepareNormalizedMerge } from '../../../../../lib/normalized-merge';
 import { readOwnerJson } from '../../../../../lib/owner-request';
 import { RequestError } from '../../../../../lib/api-guards';
 export const dynamic='force-dynamic';
 const headers={'Cache-Control':'no-store, private','X-Content-Type-Options':'nosniff'};
 type Context={params:Promise<{id:string}>};
 async function preview(userId:string,id:string,selection?:PlanningMergeSelection){
- const staged=await readStagedImport(env.DB!,userId,id);const current=await readCurrent(env.DB!,userId);const bundle=await exportWorkspaceBundle(env.DB!,userId);
+ const now=new Date().toISOString(),staged=await readStagedImport(env.DB!,userId,id,now);const current=await readCurrent(env.DB!,userId);const bundle=await exportWorkspaceBundle(env.DB!,userId);
  if(current.revision!==bundle.source.workspaceRevision)throw new Error('Concurrent edit.');
- return {repairReports:(staged.provenance?.reports??[]).map(report=>JSON.parse(report)),...(staged.provenance?{lineage:{parentId:staged.provenance.parentId,parentHash:staged.provenance.parentHash,steps:staged.provenance.reports.length}}:{}),preview:staged.preview(current,bundle.modules),planningBefore:current.workspace,planningIncoming:staged.stage.bundle?.planning??null,...(selection&&staged.stage.bundle?{mergePreview:previewPlanningMerge(current.workspace,staged.stage.bundle.planning,selection)}:{})};
+ const planningMerge=selection&&staged.stage.bundle?previewPlanningMerge(current.workspace,staged.stage.bundle.planning,selection):null;
+ const services=planningMerge?await ownerAttachmentServices(env.DB!,userId,now,env.BUCKET):{};
+ const normalized=planningMerge&&staged.stage.bundle?await prepareNormalizedMerge({query:ownerReader(env.DB!,userId),userId,workspaceRevision:current.revision,planningAfter:planningMerge.workspace,bundle:staged.stage.bundle,importHash:staged.stage.hash,importedAt:new Date(staged.stage.createdAt).toISOString(),verifyAttachment:services.verifyAttachment}):null;
+ const normalizedRecords=normalized?await Promise.all(normalized.writes.map(async write=>({table:write.table,id:write.id,operation:write.operation,before:write.operation==='insert'?null:JSON.parse((await ownerReader(env.DB!,userId).get(write.table,write.id))!.payload_json),after:write.value}))):[];
+ if((await readCurrent(env.DB!,userId)).revision!==current.revision)throw new Error('Concurrent edit.');
+ const result={repairReports:(staged.provenance?.reports??[]).map(report=>JSON.parse(report)),...(staged.provenance?{lineage:{parentId:staged.provenance.parentId,parentHash:staged.provenance.parentHash,steps:staged.provenance.reports.length}}:{}),preview:staged.preview(current,bundle.modules),planningBefore:current.workspace,planningIncoming:staged.stage.bundle?.planning??null,...(planningMerge?{mergePreview:planningMerge}:{}),...(normalized?{normalizedMergeReview:normalized.review,normalizedRecords}:{})};
+ if(new TextEncoder().encode(JSON.stringify(result)).byteLength>8_000_000)throw new Error('Import preview exceeds its bounded response.');
+ return result;
 }
 export async function GET(request:Request,context:Context){
  const user=await getChatGPTUser();if(!user)return Response.json({error:'Sign in again.'},{status:401,headers});

@@ -55,6 +55,17 @@ const handler:CommandHandler={async prepare(ctx){
  if(!ctx.backups)throw new Error('Retained backup references are unavailable.');
  for(const backup of await ctx.backups.list())if(backup.status==='ready'&&backupReferences(await ctx.backups.get(backup.id),command.id))refs.push(`backup:${backup.id}`);
  if(refs.length)throw new Error('Attachment is still referenced by immutable evidence, acceptance or a retained backup.');
+ // A reviewed imported quarantine may have no physical object owned by this workspace.
+ // The compiler repeats this absence proof atomically; a callback alone grants nothing.
+ if(selected.record.status==='quarantined'&&command.reason==='owner-delete'){
+  const hasPhysicalIdentity=ctx.attachmentAccess!.hasPhysicalIdentity;
+  if(!hasPhysicalIdentity)throw new Error('Physical attachment identity proof is unavailable.');
+  if(!await hasPhysicalIdentity(selected.record)){
+   const output=plan(ctx,data.snapshot,selected.record,{...selected.record,status:'deleted'},data.usage,{bytes:data.usage.bytes-selected.record.expectedBytes,files:data.usage.files-1},selected.row,data.ledger);
+   output.attachmentMetadataDiscard={id:selected.record.id,storageKey:selected.record.storageKey};
+   return output;
+  }
+ }
  // Retirement itself performs no object I/O. The later cleanup job must recheck namespace and references.
  const ownerNamespace=ctx.attachmentAccess!.resolveNamespace?await ctx.attachmentAccess!.resolveNamespace(selected.record):ctx.attachmentAccess!.ownerNamespace;if(!ownerNamespace)throw new Error('Attachment is unavailable for this owner namespace.');
  const retired=prepareAttachmentRetirement(ctx.userId,selected.record,refs,{ownerNamespace,now:ctx.now},command.reason);

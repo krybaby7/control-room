@@ -1,3 +1,4 @@
+import type {DeviceSqlGuard} from './devices/auth.ts';
 import {isAdmittedAttachmentGeneration} from './attachment-generation.ts';
 import {z} from 'zod';
 import type {SqlDatabase} from './workspace-store.ts';
@@ -15,7 +16,7 @@ export interface BeginAttachmentUpload {record:AttachmentRecord;rowRevision:numb
  * retain it when a put may still be running. Pending attempts never expire by clock.
  * A cleanup claim must atomically assert absence of pending attempts by key OR ID.
  */
-export async function beginUpload(db:SqlDatabase,userId:string,input:BeginAttachmentUpload):Promise<string|null>{
+export async function beginUpload(db:SqlDatabase,userId:string,input:BeginAttachmentUpload,trustedGuard?:DeviceSqlGuard):Promise<string|null>{
  owner(userId);const record=attachmentRecordSchema.parse(input.record);uuid.parse(record.id);uuid.parse(input.ownerNamespace);evidenceDateSchema.parse(input.now);
  if(!Number.isSafeInteger(input.rowRevision)||input.rowRevision<1)throw new Error('A positive attachment row revision is required.');
  const key=attachmentStorageKey(input.ownerNamespace,record.id);
@@ -28,8 +29,8 @@ export async function beginUpload(db:SqlDatabase,userId:string,input:BeginAttach
  AND n.blob_namespace=? AND json_valid(a.payload_json)
  AND json_extract(a.payload_json,'$.id')=? AND json_extract(a.payload_json,'$.status')='reserved'
  AND json_extract(a.payload_json,'$.storageKey')=? AND julianday(json_extract(a.payload_json,'$.expiresAt'))>julianday(?)
- ) AND EXISTS (SELECT 1 FROM attachment_blob_objects o WHERE o.user_id=? AND o.storage_key=? AND o.attachment_id=? AND o.namespace=? AND o.bytes=? AND o.purged_at IS NULL) AND NOT EXISTS (SELECT 1 FROM attachment_blob_fences f WHERE f.user_id=? AND (f.storage_key=? OR f.attachment_id=?))`)
- .bind(userId,token,record.id,key,input.now,userId,record.id,input.rowRevision,hash,input.ownerNamespace,record.id,key,input.now,userId,key,record.id,input.ownerNamespace,record.expectedBytes,userId,key,record.id).run();
+ ) AND EXISTS (SELECT 1 FROM attachment_blob_objects o WHERE o.user_id=? AND o.storage_key=? AND o.attachment_id=? AND o.namespace=? AND o.bytes=? AND o.purged_at IS NULL) AND NOT EXISTS (SELECT 1 FROM attachment_blob_fences f WHERE f.user_id=? AND (f.storage_key=? OR f.attachment_id=?)) AND (${trustedGuard?.sql??'1'})`)
+ .bind(userId,token,record.id,key,input.now,userId,record.id,input.rowRevision,hash,input.ownerNamespace,record.id,key,input.now,userId,key,record.id,input.ownerNamespace,record.expectedBytes,userId,key,record.id,...(trustedGuard?.bindings??[])).run();
  return result.meta.changes===1?token:null;
 }
 export interface FinishAttachmentUpload {token:string;now:string;definitivelySettled:boolean}

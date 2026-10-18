@@ -1,3 +1,4 @@
+import {readBackupQuotaUsage} from './backup-archive-quota.ts';
 import {deriveAttachmentManifest} from './attachment-manifest.ts';
 import type { WorkspaceEnvelope } from './types.ts';
 import type { SqlDatabase } from './workspace-store.ts';
@@ -26,7 +27,7 @@ async function verify(row:BackupRow,userId:string):Promise<{manifest:BackupManif
 /** Read-only preparation. The caller must insert under the command claim and reassert quota/source revision atomically. */
 export async function prepareWorkspaceBackup(db:SqlDatabase,userId:string,before:WorkspaceEnvelope,reason:BackupReason,now:string):Promise<{manifest:BackupManifest;content:string}> {
  owner(userId);if(!['manual','restore','delete','repair','scheduled','migration'].includes(reason)||!Number.isFinite(Date.parse(now)))throw new Error('Invalid backup reason or timestamp.');
- const usage=await db.prepare('SELECT COUNT(*) AS count, COALESCE(SUM(bytes), 0) AS bytes FROM workspace_backups WHERE user_id = ?').bind(userId).first<{count:number;bytes:number}>();
+ const usage=await readBackupQuotaUsage(db,userId);
  if(!usage || usage.count>=BACKUP_LIMITS.snapshots)throw new BackupCapacityError('Backup snapshot limit reached. Remove a selected snapshot or configure storage; pinned/manual backups are retained.');
  const bundle=await exportWorkspaceBundle(db,userId,{now:()=>now});
  if(bundle.source.workspaceRevision!==before.revision || canonical(bundle.planning)!==canonical(before.workspace))throw new Error('Workspace changed before backup preparation.');
