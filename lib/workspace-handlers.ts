@@ -1,3 +1,4 @@
+import {sourceCommandHandlers} from './sources/commands.ts';
 import {prepareBaselineEvidence} from './evidence-baseline.ts';
 import {getProjectBaseline} from './project-baselines.ts';
 import {prepareLegacyEvidenceSync} from './evidence-legacy-sync.ts';
@@ -60,3 +61,5 @@ for(const [type,handler] of planningHandlers)(workspaceHandlers as Map<string,im
 for(const [type,handler] of [...evidenceCommandHandlers,...decisionCommandHandlers,...acceptanceCommandHandlers,...attachmentCommandHandlers])(workspaceHandlers as Map<string,import('./workspace-transaction.ts').CommandHandler>).set(type,handler);
 
 (workspaceHandlers as Map<string,import('./workspace-transaction.ts').CommandHandler>).set('history.undo',historyUndoHandler);
+
+for(const [type,handler] of sourceCommandHandlers)(workspaceHandlers as Map<string,import('./workspace-transaction.ts').CommandHandler>).set(type,handler);

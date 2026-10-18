@@ -120,6 +120,20 @@
       "when": 1792340479436,
       "tag": "0016_gigantic_beast",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1792344134940,
+      "tag": "0017_graceful_lord_tyger",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1792344652770,
+      "tag": "0018_remarkable_nightshade",
+      "breakpoints": true
     }
   ]
 }

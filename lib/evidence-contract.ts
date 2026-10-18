@@ -8,6 +8,7 @@ export interface EvidenceVersion {
  id:string;version:number;basis:EvidenceBasis;scope:ClaimScope;title:string;statement:string;
  observedAt:string|null;recordedAt:string;candidate:string|null;environment:string|null;
  sourceUrl:string|null;sourceRevision:string|null;sourceRecordId:string|null;
+ sourceObservationRef?:{id:string;contentDigest:string};
  attachmentIds:string[];supersedesVersion:number|null;
 }
 export type EvidenceInput=Omit<EvidenceVersion,'id'|'version'|'recordedAt'|'supersedesVersion'>;

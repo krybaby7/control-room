@@ -1,3 +1,5 @@
+import {moduleProjection,moduleColumnNames} from '../lib/module-columns.ts';
+import type {JsonValue} from '../lib/workspace-protocol.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { database } from './helpers/sqlite.ts';
@@ -97,6 +99,17 @@ async function seedRestoreModule(sqlite:ReturnType<typeof database>['sqlite'],ta
  const subject={type:'task',id:createSeedWorkspace(now).tasks[0].id};
  const head={id:'preserved',currentVersion:1,archivedAt:null};
  const add=(name:string,value:unknown,columns:string[]=[],values:(string|number|null)[]=[],rowId='preserved')=>sqlite.prepare(`INSERT INTO ${name} (user_id,id,row_revision,payload_json,content_hash${columns.length?','+columns.join(','):''}) VALUES (${Array.from({length:5+columns.length},()=>'?').join(',')})`).run('a',rowId,1,JSON.stringify(value),'hash',...values);
+ if(table.startsWith('source_')||table==='integration_history'){
+  const connection={id:'connection',provider:'github',label:'Retained selected source',accessMode:'interactive',enabled:true,archivedAt:null};
+  const target={id:'source',connectionId:'connection',projectId:createSeedWorkspace(now).projects[0].id,kind:'github_repository',providerResourceId:'synthetic/repo',canonicalUrl:null,selectedPaths:[],staleAfterSeconds:3600,selectionVersion:1,archivedAt:null};
+  const observation={id:'observation',sourceId:'source',externalId:'readme',sourceRevision:'revision',sourceUpdatedAt:null,observedAt:now,title:'Preserved source',canonicalUrl:null,contentDigest:'a'.repeat(64),payload:{excerpt:'Retain this'},origin:'historical-import'};
+  const values:Partial<Record<typeof OWNER_TABLES[number],unknown>>={source_connections:connection,source_targets:target,source_observations:observation,source_sync_runs:{id:'preserved',sourceId:'source',startedAt:now,finishedAt:now,outcome:'success',pages:1,observations:1,failure:null,retryAt:null,sourceRevision:'revision'},source_proposals:{id:'preserved',sourceId:'source',observationRefs:[{id:observation.id,contentDigest:observation.contentDigest}],evidenceRefs:[],entity:{kind:'project',id:target.projectId},baseWorkspaceRevision:1,fields:[{field:'summary',before:'',after:'Proposal'}],rationale:'Retain proposal',confidence:'direct-source',createdAt:now,state:'pending',dedupKey:'a'.repeat(64),decision:null},integration_history:{id:'preserved',sourceId:'source',kind:'source_refresh',attempt:1,startedAt:now,finishedAt:now,outcome:'success',failure:null}};
+  const insert=async(name:typeof OWNER_TABLES[number])=>{const value=values[name] as {id:string},columns=moduleColumnNames(name),projection=await moduleProjection(name,value.id,value as unknown as JsonValue);add(name,value,[...columns],columns.map(c=>projection[c]),value.id);sqlite.prepare(`UPDATE ${name} SET content_hash=? WHERE user_id='a' AND id=?`).run(await hashJson(value as unknown as JsonValue),value.id);};
+  await insert('source_connections');if(table==='source_connections')return;
+  await insert('source_targets');if(table==='source_targets')return;
+  if(table==='source_proposals')await insert('source_observations');
+  await insert(table);return;
+ }
  if(table==='evidence_versions'){
   add('evidence_records',head,['current_version'],[1]);
   add(table,{id:'preserved',version:1,basis:'owner-statement',scope:'implementation',title:'Synthetic preserved evidence',statement:'Original content retained',observedAt:null,recordedAt:now,candidate:null,environment:null,sourceUrl:null,sourceRevision:null,sourceRecordId:null,attachmentIds:[],supersedesVersion:null},['evidence_id','version','recorded_at'],['preserved',1,now],await versionRowId('preserved',1));return;

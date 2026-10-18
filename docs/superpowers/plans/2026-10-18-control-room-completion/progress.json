@@ -88,7 +88,7 @@
     },
     {
       "id": 3,
-      "status": "in_progress",
+      "status": "implemented_external_acceptance_pending",
       "evidence": [
         "Phase2sourcegatepassed;integrator establishingmulti-tableportablemodule/typedversioncontracts beforeleafimplementation.",
         "Uncommitted Phase3 storage integration: typed immutable evidence/decision versions, explicit requirements/acceptance, stable audit import identities, owner-private namespaces, physical multi-table restore adapters and SQL mirror projections.",
@@ -102,19 +102,29 @@
         "Private nonexpiring upload/cleanup fences, physical quota including staged/retired/retained objects, native streaming ZIP validation/rekeyed reviewed restore, exact citations and planning presenceundo integrated; source gates and actualbrowser evidence tracked in docs/verification/evidence-history.md.",
         "Attachment finalize now seals verified digest/time in private physical ledger in the same owner transaction; two actual SQLite regressions cover immutable identity, altered same-size archive rejection, complete rollback and same-mutation retry. Full working tree779 Node tests and typecheck pass; fresh-generation recovery integration pending.",
         "803 Node tests passed, zero failures/skips; typecheck/lint/production build passed. Actual Miniflare D1 depth100 calibration and all helper/compiler probes passed. Actual D1+R2 applied17 migrations and passed planning/reserve/upload/finalize/nativeZIP reviewedrestore preserving logicalID/evidence/42 exactbytes. Built Worker HTTP reserve/stage/finalize/replay/download/isolation/forgery passed32bytes SHA256ee8061dff83dd68f205b6597c2333557be9e2b07a15c5dab79b35e707fb8104e. ActualR2+SQLite orphancleanup/restore passed43bytes.40default+3R2browser journeys discovered; execution pending cloud CI.",
-        "Phase3 audit corrections integrated: mapped inline edits append immutable structured corrections atomically; explicit baselines materialize stable dated contextual source versions/links; optional server-captured decision criteria bases trigger review independently of dates; task/milestone historical/freshness status is server-derived and invalidated by envelope revision; explicit Cairo date/due filters preserve unknown dates.840Node tests, typecheck/lint/build pass. Expanded actualMiniflareD1/R2 fixture passes baseline/legacy/decision/ZIP commands. New denied-PUT helper passes12actualworkerd denial/healthy pairs; fullHTTP/cloud rerun pending."
+        "Phase3 audit corrections integrated: mapped inline edits append immutable structured corrections atomically; explicit baselines materialize stable dated contextual source versions/links; optional server-captured decision criteria bases trigger review independently of dates; task/milestone historical/freshness status is server-derived and invalidated by envelope revision; explicit Cairo date/due filters preserve unknown dates.840Node tests, typecheck/lint/build pass. Expanded actualMiniflareD1/R2 fixture passes baseline/legacy/decision/ZIP commands. New denied-PUT helper passes12actualworkerd denial/healthy pairs; fullHTTP/cloud rerun pending.",
+        "Cloud CI39148577239/job117737382710 atfafb1f680d24cd75e5d133c2e4a7d95d1d3ca30b terminalsuccess: cleanNode24lockedinstall,840Node/type/lint/build,actualD1depth100/all17migrations/baseline/legacy/decision/nativeZIP restore,actualR2orphanrecovery,42/42defaultChromium+3/3R2Chromium,andbuiltHTTPattachmentisolation/replay allpass."
       ],
       "blockers": [
         "Actual private hosted R2 and deployed owner-authentication/attachment acceptance remain unverified.",
-        "Latest published cloud run passed38/40default+2/3R2Chromium; citation back-navigation, test response-body capture and denied-PUT settlement corrections await rerun.",
-        "Private cleanup adapters are implemented and tested, but production maintenance remains disabled pending durable renewable runner acceptance."
+        "Production cleanup/maintenance stays disabled pending durable renewable runner acceptance; real owner-device checks remain external."
       ]
     },
     {
       "id": 4,
-      "status": "not_started",
-      "evidence": [],
-      "blockers": []
+      "status": "in_progress",
+      "evidence": [
+        "Six strict portable source modules, owner configuration/proposal commands, append-only migrations 0017/0018 (19 total), exact source observation citations and frozen operational export watermarks.",
+        "Bounded GitHub read adapters and explicit selected conversation/native document manual imports; durable input hash and original receipt replay. No live connector activation.",
+        "Private renewable principal/lease/grant/epoch guarded page and terminal transactions, source proposal generator and one-intent runner; editor revision unchanged by routine operational writes.",
+        "Optional full source snapshots reuse verified private attachment lifecycle; exact raw digest/length and atomic cleanup-fence guards, native archive restore preserves IDs and pauses authority.",
+        "978 Node tests passed, zero failures/skips; typecheck/lint/build pass. Actual Miniflare D1 source claim/renew/max100-page/terminal/resume and 19-migration D1/R2 source recovery pass.",
+        "Sources UI configuration, explicit proposal selected-field review, source-bound contextual evidence, pending input retry and dirty-navigation protection integrated.43 Chromium tests listed; cloud execution pending."
+      ],
+      "blockers": [
+        "Actual Sites eligibility discovery unavailable; live selected-resource GitHub/document consent and renewable unattended provider proof not configured.",
+        "Real private gateway/service principal, hosted R2/owner session and terminal deployment acceptance remain unverified."
+      ]
     },
     {
       "id": 5,
@@ -141,7 +151,7 @@
       "blockers": []
     }
   ],
-  "nextAction": "Publish exact verified audit/transport tree; inspect cloudCI42default+3R2results. AfterPhase3sourcegate passes, establishPhase4shared contracts/schema/operationalCAS andcontinueinorder.",
+  "nextAction": "Verify final builtHTTP fixture and clean diff; commit sanitized Phase4 source, publish exact tree to draftPR1 and inspect terminal cloudCI before Phase5.",
   "allowedStatuses": [
     "not_started",
     "in_progress",
@@ -168,22 +178,18 @@
     "evidence": "Explicit supported model selection accepted and worker IDs returned."
   },
   "checkpoint": {
-    "publishedCommit": "d16103ca1cbc49d87f0834b87ac126a6ee505866",
-    "workingTree": "Coherent uncommitted Phase3 audit+CI corrections ready for publication: atomic legacy correction, dated baseline context, server criteria basis, assessment presentation/revision invalidation, date/due filters, exact citation navigation, captured actual POST responses and bounded pre-reply upload settlement.",
-    "tests": "840 Node tests pass,zero failures/skips;typecheck/lint/productionbuildpass. Expanded actualMiniflareD1/R2 fixture passes17migrations/baseline/legacy/decision/ZIP reviewedrestore revision13. BuiltWorkerHTTP reserve/stage/finalize/replay/download/isolation/forgery passes32bytes SHA256ee8061dff83dd68f205b6597c2333557be9e2b07a15c5dab79b35e707fb8104e.12nativeworkerd denial/healthyPUT pairs pass.42default+3R2Chromium discovered, executionpending.",
-    "knownFailures": [
-      "Citation backnavigation erasedexactURL because closeEditor replacedURL evenwithouteditor; boundedrootfixprepared, CIrerunpending.",
-      "Importrepair/nativeZIPbrowserbodyreads evictedbyChromiumCDP; pass-through actualserverresponse capture developing, assertions retained.",
-      "DeniedPUT body cancellation fires afterresponse inworkerd, causingrequeststreamerrorsandHTTPtimeout; boundedpre-replysettlementfixdeveloping."
-    ],
+    "publishedCommit": "fafb1f680d24cd75e5d133c2e4a7d95d1d3ca30b",
+    "workingTree": "Validated coherent Phase4 source checkpoint ready for commit and exact-tree publication; cloud Chromium execution pending.",
+    "tests": "978/978 Node tests passed,zero failures/skips;typecheck/lint/build pass.43 default Chromium listed,notyetexecuted. Actual Miniflare D1/R2 source retained73byteimport/replay/fullnativearchive/reviewedrestore passes19migrations SHA256e779a24a8292c1117e021e1fff3f25eeaae883ebc3e655ae7a1da10d1a1ba80b. Actual wholeworkspaceD1/R2,depth100 andorphanrecoverypass. BuiltWorkerHTTP reserve/stage/finalize/replay/download/isolation/forgery passes32bytes SHA256ee8061dff83dd68f205b6597c2333557be9e2b07a15c5dab79b35e707fb8104e.",
+    "knownFailures": [],
     "unfinished": [
-      "Execute42default+3R2cloud browser rerun and resolve actualfailures; reconcilePhase3sourceacceptance.",
-      "Phases4\u20138 notstarted; Phase4source/environmentinspectionpreparedonly.",
-      "HostedprivateR2/owner session, renewable runner, provider andWindows/deviceacceptance remainexternal."
+      "Finish final builtHTTP/sourcepackage verification, publish coherent sourcecheckpoint to existing draftPR and execute43default+3R2 cloud Chromium journeys.",
+      "Phases5\u20138 notstarted; execute in dependencyorder after Phase4 validation.",
+      "Liveprovider/renewableprincipal/privatehostedrelease/ownerphysicaldevice acceptance remains external."
     ],
-    "nextCommand": "Publish exact verified audit/transport tree; inspect cloudCI42default+3R2results. AfterPhase3sourcegate passes, establishPhase4shared contracts/schema/operationalCAS andcontinueinorder.",
-    "publishedTree": "a33245765ffc7131bc8e700f97a2439bd070e71c",
-    "cloudRun": "39147488634/job117734190280 atd16103ca terminalfailure: cleaninstall803Node/type/lint/build/allactualD1R2gatespass;38/40defaultChromium (importrepairCDPbodyeviction; citationbacknavigationrealbug),2/3R2Chromium (archivestagingCDPbodyeviction; attachmentassessmentandlostresponsearchiverecoverypass),HTTPdenialstreamtimeout15s. Independentstepsretainedallfailureartifacts.",
-    "currentCommit": "d16103ca1cbc49d87f0834b87ac126a6ee505866"
+    "nextCommand": "Verify final builtHTTP fixture and clean diff; commit sanitized Phase4 source, publish exact tree to draftPR1 and inspect terminal cloudCI before Phase5.",
+    "publishedTree": "000cda600e0405ee4d8cd001a2e43c06684581fc",
+    "cloudRun": "Cloud CI39148577239/job117737382710 atfafb1f680d24cd75e5d133c2e4a7d95d1d3ca30b terminalsuccess: cleanNode24lockedinstall,840Node/type/lint/build,actualD1depth100/all17migrations/baseline/legacy/decision/nativeZIP restore,actualR2orphanrecovery,42/42defaultChromium+3/3R2Chromium,andbuiltHTTPattachmentisolation/replay allpass.",
+    "currentCommit": "fafb1f680d24cd75e5d133c2e4a7d95d1d3ca30b"
   }
 }

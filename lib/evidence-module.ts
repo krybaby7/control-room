@@ -1,3 +1,4 @@
+import {sourceObservationSchema} from './sources/validation.ts';
 import {z} from 'zod';
 import type {ExportModule,ImportContext,PhysicalImportRows} from './workspace-export.ts';
 import type {RegisteredOwnerTable} from './workspace-modules.ts';
@@ -65,7 +66,7 @@ const refs=(kind:TypedReference['kind'],ids:string[],path:string,field?:string):
 function subjectRef(value:{type:TypedReference['kind'];id:string},path:(string|number)[]):TypedReference{return {kind:value.type,id:value.id,path:[...path,'id']};}
 function physicalRefs(table:RegisteredOwnerTable,value:unknown):TypedReference[]{
  if(table==='evidence_records'||table==='decision_records')return [];
- if(table==='evidence_versions'){const row=evidenceVersionSchema.parse(value);return [{kind:'evidence',id:row.id,path:['id']},...refs('attachment',row.attachmentIds,'attachmentIds')];}
+ if(table==='evidence_versions'){const row=evidenceVersionSchema.parse(value);return [{kind:'evidence',id:row.id,path:['id']},...refs('attachment',row.attachmentIds,'attachmentIds'),...(row.sourceObservationRef?[{kind:'source-observation' as const,id:row.sourceObservationRef.id,path:['sourceObservationRef','id']}]:[])];}
  if(table==='evidence_mappings'){const row=legacyEvidenceMappingSchema.parse(value);return [subjectRef(row.subject,['subject']),{kind:'evidence',id:row.evidenceId,path:['evidenceId']}];}
  if(table==='evidence_links'){const row=evidenceLinkSchema.parse(value);return [subjectRef(row.subject,['subject']),{kind:'evidence',id:row.evidenceId,path:['evidenceId']}];}
  if(table==='evidence_requirements')return [subjectRef(evidenceRequirementSchema.parse(value).subject,['subject'])];
@@ -88,6 +89,7 @@ export function validateEvidenceModuleReferences(context:ImportContext):void{
  else if(attachments.length)throw new Error('Typed attachments require a complete quota ledger.');
  const subject=(ref:{type:string;id:string})=>{const collection={project:'projects',milestone:'milestones',task:'tasks',capture:'captures'}[ref.type] as 'projects'|'milestones'|'tasks'|'captures'|undefined;if(!collection||!context.planning[collection].some(row=>row.id===ref.id))throw new Error('Evidence subject is missing.');};
  const evidenceRef=(ref:{id:string;version:number})=>{if(!eVersions.some(row=>row.id===ref.id&&row.version===ref.version))throw new Error('Exact evidence version is missing.');};
+ for(const version of eVersions)if(version.sourceObservationRef){const ref=version.sourceObservationRef;const raw=context.modules.source_observations?.records.find(row=>(row as {id:string}).id===ref.id) as {value:unknown}|undefined;if(!raw)throw new Error('Source observation citation is missing.');const observation=sourceObservationSchema.parse(raw.value);if(observation.id!==ref.id||observation.contentDigest!==ref.contentDigest)throw new Error('Source observation citation digest differs.');}
  for(const version of eVersions)for(const id of version.attachmentIds)if(!attachments.some(row=>row.id===id))throw new Error('Evidence attachment is missing.');
  for(const row of evidence.filter(row=>row.value.kind==='mapping')){const mapping=legacyEvidenceMappingSchema.parse(row.value.record);subject(mapping.subject);evidenceRef({id:mapping.evidenceId,version:mapping.evidenceVersion});}
  for(const value of typed('evidence_links')){const link=evidenceLinkSchema.parse(value);subject(link.subject);evidenceRef({id:link.evidenceId,version:link.evidenceVersion});if(link.requirementId&&!requirements.some(row=>row.id===link.requirementId&&row.subject.id===link.subject.id&&row.subject.type===link.subject.type))throw new Error('Evidence requirement is missing.');}

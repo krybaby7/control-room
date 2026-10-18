@@ -1,3 +1,4 @@
+import {sourceConnectionSchema,sourceTargetSchema,sourceObservationSchema,sourceRunHistorySchema,sourceProposalSchema,integrationHistorySchema} from './sources/validation.ts';
 import { z } from 'zod';
 import { ownerTable, type RegisteredOwnerTable } from './workspace-modules.ts';
 import type { JsonValue } from './workspace-protocol.ts';
@@ -17,10 +18,11 @@ const columns={
  decisions:[],decision_records:['current_version','archived_at'],
  decision_versions:['decision_id','version','recorded_at','status','review_on','source_capture_id','supersedes_decision_id'],
  attachments:['status','filename','mime_type','expected_bytes','actual_bytes','sha256','storage_key','created_at','expires_at','ready_at','upload_mutation_id','quarantine_reason'],attachment_usage:[],workspace_configuration:[],
+ source_connections:['provider','access_mode','enabled','archived_at'],source_targets:['connection_id','project_id','kind','selection_version','archived_at'],source_observations:['source_id','external_id','source_revision','content_digest','observed_at','stream_sequence'],source_sync_runs:['source_id','finished_at','stream_sequence'],source_proposals:['source_id','state','dedup_key','created_at'],integration_history:['source_id','finished_at','stream_sequence'],
 } satisfies Record<RegisteredOwnerTable,string[]>;
 for(const names of Object.values(columns))Object.freeze(names);
 Object.freeze(columns);
-export const IMMUTABLE_MODULE_TABLES:ReadonlySet<RegisteredOwnerTable>=new Set(['evidence_versions','decision_versions','acceptance_records']);
+export const IMMUTABLE_MODULE_TABLES:ReadonlySet<RegisteredOwnerTable>=new Set(['evidence_versions','decision_versions','acceptance_records','source_observations','source_sync_runs','integration_history']);
 /** Only these server-owned identifiers may be interpolated by the transaction compiler. */
 export function moduleColumnNames(table:RegisteredOwnerTable):readonly string[]{return columns[ownerTable(table)];}
 const attachmentSchema=z.object({
@@ -36,6 +38,12 @@ export async function moduleProjection(table:RegisteredOwnerTable,id:string,valu
  const names=moduleColumnNames(table);evidenceIdSchema.parse(id);
  const empty=()=>Object.fromEntries(names.map(name=>[name,null]));
  switch(table){
+ case 'source_connections':{const r=sourceConnectionSchema.parse(value);matchingId(id,r.id);return {provider:r.provider,access_mode:r.accessMode,enabled:r.enabled?1:0,archived_at:r.archivedAt};}
+ case 'source_targets':{const r=sourceTargetSchema.parse(value);matchingId(id,r.id);return {connection_id:r.connectionId,project_id:r.projectId,kind:r.kind,selection_version:r.selectionVersion,archived_at:r.archivedAt};}
+ case 'source_observations':{const r=sourceObservationSchema.parse(value);matchingId(id,r.id);return {source_id:r.sourceId,external_id:r.externalId,source_revision:r.sourceRevision,content_digest:r.contentDigest,observed_at:r.observedAt,stream_sequence:0};}
+ case 'source_sync_runs':{const r=sourceRunHistorySchema.parse(value);matchingId(id,r.id);return {source_id:r.sourceId,finished_at:r.finishedAt,stream_sequence:0};}
+ case 'source_proposals':{const r=sourceProposalSchema.parse(value);matchingId(id,r.id);return {source_id:r.sourceId,state:r.state,dedup_key:r.dedupKey,created_at:r.createdAt};}
+ case 'integration_history':{const r=integrationHistorySchema.parse(value);matchingId(id,r.id);return {source_id:r.sourceId,finished_at:r.finishedAt,stream_sequence:0};}
  case 'evidence_records':case 'decision_records':{
   const parsed=table==='decision_records'?{success:true as const,data:evidenceHeadSchema.parse(value)}:evidenceHeadSchema.safeParse(value);
   if(!parsed.success)return empty();matchingId(id,parsed.data.id);return {current_version:parsed.data.currentVersion,archived_at:parsed.data.archivedAt};

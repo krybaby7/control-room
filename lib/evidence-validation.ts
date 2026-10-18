@@ -15,6 +15,7 @@ export const evidenceHeadSchema=z.object({id:evidenceIdSchema,currentVersion:pos
 export const evidenceInputSchema=z.object({
  basis:evidenceBasisSchema,scope:claimScopeSchema,title:z.string().min(1).max(EVIDENCE_LIMITS.titleCharacters).refine(value=>Boolean(value.trim())),statement:z.string().min(1).max(EVIDENCE_LIMITS.statementCharacters).refine(value=>Boolean(value.trim())),
  observedAt:evidenceDateSchema.nullable(),candidate:nullableContext(500),environment:nullableContext(1000),sourceUrl:evidenceUrlSchema.nullable(),sourceRevision:nullableContext(200),sourceRecordId:evidenceIdSchema.nullable(),
+ sourceObservationRef:z.object({id:evidenceIdSchema,contentDigest:z.string().regex(/^[a-f0-9]{64}$/)}).strict().optional(),
  attachmentIds:z.array(evidenceIdSchema).max(EVIDENCE_LIMITS.attachmentsPerVersion).refine(ids=>new Set(ids).size===ids.length,'Attachment references must be unique.'),
 }).strict();
 export const evidenceVersionSchema=evidenceInputSchema.extend({id:evidenceIdSchema,version:positiveVersion,recordedAt:evidenceDateSchema,supersedesVersion:positiveVersion.nullable()}).strict().superRefine((value,ctx)=>{

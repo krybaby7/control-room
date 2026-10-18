@@ -1,3 +1,5 @@
+import {sourceExportAdapters} from './sources/module.ts';
+import {readOperationalWatermarks,validateOperationalWatermarks} from './operational-watermarks.ts';
 import {deriveAttachmentManifest,validateAttachmentManifest} from './attachment-manifest.ts';
 import {evidenceExportAdapters} from './evidence-module.ts';
 import {getWorkspaceNamespaces} from './workspace-namespaces.ts';
@@ -16,11 +18,11 @@ import { parsePlanningImport } from './workspace-codec.ts';
 export interface AttachmentManifestEntry { id: string; filename: string; contentType: string; bytes: number; sha256: string; archivePath: string | null; availability: 'included' | 'missing' | 'excluded'; }
 export interface WorkspaceBundle {
   format: 'control-room'; bundleVersion: 1; exportedAt: string;
-  source: { auditNamespace?:string; workspaceRevision: number; planningSchemaVersion: number; moduleWatermarks: Record<string,string>; sourceHashes: Record<string,string> };
+  source: { auditNamespace?:string; operationalWatermarks?:Record<string,number>; workspaceRevision: number; planningSchemaVersion: number; moduleWatermarks: Record<string,string>; sourceHashes: Record<string,string> };
   planning: Workspace; modules: Record<string,{schemaVersion:number; records:unknown[]}>;
   attachments: AttachmentManifestEntry[]; completeness: 'complete' | 'metadata-only';
 }
-export interface ExportContext { userId: string; sourceRevision: number; query: OwnerScopedReader; db: SqlDatabase; }
+export interface ExportContext { userId: string; sourceRevision: number; query: OwnerScopedReader; db: SqlDatabase; operationalWatermarks?:Record<string,number>; }
 export interface ImportContext { planning: Workspace; modules: WorkspaceBundle['modules']; }
 export interface PhysicalImportRows {table:RegisteredOwnerTable;records:Array<{id:string;value:JsonValue}>}
 export interface ExportModule {
@@ -58,24 +60,24 @@ export const exportRegistry = new ExportRegistry();
 export function registerExportModule(adapter:ExportModule):void { exportRegistry.register(adapter); }
 const auditColumns='event_id, workspace_revision, ordinal, stream_id, stream_sequence, kind, entity_type, entity_id, occurred_at, payload_json';
 exportRegistry.register({key:'audit_events',schemaVersion:1,policy:'append-only',async exportRows(ctx) {
-  const rows=await boundedPages<Record<string,unknown> & {id:string}>(async after=>(await ctx.db.prepare(`SELECT ${auditColumns} FROM audit_events WHERE user_id = ? AND event_id > ? ORDER BY event_id LIMIT ?`).bind(ctx.userId,after,BUNDLE_LIMITS.pageSize).all<Record<string,unknown>>()).results.map(row=>({id:row.event_id as string,...row})));
+  const rows=await boundedPages<Record<string,unknown> & {id:string}>(async after=>(await ctx.db.prepare(`SELECT ${auditColumns} FROM audit_events WHERE user_id = ? AND event_id > ? AND NOT EXISTS(SELECT 1 FROM json_each(?) frozen WHERE frozen.key=audit_events.stream_id AND audit_events.stream_sequence>frozen.value) ORDER BY event_id LIMIT ?`).bind(ctx.userId,after,JSON.stringify(ctx.operationalWatermarks??{}),BUNDLE_LIMITS.pageSize).all<Record<string,unknown>>()).results.map(row=>({id:row.event_id as string,...row})));
   return rows.map(({payload_json,...row})=>({...row,payload:portableAudit(JSON.parse(payload_json as string))}));
 },parseAndMigrate(input) { if(input.schemaVersion!==1) throw new Error('Unknown audit version.'); for(const row of input.records) { assertPortable(row); if(!row || typeof row!=='object' || typeof (row as {id:unknown}).id!=='string') throw new Error('Invalid audit record.'); } return input.records; }});
-for(const adapter of [...planningExportAdapters,...evidenceExportAdapters])exportRegistry.register(adapter);
+for(const adapter of [...planningExportAdapters,...evidenceExportAdapters,...sourceExportAdapters])exportRegistry.register(adapter);
 export async function exportWorkspaceBundle(db:SqlDatabase,userId:string,options:{now?:()=>string;registry?:ExportRegistry}={}):Promise<WorkspaceBundle> {
   if(!userId) throw new Error('A signed-in owner is required.'); const registry=options.registry??exportRegistry;
   const namespaces=await getWorkspaceNamespaces(db,userId);
   const snapshotAt=(options.now??(()=>new Date().toISOString()))();
   for(let attempt=0;attempt<BUNDLE_LIMITS.attempts;attempt++) {
-    const before=await readCurrent(db,userId,snapshotAt); const ctx={db,userId,sourceRevision:before.revision,query:ownerReader(db,userId)};
+    const before=await readCurrent(db,userId,snapshotAt),operationalWatermarks=await readOperationalWatermarks(db,userId); const ctx={db,userId,sourceRevision:before.revision,query:ownerReader(db,userId),operationalWatermarks};
     for(const table of OWNER_TABLES) if(!registry.entries().some(adapter=>moduleTables(adapter).includes(table)) && (await ctx.query.list(table,{limit:1})).length) throw new Error('Populated owner adapter has no export adapter.');
     const modules:WorkspaceBundle['modules']={}; const hashes:Record<string,string>={}; let stable=true;
     for(const adapter of registry.entries()) { const records=await adapter.exportRows(ctx); assertPortable(records); if(records.length>BUNDLE_LIMITS.rows) throw new Error('Export row limit exceeded.'); modules[adapter.key]={schemaVersion:adapter.schemaVersion,records}; hashes[adapter.key]=await contentHash(canonical(records)); }
     for(const adapter of registry.entries()) { if(await contentHash(canonical(await adapter.exportRows(ctx)))!==hashes[adapter.key]) stable=false; }
-    const after=await readCurrent(db,userId,snapshotAt); if(!stable || before.revision!==after.revision || canonical(before.workspace)!==canonical(after.workspace)) continue;
+    const after=await readCurrent(db,userId,snapshotAt); if(!stable || before.revision!==after.revision || canonical(before.workspace)!==canonical(after.workspace)||canonical(operationalWatermarks)!==canonical(await readOperationalWatermarks(db,userId))) continue;
     for(const adapter of registry.entries())adapter.validateReferences?.({planning:before.workspace,modules},modules[adapter.key].records);
     hashes.planning=await contentHash(canonical(before.workspace));
-    const bundle:WorkspaceBundle={format:'control-room',bundleVersion:1,exportedAt:snapshotAt,source:{...(namespaces?{auditNamespace:namespaces.auditNamespace}:{}),workspaceRevision:before.revision,planningSchemaVersion:before.workspace.schemaVersion,moduleWatermarks:{...hashes},sourceHashes:hashes},planning:before.workspace,modules,attachments:deriveAttachmentManifest(modules),completeness:'metadata-only'};
+    const bundle:WorkspaceBundle={format:'control-room',bundleVersion:1,exportedAt:snapshotAt,source:{...(namespaces?{auditNamespace:namespaces.auditNamespace}:{}),operationalWatermarks,workspaceRevision:before.revision,planningSchemaVersion:before.workspace.schemaVersion,moduleWatermarks:{...hashes},sourceHashes:hashes},planning:before.workspace,modules,attachments:deriveAttachmentManifest(modules),completeness:'metadata-only'};
     if(new TextEncoder().encode(JSON.stringify(bundle)).length>BUNDLE_LIMITS.bytes) throw new Error('Export byte limit exceeded.'); return bundle;
   }
   throw new Error('Workspace changed during export; retry.');
@@ -83,7 +85,8 @@ export async function exportWorkspaceBundle(db:SqlDatabase,userId:string,options
 export function parseWorkspaceBundle(value:unknown,registry:ExportRegistry=exportRegistry):WorkspaceBundle {
   if(!value || typeof value!=='object') throw new Error('Invalid bundle.'); const raw=value as WorkspaceBundle;
   strictObject(raw,['format','bundleVersion','exportedAt','source','planning','modules','attachments','completeness'],'bundle');
-  strictObject(raw.source,['workspaceRevision','planningSchemaVersion','moduleWatermarks','sourceHashes',...(raw.source&&Object.hasOwn(raw.source,'auditNamespace')?['auditNamespace']:[])],'source');
+  strictObject(raw.source,['workspaceRevision','planningSchemaVersion','moduleWatermarks','sourceHashes',...(raw.source&&Object.hasOwn(raw.source,'auditNamespace')?['auditNamespace']:[]),...(raw.source&&Object.hasOwn(raw.source,'operationalWatermarks')?['operationalWatermarks']:[])],'source');
+  if(raw.source.operationalWatermarks!==undefined)validateOperationalWatermarks(raw.source.operationalWatermarks);
   if(raw.source.auditNamespace!==undefined&&!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(raw.source.auditNamespace))throw new Error('Invalid source audit namespace.');
   assertPortable(raw);
   if(raw.completeness!=='complete' && raw.completeness!=='metadata-only') throw new Error('Invalid completeness.');
