@@ -135,7 +135,8 @@
         "Frozen reviews/scoped acknowledgement/notifications/Cairo schedule core1221 Node and actualD1 pass; published062de9b3 nonbrowser CI gates pass, browser failed/timedout.",
         "Follow-up baseline parent/hash/citation/privatehead/vector CAS, scheduled D1 backup and dual-principal source schedule code implemented; intermediate1299 Node/type/lint/build pass.",
         "Actual21-migrationD1 baseline context-only command/replay and synthetic authenticated scheduledreview/backup/source completion/restart/revocation/rollback/capacity checks pass.",
-        "Native baseline/sidebar journeys and review assertions prepared; exact follow-up Chromium gate pending."
+        "Native baseline/sidebar journeys and review assertions prepared; exact follow-up Chromium gate pending.",
+        "Exact09feCI39160069765 allnonbrowsergatespass,46/48defaultChromium (baseline/reviews/alllegacydrafts pass) and3/3R2Chromiumpass;2newsidebarfixture failures correctly blocked by retainedsyntheticdraft, test-only nativeexplicitdiscard correction prepared."
       ],
       "blockers": []
     },
@@ -158,7 +159,7 @@
       "blockers": []
     }
   ],
-  "nextAction": "Publish bounded polling correction; observe exact09fe CI39160069765/job117771325724 terminalbrowserresult and subsequent polling sourceCI; resolve native issues then implement Phase6 sharedschema/contracts and bounded workers, followed Phases7\u20138.",
+  "nextAction": "Publish sidebar fixture correction/checkpoint; observe sourceCI terminal result, then establish Phase6 shared contracts/schema and delegate bounded workers. Continue Phase7 andPhase8 including compatible segmented recovery. No liveeffects or private deployment beforevalidation.",
   "allowedStatuses": [
     "not_started",
     "in_progress",
@@ -185,26 +186,25 @@
     "evidence": "Explicit supported model selection accepted and worker IDs returned."
   },
   "checkpoint": {
-    "publishedCommit": "09fe57106f5c4e3f1eb9597e0d572a3a7ada40d3",
-    "workingTree": "Bounded polling correction ready after09fe: shared jitter/backoff/focus/online/manual singleflight, edit/dialog/pending preservation, notification cursor+merge fences and selected acknowledgement metadata refresh. Independent review17tests/type/lint/build pass. Phase6 design only; no deployment.",
+    "publishedCommit": "e4d90bb8e37adb00f97f117fc9e6e59cdefb3dbb",
+    "workingTree": "Test-only sidebar fixture correction explicitly discards known unsubmitted synthetic recovered draft via native UI; lint/typepass. Product recovery guard preserved. Updated checkpoint andPhase6 protocol design only; noPhase6implementation/deployment.",
     "tests": "Final follow-up1300/1300 Node pass, zero failures/skips; typecheck/lint/productionbuild pass. Actual21-migrationD1 baseline command/replay/history, authenticated scheduledreview/backup/source pipelines pass. Source D1 covers partialcursor/restart/expiredlease/bothrevocations/archive/epoch/terminalrollback/capacitybothpaused. Native follow-up Chromium pending publication.",
     "knownFailures": [
-      "Core CI39158162634/job117765608742 passed all nonbrowser gates but job15-minute timeout after12 Quickcapture draft stalls and2 review assertion failures; sidebar overflow/static regression fix and review assertions prepared, native rerun pending.",
-      "G48 alreadyoversized owner recovery remains Phase8 implementation; no pruning/reset/limit raise.",
-      "Live private ingress/wakeup, real provider consent/adapter, paid exact provider/model/budget and Windows/device acceptance remain external.",
-      "Diagnostic b03 trace confirms exact Quickcapture button click is outside viewport. CSS fix is in09fe; native verification pending."
+      "Two newsidebar native fixtures encountered the intentionally retained synthetic serverdraft from recovery.spec; app correctly requires review/discard. Trace proves sidebar viewport/click/dialog passed. Test-only explicitdiscard correction prepared; exactCI rerun pending.",
+      "G48 oversized-owner compatible recovery remains Phase8 codework; no pruning/reset/limitraise.",
+      "Private renewable ingress/wakeup, live selected-provider consent/adapters, exact paid provider/model/budget, Windows/device acceptance and deployment unverified."
     ],
     "unfinished": [
-      "Publish shared polling correction/checkpoint; independent review17focused tests,type/lint/build pass; native acceptance pending.",
+      "Publish test-only sidebar syntheticdraft fixture correction and observe exact-sourceCI; existing46functionalnative+3R2 journeys verified.",
       "Observe/fix exact Phase5 native Chromium gate; baseline/sidebar native journeys included, no local browser run.",
       "Phase6 cloud devices/runtime/Windows installablebridge implementation and tests; design only prepared in phase-6-contract-notes.md.",
       "Phase7 exact provider/model/approval/budget/agent coordination implementation; disabled defaults.",
       "Phase8 compatible segmented recovery for oversized owners, full release/fixtures/migrations/package and source/deployment identity reconciliation.",
       "External real renewable private ingress/wakeup/provider consent, optional paid provider/model/budget, Windows/device acceptance and coherent private deployment remain unverified."
     ],
-    "nextCommand": "Publish bounded polling correction; observe exact09fe CI39160069765/job117771325724 terminalbrowserresult and subsequent polling sourceCI; resolve native issues then implement Phase6 sharedschema/contracts and bounded workers, followed Phases7\u20138.",
-    "publishedTree": "62976a9bdffde4499481d622570e48a80c21e234",
-    "cloudRun": "Exact09fe follow-upCI39160069765/job117771325724 running:1300Node/type/lint/build and review/baseline/backup D1 steps pass, source-serviceD1 in progress. Diagnostic oldcoreb03CI39159517341/job117769671761 terminalfailure:13defaultbrowserpass/5failfast/27notrun,3R2browserpass,allD1/R2/HTTPpass.",
-    "currentCommit": "09fe57106f5c4e3f1eb9597e0d572a3a7ada40d3"
+    "nextCommand": "Publish sidebar fixture correction/checkpoint; observe sourceCI terminal result, then establish Phase6 shared contracts/schema and delegate bounded workers. Continue Phase7 andPhase8 including compatible segmented recovery. No liveeffects or private deployment beforevalidation.",
+    "publishedTree": "56c56acb0a6817e302448c312526c9a7ca7e4ae3",
+    "cloudRun": "09feCI39160069765/job117771325724 terminalfailure:1300Node/type/lint/build/all21migrationD1/R2/HTTPpass;46/48defaultChromiumpass inclbaseline/reviews/legacydrafts,3/3R2Chromiumpass. Only2newsidebar fixtures blocked by retained synthetic recoverydraft; native traces proveviewport/click/dialogwork. E4dCI39160670750/job117773112651 running; samefixturefix notyetincluded.",
+    "currentCommit": "e4d90bb8e37adb00f97f117fc9e6e59cdefb3dbb"
   }
 }
