@@ -15,7 +15,7 @@ export async function POST(request:Request){
  try{
  const user=await getChatGPTUser();if(!user)return failure('Sign in again.','session_expired',401);if(!env.DB)return failure('Device storage is unavailable.','storage_unavailable',503);
  const input=await readMutation(request),result=await createOwnerEnrollment(env.DB,user.userId,input,new Date().toISOString());
- if('diagnostic'in result.body)return failure(result.body.error,result.body.diagnostic,result.status);
+ if('diagnostic'in result.body&&typeof result.body.error==='string'&&typeof result.body.diagnostic==='string')return failure(result.body.error,result.body.diagnostic,result.status);
  return Response.json(result.body,{status:result.status,headers:{...headers,'X-Request-Id':requestId}});
  }catch(error){
  if(error instanceof RequestError)return failure(error.message,'request_invalid',error.status);
