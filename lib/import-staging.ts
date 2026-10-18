@@ -1,3 +1,4 @@
+import {privateCapacityGuard,privateRowGrowth} from './private-capacity.ts';
 import {z} from 'zod';
 import { ImportQuarantine, type ImportStage, type ImportPreview } from './import-quarantine.ts';
 import { BUNDLE_LIMITS, canonical, contentHash, type WorkspaceBundle } from './workspace-export.ts';
@@ -50,10 +51,13 @@ export async function stageImport(db:SqlDatabase,owner:string,raw:Uint8Array,now
  await expire(db,owner,clock.iso);
  const expires=new Date(clock.epoch+IMPORT_STAGING_LIMITS.ttlMs).toISOString();
  const metadata=JSON.stringify({diagnostics:stage.diagnostics.map(({path,code})=>({path,code})),...(lineage?{provenance:lineage}:{})});
- const statements=[db.prepare(`INSERT INTO workspace_imports(user_id,id,content_hash,created_at,expires_at,bytes,metadata_json) SELECT ?,?,?,?,?,?,? WHERE (SELECT COUNT(*) FROM workspace_imports WHERE user_id=?) < ? AND COALESCE((SELECT SUM(bytes) FROM workspace_imports WHERE user_id=?),0)+? <= ?${lineage?' AND EXISTS (SELECT 1 FROM workspace_imports WHERE user_id=? AND id=? AND content_hash=? AND expires_at>?)':''}`).bind(owner,stage.id,stage.hash,clock.iso,expires,bytes.byteLength,metadata,owner,IMPORT_STAGING_LIMITS.stages,owner,bytes.byteLength,IMPORT_STAGING_LIMITS.ownerBytes,...(lineage?[owner,lineage.parentId,lineage.parentHash,clock.iso]:[]))];
- for(let offset=0,ordinal=0;offset<bytes.byteLength;offset+=IMPORT_STAGING_LIMITS.chunkBytes,ordinal++) {
-  statements.push(db.prepare('INSERT INTO workspace_import_chunks(user_id,import_id,ordinal,content_base64) SELECT ?,?,?,? WHERE EXISTS (SELECT 1 FROM workspace_imports WHERE user_id=? AND id=? AND content_hash=?)').bind(owner,stage.id,ordinal,base64(bytes.subarray(offset,offset+IMPORT_STAGING_LIMITS.chunkBytes)),owner,stage.id,stage.hash));
- }
+ const chunkRows:Array<{import_id:string;ordinal:number;content_base64:string}>=[];
+ for(let offset=0,ordinal=0;offset<bytes.byteLength;offset+=IMPORT_STAGING_LIMITS.chunkBytes,ordinal++)chunkRows.push({import_id:stage.id,ordinal,content_base64:base64(bytes.subarray(offset,offset+IMPORT_STAGING_LIMITS.chunkBytes))});
+ const chunksGrowth=chunkRows.map(row=>privateRowGrowth('workspace_import_chunks',null,row));
+ const capacity=await privateCapacityGuard(db,owner,{growth:[privateRowGrowth('workspace_imports',null,{id:stage.id,content_hash:stage.hash,created_at:clock.iso,expires_at:expires,bytes:bytes.byteLength,metadata_json:metadata}),{table:'workspace_import_chunks',bytes:chunksGrowth.reduce((sum,row)=>sum+row.bytes,0),rows:chunkRows.length}]}),assertionId='import-stage-capacity-'+crypto.randomUUID();
+ const statements=[db.prepare('INSERT INTO workspace_assertions(user_id,mutation_id,valid) SELECT ?,?,CASE WHEN '+capacity.sql+' THEN 1 ELSE 0 END').bind(owner,assertionId,...capacity.bindings),db.prepare(`INSERT INTO workspace_imports(user_id,id,content_hash,created_at,expires_at,bytes,metadata_json) SELECT ?,?,?,?,?,?,? WHERE (SELECT COUNT(*) FROM workspace_imports WHERE user_id=?) < ? AND COALESCE((SELECT SUM(bytes) FROM workspace_imports WHERE user_id=?),0)+? <= ?${lineage?' AND EXISTS (SELECT 1 FROM workspace_imports WHERE user_id=? AND id=? AND content_hash=? AND expires_at>?)':''}`).bind(owner,stage.id,stage.hash,clock.iso,expires,bytes.byteLength,metadata,owner,IMPORT_STAGING_LIMITS.stages,owner,bytes.byteLength,IMPORT_STAGING_LIMITS.ownerBytes,...(lineage?[owner,lineage.parentId,lineage.parentHash,clock.iso]:[]))];
+ for(const chunk of chunkRows)statements.push(db.prepare('INSERT INTO workspace_import_chunks(user_id,import_id,ordinal,content_base64) SELECT ?,?,?,? WHERE EXISTS (SELECT 1 FROM workspace_imports WHERE user_id=? AND id=? AND content_hash=?)').bind(owner,stage.id,chunk.ordinal,chunk.content_base64,owner,stage.id,stage.hash));
+ statements.push(db.prepare('DELETE FROM workspace_assertions WHERE user_id=? AND mutation_id=?').bind(owner,assertionId));
  await db.batch(statements);
  const inserted=await db.prepare('SELECT id FROM workspace_imports WHERE user_id=? AND id=? AND content_hash=?').bind(owner,stage.id,stage.hash).first<{id:string}>();
  if(!inserted)throw new Error('Import staging owner quota exceeded or repair parent unavailable.');

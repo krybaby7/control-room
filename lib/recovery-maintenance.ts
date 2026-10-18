@@ -1,3 +1,4 @@
+import type {RecoveryAttachmentProof} from './recovery-attachments.ts';
 import {OWNER_TABLES} from './workspace-modules.ts';
 import {PRIVATE_PROFILE_TABLES} from './private-profile.ts';
 import {z} from 'zod';
@@ -12,7 +13,7 @@ const TABLES=["acceptance_owner_grants","acceptance_records","agent_artifacts","
 export const RECOVERY_APPLICATION_TABLES:readonly string[]=Object.freeze(TABLES);
 /** Revoked execution/provider/paid authority only; no dated owner data is dropped. */
 export const RECOVERY_AUTHORITY_EXCLUSIONS=Object.freeze(['agent_capabilities','automation_capabilities','device_credentials','device_enrollments','integration_service_principals','source_access_grants','review_analysis_consents'] as const);
-export const RECOVERY_REQUIRED_EMPTY=Object.freeze(['agent_protocol_claims','workspace_assertions','workspace_command_guards','workspace_imports','workspace_import_chunks','attachment_archive_stages','review_analysis_requests','workspace_configuration'] as const);
+export const RECOVERY_REQUIRED_EMPTY=Object.freeze(['agent_protocol_claims','workspace_assertions','workspace_command_guards','workspace_configuration'] as const);
 const classified=new Set<string>([...OWNER_TABLES,...PRIVATE_PROFILE_TABLES,'workspaces','workspace_source_namespaces','workspace_execution_state','audit_events',...RECOVERY_AUTHORITY_EXCLUSIONS,...RECOVERY_REQUIRED_EMPTY,'device_rate_buckets']);
 if(classified.size!==TABLES.length||TABLES.some(table=>!classified.has(table)))throw new Error('Recovery table preservation policy is incomplete.');
 
@@ -168,7 +169,7 @@ export async function recoveryTargetInventorySha256(db:SqlDatabase,value:Recover
  }
  return contentHash(canonical({version:1,schemaFingerprint:value.schemaFingerprint,tables:results}));
 }
-export async function markRecoveryTargetReady(target:SqlDatabase,source:SqlDatabase,sourceReceipt:RecoveryMaintenanceReceipt,value:RecoveryMaintenanceReceipt,expected:{privateSha256:string;inventorySha256:string;actualInventorySha256:()=>Promise<string>}):Promise<void>{
+export async function markRecoveryTargetReady(target:SqlDatabase,source:SqlDatabase,sourceReceipt:RecoveryMaintenanceReceipt,value:RecoveryMaintenanceReceipt,expected:{privateSha256:string;inventorySha256:string;actualInventorySha256:()=>Promise<string>;attachmentProof?:RecoveryAttachmentProof}):Promise<void>{
  await verifyFrozenRecoveryDatabase(source,sourceReceipt);
  const sourceRow=await authenticatedControl(source,sourceReceipt,['source-frozen']),targetRow=await authenticatedControl(target,value,['target-inactive']);
  if(sourceRow.private_hash!==hash.parse(expected.privateSha256)||targetRow.private_hash!==expected.privateSha256||value.manifestSha256!==sourceReceipt.manifestSha256||value.ownerContextHash!==sourceReceipt.ownerContextHash||value.schemaFingerprint!==sourceReceipt.schemaFingerprint||value.sourceContext.executionEpoch>=Number.MAX_SAFE_INTEGER)throw new Error('Recovery handoff roots differ.');
@@ -177,7 +178,9 @@ export async function markRecoveryTargetReady(target:SqlDatabase,source:SqlDatab
  if(!sourceNamespaces||!targetNamespaces||targetNamespaces.auditNamespace!==sourceNamespaces.auditNamespace||targetNamespaces.blobNamespace===sourceNamespaces.blobNamespace||targetNamespaces.blobNamespace===sourceNamespaces.auditNamespace||canonical(Array.from(targetNamespaces.cursorSecret))===canonical(Array.from(sourceNamespaces.cursorSecret)))throw new Error('Target native identity or fresh cursor/blob namespace differs.');
  if(canonical(await readOperationalWatermarks(target,value.ownerId))!==canonical(value.sourceContext.operationalWatermarks))throw new Error('Target operational vector differs from the frozen source.');
  await verifyRecoveryOwnerAttributionContinuity(source,target,value.ownerId);
- await verifyRecoveryPrivateTarget(source,target,value.ownerId,sourceReceipt.createdAt);
+ const {readRecoveryAttachmentProof}=await import('./recovery-attachments.ts');
+ const physicalExtras=await readRecoveryAttachmentProof(expected.attachmentProof,source,sourceReceipt,target,value);
+ await verifyRecoveryPrivateTarget(source,target,value.ownerId,sourceReceipt.createdAt,physicalExtras);
  // Caller is the trusted domain/refs/blob verifier, not JSON declaring itself valid.
  if(await expected.actualInventorySha256()!==hash.parse(expected.inventorySha256))throw new Error('Verified target inventory differs.');
  const forbidden=['device_credentials','device_enrollments','agent_capabilities','source_access_grants','integration_service_principals','automation_capabilities','review_analysis_consents'];

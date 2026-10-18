@@ -6,6 +6,8 @@ export function recoveryPrivateTargetRow(table:typeof PRIVATE_PROFILE_TABLES[num
  if(!(PRIVATE_PROFILE_TABLES as readonly string[]).includes(table)||!Number.isFinite(Date.parse(now)))throw new Error('Invalid closed recovery transformation.');
  const row={...original};
     if(table==='workspace_mutation_epochs'){row.status='retired';row.retired_at=row.retired_at??now;}
+    if(table==='attachment_blob_namespaces')row.purpose='recovery-history';
+    if(table==='attachment_archive_stages'&&(row.status==='preparing'||row.status==='verified'))row.status='failed';
     if(table==='job_approvals')row.revoked_at=row.revoked_at??now;
     if(table==='integration_jobs'){row.lease_token=null;row.lease_expires_at=null;row.lease_access_mode=null;row.lease_principal_ref=null;}
     if(table==='automation_runtime'){row.paused=1;row.principal_ref=null;}

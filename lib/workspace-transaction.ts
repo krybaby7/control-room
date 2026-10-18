@@ -1,3 +1,4 @@
+import {withWorkspaceAdmission} from './workspace-admission.ts';
 import {workspacePrivateCapacityGrowth} from './workspace-private-capacity.ts';
 import {requirePrivateCapacity} from './private-capacity.ts';
 import {fileBackupRemovalControlSchema,fileBackupRemovalStatements} from './automations/backup-archive-removal.ts';
@@ -52,6 +53,10 @@ export async function mutationOutcome(db:SqlDatabase,user:string,id:string):Prom
 }
 /** Every side effect is guarded by a transient transaction claim, never merely a historical receipt. */
 export async function executeWorkspaceCommand(userId:string,input:{protocolVersion:number;expectedRevision:number;mutationId:string;command:unknown},deps:WorkspaceTransactionDeps):Promise<CommandResult> {
+  if (!userId || input.protocolVersion!==1 || !Number.isSafeInteger(input.expectedRevision) || input.expectedRevision<1 || !validId(input.mutationId)) throw new CommandValidationError('A valid command envelope is required.');
+  return withWorkspaceAdmission(userId,()=>executeWorkspaceCommandAdmitted(userId,input,deps));
+}
+async function executeWorkspaceCommandAdmitted(userId:string,input:{protocolVersion:number;expectedRevision:number;mutationId:string;command:unknown},deps:WorkspaceTransactionDeps):Promise<CommandResult> {
   if (!userId || input.protocolVersion!==1 || !Number.isSafeInteger(input.expectedRevision) || input.expectedRevision<1 || !validId(input.mutationId)) throw new CommandValidationError('A valid command envelope is required.');
   const {db}=deps,revision=input.expectedRevision,id=input.mutationId,now=deps.now();
   if (!input.command || typeof input.command!=='object' || Array.isArray(input.command) || typeof (input.command as {type?:unknown}).type!=='string') throw new CommandValidationError('A command type is required.');

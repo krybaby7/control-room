@@ -28,6 +28,9 @@ import {beginUpload,finishUpload} from '../lib/attachment-upload-fences.ts';
 import {runInteractiveReview} from '../lib/reviews/http.ts';
 import {agentCapabilitySchema} from '../lib/agents/contracts.ts';
 import {buildAgentJobSpec,agentJobSpecSha256,buildAgentExecutionBinding,agentExecutionBindingSha256,buildAgentApprovalEnvelope} from '../lib/agents/policy.ts';
+import {stageAttachmentArchive} from '../lib/attachment-archive-staging.ts';
+import {stageImport,readStagedImport} from '../lib/import-staging.ts';
+import {proveRecoveryAttachments} from '../lib/recovery-attachments.ts';
 import {writeAttachmentArchive,attachmentArchivePath} from '../lib/attachment-archive-export.ts';
 import {createBackupArchiveStorage,backupArchiveKey} from '../lib/backup-archive-storage.ts';
 import {copyRecoveryBackupArchives} from '../lib/recovery-backups.ts';
@@ -45,7 +48,7 @@ const bufferCompare=(a,b)=>Buffer.compare(Buffer.from(a),Buffer.from(b));
 const stream=bytes=>new ReadableStream({start(controller){controller.enqueue(bytes.slice());controller.close();}});
 const hash=value=>contentHash(canonical(value));
 const batch=async(db,statements,size=32)=>{for(let i=0;i<statements.length;i+=size)await db.batch(statements.slice(i,i+size));};
-const mf=new Miniflare({modules:true,script:'export default {fetch(){return new Response("isolated recovery fixture");}}',compatibilityDate:'2026-05-15',d1Databases:['SOURCE','TARGET','FAILED','STAGE'],d1Persist:false,r2Buckets:['SOURCE_BUCKET','TARGET_BUCKET'],r2Persist:false,cf:false});
+const mf=new Miniflare({modules:true,script:'export default {fetch(){return new Response("isolated recovery fixture");}}',compatibilityDate:'2026-05-15',d1Databases:['SOURCE','TARGET','FAILED','STAGE'],d1Persist:false,r2Buckets:['SOURCE_BUCKET','TARGET_BUCKET','OFFLINE_PACKAGE_BUCKET'],r2Persist:false,cf:false});
 try{
  const source=await mf.getD1Database('SOURCE'),target=await mf.getD1Database('TARGET'),failed=await mf.getD1Database('FAILED'),stage=await mf.getD1Database('STAGE');
  const sourceStore=createR2BlobStore(await mf.getR2Bucket('SOURCE_BUCKET')),targetStore=createR2BlobStore(await mf.getR2Bucket('SOURCE_BUCKET'));
@@ -151,6 +154,15 @@ try{
   await source.prepare('INSERT INTO backup_archive_objects(user_id,archive_id,part_number,storage_key,bytes,sha256,created_at,verified_at,pending_token,settled_at) VALUES(?,?,0,?,?,?,?,?,?,?)').bind(OWNER,id,backupArchiveKey(namespace,0),descriptor.bytes,descriptor.sha256,NOW,NOW,crypto.randomUUID(),NOW).run();
   if(status==='retired')await source.prepare('INSERT INTO backup_archive_cleanup_claims(user_id,storage_key,archive_id,part_number,token,claimed_at,purged_at) VALUES(?,?,?,0,?,?,NULL)').bind(OWNER,backupArchiveKey(namespace,0),id,crypto.randomUUID(),NOW).run();
  }
+ // Actual native staging plus retained historical committed status; no import
+ // acceptance or planning effect is performed by this synthetic source setup.
+ const stageRevision=(await readCurrent(source,OWNER,NOW)).revision;
+ const retainedArchiveA=await stageAttachmentArchive(source,OWNER,writeAttachmentArchive(backupBundle,[ready],async()=>fileBytes),{store:sourceStore,now:()=>NOW,targetRevision:stageRevision});
+ const retainedArchiveB=await stageAttachmentArchive(source,OWNER,writeAttachmentArchive(backupBundle,[ready],async()=>fileBytes),{store:sourceStore,now:()=>NOW,targetRevision:stageRevision});
+ await source.prepare("UPDATE attachment_archive_stages SET status='committed' WHERE user_id=? AND id=? AND status='verified'").bind(OWNER,retainedArchiveB.archive.id).run();
+ const originalUnicodeInput=new TextEncoder().encode(JSON.stringify({schemaVersion:999,originalNotes:'Original retained مرحبا 😀 é staging bytes; no automatic planning acceptance.'})),retainedRaw=await stageImport(source,OWNER,originalUnicodeInput,NOW);
+ const originalReview=await source.prepare('SELECT id,content_hash FROM review_snapshots WHERE user_id=? ORDER BY id LIMIT 1').bind(OWNER).first();assert.ok(originalReview);
+ await source.prepare("INSERT INTO review_analysis_requests(user_id,id,intent_id,snapshot_id,snapshot_hash,policy_hash,provider,model,input_digest,state,reserved_micros,measured_cost_micros,created_at,updated_at,result_id,result_hash,payload_json) VALUES(?,?,NULL,?,?,?,?,?,?,'unknown',54321,NULL,?,?,NULL,NULL,?)").bind(OWNER,'synthetic-preserved-paid-unknown',originalReview.id,originalReview.content_hash,'b'.repeat(64),'synthetic-disabled-provider','synthetic-pinned-model','c'.repeat(64),NOW,NOW,'{"original":"retained unknown usage; no paid call was made by this fixture"}').run();
  const priorMutationEpoch='c'.repeat(32);
  await source.prepare("INSERT INTO workspace_mutation_epochs(user_id,epoch,status,created_at,retired_at) VALUES(?,?,'active',?,NULL)").bind(OWNER,priorMutationEpoch,NOW).run();
  // Explicitly model an already over-limit owner. Ordinary mutations must not be used to evade admission.
@@ -425,10 +437,30 @@ try{
   assert.equal(await readReadyFileBackup(rawTarget,OWNER,backupIds.retired,{bucket:await mf.getR2Bucket('SOURCE_BUCKET'),attachmentBucket:await mf.getR2Bucket('SOURCE_BUCKET')}),null);
   const targetPhysical=await rawTarget.prepare('SELECT COUNT(*) count,COALESCE(SUM(bytes),0) bytes FROM attachment_blob_objects WHERE user_id=? AND purged_at IS NULL').bind(OWNER).first();
   assert.equal(targetPhysical.count,sourcePhysical.count+header.attachmentManifest.length);assert.equal(targetPhysical.bytes,sourcePhysical.bytes+freshFileBytes);
+  assert.deepEqual((await readStagedImport(rawTarget,OWNER,retainedRaw.id,NOW)).raw,originalUnicodeInput);
+  assert.equal((await rawTarget.prepare('SELECT state FROM review_analysis_requests WHERE user_id=? AND id=?').bind(OWNER,'synthetic-preserved-paid-unknown').first()).state,'unknown');
+  assert.equal((await rawTarget.prepare('SELECT reserved_micros FROM review_analysis_requests WHERE user_id=? AND id=?').bind(OWNER,'synthetic-preserved-paid-unknown').first()).reserved_micros,54321);
+  assert.equal((await rawTarget.prepare('SELECT status FROM attachment_archive_stages WHERE user_id=? AND id=?').bind(OWNER,retainedArchiveA.archive.id).first()).status,'failed');
+  assert.equal((await rawTarget.prepare('SELECT status FROM attachment_archive_stages WHERE user_id=? AND id=?').bind(OWNER,retainedArchiveB.archive.id).first()).status,'committed');
+  assert.equal((await rawTarget.prepare("SELECT COUNT(*) count FROM attachment_blob_namespaces WHERE purpose<>'recovery-history'").first()).count,0);
+  const packageBucket=await mf.getR2Bucket('OFFLINE_PACKAGE_BUCKET');
+  // Synthetic OFFLINE package storage, separate from charged application R2.
+  // At most4MiB is buffered; every artifact is independently reopened below.
+  const artifactSink={
+   async write(id,body){
+    assert.match(id,/^[a-f0-9-]+\.zip$/);const reader=body.getReader(),parts=[];let buffer=new Uint8Array(4*1024*1024),used=0;
+    async function flush(){if(!used)return;const bytes=buffer.slice(0,used),key='operator-package/'+id+'/part-'+String(parts.length).padStart(4,'0');await packageBucket.put(key,bytes,{onlyIf:{etagDoesNotMatch:'*'}});parts.push({key,bytes:bytes.length,sha256:await contentHash(bytes)});buffer=new Uint8Array(4*1024*1024);used=0;}
+    try{for(;;){const next=await reader.read();if(next.done)break;let offset=0;while(offset<next.value.length){const length=Math.min(buffer.length-used,next.value.length-offset);buffer.set(next.value.subarray(offset,offset+length),used);offset+=length;used+=length;if(used===buffer.length)await flush();}}await flush();}finally{reader.releaseLock();}
+    await packageBucket.put('operator-package/'+id+'/index',JSON.stringify(parts),{onlyIf:{etagDoesNotMatch:'*'}});
+   },
+   async open(id){const index=await packageBucket.get('operator-package/'+id+'/index');assert.ok(index);const parts=JSON.parse(await index.text());let position=0;return new ReadableStream({async pull(controller){if(position===parts.length){controller.close();return;}const part=parts[position++],object=await packageBucket.get(part.key);assert.ok(object);const bytes=new Uint8Array(await object.arrayBuffer());assert.equal(bytes.length,part.bytes);assert.equal(await contentHash(bytes),part.sha256);controller.enqueue(bytes);}});}
+  };
+  const attachmentProof=await proveRecoveryAttachments(source,sourceReceipt,rawTarget,targetReceipt,{sourceStore,targetStore,artifacts:artifactSink});
+  assert.equal(attachmentProof.files,header.attachmentManifest.length);assert.equal(attachmentProof.stagingArtifacts.length,2);assert.ok(attachmentProof.stagingArtifacts.every(artifact=>artifact.included===1));
   const inventorySha256=await recoveryTargetInventorySha256(rawTarget,targetReceipt);
-  await markRecoveryTargetReady(rawTarget,source,sourceReceipt,targetReceipt,{privateSha256:privateContinuity.sha256,inventorySha256,actualInventorySha256:()=>recoveryTargetInventorySha256(rawTarget,targetReceipt)});
+  await markRecoveryTargetReady(rawTarget,source,sourceReceipt,targetReceipt,{privateSha256:privateContinuity.sha256,inventorySha256,attachmentProof,actualInventorySha256:()=>recoveryTargetInventorySha256(rawTarget,targetReceipt)});
   await assert.rejects(rawTarget.prepare('UPDATE workspaces SET revision=revision+1 WHERE user_id=?').bind(OWNER).run(),/operator_recovery_frozen/);
-  const handoff={backupCopies,privateContinuityHash:privateContinuity.sha256,inventorySha256,continuityResult,maintenance:'target-ready-still-fenced',manifestHash:manifest.sha256,headerHash,workspaceRevision:context.workspaceRevision,physicalHash:await hash(physical),auditRows:auditCount,attachmentRows:verifiedBytes.size,authority:'revoked-private-continuity',bindingAction:'manual-reviewed-replacement-only'};
+  const handoff={backupCopies,attachmentProof,privateContinuityHash:privateContinuity.sha256,inventorySha256,continuityResult,maintenance:'target-ready-still-fenced',manifestHash:manifest.sha256,headerHash,workspaceRevision:context.workspaceRevision,physicalHash:await hash(physical),auditRows:auditCount,attachmentRows:verifiedBytes.size,authority:'revoked-private-continuity',bindingAction:'manual-reviewed-replacement-only'};
   return {handoff,hash:await hash(handoff)};
  }
  await assert.rejects(()=>install(failed,{failAfter:1}),/interrupted physical/);

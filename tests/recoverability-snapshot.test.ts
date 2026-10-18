@@ -89,3 +89,40 @@ test('aggregate normalized reference rows fail closed across individually bounde
   const quote=await measureProspectiveRecoverability(f.db,owner,{now});assert.equal(quote.measurement.allowed,false);assert.equal(quote.measurement.measurements.counts.find(count=>count.name==='normalized-owner-reference-rows')!.rows,11000);assert.ok(quote.measurement.reasons.some(reason=>reason.code==='row_limit'&&reason.scope==='count:normalized-owner-reference-rows'&&reason.actual===11000&&reason.limit===10000));assert.equal(quote.measurement.measurements.counts.find(count=>count.name==='module:evidence')!.rows,6000);assert.equal(quote.measurement.measurements.counts.find(count=>count.name==='module:decisions')!.rows,5000);
  }finally{f.sqlite.close();}
 });
+
+function observeDatabase(db:import('../lib/workspace-store.ts').SqlDatabase,afterRead:(sql:string)=>void):import('../lib/workspace-store.ts').SqlDatabase{
+ return {prepare(sql){let statement=db.prepare(sql);const wrapped:import('../lib/workspace-store.ts').SqlStatement={bind(...values){statement=statement.bind(...values);return wrapped;},async first<T>(){const result=await statement.first<T>();afterRead(sql);return result;},async all<T>(){const result=await statement.all<T>();afterRead(sql);return result;},run(){return statement.run();}};return wrapped;},batch(statements){return db.batch(statements);}};
+}
+test('one frozen module capture plus one verification matches actual export without redundant adapter database scans',async()=>{
+ const f=await fixture();try{
+  await add(f,'evidence_records','legacy',{text:'Exact retained Unicode العربية 😀 and escaping \\"'});
+  let reads=0;const db=observeDatabase(f.db,sql=>{if(sql.includes('FROM evidence_records WHERE user_id = ? AND id > ?'))reads++;});
+  const changes=f.sqlite.prepare('SELECT total_changes() n').get()!.n,quote=await measureProspectiveRecoverability(db,owner,{now});
+  assert.equal(reads,2,'One physical capture and one final equality check; adapters read only the frozen image.');
+  const actual=await exportWorkspaceBundle(f.db,owner,{now:()=>now});assert.equal(quote.measurement.measurements.bundleBytes,byteLength(JSON.stringify(actual)));
+  assert.equal(f.sqlite.prepare('SELECT total_changes() n').get()!.n,changes);
+ }finally{f.sqlite.close();}
+});
+test('normalized insert or payload change after capture cannot certify a mixed frozen image',async()=>{
+ for(const change of ['insert','update']as const){const f=await fixture();try{
+  await add(f,'evidence_records','legacy',{text:'Original immutable measurement input'});let raced=false;
+  const replacement=canonical({text:'Changed after first physical capture'}),digest=await contentHash(replacement);
+  const db=observeDatabase(f.db,sql=>{if(!raced&&sql.includes('FROM evidence_records WHERE user_id = ? AND id > ?')){raced=true;if(change==='insert')f.sqlite.prepare('INSERT INTO evidence_records(user_id,id,row_revision,payload_json,content_hash) VALUES(?,?,1,?,?)').run(owner,'new-direct-row',replacement,digest);else f.sqlite.prepare('UPDATE evidence_records SET payload_json=?,content_hash=? WHERE user_id=? AND id=?').run(replacement,digest,owner,'legacy');}});
+  await assert.rejects(measureProspectiveRecoverability(db,owner,{now}),/row set changed/);assert.equal(raced,true);assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM workspace_mutations').get()!.n,0);
+ }finally{f.sqlite.close();}}
+});
+test('same-revision audit insertion after capture is rejected rather than omitted from recovery measurement',async()=>{
+ const f=await fixture();try{
+  let raced=false;const entry=event('late-native-audit');
+  const db=observeDatabase(f.db,sql=>{if(!raced&&sql.includes('FROM audit_events WHERE user_id=? AND event_id>?')){raced=true;f.sqlite.prepare('INSERT INTO audit_events(user_id,event_id,workspace_revision,ordinal,kind,entity_type,entity_id,occurred_at,payload_json) VALUES(?,?,1,0,?,?,?,?,?)').run(owner,entry.id,entry.kind,entry.entityType,entry.entityId,now,canonical(entry));}});
+  await assert.rejects(measureProspectiveRecoverability(db,owner,{now}),/Audit row set changed/);assert.equal(raced,true);assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM workspace_mutations').get()!.n,0);
+ }finally{f.sqlite.close();}
+});
+test('frozen measurement detects an audit namespace change and never rotates it itself',async()=>{
+ const f=await fixture();try{
+  const replacement=crypto.randomUUID();let raced=false;
+  const db=observeDatabase(f.db,sql=>{if(!raced&&sql.includes('FROM evidence_records WHERE user_id = ? AND id > ?')){raced=true;f.sqlite.prepare('UPDATE workspace_source_namespaces SET audit_namespace=? WHERE user_id=?').run(replacement,owner);}});
+  await assert.rejects(measureProspectiveRecoverability(db,owner,{now}),/Audit namespace changed/);
+  assert.equal(f.sqlite.prepare('SELECT audit_namespace FROM workspace_source_namespaces WHERE user_id=?').get(owner)!.audit_namespace,replacement);
+ }finally{f.sqlite.close();}
+});

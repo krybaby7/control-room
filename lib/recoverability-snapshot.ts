@@ -8,11 +8,12 @@ import type {AuditEventDraft,JsonValue} from './workspace-protocol.ts';
 import type {ModuleReplacement,MutationPlan} from './workspace-transaction.ts';
 import {moduleProjection} from './module-columns.ts';
 import {BUNDLE_LIMITS,boundedPages} from './workspace-export-core.ts';
-import {buildWorkspaceBundle,exportRegistry,exportWorkspaceBundle,moduleTables,serializePortableAuditRow,type WorkspaceBundle} from './workspace-export.ts';
+import {buildWorkspaceBundle,exportRegistry,moduleTables,serializePortableAuditRow,type WorkspaceBundle} from './workspace-export.ts';
 import {canonical,contentHash} from './canonical-json.ts';
 import {measureRecoverability,type RecoverabilityMeasurement,type RecoverabilityTableInput} from './recoverability-measure.ts';
 import {readOperationalWatermarks,validateOperationalWatermarks} from './operational-watermarks.ts';
 import {canonicalJsonValue} from './audit-events.ts';
+import {getWorkspaceNamespaces} from './workspace-namespaces.ts';
 import {parseWorkspaceExport} from './workspace-validation.ts';
 const streams:Partial<Record<RegisteredOwnerTable,string>>={agent_results:'agents',evaluation_runs:'agents',source_observations:'sources',source_sync_runs:'sources',integration_history:'sources',review_snapshots:'reviews',review_analysis_runs:'reviews',notification_events:'notifications',automation_occurrences:'automations'};
 export interface ProspectiveRecoverabilityInput {
@@ -35,25 +36,33 @@ export async function measureProspectiveRecoverability(db:SqlDatabase,owner:stri
  const terminalReserveRows=(await db.prepare("SELECT job_id,operational_revision,status,approval_id FROM agent_job_state WHERE user_id=? AND approval_id IS NOT NULL AND status IN ('queued','leased','running','cancelling','reconcile_required') ORDER BY job_id LIMIT 13").bind(owner).all<{job_id:string;operational_revision:number;status:string;approval_id:string}>()).results;
  if(terminalReserveRows.length>12||!Number.isSafeInteger(input.agentTerminalReserveDelta??0)||Math.abs(input.agentTerminalReserveDelta??0)>12)throw new Error('Invalid finite terminal reserve.');
  const terminalReserveCount=terminalReserveRows.length+(input.agentTerminalReserveDelta??0);if(terminalReserveCount<0||terminalReserveCount>12)throw new Error('Terminal reserve exceeds the finite batch.');
- const original=await exportWorkspaceBundle(db,owner,{now:()=>input.now});
- const boundaryRevision=original.source.workspaceRevision,boundaryWatermarks=original.source.operationalWatermarks??{};
+ const captured=await readCurrent(db,owner,input.now),namespaces=await getWorkspaceNamespaces(db,owner);
+ const boundaryRevision=captured.revision,boundaryWatermarks=await readOperationalWatermarks(db,owner);
+ // Every serializer below reads this one captured physical image, never a second
+ // independent live export. The final read verifies the whole image before the
+ // caller receives exact atomic row-set preconditions.
+ const auditColumns='event_id,workspace_revision,ordinal,stream_id,stream_sequence,kind,entity_type,entity_id,occurred_at,payload_json';
+ const readAudit=()=>boundedPages<Record<string,unknown>&{id:string}>(async after=>(await db.prepare(`SELECT ${auditColumns} FROM audit_events WHERE user_id=? AND event_id>? AND NOT EXISTS(SELECT 1 FROM json_each(?) frozen WHERE frozen.key=audit_events.stream_id AND audit_events.stream_sequence>frozen.value) ORDER BY event_id LIMIT ?`).bind(owner,after,canonical(boundaryWatermarks),BUNDLE_LIMITS.pageSize).all<Record<string,unknown>>()).results.map(row=>({id:row.event_id as string,...row})));
+ const capturedAudit=await readAudit();
  const watermarks={...(input.operationalWatermarksAfter??boundaryWatermarks)};validateOperationalWatermarks(watermarks);
  for(const [stream,sequence]of Object.entries(boundaryWatermarks))if((watermarks[stream]??-1)<sequence)throw new Error('Prospective operational watermarks cannot move backwards.');
- const reader=ownerReader(db,owner),physical=new Map<RegisteredOwnerTable,Map<string,ModuleRow>>(),beforeRows=new Map<RegisteredOwnerTable,ModuleRow[]>(),sequences=new Map<string,number>();
+ const reader=ownerReader(db,owner),physical=new Map<RegisteredOwnerTable,Map<string,ModuleRow>>(),beforeRows=new Map<RegisteredOwnerTable,ModuleRow[]>(),sequences=new Map<string,number>(),beforeSequences=new Map<RegisteredOwnerTable,Array<{id:string;stream_sequence:number}>>();
  let retainedBytes=0;
  for(const table of OWNER_TABLES){
   const rows=await boundedPages(after=>reader.list(table,{after,limit:BUNDLE_LIMITS.pageSize}));
   for(const row of rows){retainedBytes+=new TextEncoder().encode(row.payload_json).length;if(retainedBytes>BUNDLE_LIMITS.bytes)throw new Error('Physical snapshot byte bound exceeded.');if(await contentHash(canonical(JSON.parse(row.payload_json)))!==row.content_hash)throw new Error('Current normalized content hash differs.');}
   beforeRows.set(table,rows);physical.set(table,new Map(rows.map(row=>[row.id,{...row}])));
-  const stream=streams[table];if(stream){const indexed=await boundedPages(async after=>(await db.prepare(`SELECT id,stream_sequence FROM ${table} WHERE user_id=? AND id>? ORDER BY id LIMIT ?`).bind(owner,after,BUNDLE_LIMITS.pageSize).all<{id:string;stream_sequence:number}>()).results);if(indexed.length!==rows.length||indexed.some((row,i)=>row.id!==rows[i].id||!Number.isSafeInteger(row.stream_sequence)||row.stream_sequence<0||row.stream_sequence>(boundaryWatermarks[stream]??0)))throw new Error('Operational physical snapshot changed or exceeds boundary.');for(const row of indexed)sequences.set(`${table}:${row.id}`,row.stream_sequence);}
+  const stream=streams[table];if(stream){const indexed=await boundedPages(async after=>(await db.prepare(`SELECT id,stream_sequence FROM ${table} WHERE user_id=? AND id>? ORDER BY id LIMIT ?`).bind(owner,after,BUNDLE_LIMITS.pageSize).all<{id:string;stream_sequence:number}>()).results);if(indexed.length!==rows.length||indexed.some((row,i)=>row.id!==rows[i].id||!Number.isSafeInteger(row.stream_sequence)||row.stream_sequence<0||row.stream_sequence>(boundaryWatermarks[stream]??0)))throw new Error('Operational physical snapshot changed or exceeds boundary.');beforeSequences.set(table,indexed);for(const row of indexed)sequences.set(`${table}:${row.id}`,row.stream_sequence);}
  }
  const virtual:OwnerScopedReader={async get(table,id){return physical.get(ownerTable(table))!.get(id)??null;},async list(table,options={}){const key=ownerTable(table),limit=options.limit??100;if(!Number.isSafeInteger(limit)||limit<1||limit>BUNDLE_LIMITS.pageSize)throw new Error('Invalid virtual page bound.');const stream=streams[key];return [...physical.get(key)!.values()].filter(row=>row.id>(options.after??'')&&(!stream||(sequences.get(`${key}:${row.id}`)??0)<=(watermarks[stream]??0))).sort((a,b)=>a.id<b.id?-1:a.id>b.id?1:0).slice(0,limit);}};
  // Omit operationalWatermarks intentionally: the virtual owner reader already filters
  // stream rows. Adapter serializers therefore never need an SQL imitation.
  const blockedDb:SqlDatabase={prepare(){throw new Error('Prospective serializer unexpectedly requested SQL.');},async batch(){throw new Error('Prospective measurement cannot write.');}};
  const serializeModules=async()=>{const modules:WorkspaceBundle['modules']={};for(const adapter of exportRegistry.entries()){if(adapter.key==='audit_events')continue;modules[adapter.key]={schemaVersion:adapter.schemaVersion,records:await adapter.exportRows({userId:owner,sourceRevision:boundaryRevision,query:virtual,db:blockedDb})};}return modules;};
+ for(const table of OWNER_TABLES)if(beforeRows.get(table)!.length&&!exportRegistry.entries().some(adapter=>moduleTables(adapter).includes(table)))throw new Error('Current populated module has no export adapter.');
  const baseline=await serializeModules();
- for(const [key,module]of Object.entries(baseline))if(canonical(module)!==canonical(original.modules[key]))throw new Error('Normalized snapshot changed during measurement.');
+ baseline.audit_events={schemaVersion:exportRegistry.get('audit_events').schemaVersion,records:capturedAudit.map(({id:_,...row})=>{void _;return serializePortableAuditRow(row as Record<string,unknown>&{event_id:string;payload_json:string});})};
+ const original=await buildWorkspaceBundle({planning:captured.workspace,modules:baseline,workspaceRevision:boundaryRevision,operationalWatermarks:boundaryWatermarks,...(namespaces?{auditNamespace:namespaces.auditNamespace}:{}),exportedAt:input.now});
  const replaced=new Set<RegisteredOwnerTable>(),changed=new Set<string>();
  for(const replacement of input.replacements??[]){const table=ownerTable(replacement.table);if(replaced.has(table))throw new Error('Duplicate replacement scope.');replaced.add(table);
   const actual=beforeRows.get(table)!;if(canonical(replacement.beforeRows)!==canonical(actual))throw new Error('Replacement before rows differ from current owner snapshot.');
@@ -106,6 +115,10 @@ export async function measureProspectiveRecoverability(db:SqlDatabase,owner:stri
  if(current.revision!==boundaryRevision||canonical(current.workspace)!==canonical(original.planning)||canonical(await readOperationalWatermarks(db,owner))!==canonical(boundaryWatermarks))throw new Error('Workspace boundary changed during recoverability measurement.');
  // Re-read all physical sets: the returned revision/vector alone does not detect an
  // unguarded same-revision mutation, and must never certify a stale normalized set.
- for(const table of OWNER_TABLES){const latest=await boundedPages(after=>reader.list(table,{after,limit:BUNDLE_LIMITS.pageSize}));if(canonical(latest)!==canonical(beforeRows.get(table)))throw new Error('Normalized row set changed during recoverability measurement.');}
+ for(const table of OWNER_TABLES){const latest=await boundedPages(after=>reader.list(table,{after,limit:BUNDLE_LIMITS.pageSize}));if(canonical(latest)!==canonical(beforeRows.get(table)))throw new Error('Normalized row set changed during recoverability measurement.');
+  if(beforeSequences.has(table)){const indexed=await boundedPages(async after=>(await db.prepare(`SELECT id,stream_sequence FROM ${table} WHERE user_id=? AND id>? ORDER BY id LIMIT ?`).bind(owner,after,BUNDLE_LIMITS.pageSize).all<{id:string;stream_sequence:number}>()).results);if(canonical(indexed)!==canonical(beforeSequences.get(table)))throw new Error('Operational row sequence changed during recoverability measurement.');}
+ }
+ if(canonical(await readAudit())!==canonical(capturedAudit))throw new Error('Audit row set changed during recoverability measurement.');
+ if((await getWorkspaceNamespaces(db,owner))?.auditNamespace!==namespaces?.auditNamespace)throw new Error('Audit namespace changed during recoverability measurement.');
  return {agentTerminalReserveRows:terminalReserveRows,measurement,boundaryRevision,boundaryWatermarks:{...boundaryWatermarks},boundaryRows:OWNER_TABLES.map(table=>({table,rows:beforeRows.get(table)!.map(({id,row_revision,content_hash})=>({id,row_revision,content_hash}))}))};
 }

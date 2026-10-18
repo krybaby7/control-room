@@ -2,7 +2,7 @@ import {canonical,contentHash} from './canonical-json.ts';
 import {sourceConfigurationHash} from './background/job-store.ts';
 import {sourceConnectionSchema,sourceTargetSchema} from './sources/validation.ts';
 import {auditProjectIds} from './audit-projects.ts';
-import {privateInsertGrowth,combinePrivateGrowth} from './private-growth.ts';
+import {privateInsertGrowth,combinePrivateGrowth,createPrivateGrowthContext} from './private-growth.ts';
 import {privateRowGrowth,type PrivateGrowth,type PrivateCapacityGuard} from './private-capacity.ts';
 import type {SqlDatabase} from './workspace-store.ts';
 import type {WorkspaceEnvelope} from './types.ts';
@@ -30,10 +30,11 @@ export interface WorkspacePrivateCapacityQuote {growth:PrivateGrowth[];guards:Pr
  * guards close operational insertion races for bulk recovery updates. */
 export async function workspacePrivateCapacityGrowth(db:SqlDatabase,owner:string,input:WorkspacePrivateCapacityInput):Promise<WorkspacePrivateCapacityQuote>{
  if(!owner||owner.length>256||!Number.isSafeInteger(input.before.revision)||input.before.revision<1)throw new Error('Invalid server capacity context.');
- const {plan,command,now}=input,guards:PrivateCapacityGuard[]=[],totals=new Map<string,PrivateGrowth>();
+ const growthContext=await createPrivateGrowthContext(db);
+ const {plan,command,now}=input,guards:PrivateCapacityGuard[]=[{sql:growthContext.guard.sql,bindings:[...growthContext.guard.bindings]}],totals=new Map<string,PrivateGrowth>();
  const table=(name:string)=>name as PrivateGrowth['table'];
  function add(value:PrivateGrowth){if(!Number.isSafeInteger(value.bytes)||value.bytes<0||!Number.isSafeInteger(value.rows)||value.rows<0)throw new Error('Invalid private growth.');const previous=totals.get(value.table);const next={...value,bytes:value.bytes+(previous?.bytes??0),rows:value.rows+(previous?.rows??0)};if(!Number.isSafeInteger(next.bytes)||!Number.isSafeInteger(next.rows))throw new Error('Private growth exceeds safe arithmetic.');totals.set(value.table,next);}
- async function insert(name:string,values:Row){add(await privateInsertGrowth(db,table(name) as Exclude<PrivateGrowth['table'],'baselineRemovalFences'>,values));}
+ async function insert(name:string,values:Row){add(await privateInsertGrowth(db,table(name) as Exclude<PrivateGrowth['table'],'baselineRemovalFences'>,values,growthContext));}
  // Full new value fragments include their keys/punctuation and hence upper
  // bound every positive replacement delta, even if old values changed.
  function update(name:string,patch:Row,count=1){if(!Number.isSafeInteger(count)||count<0)throw new Error('Invalid private update count.');if(!count)return;const size=privateRowGrowth(table(name),null,patch);add({...size,rows:0,bytes:size.bytes*count});}

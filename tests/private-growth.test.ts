@@ -2,7 +2,7 @@ import {PRIVATE_PROFILE_TABLES} from '../lib/private-profile.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {database} from './helpers/sqlite.ts';
-import {privateInsertGrowth,privateUpdateGrowth,combinePrivateGrowth} from '../lib/private-growth.ts';
+import {createPrivateGrowthContext,privateInsertGrowth,privateUpdateGrowth,combinePrivateGrowth} from '../lib/private-growth.ts';
 import {privateRowGrowth} from '../lib/private-capacity.ts';
 test('native schema hydration counts escaped UTF8 full defaults exactly, excluding only owner identity',async t=>{
  const f=database();t.after(()=>f.sqlite.close());
@@ -40,4 +40,25 @@ test('growth hydration reuses only immutable schema metadata and invalidates it 
  f.sqlite.exec('ALTER TABLE workspace_drafts ADD COLUMN unexpected_cache_change TEXT');
  await assert.rejects(()=>privateInsertGrowth(db,'workspace_drafts',input));assert.ok(pragmas>loaded);
  assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM workspace_drafts').get()!.n,0);
+});
+
+test('one operation reuses only branded schema metadata and its exact guard fences late schema change',async t=>{
+ const f=database();t.after(()=>f.sqlite.close());let fingerprints=0;
+ const db={...f.db,prepare(sql:string){if(sql.includes('sqlite_master'))fingerprints++;return f.db.prepare(sql);}};
+ const context=await createPrivateGrowthContext(db),reads=fingerprints;assert.ok(reads>0);assert.ok(Object.isFrozen(context));assert.ok(Object.isFrozen(context.guard.bindings));
+ const input={id:'synthetic-context',row_revision:1,payload_json:'{}',expires_at:'later'};
+ await privateInsertGrowth(db,'workspace_drafts',input,context);await privateInsertGrowth(db,'workspace_drafts',{...input,id:'synthetic-context-two'},context);assert.equal(fingerprints,reads);
+ for(let index=0;index<3;index++)f.sqlite.prepare('INSERT INTO workspace_drafts(user_id,id,row_revision,payload_json,expires_at) VALUES(?,?,1,?,?)').run('owner','draft-'+index,'Arabic نص '+index,'later');
+ const update=await privateUpdateGrowth(db,'owner','workspace_drafts','id LIKE ?',['draft-%'],{payload_json:'new'},false,context);assert.equal(update.rows,0);assert.ok(update.bytes>0);assert.equal(fingerprints,reads);
+ await assert.rejects(()=>privateInsertGrowth(db,'workspace_drafts',input,{...context}));
+ await assert.rejects(()=>privateInsertGrowth(f.db,'workspace_drafts',input,context));
+ assert.ok(await db.prepare('SELECT 1 WHERE '+context.guard.sql).bind(...context.guard.bindings).first());
+ f.sqlite.exec('ALTER TABLE workspace_drafts ADD COLUMN late_schema_change TEXT');
+ const result=await db.prepare('UPDATE workspace_drafts SET row_revision=row_revision+1 WHERE user_id=? AND '+context.guard.sql).bind('owner',...context.guard.bindings).run();assert.equal(result.meta.changes,0);
+ assert.equal(f.sqlite.prepare('SELECT MAX(row_revision) revision FROM workspace_drafts').get()!.revision,1);
+});
+test('standalone multirow UPDATE hydrates schema once rather than once per owner row',async t=>{
+ const f=database();t.after(()=>f.sqlite.close());for(let index=0;index<4;index++)f.sqlite.prepare('INSERT INTO workspace_drafts(user_id,id,row_revision,payload_json,expires_at) VALUES(?,?,1,?,?)').run('owner','draft-'+index,'original','later');
+ let fingerprints=0;const db={...f.db,prepare(sql:string){if(sql.includes('sqlite_master'))fingerprints++;return f.db.prepare(sql);}};
+ await privateUpdateGrowth(db,'owner','workspace_drafts','id LIKE ?',['draft-%'],{payload_json:'new'});assert.equal(fingerprints,1);
 });

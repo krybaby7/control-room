@@ -100,7 +100,7 @@ new, so old cursor MACs do not authorize the new binding. This policy does not
 change ordinary portable imports: imported history remains claims and cannot
 mint native grants.
 
-The closed 42-table private profile also preserves existing owner assessment/decision
+The closed 46-table private profile also preserves existing owner assessment/decision
 attribution, exact review acknowledgements, notification read state, active
 baseline head identity and unsubmitted server drafts. Source grants are checked
 against exact same-owner immutable body hashes. The target seal independently
@@ -108,9 +108,7 @@ compares these actual source/target rows; an imported normalized record without
 an existing source grant never gains attribution. These are existing owner
 choices, not new acceptance, completion, execution or paid consent.
 
-Nonempty workspace_imports, workspace_import_chunks, attachment_archive_stages or review_analysis_requests
-are refused before target writes with an explicit staging/blob handoff message.
-No staged original input, file path or expired draft is silently discarded.
+Original workspace_imports/chunks, attachment_archive_stages and review_analysis_requests retain exact IDs, raw bytes, metadata, dates and unknown paid reservations. Retained raw chunk sequences, base64, lengths and SHA256 are checked independently of expiry. No staged original input or expired draft is silently discarded.
 Execution credentials, provider grants/capabilities and paid consent remain
 excluded; pending jobs stay cancelled and unknown attempts remain fenced.
 
@@ -133,3 +131,48 @@ uses primary-key pages, with single-row pages for large serialized bodies, avoid
 backup rekey tables follow the separately verified byte/ledger adapter. A
 caller recomputing a generic target inventory cannot excuse an omitted
 observation, altered receipt or changed sequence floor.
+
+## Original staged inputs and private byte artifacts
+
+The closed profile has46 private data tables. Original import rows/chunks and
+paid request journals are exact data, including unknown cost measurements and
+reserved usage. Consent and provider/execution authority remain absent.
+Inherited blob namespace registrations become recovery-history; preparing or
+verified archive stages become inert failed rows while committed history is
+retained. The sealed original source package preserves each pre-revocation
+value. A copied historical namespace cannot authorize an old R2 key.
+
+proveRecoveryAttachments requires actual frozen source/target bindings and
+actual verified R2 bytes. For current ready files it verifies both source bytes
+and fresh target bytes, exact metadata except the new storage key, verified
+private ledger rows and definitive PUT settlement. Only this server-produced
+proof can admit the additional fresh ledger/attempt rows in independent
+source-to-target comparisons. JSON copies and imported hashes are refused.
+
+Original staged file bytes are saved into a separately injected OFFLINE private
+operator package sink, never an uncharged application R2 upload. Each ZIP has a
+closed inspection-only staging manifest bound to the original stage ID and
+actual private root. Original manifests/raw inputs remain exact in the private
+continuity package. Included files are re-read from actual source R2 and the
+saved ZIP is reopened, hashed and fully CRC/central-directory validated before
+returning a proof. The sink uses generated artifact IDs, not owner filenames.
+A missing previously verified file or corrupt bytes aborts readiness.
+Reservations for files never written are explicitly labelled not-written;
+permanently fenced/purged keys are explicitly excluded and never resurrected.
+
+These private staging ZIPs are not standard workspace imports and cannot
+automatically accept a planning/file proposal. An owner must explicitly
+reconstruct, review and import retained content after manual activation.
+The helper creates no extra proposal database rows before the strict seal.
+The saved artifacts are checked again during readiness. Proofs are process-local
+objects bound to the actual source root, target operation and write revision;
+after restart, repeat actual verification rather than trusting serialized JSON.
+Initial verification and rechecks have finite deadlines/abort handling. Failed
+offline writes remain unsealed operator debris, never commit authority.
+
+Artifacts are streamed with20MiB per-file buffers, at most208MiB per ZIP and
+320MiB across staged artifacts. The private sink is an explicit privileged
+offline filesystem/package boundary. An application-bucket implementation
+would need its own reviewed quota/write-ahead adapter and is not enabled here.
+Reserved workspace_configuration still requires an explicit typed adapter;
+transient assertion, command-claim and agent-protocol-claim tables must be empty.

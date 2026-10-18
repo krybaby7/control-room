@@ -24,15 +24,18 @@ export async function beginUpload(db:SqlDatabase,userId:string,input:BeginAttach
  if(record.storageKey!==key||record.status!=='reserved'||Date.parse(record.expiresAt)<=Date.parse(input.now))return null;
  const hash=await contentHash(canonical(record)),token=crypto.randomUUID();
  const capacity=await privateCapacityGuard(db,userId,{newPendingPuts:1,growth:[privateRowGrowth('attachment_upload_attempts',null,{token,attachment_id:record.id,storage_key:key,created_at:input.now,settled_at:null})]});
- const result=await db.prepare(`WITH upload_private_capacity AS MATERIALIZED(SELECT ${capacity.sql} AS valid) INSERT INTO attachment_upload_attempts(user_id,token,attachment_id,storage_key,created_at,settled_at)
+ // Keep the already-verified trusted authority in its own materialized expression
+ // tree. D1's depth100 limit applies even when total bindings are below100;
+ // both proofs still execute in this same guarded persistent-attempt INSERT.
+ const result=await db.prepare(`WITH upload_private_capacity AS MATERIALIZED(SELECT ${capacity.sql} AS valid), upload_device_authority AS MATERIALIZED(SELECT (${trustedGuard?.sql??'1'}) AS valid) INSERT INTO attachment_upload_attempts(user_id,token,attachment_id,storage_key,created_at,settled_at)
  SELECT ?,?,?,?,?,NULL WHERE EXISTS (
  SELECT 1 FROM attachments a JOIN workspace_source_namespaces n ON n.user_id=a.user_id
  WHERE a.user_id=? AND a.id=? AND a.row_revision=? AND a.content_hash=?
  AND n.blob_namespace=? AND json_valid(a.payload_json)
  AND json_extract(a.payload_json,'$.id')=? AND json_extract(a.payload_json,'$.status')='reserved'
  AND json_extract(a.payload_json,'$.storageKey')=? AND julianday(json_extract(a.payload_json,'$.expiresAt'))>julianday(?)
- ) AND EXISTS (SELECT 1 FROM attachment_blob_objects o WHERE o.user_id=? AND o.storage_key=? AND o.attachment_id=? AND o.namespace=? AND o.bytes=? AND o.purged_at IS NULL) AND NOT EXISTS (SELECT 1 FROM attachment_blob_fences f WHERE f.user_id=? AND (f.storage_key=? OR f.attachment_id=?)) AND (${trustedGuard?.sql??'1'}) AND EXISTS(SELECT 1 FROM upload_private_capacity WHERE valid=1)`)
- .bind(...capacity.bindings,userId,token,record.id,key,input.now,userId,record.id,input.rowRevision,hash,input.ownerNamespace,record.id,key,input.now,userId,key,record.id,input.ownerNamespace,record.expectedBytes,userId,key,record.id,...(trustedGuard?.bindings??[])).run();
+ ) AND EXISTS (SELECT 1 FROM attachment_blob_objects o WHERE o.user_id=? AND o.storage_key=? AND o.attachment_id=? AND o.namespace=? AND o.bytes=? AND o.purged_at IS NULL) AND NOT EXISTS (SELECT 1 FROM attachment_blob_fences f WHERE f.user_id=? AND (f.storage_key=? OR f.attachment_id=?)) AND EXISTS(SELECT 1 FROM upload_device_authority WHERE valid=1) AND EXISTS(SELECT 1 FROM upload_private_capacity WHERE valid=1)`)
+ .bind(...capacity.bindings,...(trustedGuard?.bindings??[]),userId,token,record.id,key,input.now,userId,record.id,input.rowRevision,hash,input.ownerNamespace,record.id,key,input.now,userId,key,record.id,input.ownerNamespace,record.expectedBytes,userId,key,record.id).run();
  return result.meta.changes===1?token:null;
 }
 export interface FinishAttachmentUpload {token:string;now:string;definitivelySettled:boolean}

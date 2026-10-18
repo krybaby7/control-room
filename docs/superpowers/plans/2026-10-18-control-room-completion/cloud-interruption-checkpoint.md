@@ -1,28 +1,24 @@
 # Cloud implementation checkpoint
 
-Implementation head immediately before checkpointcommit: `f9f54926e90c6e35bd239379a5e60a8988c89252`.
+Parent source commit: 3b28d890638ff7d007bb893352f404d8ec4ae7db. Resolve the branch head for this checkpoint's own commit.
 
-Supported explicit `gpt-6.1-sol` selection remains accepted for root and all six named workers. No model substitution or original localWindows implementation.
+Exact model selection: accepted `gpt-6.1-sol` runtime parameter for the integrator and workers `/root/codec`, `/root/drafts`, `/root/export_registry`, `/root/foundation_review`, `/root/runtime_probe`, and `/root/save_client`. Follow-up tasks retain their selected model.
 
-Integrated source: Phases0–6 verified earlier; Phase7 coordinator/nativeartifacts/jobdetail and Phase8 recovery/capacity/QA source under finalintegration. Public draftPR1 remains unmerged. Rejected inspectioncommit stayslocal/excluded.
+GitHub source APIs and actual GitHub Actions Node 24 cloud runners. Supported workspace execution remains unavailable.
 
-Latest concrete evidence:
-- Phase6 exact60e50fc full39167082234 and syntheticWindows39167078521 passed.
--0d25/e716 three-browseraxe/keyboard/touch acceptance passed; boundedSSE14checks passed.
--8ea nativeagenthistory>1.8MB completesactualD1 terminal/replay; pendingPUT exactcap test passed.
--f9 controlledmobile actualDOMfirstusable<=3s and normalnavigation longtasks<=200ms passed. Twentycookie sessions preserve2commits/18conflicts, originalreceipts/replay andownerisolation; actualsavep953931.61ms FAILS unchanged2000ms.
--4bd native source/benchmark tests initiallyfailedsharedNode schema re-export resolution; f9 fixes explicit .ts.
--f9 artifactactualD1 PUT503 persists; currentcheckpoint isolatesprivatecapacity SQL inmaterializedCTE, rerunpending.
--60d fullNode/bridge/type/lint/build/D1passed, defaultChromium5failed;3R2passed. DiagnosedAgents stalepoll, dialogfields shrinking, enrollmentlabel andoutdatedunifiedAttention test are correctedhere; exactnative rerunpending.
+18e443: 103 agent tests, native agents D1, runtime D1, maintenance and streaming passed. Chromium, Firefox and WebKit acceptance passed. Mobile readiness and long-task gates passed; concurrent HTTP save p95 4864.82 ms failed the unchanged 2000 ms gate.
 
-Current remaining sourcework:
-1. Coherent46-table stagedrawinput/archive/paidrequesthistory preservation with verified offlineprivate recovery ZIPs andno importednamespace authority.
-2. Fundedfirst-device revocation atquota, preservingactualhistoricalsession/windowdates.
-3. Singleflight actualschema metadata cache with per-callfingerprint andatomicschemaCAS; nevercacheownerusage/authority.
-4. Actualnewregression failures, completecandidate packaging andfinalgap/releaseevidence.
+## Included changes awaiting validation
 
-ExistingprivateSite remains owner-only activeversion2 unchanged. SupportedSites sourcehelper execution blockedbydisconnectedworkspacecommands; GitHubsource APIs andactualNode24Linux/WindowsActions work. No replacementSite/remote/accesschange/newpublication.
+46-table original-history recovery, staged-file proof, paid journal guards, bounded per-owner admission, artifact SQL-depth correction, and atomic cleanup-race injection fixtures. Existing private hosting identity and audience remain unchanged. No new deployment, paid inference or operational effects.
 
-Paidinference andoperational/tradingeffects disabled. Productionexecutor not_installed untilpinnedupstreamruntime+actualWindowsprocess/sandbox acceptance. Provider/device/ingress/streaming acceptance separate; syntheticfiles/schedules/mocks/builds proveonlynamedscope. Tests useisolatedsyntheticdata. Finiteprivate200k/64MiB/physicalquotas canhonestlystopingestbeforemaximumretentionwindows; no silent evictions/unconditionalretentionclaim.
+## Known failures and unfinished work
 
-Next action: Inspect new head Actions; integrate coherent46-table staging/paidjournal adapter, fundeddevicerevocation and schema-singleflight optimization; fix actual regressions, then freeze exactcandidate for complete gates/package.
+- Artifact upload: actual D1 expression depth exceeded 100 with 96 bindings. A second materialized authority proof is included; exact rerun pending.
+- Concurrent save latency remains above budget. Bounded per-owner admission is included; coherent snapshot and growth-metadata optimizations are under review.
+- Five cleanup race tests failed because their injection hook missed the new atomic batch. The hook is corrected without changing security assertions; exact rerun pending.
+- Full Node run was superseded before completion. No final complete source/package validation is claimed.
+- New 46-table recovery, staged-file proof and paid-history guards require actual regression execution.
+- Real provider/runtime/device/hosted acceptance and supported Sites helper execution remain external.
+
+Next command: Inspect this branch head's Actions; resolve genuine regressions, integrate reviewed performance improvements, then hold one source revision for every acceptance and package gate.

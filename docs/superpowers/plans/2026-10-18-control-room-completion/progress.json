@@ -174,7 +174,8 @@
         "Attempt-scoped reserve/PUT/finalize now reuses native attachment quota/physical ledger with atomic current-lease guards, exact immutable binding, SHA/type/package limits and original m1 replay. Independent review fixed connector audit attribution, quota undercharging and metadata rewrite checks; dedicated actual D1/R2 gate added and pending.",
         "Actual D1/R2 artifact39173998824 and runtime39173998849 at61da terminalsuccess. Agent contracts/type39173998790 pass; lint modal ref defect corrected31c, rerun pending.",
         "Local explicit redaction/refusal and bounded server sensitive-content rejection precede any upload/R2 PUT; all four textual MIME inputs normalize honestly to native safe storage while preserving raw command replay identity. Exact gates pending.",
-        "Owner-only GET job/event pagination, immutable frozen repo/base/input/runtime provenance and verified owner/attempt-bound artifact download links integrated778/6691. Local redaction/server sensitive rejection and all4safe textual MIME inputs integrated0d25; actualartifact39174868947passed."
+        "Owner-only GET job/event pagination, immutable frozen repo/base/input/runtime provenance and verified owner/attempt-bound artifact download links integrated778/6691. Local redaction/server sensitive rejection and all4safe textual MIME inputs integrated0d25; actualartifact39174868947passed.",
+        "Bounded same-owner mutation admission, complete private writer guards, first-cancel and 20-device revocation funding are integrated; actual 18e agent regression passed 103 tests. Production upstream executor remains unavailable."
       ],
       "blockers": [
         "Actual pinned upstream runtime extraction and Windows owned process/sandbox acceptance unavailable; production executor remains not_installed.",
@@ -199,7 +200,8 @@
         "Actual0d25 acceptance39174466118 ande71639174873136 terminalsuccess across Chromium/Firefox/WebKit. Genuine bounded SSE39174749929and39174873100 passed14tests.",
         "Source8ea/0d5 expands private recovery to42typedtables including source/review/backup journals and dated telemetry, plus independent source->inerttarget history comparison. Finite native journal and pendingPUT settlement reserves, exact physical/backup/draft positive-write guards integrated; fullwritercoverage and new regressions pending.",
         "Newactual20session SQLite/D1/HTTP and network/CPU browser performance gates exposed fixture errors and p953026.7ms>3000 target; pending correction/optimization, not a pass.",
-        "New integration enforces private positive-growth admission atomically across central receipts/intents/grants, epochs/drafts, background schedules/source/reviews, runtime/device telemetry and physical/file-backup writers. Native first-cancel receives strictly bounded held-row/byte funding; no capraise, eviction or repeated noop credit. Exact regressions pending."
+        "New integration enforces private positive-growth admission atomically across central receipts/intents/grants, epochs/drafts, background schedules/source/reviews, runtime/device telemetry and physical/file-backup writers. Native first-cancel receives strictly bounded held-row/byte funding; no capraise, eviction or repeated noop credit. Exact regressions pending.",
+        "Private recovery now preserves 46 closed tables including staged original import chunks, archive stages and paid-analysis journals. Current file and offline staged ZIP proofs are required; new source awaits actual cloud regressions."
       ],
       "blockers": [
         "Exact final coherent source/full browser/packaging gates still in progress.",
@@ -208,7 +210,7 @@
       ]
     }
   ],
-  "nextAction": "Inspect new head Actions; integrate coherent46-table staging/paidjournal adapter, fundeddevicerevocation and schema-singleflight optimization; fix actual regressions, then freeze exactcandidate for complete gates/package.",
+  "nextAction": "Inspect this branch head's Actions; resolve genuine regressions, integrate reviewed performance improvements, then hold one source revision for every acceptance and package gate.",
   "allowedStatuses": [
     "not_started",
     "in_progress",
@@ -235,17 +237,18 @@
     "evidence": "Explicit supported model selection accepted and worker IDs returned."
   },
   "checkpoint": {
-    "implementationHead": "f9f54926e90c6e35bd239379a5e60a8988c89252",
-    "executionMode": "Supported GitHub source APIs and actual GitHub Actions Node24 Linux/Windows cloud runners; exact selected gpt-6.1-sol workers retained. Workspace execution unavailable.",
-    "tests": "Actualf9 mobilefirstusable and200ms longtask gates pass;20HTTP semanticCAS/replay/isolation passes, savep953.93s exceeds2s. Isolatedmaintenance/SSE pass. Exact42-source fullgates remain pending.",
+    "implementationHead": "3b28d890638ff7d007bb893352f404d8ec4ae7db",
+    "headMeaning": "Parent of this checkpoint commit; resolve the branch ref for the checkpoint commit itself.",
+    "executionMode": "GitHub source APIs and actual GitHub Actions Node 24 cloud runners. Supported workspace execution remains unavailable.",
+    "tests": "18e443: 103 agent tests, native agents D1, runtime D1, maintenance and streaming passed. Chromium, Firefox and WebKit acceptance passed. Mobile readiness and long-task gates passed; concurrent HTTP save p95 4864.82 ms failed the unchanged 2000 ms gate.",
     "knownFailures": [
-      "Actualf9 artifact D1 PUT still503 afterbindingcompaction; a materialized private-capacity proof is included here, fresh actualD1 rerun pending.",
-      "Actualf9 concurrentHTTP savep953931.61ms exceeds2000ms; actualschema-metadata singleflight optimization with atomic schemaCAS is underway, budget unchanged.",
-      "Source60d defaultChromium5failures diagnosed: staleAgents snapshot, physicallyshrunkBudget consent, Enrollment accessiblelabel and obsoleteAttention fixture. Corrections includedhere, native rerun pending.",
-      "Common staged-original/archive/paidjournal46-table adapter and first-device-revocation funding remain sourcework underway.",
-      "Finalcoherent Node/type/lint/build/D1/R2/HTTP/Windows/Chromium+browser/performance/package gates have not all passed. No newSite deployment.",
-      "Real pinned upstreamruntime/Windows process/sandbox, ownerdevices/passkeys, renewableingress/provider/SSE and supportedprivateSites publishinghelper remain unavailable/unverified."
+      "Artifact upload: actual D1 expression depth exceeded 100 with 96 bindings. A second materialized authority proof is included; exact rerun pending.",
+      "Concurrent save latency remains above budget. Bounded per-owner admission is included; coherent snapshot and growth-metadata optimizations are under review.",
+      "Five cleanup race tests failed because their injection hook missed the new atomic batch. The hook is corrected without changing security assertions; exact rerun pending.",
+      "Full Node run was superseded before completion. No final complete source/package validation is claimed.",
+      "New 46-table recovery, staged-file proof and paid-history guards require actual regression execution.",
+      "Real provider/runtime/device/hosted acceptance and supported Sites helper execution remain external."
     ],
-    "nextCommand": "Inspect new head Actions; integrate coherent46-table staging/paidjournal adapter, fundeddevicerevocation and schema-singleflight optimization; fix actual regressions, then freeze exactcandidate for complete gates/package."
+    "nextCommand": "Inspect this branch head's Actions; resolve genuine regressions, integrate reviewed performance improvements, then hold one source revision for every acceptance and package gate."
   }
 }

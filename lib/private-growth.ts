@@ -8,6 +8,18 @@ import type {SqlDatabase} from './workspace-store.ts';
 export type PrivatePhysicalRow=Record<string,string|number|null>;
 type Table=Exclude<PrivateGrowth['table'],'baselineRemovalFences'>;
 function fail():never{throw new PrivateCapacityError();}
+export interface PrivateGrowthContext {readonly guard:{readonly sql:string;readonly bindings:readonly (string|number|null)[]}}
+type SchemaMetadata=Awaited<ReturnType<typeof privateSchemaMetadata>>;
+const contexts=new WeakMap<PrivateGrowthContext,{db:SqlDatabase;metadata:SchemaMetadata}>();
+/** One operation's owner-free immutable schema quote. Caller MUST conjoin guard
+ * with its atomic admission/write proof. Never retain this context as authority. */
+export async function createPrivateGrowthContext(db:SqlDatabase):Promise<PrivateGrowthContext>{
+ const metadata=await privateSchemaMetadata(db),guard=Object.freeze({sql:metadata.guard.sql,bindings:Object.freeze([...metadata.guard.bindings])}),context=Object.freeze({guard});
+ contexts.set(context,{db,metadata});return context;
+}
+async function schemaFor(db:SqlDatabase,context?:PrivateGrowthContext):Promise<SchemaMetadata>{
+ if(context===undefined)return privateSchemaMetadata(db);const retained=contexts.get(context);if(!retained||retained.db!==db)fail();return retained.metadata;
+}
 const definitions=new Map<string,SQLiteTable>();for(const value of Object.values(schema))if(is(value,SQLiteTable))definitions.set(getTableName(value),value);
 function scalar(value:unknown):value is string|number|null{return value===null||typeof value==='string'||typeof value==='number'&&Number.isFinite(value);}
 function defaultValue(raw:unknown):string|number|null{
@@ -19,9 +31,10 @@ function defaultValue(raw:unknown):string|number|null{
 }
 /** Server-only metadata hydration. No request may supply table names, predicates,
  * defaults or SQL. The actual DB schema must match the compiled closed profile. */
-export async function privateInsertGrowth(db:SqlDatabase,table:Table,values:PrivatePhysicalRow):Promise<PrivateGrowth>{
+export async function privateInsertGrowth(db:SqlDatabase,table:Table,values:PrivatePhysicalRow,context?:PrivateGrowthContext):Promise<PrivateGrowth>{return hydratePrivateInsert(table,values,await schemaFor(db,context));}
+function hydratePrivateInsert(table:Table,values:PrivatePhysicalRow,metadata:SchemaMetadata):PrivateGrowth{
  if(!PRIVATE_PROFILE_TABLES.includes(table))fail();const definition=definitions.get(table);if(!definition)fail();
- const actual=(await privateSchemaMetadata(db)).tables[table];
+ const actual=metadata.tables[table];
  const expected=Object.values(getTableColumns(definition)).map(column=>column.name).sort(),names=actual.map(column=>column.name).sort();
  if(JSON.stringify(names)!==JSON.stringify(expected)||new Set(names).size!==names.length||Object.keys(values).some(name=>!names.includes(name))||Object.values(values).some(value=>!scalar(value)))fail();
  const compiled=Object.values(getTableColumns(definition));const row:PrivatePhysicalRow={};
@@ -34,12 +47,13 @@ export async function privateInsertGrowth(db:SqlDatabase,table:Table,values:Priv
 }
 /** Conservative full AFTER-row charge. UPDATE only: no INSERT/upsert may use it.
  * Absence rejects rather than quoting zero for a later concurrently inserted row. */
-export async function privateUpdateGrowth(db:SqlDatabase,owner:string,table:Table,where:string,bindings:(string|number|null)[],changes:PrivatePhysicalRow,incrementRevision=false):Promise<PrivateGrowth>{
+export async function privateUpdateGrowth(db:SqlDatabase,owner:string,table:Table,where:string,bindings:(string|number|null)[],changes:PrivatePhysicalRow,incrementRevision=false,context?:PrivateGrowthContext):Promise<PrivateGrowth>{
  if(!PRIVATE_PROFILE_TABLES.includes(table)||!owner||typeof where!=='string'||!where||where.length>1000||/[;\0]/u.test(where))fail();
+ const metadata=await schemaFor(db,context);
  const rows=(await db.prepare('SELECT * FROM '+table+' WHERE user_id=? AND ('+where+') LIMIT 101').bind(owner,...bindings).all<PrivatePhysicalRow>()).results;
  if(!rows.length||rows.length>100)fail();const growth:PrivateGrowth={table,bytes:0,rows:0};
  for(const row of rows){const after={...row,...changes};if(incrementRevision){const revision=row.operational_revision;if(typeof revision!=='number'||!Number.isSafeInteger(revision)||!Number.isSafeInteger(revision+1))fail();after.operational_revision=revision+1;}
-  const full=await privateInsertGrowth(db,table,after);growth.bytes+=full.bytes;
+  const full=hydratePrivateInsert(table,after,metadata);growth.bytes+=full.bytes;
  }
  if(!Number.isSafeInteger(growth.bytes))fail();return growth;
 }

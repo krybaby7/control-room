@@ -18,6 +18,11 @@ import {parseAuditEvent} from './audit-events.ts';
 export const PRIVATE_CONTINUITY_LIMITS=Object.freeze({bytes:64*1024*1024,rows:200000,tableRows:100000,page:8});
 const digest=z.string().regex(/^[a-f0-9]{64}$/),integer=z.number().int().nonnegative().safe(),positive=integer.min(1),stamp=z.string().datetime({offset:true}),nullableStamp=stamp.nullable(),id=z.string().min(1).max(500),json=z.string().max(1800000),flag=z.union([z.literal(0),z.literal(1)]);
 const schemas={
+ workspace_imports:z.object({id,content_hash:digest,created_at:stamp,expires_at:stamp,bytes:integer.max(8000000),metadata_json:z.string().max(1600000)}).strict(),
+ workspace_import_chunks:z.object({import_id:id,ordinal:integer.max(31),content_base64:z.string().max(349528)}).strict(),
+ attachment_archive_stages:z.object({id,namespace:id,source_manifest_hash:digest,manifest_json:z.string().max(8000000),created_at:stamp,expires_at:stamp,target_revision:positive,status:z.enum(['preparing','verified','failed','committed']),import_id:id.nullable(),import_hash:digest.nullable()}).strict(),
+ review_analysis_requests:z.object({id,intent_id:id.nullable(),snapshot_id:id,snapshot_hash:digest,policy_hash:digest,provider:id,model:id,input_digest:digest,state:id,reserved_micros:integer,measured_cost_micros:integer.nullable(),created_at:stamp,updated_at:stamp,result_id:id.nullable(),result_hash:digest.nullable(),payload_json:json.nullable()}).strict(),
+
  integration_jobs:z.object({intent_id:id,source_id:id.nullable(),job_subject_kind:id,subject_id:id.nullable(),schedule_id:id.nullable(),schedule_configuration_hash:digest.nullable(),occurrence_due_at:stamp.nullable(),configuration_hash:digest,operational_revision:integer,lease_token:id.nullable(),lease_expires_at:stamp.nullable(),lease_access_mode:id.nullable(),lease_principal_ref:id.nullable(),attempt_count:integer,retry_after:id.nullable()}).strict(),
  integration_job_attempts:z.object({intent_id:id,attempt:integer,execution_epoch:integer,started_at:stamp,finished_at:stamp.nullable(),outcome:id.nullable(),failure:id.nullable()}).strict(),
  automation_occurrence_claims:z.object({schedule_id:id,due_at:stamp,intent_id:id,configuration_hash:digest,execution_epoch:integer,admitted_at:stamp,missed_periods:integer,principal_ref:id}).strict(),
@@ -65,6 +70,7 @@ type Table=keyof typeof schemas;
 export const PRIVATE_CONTINUITY_TABLES=PRIVATE_PROFILE_TABLES;
 if(JSON.stringify([...PRIVATE_CONTINUITY_TABLES].sort())!==JSON.stringify(Object.keys(schemas).sort()))throw new Error('Closed private profile schema differs.');
 const keys:Record<Table,readonly string[]>={
+ workspace_imports:['id'],workspace_import_chunks:['import_id','ordinal'],attachment_archive_stages:['id'],review_analysis_requests:['id'],
 integration_jobs:["intent_id"],
 integration_job_attempts:["intent_id","attempt"],
 automation_occurrence_claims:["schedule_id","due_at"],
@@ -118,6 +124,20 @@ export async function validateRecoveryPrivateContinuity(raw:unknown,expected:Pri
  let count=value.baselineRemovalFences.length;
  for(const table of PRIVATE_CONTINUITY_TABLES){const rows=value.tables[table] as unknown as Row[];count+=rows.length;ordered(rows,keys[table]);}
  if(count>PRIVATE_CONTINUITY_LIMITS.rows)throw new Error('Private continuity row limit exceeded.');
+ const chunksByImport=new Map<string,typeof value.tables.workspace_import_chunks>();
+ for(const chunk of value.tables.workspace_import_chunks){const group=chunksByImport.get(chunk.import_id)??[];group.push(chunk);chunksByImport.set(chunk.import_id,group);}
+ const retainedImportIds=new Set(value.tables.workspace_imports.map(row=>row.id));
+ for(const chunk of value.tables.workspace_import_chunks)if(!retainedImportIds.has(chunk.import_id))throw new Error('Orphan retained original input chunk.');
+ for(const retained of value.tables.workspace_imports){
+  parseJson(retained.metadata_json);
+  const chunks=chunksByImport.get(retained.id)??[],raw=new Uint8Array(retained.bytes);let offset=0;
+  if(chunks.length!==Math.ceil(retained.bytes/262144))throw new Error('Retained original input chunk count differs.');
+  for(let ordinal=0;ordinal<chunks.length;ordinal++){const chunk=chunks[ordinal];if(chunk.ordinal!==ordinal||!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(chunk.content_base64))throw new Error('Retained original input chunk ordering/encoding differs.');const binary=atob(chunk.content_base64),length=Math.min(262144,retained.bytes-offset);if(binary.length!==length)throw new Error('Retained original input chunk length differs.');for(let i=0;i<binary.length;i++)raw[offset+i]=binary.charCodeAt(i);offset+=length;}
+  if(offset!==retained.bytes||await contentHash(raw)!==retained.content_hash)throw new Error('Retained original input digest differs.');
+ }
+ for(const stage of value.tables.attachment_archive_stages){const manifest=parseJson(stage.manifest_json);if(await contentHash(canonical(manifest))!==stage.source_manifest_hash)throw new Error('Retained archive manifest digest differs.');if(!value.tables.attachment_blob_namespaces.some(row=>row.namespace===stage.namespace))throw new Error('Retained archive namespace history is unavailable.');}
+ for(const request of value.tables.review_analysis_requests)if(request.payload_json!==null)parseJson(request.payload_json);
+
  for(const table of ['integration_job_attempts','automation_occurrence_claims','automation_runtime','source_sync_state','device_runtime','device_sessions','device_live_windows'] as const)for(const row of value.tables[table])if(row.execution_epoch>value.sourceContext.executionEpoch)throw new Error('Private history epoch exceeds frozen source context.');
  for(const table of ['device_heartbeats','runtime_latest','runtime_observations'] as const)for(const row of value.tables[table])if(await contentHash(canonical(parseJson(row.payload_json)))!==row.payload_hash)throw new Error('Runtime historical payload digest differs.');
  for(const row of value.tables.runtime_minute_aggregates)parseJson(row.payload_json);
@@ -231,7 +251,7 @@ export async function captureRecoveryPrivateContinuity(db:SqlDatabase,owner:stri
  async function scan(table:Table,onRow:(row:Row,index:number)=>void){
   const columns=Object.keys(schemas[table].shape),physical=(await db.prepare('PRAGMA table_info('+table+')').all<{name:string}>()).results.map(row=>row.name).sort();
   if(canonical(physical)!==canonical(['user_id',...columns].sort()))throw new Error('Unsupported private continuity table schema: '+table);
-  const pageSize=['workspace_backups','workspace_recovery','backup_archives','workspace_drafts'].includes(table)?1:PRIVATE_CONTINUITY_LIMITS.page;
+  const pageSize=['workspace_backups','workspace_recovery','backup_archives','workspace_drafts','workspace_imports','workspace_import_chunks','attachment_archive_stages'].includes(table)?1:PRIVATE_CONTINUITY_LIMITS.page;
   let after:Row|null=null,index=0;
   for(;;){
    const where=after?' AND ('+keys[table].join(',')+')>('+keys[table].map(()=>'?').join(',')+')':'',bindings=after?keys[table].map(key=>after![key]):[];
@@ -275,20 +295,24 @@ export function assessPrivateRecoveryContinuity(value:RecoveryPrivateContinuity)
 /** Independently proves that the actual frozen source's private DATA survived.
  * No caller-supplied package, callback inventory or imported claim can replace
  * these exact owner/PK-bound native reads. Physical backup rekeying is separate. */
-export async function verifyRecoveryPrivateTarget(source:SqlDatabase,target:SqlDatabase,owner:string,now:string):Promise<void>{
+export async function verifyRecoveryPrivateTarget(source:SqlDatabase,target:SqlDatabase,owner:string,now:string,extraRows:Partial<Record<Table,readonly Row[]>>={}):Promise<void>{
  id.parse(owner);stamp.parse(now);
  const rekeyed=new Set<string>(['backup_archives','backup_archive_objects','backup_archive_cleanup_claims','backup_archive_retained_objects','workspace_backups']);
  for(const table of PRIVATE_CONTINUITY_TABLES){
   if(rekeyed.has(table))continue;
-  const columns=Object.keys(schemas[table].shape),pk=keys[table];
-  const limit=columns.some(column=>column.endsWith('_json')||column==='content'||column==='cursor'||column==='etag')?1:64;
+  const columns=Object.keys(schemas[table].shape),pk=keys[table],extras=extraRows[table]??[];
+  if(extras.length&&(table!=='attachment_blob_objects'&&table!=='attachment_upload_attempts'||pk.length!==1||extras.length>500))throw new Error('Unsupported verified fresh physical generation.');
+  const extraKeys=extras.map(row=>row[pk[0]]);if(new Set(extraKeys).size!==extraKeys.length)throw new Error('Ambiguous verified physical generation.');
+  for(const extra of extras){const actual=await target.prepare('SELECT '+columns.join(',')+' FROM '+table+' WHERE user_id=? AND '+pk[0]+'=?').bind(owner,extra[pk[0]]).first<Row>();if(!actual||await contentHash(canonical(actual))!==await contentHash(canonical(extra)))throw new Error('Verified fresh physical generation differs.');}
+  const limit=columns.some(column=>column.endsWith('_json')||column==='content'||column==='content_base64'||column==='cursor'||column==='etag')?1:64;
   let after:Row|null=null,count=0;
   for(;;){
    const where:string=after?' AND ('+pk.join(',')+')>('+pk.map(()=>'?').join(',')+')':'',bindings:(string|number|null)[]=after?pk.map(key=>after![key]):[];
    // Native row pages, never aggregated SQL JSON or a giant proof parameter.
    const sql='SELECT '+columns.join(',')+' FROM '+table+' WHERE user_id=?'+where+' ORDER BY '+pk.join(',')+' LIMIT ?';
    const originalPage=(await source.prepare(sql).bind(owner,...bindings,limit).all<Row>()).results;
-   const actualPage=(await target.prepare(sql).bind(owner,...bindings,limit).all<Row>()).results;
+   const targetSql='SELECT '+columns.join(',')+' FROM '+table+' WHERE user_id=?'+where+(extras.length?' AND '+pk[0]+' NOT IN(SELECT value FROM json_each(?))':'')+' ORDER BY '+pk.join(',')+' LIMIT ?';
+   const actualPage=(await target.prepare(targetSql).bind(owner,...bindings,...(extras.length?[canonical(extraKeys)]:[]),limit).all<Row>()).results;
    if(originalPage.length!==actualPage.length)throw new Error('Private owner history row count differs at target: '+table);
    if(!originalPage.length)break;
    for(let index=0;index<originalPage.length;index++){
@@ -300,6 +324,6 @@ export async function verifyRecoveryPrivateTarget(source:SqlDatabase,target:SqlD
    if(originalPage.length<limit)break;
   }
   const total=await target.prepare('SELECT COUNT(*) count FROM '+table+' WHERE user_id=?').bind(owner).first<{count:number}>();
-  if(total?.count!==count)throw new Error('Private owner history row count differs at target: '+table);
+  if(total?.count!==count+extras.length)throw new Error('Private owner history row count differs at target: '+table);
  }
 }
