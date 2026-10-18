@@ -22,16 +22,16 @@ test('manual selected source retains exact history and requires explicit context
  await panel.getByRole('button',{name:'New connection',exact:true}).click();
  const connection=page.getByRole('form',{name:'New source connection'});
  await connection.getByLabel('Connection label',{exact:true}).fill(label);
- await connection.getByLabel('Provider',{exact:true}).selectOption('documents');
- await connection.getByLabel('Access mode',{exact:true}).selectOption('interactive');
+ await connection.getByRole('combobox',{name:'Provider',exact:true}).selectOption('documents');
+ await connection.getByRole('combobox',{name:'Access mode',exact:true}).selectOption('interactive');
  const created=await capturePostResponse(page,'/api/workspace',()=>connection.getByRole('button',{name:'Save connection',exact:true}).click());
  expect(created.ok,created.body.toString()).toBeTruthy();
  await expect(connection).toHaveCount(0);
  await panel.getByRole('button',{name:'Select source',exact:true}).click();
  const selection=page.getByRole('form',{name:'New selected source'});
- await selection.getByLabel('Connection',{exact:true}).selectOption({label});
- await selection.getByLabel('Source project',{exact:true}).selectOption(initial.workspace.projects.find((row:{archivedAt:string|null})=>!row.archivedAt).id);
- await selection.getByLabel('Source kind',{exact:true}).selectOption('document');
+ await selection.getByRole('combobox',{name:'Connection',exact:true}).selectOption({label});
+ await selection.getByRole('combobox',{name:'Source project',exact:true}).selectOption(initial.workspace.projects.find((row:{archivedAt:string|null})=>!row.archivedAt).id);
+ await selection.getByRole('combobox',{name:'Source kind',exact:true}).selectOption('document');
  await selection.getByLabel('Exact provider resource ID',{exact:true}).fill(resource);
  const selected=await capturePostResponse(page,'/api/workspace',()=>selection.getByRole('button',{name:'Save selected source',exact:true}).click());
  expect(selected.ok,selected.body.toString()).toBeTruthy();
@@ -77,11 +77,18 @@ test('manual selected source retains exact history and requires explicit context
  await retained.getByLabel('Your contextual evidence statement',{exact:true}).fill('I retained this manual snapshot as implementation context; it does not verify completion.');
  const evidence=await capturePostResponse(page,'/api/workspace',()=>retained.getByRole('button',{name:'Create contextual evidence',exact:true}).click());
  expect(evidence.ok,evidence.body.toString()).toBeTruthy();
+ await expect(retained.getByLabel('Contextual evidence title',{exact:true})).toHaveValue(observation.title);
+ await expect(retained.getByLabel('Your contextual evidence statement',{exact:true})).toHaveValue('');
  const after=await snapshot(page),added=after.evidenceVersions.filter(row=>!initialEvidence.evidenceVersions.some(old=>old.id===row.id));
  expect(added).toHaveLength(1);
  expect(added[0]).toMatchObject({basis:'connector-observation',scope:'implementation',title:'Explicit synthetic source context',sourceRevision:digest,sourceRecordId:observation.id,sourceObservationRef:{id:observation.id,contentDigest:observation.contentDigest},observedAt:observation.observedAt,candidate:null,environment:null});
  expect(after.acceptances).toEqual(initialEvidence.acceptances);expect(after.links).toEqual(initialEvidence.links);
  expect((await workspace(page)).workspace.tasks).toEqual(initial.workspace.tasks);
+ // Playwright's native default dismisses unexpected confirms. A dirty guard would
+ // therefore keep this source panel open and fail the navigation assertions.
+ await page.getByRole('button',{name:'Weekly planning',exact:true}).click();
+ await expect(page.getByRole('region',{name:'Weekly commitments',exact:true})).toBeVisible();
+ await expect(retained).toHaveCount(0);
  await setFixtureSession(page,'b');
  expect((await page.request.get(`/api/sources/${target.value.id}/observations`)).status()).toBe(404);
  expect((await sources(page)).targets.some(row=>row.value.id===target.value.id)).toBe(false);

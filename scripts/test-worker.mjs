@@ -7,11 +7,15 @@ import {fileURLToPath} from 'node:url';
 import {ROOT,FIXTURE_ORIGIN,WORKER_ORIGIN,parseFixtureArgs,prepareFixtures} from './test-fixtures.mjs';
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 export const FIXTURE_REQUEST_TIMEOUT_MS=15_000;
+let fixtureRequestSequence=0;
+function fixtureRouteClass(input){try{const path=new URL(input instanceof Request?input.url:String(input)).pathname;return path==='/api/workspace'?'workspace':path==='/api/evidence'?'evidence':/^\/api\/attachments\/[^/]+\/content$/.test(path)?'attachment-content':'other';}catch{return 'other';}}
 /** The same signal bounds response headers and subsequent JSON/text/binary body reads. */
 export function fixtureFetch(input,init={},timeoutMs=FIXTURE_REQUEST_TIMEOUT_MS){
  if(!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>FIXTURE_REQUEST_TIMEOUT_MS)throw new Error('Invalid fixture request deadline.');
  const timeout=AbortSignal.timeout(timeoutMs),signal=init.signal?AbortSignal.any([init.signal,timeout]):timeout;
- return fetch(input,{...init,signal});
+ const sequence=++fixtureRequestSequence,method=String(init.method??(input instanceof Request?input.method:'GET')).toUpperCase(),route=fixtureRouteClass(input),safeMethod=['GET','POST','PUT','DELETE','PATCH','HEAD','OPTIONS'].includes(method)?method:'OTHER';
+ console.log(`[fixture-http] sequence=${sequence} method=${safeMethod} route=${route} phase=start`);
+ return fetch(input,{...init,signal}).then(response=>{console.log(`[fixture-http] sequence=${sequence} method=${safeMethod} route=${route} phase=headers`);return response;},error=>{console.log(`[fixture-http] sequence=${sequence} method=${safeMethod} route=${route} phase=failed`);throw error;});
 }
 export async function requireFreePort(port){await new Promise((resolve,reject)=>{const server=net.createServer();server.once('error',()=>reject(new Error(`Fixture port ${port} is occupied.`)));server.listen(port,'127.0.0.1',()=>server.close(resolve));});}
 export function fixtureProxy({requestTimeoutMs=FIXTURE_REQUEST_TIMEOUT_MS}={}){
@@ -41,9 +45,9 @@ async function waitReady(child){const deadline=Date.now()+60000;while(Date.now()
 export async function smokeFixture(){
  const headers={cookie:'fixture_session=a',origin:FIXTURE_ORIGIN,'Content-Type':'application/json'};const currentResponse=await fixtureFetch(`${FIXTURE_ORIGIN}/api/workspace`,{headers});if(!currentResponse.ok)throw new Error(`Fixture GET failed ${currentResponse.status}`);const current=await currentResponse.json();
  const body={revision:current.revision,mutationId:crypto.randomUUID(),command:{type:'capture.create',capture:{title:'Synthetic smoke capture',body:'fixture only',projectId:null,kind:'idea',sourceUrl:null}}};
- for(let i=0;i<2;i++){const response=await fixtureFetch(`${FIXTURE_ORIGIN}/api/workspace`,{method:'POST',headers,body:JSON.stringify(body)});if(!response.ok)throw new Error(`Fixture POST/replay failed ${response.status}: ${await response.text()}`);}
+ for(let i=0;i<2;i++){const response=await fixtureFetch(`${FIXTURE_ORIGIN}/api/workspace`,{method:'POST',headers,body:JSON.stringify(body)});if(!response.ok)throw new Error(`Fixture POST/replay failed ${response.status}: ${await response.text()}`);await response.arrayBuffer();}
  const after=await (await fixtureFetch(`${FIXTURE_ORIGIN}/api/workspace`,{headers})).json();if(after.workspace.captures.filter(row=>row.title==='Synthetic smoke capture').length!==1||after.revision!==current.revision+1)throw new Error('Fixture replay was not exactly once.');
- const denied=await fixtureFetch(`${FIXTURE_ORIGIN}/api/workspace`,{method:'POST',headers:{...headers,origin:'https://foreign.invalid'},body:JSON.stringify(body)});if(denied.status!==403)throw new Error('Fixture proxy weakened the origin check.');
+ const denied=await fixtureFetch(`${FIXTURE_ORIGIN}/api/workspace`,{method:'POST',headers:{...headers,origin:'https://foreign.invalid'},body:JSON.stringify(body)});if(denied.status!==403)throw new Error('Fixture proxy weakened the origin check.');await denied.arrayBuffer();
  console.log('Synthetic fixture HTTP GET/POST/replay/CSRF smoke passed.');
 }
 /** Keep failed HTTP assertions actionable without consuming the caller's response. */

@@ -151,7 +151,7 @@
       "blockers": []
     }
   ],
-  "nextAction": "Verify final builtHTTP fixture and clean diff; commit sanitized Phase4 source, publish exact tree to draftPR1 and inspect terminal cloudCI before Phase5.",
+  "nextAction": "Commit and publish validated source/transport followup exacttree; inspect terminalcloudCI43default+3R2+HTTP before Phase5.",
   "allowedStatuses": [
     "not_started",
     "in_progress",
@@ -178,18 +178,21 @@
     "evidence": "Explicit supported model selection accepted and worker IDs returned."
   },
   "checkpoint": {
-    "publishedCommit": "fafb1f680d24cd75e5d133c2e4a7d95d1d3ca30b",
-    "workingTree": "Validated coherent Phase4 source checkpoint ready for commit and exact-tree publication; cloud Chromium execution pending.",
-    "tests": "978/978 Node tests passed,zero failures/skips;typecheck/lint/build pass.43 default Chromium listed,notyetexecuted. Actual Miniflare D1/R2 source retained73byteimport/replay/fullnativearchive/reviewedrestore passes19migrations SHA256e779a24a8292c1117e021e1fff3f25eeaae883ebc3e655ae7a1da10d1a1ba80b. Actual wholeworkspaceD1/R2,depth100 andorphanrecoverypass. BuiltWorkerHTTP reserve/stage/finalize/replay/download/isolation/forgery passes32bytes SHA256ee8061dff83dd68f205b6597c2333557be9e2b07a15c5dab79b35e707fb8104e.",
-    "knownFailures": [],
+    "publishedCommit": "7ca20391a067b38312f1b97985ca1fba5512c162",
+    "workingTree": "Validated source follow-up ready for commit: confirmed evidence clears dirty fields, manual imports refresh root revision, exact accessible select browser locators and clean-navigation assertions, selected-only retention docs, sanitized fixture stage diagnostics/client response consumption, bounded unused-body settlement on workspace/source/service POST responses.",
+    "tests": "979/979Node tests pass,zero failures/skips;typecheck/lint/buildpass. RebuiltHTTPfixture single-run all36sanitizedrequeststages pass, including32byteR2reserve/stage/finalize/replay/download/isolation/forgery SHA256ee8061dff83dd68f205b6597c2333557be9e2b07a15c5dab79b35e707fb8104e. PriorCI39151986196 had42/43default+3/3R2pass; newselectlocatorandtransport followuprequirescloudrerun. ActualD1/R2source19migrations/retained73bytearchive+reviewedrestore remainsverified.",
+    "knownFailures": [
+      "Prior cloud source-browser exact label selector timeout is corrected; exact accessible combobox and clean-navigation assertions await rerun.",
+      "Prior cloud final HTTPtimeout rootcause not conclusively reproduced; current rebuilt single-run HTTP passes withstage diagnostics, consumed responses and bounded unused-body denial settlement. Cloud rerun required."
+    ],
     "unfinished": [
-      "Finish final builtHTTP/sourcepackage verification, publish coherent sourcecheckpoint to existing draftPR and execute43default+3R2 cloud Chromium journeys.",
+      "Finish Phase4 cloudCI39151986196, validate/publish small UI/source-doc follow-up and rerun required browser gates; then Phase5.",
       "Phases5\u20138 notstarted; execute in dependencyorder after Phase4 validation.",
       "Liveprovider/renewableprincipal/privatehostedrelease/ownerphysicaldevice acceptance remains external."
     ],
-    "nextCommand": "Verify final builtHTTP fixture and clean diff; commit sanitized Phase4 source, publish exact tree to draftPR1 and inspect terminal cloudCI before Phase5.",
-    "publishedTree": "000cda600e0405ee4d8cd001a2e43c06684581fc",
-    "cloudRun": "Cloud CI39148577239/job117737382710 atfafb1f680d24cd75e5d133c2e4a7d95d1d3ca30b terminalsuccess: cleanNode24lockedinstall,840Node/type/lint/build,actualD1depth100/all17migrations/baseline/legacy/decision/nativeZIP restore,actualR2orphanrecovery,42/42defaultChromium+3/3R2Chromium,andbuiltHTTPattachmentisolation/replay allpass.",
-    "currentCommit": "fafb1f680d24cd75e5d133c2e4a7d95d1d3ca30b"
+    "nextCommand": "Commit and publish validated source/transport followup exacttree; inspect terminalcloudCI43default+3R2+HTTP before Phase5.",
+    "publishedTree": "dd6a9d25e21195de7f9a0497e36b96032ca07fda",
+    "cloudRun": "CI39151986196/job117747350451 at7ca20391 terminalfailure: cleanlockedinstall,978Node,type/lint/build,allactualD1/R2gatespassed;42/43defaultChromium+3/3R2passed. Newsourcebrowser selectlabel locator timedout (fixed locally toexactcomboboxrole); finalbuiltHTTPfixture timedout afterbaseline smoke andisunderinvestigation.",
+    "currentCommit": "7ca20391a067b38312f1b97985ca1fba5512c162"
   }
 }

@@ -1,3 +1,4 @@
+import {settleUploadBody} from '../../../lib/upload-body-settlement';
 import {ownerAttachmentServices} from '../../../lib/attachment-services';
 import { env } from 'cloudflare:workers';
 import { getChatGPTUser } from '../../chatgpt-auth';
@@ -56,6 +57,9 @@ export async function handleWorkspacePOST(request:Request,importId?:string) {
     if (error instanceof MutationIdReuseError) return failure(error.message,'mutation_id_reused',requestId,409);
     if (error instanceof CommandValidationError) return failure(error.message,'command_invalid',requestId,400);
     return unavailable(error,requestId,'write');
+  } finally {
+    // Complete bounded rejected transport bodies before handing back the response.
+    if(!request.bodyUsed)await settleUploadBody(request.body);
   }
 }
 
