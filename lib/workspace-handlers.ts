@@ -1,3 +1,4 @@
+import {agentCommandHandlers} from './agents/commands.ts';
 import {deviceRuntimeHandlers} from './runtime/commands.ts';
 import {baselineCommandHandler} from './baselines/commands.ts';
 import {canonical} from './canonical-json.ts';
@@ -73,3 +74,5 @@ for(const type of reviewCommandTypes)(workspaceHandlers as Map<string,import('./
 (workspaceHandlers as Map<string,import('./workspace-transaction.ts').CommandHandler>).set('baseline.revision.record',baselineCommandHandler);
 
 for(const [type,handler] of deviceRuntimeHandlers)(workspaceHandlers as Map<string,import('./workspace-transaction.ts').CommandHandler>).set(type,handler);
+
+for(const [type,handler] of agentCommandHandlers)(workspaceHandlers as Map<string,import('./workspace-transaction.ts').CommandHandler>).set(type,handler);

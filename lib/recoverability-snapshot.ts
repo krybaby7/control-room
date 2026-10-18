@@ -14,15 +14,16 @@ import {measureRecoverability,type RecoverabilityMeasurement,type Recoverability
 import {readOperationalWatermarks,validateOperationalWatermarks} from './operational-watermarks.ts';
 import {canonicalJsonValue} from './audit-events.ts';
 import {parseWorkspaceExport} from './workspace-validation.ts';
-const streams:Partial<Record<RegisteredOwnerTable,string>>={source_observations:'sources',source_sync_runs:'sources',integration_history:'sources',review_snapshots:'reviews',review_analysis_runs:'reviews',notification_events:'notifications',automation_occurrences:'automations'};
+const streams:Partial<Record<RegisteredOwnerTable,string>>={agent_results:'agents',evaluation_runs:'agents',source_observations:'sources',source_sync_runs:'sources',integration_history:'sources',review_snapshots:'reviews',review_analysis_runs:'reviews',notification_events:'notifications',automation_occurrences:'automations'};
 export interface ProspectiveRecoverabilityInput {
+ agentTerminalReserveDelta?:number;
  now:string;planningAfter?:Workspace;writes?:GuardedWrite[];replacements?:ModuleReplacement[];
  events?:AuditEventDraft[];historyImports?:MutationPlan['historyImports'];
  operationalWrites?:Array<{table:RegisteredOwnerTable;value:JsonValue;streamSequence:number}>;
  operationalEvents?:Array<{event:AuditEventDraft;streamId:string;sequence:number}>;
  operationalWatermarksAfter?:Record<string,number>;
 }
-export interface ProspectiveRecoverabilityResult {measurement:RecoverabilityMeasurement;boundaryRevision:number;boundaryWatermarks:Record<string,number>;boundaryRows:Array<{table:RegisteredOwnerTable;rows:Array<{id:string;row_revision:number;content_hash:string}>}>}
+export interface ProspectiveRecoverabilityResult {agentTerminalReserveRows?:Array<{job_id:string;operational_revision:number;status:string;approval_id:string}>;measurement:RecoverabilityMeasurement;boundaryRevision:number;boundaryWatermarks:Record<string,number>;boundaryRows:Array<{table:RegisteredOwnerTable;rows:Array<{id:string;row_revision:number;content_hash:string}>}>}
 /** Read-only exact serializer measurement. The writer must atomically guard the returned
  * editor/operational boundary AND its complete normalized row-set preconditions.
  * An allowed measurement does not itself authorize a write, restoration or paid action.
@@ -31,6 +32,9 @@ export async function measureProspectiveRecoverability(db:SqlDatabase,owner:stri
  if(!owner||!Number.isFinite(Date.parse(input.now)))throw new Error('An owner and valid measurement timestamp are required.');
  if(REFERENCE_LIMITS.rows!==BUNDLE_LIMITS.rows)throw new Error('Reference and recovery row bounds require an explicit serializer update.');
  if((input.writes?.length??0)>200||(input.events?.length??0)>2000||(input.replacements?.length??0)>OWNER_TABLES.length||(input.historyImports?.length??0)>BUNDLE_LIMITS.rows||(input.operationalWrites?.length??0)>BUNDLE_LIMITS.rows||(input.operationalEvents?.length??0)>BUNDLE_LIMITS.rows)throw new Error('Prospective operation count exceeds its bounded serializer scope.');
+ const terminalReserveRows=(await db.prepare("SELECT job_id,operational_revision,status,approval_id FROM agent_job_state WHERE user_id=? AND approval_id IS NOT NULL AND status IN ('queued','leased','running','cancelling','reconcile_required') ORDER BY job_id LIMIT 13").bind(owner).all<{job_id:string;operational_revision:number;status:string;approval_id:string}>()).results;
+ if(terminalReserveRows.length>12||!Number.isSafeInteger(input.agentTerminalReserveDelta??0)||Math.abs(input.agentTerminalReserveDelta??0)>12)throw new Error('Invalid finite terminal reserve.');
+ const terminalReserveCount=terminalReserveRows.length+(input.agentTerminalReserveDelta??0);if(terminalReserveCount<0||terminalReserveCount>12)throw new Error('Terminal reserve exceeds the finite batch.');
  const original=await exportWorkspaceBundle(db,owner,{now:()=>input.now});
  const boundaryRevision=original.source.workspaceRevision,boundaryWatermarks=original.source.operationalWatermarks??{};
  const watermarks={...(input.operationalWatermarksAfter??boundaryWatermarks)};validateOperationalWatermarks(watermarks);
@@ -90,10 +94,18 @@ export async function measureProspectiveRecoverability(db:SqlDatabase,owner:stri
  const futureHistory=await prepareHistoricalAuditRows(modules.audit_events.records,bundle.source.auditNamespace??null,await contentHash(JSON.stringify(bundle)));
  const futureCompiled=futureHistory.map((entry,index)=>({id:entry.id,ordinal:index+1,payload:canonical({id:entry.id,kind:'imported-history',entityType:'historical-claim',entityId:null,changes:[{path:['sourceClaim'],before:{exists:false,value:null},after:{exists:true,value:entry.source}}],origin:'owner',actorId:owner,occurredAt:input.now,sourceRef:entry.importHash,undoOf:null})}));
  const measurement=measureRecoverability({serializedBundle:JSON.stringify(bundle),serializedExpandedImport:expandedRecords.join(''),tables,sqlArguments:[...futureTableArguments,{name:'future-restore:history-input',serialized:JSON.stringify(modules.audit_events.records)},{name:'future-restore:history-prepared',serialized:JSON.stringify(futureHistory)},{name:'future-restore:history-compiled',serialized:canonical(futureCompiled)}],...(input.historyImports?{historicalAudit:{preparedJson:canonical(input.historyImports),compiledWrappedJson:canonical(compiledHistory),rowCount:input.historyImports.length}}:{}),counts:[{name:'normalized-owner-reference-rows',rows:OWNER_TABLES.reduce((total,table)=>total+physical.get(table)!.size,0)},...Object.entries(modules).map(([name,module])=>({name:`module:${name}`,rows:module.records.length})),{name:'future-restore:history-prepared',rows:futureHistory.length}]});
+ // Keep bounded terminal metadata recoverable before a process is admitted. This
+ // conservative reserve is separate from the exact current serializer measurement.
+ // Result schema <=16KiB plus immutable row/audit and escaped restore envelopes <=64KiB.
+ const reserveBytes=terminalReserveCount*65536;
+ const serializedMaximum=Math.max(measurement.measurements.d1BackupBytes??Infinity,...measurement.measurements.sqlArguments.map(item=>item.bytes??Infinity));
+ if(serializedMaximum+reserveBytes>1_800_000)measurement.reasons.push({code:'d1_backup_bytes',scope:'agent-terminal-headroom',actual:serializedMaximum+reserveBytes,limit:1_800_000});
+ if((modules.agent_results?.records.length??0)+terminalReserveCount>500)measurement.reasons.push({code:'row_limit',scope:'agent-terminal-history-headroom',actual:(modules.agent_results?.records.length??0)+terminalReserveCount,limit:500});
+ measurement.allowed=measurement.reasons.length===0;
  const current=await readCurrent(db,owner,input.now);
  if(current.revision!==boundaryRevision||canonical(current.workspace)!==canonical(original.planning)||canonical(await readOperationalWatermarks(db,owner))!==canonical(boundaryWatermarks))throw new Error('Workspace boundary changed during recoverability measurement.');
  // Re-read all physical sets: the returned revision/vector alone does not detect an
  // unguarded same-revision mutation, and must never certify a stale normalized set.
  for(const table of OWNER_TABLES){const latest=await boundedPages(after=>reader.list(table,{after,limit:BUNDLE_LIMITS.pageSize}));if(canonical(latest)!==canonical(beforeRows.get(table)))throw new Error('Normalized row set changed during recoverability measurement.');}
- return {measurement,boundaryRevision,boundaryWatermarks:{...boundaryWatermarks},boundaryRows:OWNER_TABLES.map(table=>({table,rows:beforeRows.get(table)!.map(({id,row_revision,content_hash})=>({id,row_revision,content_hash}))}))};
+ return {agentTerminalReserveRows:terminalReserveRows,measurement,boundaryRevision,boundaryWatermarks:{...boundaryWatermarks},boundaryRows:OWNER_TABLES.map(table=>({table,rows:beforeRows.get(table)!.map(({id,row_revision,content_hash})=>({id,row_revision,content_hash}))}))};
 }

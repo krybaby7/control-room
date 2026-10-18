@@ -61,3 +61,10 @@ test('duplicate IDs, two-MiB transcript and ten-MiB package caps reject before l
  const refs=Array.from({length:11},(_,index)=>({...f.ref,id:'22222222-2222-4222-8222-'+String(index).padStart(12,'0'),bytes:1048576}));
  await assert.rejects(validateAgentResultArtifacts(input(refs),f.access),AgentArtifactValidationError);assert.equal(f.physicalReads(),0);assert.equal(f.objects.size,1);assert.equal(f.rows.size,1);
 });
+
+test('verification snapshots copied row metadata even when an injected reader reuses a mutable row object',async()=>{
+ const f=await fixture(),original=f.rows.get(id)!,beforeRevision=original.row_revision,verify=f.access.verifyPhysical;
+ f.access.verifyPhysical=async record=>{const proof=await verify(record);original.payload_json=canonical({...record,readyAt:'2026-10-18T11:59:59.000Z'});original.content_hash=await contentHash(original.payload_json);return proof;};
+ await assert.rejects(validateAgentResultArtifacts(input([f.ref]),f.access),(error:unknown)=>error instanceof AgentArtifactValidationError&&error.code==='changed_during_verification');
+ assert.equal(original.row_revision,beforeRevision,'payload/hash races are detected independently of row revision');
+});

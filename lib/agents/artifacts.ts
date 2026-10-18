@@ -68,7 +68,7 @@ export async function validateAgentResultArtifacts(input:{ownerId:string;attempt
  for(const ref of refs){
   const rawBinding=await boundRead(()=>access.readBinding(ref.id),expires);if(!rawBinding)fail('binding_unavailable');
   let binding:AttemptArtifactBinding;try{binding=attemptArtifactBindingSchema.parse(rawBinding);}catch{fail('binding_unavailable');}if(binding.ownerId!==owner)fail('owner_mismatch');if(binding.attemptId!==attempt||binding.artifactId!==ref.id)fail('attempt_mismatch');if(binding.logicalType!==ref.type)fail('type_mismatch');
-  const row=await boundRead(()=>access.query.get('attachments',ref.id),expires);if(!row||row.id!==ref.id||!Number.isSafeInteger(row.row_revision)||row.row_revision<1)fail('attachment_unavailable');
+  const fetched=await boundRead(()=>access.query.get('attachments',ref.id),expires),row=fetched?{...fetched}:null;if(!row||row.id!==ref.id||!Number.isSafeInteger(row.row_revision)||row.row_revision<1)fail('attachment_unavailable');
   let record:AttachmentRecord;try{record=recordSchema.parse(JSON.parse(row.payload_json));validateAttachmentMetadata(record);}catch{fail('attachment_integrity');}
   if(await contentHash(canonical(record))!==row.content_hash||record.id!==ref.id||record.status!=='ready'||record.actualBytes!==ref.bytes||record.expectedBytes!==ref.bytes||record.sha256!==ref.sha256||record.readyAt===null||Date.parse(record.readyAt)>Date.parse(now)||Date.parse(record.createdAt)>Date.parse(now))fail('attachment_integrity');
   if(!typeMatches(ref.type,record))fail('type_mismatch');

@@ -1,3 +1,5 @@
+import {agentJobRecordSchema,agentResultRecordSchema} from './agents/contracts.ts';
+import {evaluationRunObservationSchema} from './agents/evaluation-import.ts';
 import {deviceDisplaySchema} from './devices/validation.ts';
 import {runtimeAdapterConfigurationSchema,selectedRuntimeEvidenceSchema} from './runtime/validation.ts';
 import {baselineRevisionSchema} from './baselines/validation.ts';
@@ -27,11 +29,12 @@ const columns={
  source_connections:['provider','access_mode','enabled','archived_at'],source_targets:['connection_id','project_id','kind','selection_version','archived_at'],source_observations:['source_id','external_id','source_revision','content_digest','observed_at','stream_sequence'],source_sync_runs:['source_id','finished_at','stream_sequence'],source_proposals:['source_id','state','dedup_key','created_at'],integration_history:['source_id','finished_at','stream_sequence'],
  review_snapshots:['workspace_revision','generated_at','source_watermark','scope_hash','stream_sequence'],review_acknowledgements:['snapshot_id','snapshot_hash','acknowledged_at','scope_hash'],automation_schedules:['kind','enabled','configuration_version','source_id','archived_at'],automation_occurrences:['schedule_id','due_at','finished_at','configuration_hash','stream_sequence'],notification_events:['dedup_key','created_at','kind','severity','source_id','project_id','stream_sequence'],review_settings:['setting_kind'],review_analysis_runs:['snapshot_id','snapshot_hash','started_at','finished_at','status','stream_sequence'],
  project_baseline_revisions:['project_id','parent_revision_id','parent_hash','recorded_at','source_watermark'],
+ agent_jobs:['intent_id','project_id','task_id','spec_hash','created_at'],agent_results:['job_id','attempt_id','recorded_at','stream_sequence'],evaluation_runs:['device_id','run_id','observed_at','cohort_hash','stream_sequence'],
  devices:['created_at','archived_at'],runtime_adapter_configurations:['device_id','project_id','source','instance_id'],runtime_evidence:['device_id','source','received_at','payload_hash'],
 } satisfies Record<RegisteredOwnerTable,string[]>;
 for(const names of Object.values(columns))Object.freeze(names);
 Object.freeze(columns);
-export const IMMUTABLE_MODULE_TABLES:ReadonlySet<RegisteredOwnerTable>=new Set(['evidence_versions','decision_versions','acceptance_records','source_observations','source_sync_runs','integration_history','review_snapshots','review_acknowledgements','automation_occurrences','notification_events','review_analysis_runs','project_baseline_revisions','runtime_evidence']);
+export const IMMUTABLE_MODULE_TABLES:ReadonlySet<RegisteredOwnerTable>=new Set(['evidence_versions','decision_versions','acceptance_records','source_observations','source_sync_runs','integration_history','review_snapshots','review_acknowledgements','automation_occurrences','notification_events','review_analysis_runs','project_baseline_revisions','runtime_evidence','agent_jobs','agent_results','evaluation_runs']);
 /** Only these server-owned identifiers may be interpolated by the transaction compiler. */
 export function moduleColumnNames(table:RegisteredOwnerTable):readonly string[]{return columns[ownerTable(table)];}
 const attachmentSchema=z.object({
@@ -47,6 +50,9 @@ export async function moduleProjection(table:RegisteredOwnerTable,id:string,valu
  const names=moduleColumnNames(table);evidenceIdSchema.parse(id);
  const empty=()=>Object.fromEntries(names.map(name=>[name,null]));
  switch(table){
+ case 'agent_jobs':{const r=agentJobRecordSchema.parse(value);matchingId(id,r.id);return {intent_id:r.historical?null:r.intentId,project_id:r.spec.projectId,task_id:r.spec.taskId,spec_hash:r.specSha256,created_at:r.createdAt};}
+ case 'agent_results':{const r=agentResultRecordSchema.parse(value);matchingId(id,r.id);return {job_id:r.jobId,attempt_id:r.attemptId,recorded_at:r.recordedAt,stream_sequence:0};}
+ case 'evaluation_runs':{const r=evaluationRunObservationSchema.parse(value);matchingId(id,r.id);return {device_id:r.deviceId,run_id:r.runId,observed_at:r.observedAt,cohort_hash:r.cohortHash,stream_sequence:0};}
  case 'devices':{const r=deviceDisplaySchema.parse(value);matchingId(id,r.id);return {created_at:r.createdAt,archived_at:r.archivedAt};}
  case 'runtime_adapter_configurations':{const r=runtimeAdapterConfigurationSchema.parse(value);matchingId(id,r.id);return {device_id:r.deviceId,project_id:r.projectId,source:r.manifest.id,instance_id:r.manifest.endpointAlias};}
  case 'runtime_evidence':{const r=selectedRuntimeEvidenceSchema.parse(value);matchingId(id,r.id);return {device_id:r.deviceId,source:r.source,received_at:r.receivedAt,payload_hash:r.payloadHash};}

@@ -1,3 +1,4 @@
+import {ownerAgentContext} from './agents/context.ts';
 import {readLatestRuntimeEvidence} from './runtime/store.ts';
 import {previewBaselineRevision} from './baselines/preview.ts';
 import {canResumeAutomation} from './automations/runtime-access.ts';
@@ -16,6 +17,7 @@ export type OwnerCommandServices=Pick<PrepareContext,'attachmentAccess'|'verifyA
 export function ownerPrepareContext(db:SqlDatabase,userId:string,before:WorkspaceEnvelope,command:WorkspaceCommand,now:string,services:OwnerCommandServices={},mutationId?:string):PrepareContext{
  if(!userId)throw new Error('An authenticated owner is required.');
  return {mutationId,userId,before,command,now,query:ownerReader(db,userId),attachmentAccess:services.attachmentAccess,verifyAttachment:services.verifyAttachment,
+  agentRuntime:ownerAgentContext(db,userId,now),
   deviceRuntime:{enrollment:services.deviceEnrollment,latest:input=>readLatestRuntimeEvidence(db,userId,input)},
   baselineRuntime:{preview:input=>previewBaselineRevision(db,userId,input,now)},
   automationRuntime:{canResume:schedule=>canResumeAutomation(db,userId,schedule,now)},

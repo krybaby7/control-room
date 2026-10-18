@@ -1,0 +1,43 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtemp,rm,readFile,writeFile,chmod} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {openExecutionJournal,inspectExecutionJournal} from '../executor/journal.mjs';
+import {sha} from '../executor/codec.mjs';
+import {recoveryDisposition} from '../executor/lease.mjs';
+const identity={jobId:'job-fixture',attemptId:'attempt-fixture',deviceId:'device-fixture',epoch:2,specSha256:'a'.repeat(64)};
+const phase=(phase,nextEventSequence=1,workspaceKey=null,processIdentity=null)=>({kind:'phase',value:{phase,nextEventSequence,workspaceKey,processIdentity}});
+const event=(sequence=1)=>({kind:'event',value:{schemaVersion:1,attemptId:identity.attemptId,epoch:2,sequence,kind:'progress',observedAt:'2026-10-18T12:00:00.000Z',diagnostic:'ok',details:{stage:'preparing',completedUnits:1,totalUnits:null}}});
+async function temporary(t){const root=await mkdtemp(join(tmpdir(),'executor-journal-fixture-'));t.after(()=>rm(root,{recursive:true,force:true}));return root;}
+test('fsynced journal reopens exact pending data and deduplicates exact retries without erasure',async t=>{
+ const directory=await temporary(t);let journal=await openExecutionJournal({directory,identity});await journal.append(phase('claimed'));await journal.append(event());const before=await readFile(join(directory,'journal.ndjson'));await journal.append(event());assert.deepEqual(await readFile(join(directory,'journal.ndjson')),before);await journal.close();
+ journal=await openExecutionJournal({directory,identity});assert.equal(journal.snapshot().pending.length,1);const pending=journal.snapshot().pending[0];assert.equal(pending.sha256,sha(event().value));await journal.append({kind:'receipt',value:{target:'event',id:'1',sha256:pending.sha256,receivedAt:'2026-10-18T12:00:01.000Z'}});assert.equal(journal.snapshot().pending.length,0);await journal.close();assert.ok((await inspectExecutionJournal({directory,identity})).records.length===3);assert.ok((await readFile(join(directory,'journal.ndjson'))).length>before.length);
+});
+test('capacity refuses the next event and preserves every unacknowledged byte',async t=>{
+ const directory=await temporary(t);const journal=await openExecutionJournal({directory,identity,maxRecords:2});await journal.append(phase('claimed'));await journal.append(event());const before=await readFile(join(directory,'journal.ndjson'));await assert.rejects(journal.append(event(2)),/journal_capacity/);assert.deepEqual(await readFile(join(directory,'journal.ndjson')),before);assert.equal(journal.snapshot().pending.length,1);await journal.close();
+});
+test('exclusive writer lock and torn tail fail closed with no truncation or stale takeover',async t=>{
+ const directory=await temporary(t);const first=await openExecutionJournal({directory,identity});await first.append(phase('claimed'));await assert.rejects(openExecutionJournal({directory,identity}),/journal_locked/);await first.close();const path=join(directory,'journal.ndjson'),original=await readFile(path);await writeFile(path,Buffer.concat([original,Buffer.from('{"partial":')]));await assert.rejects(openExecutionJournal({directory,identity}),/truncated/);assert.deepEqual(await readFile(path),Buffer.concat([original,Buffer.from('{"partial":')]));
+});
+test('payload tamper, foreign attempt, wrong receipt and changed sequence never become acknowledgements',async t=>{
+ const directory=await temporary(t);const journal=await openExecutionJournal({directory,identity});await journal.append(phase('claimed'));await journal.append(event());await assert.rejects(journal.append({...event(),value:{...event().value,attemptId:'other'}}),/identity_differs/);await assert.rejects(journal.append({kind:'receipt',value:{target:'event',id:'1',sha256:'b'.repeat(64),receivedAt:'2026-10-18T12:00:01.000Z'}}),/receipt_identity_differs/);await assert.rejects(journal.append(event(3)),/sequence_differs/);await journal.close();const path=join(directory,'journal.ndjson'),raw=await readFile(path,'utf8');await writeFile(path,raw.replace('"completedUnits":1','"completedUnits":2'));await assert.rejects(inspectExecutionJournal({directory,identity}),/digest_differs/);
+});
+test('launch intent survives restart and requires reconciliation, never a second launch or fabricated cancellation',async t=>{
+ const directory=await temporary(t);const journal=await openExecutionJournal({directory,identity});await journal.append(phase('claimed'));await journal.append(phase('workspace_ready',1,'workspace-fixture'));await journal.append(phase('launch_intent',1,'workspace-fixture'));await assert.rejects(journal.append(phase('process_started',1,'workspace-fixture')),/owned_process_identity_required/);await journal.close();const snapshot=await inspectExecutionJournal({directory,identity});assert.deepEqual(recoveryDisposition(snapshot),{mode:'reconcile_required',mayLaunch:false,mayClaimCancellation:false});
+});
+test('terminal result cannot lose artifacts or claim an unconfirmed successful exit',async t=>{
+ const directory=await temporary(t);const journal=await openExecutionJournal({directory,identity});await journal.append(phase('claimed'));const result={attemptId:identity.attemptId,epoch:2,disposition:'succeeded',requestedModel:'fixture',observedModel:'fixture',modelVerified:true,terminalProtocolObserved:true,processExitConfirmed:false,terminationUnconfirmed:true,artifactIds:[],usage:null,diagnostic:'ok'};await assert.rejects(journal.append({kind:'result',value:result}),/unconfirmed_terminal/);await assert.rejects(journal.append({kind:'result',value:{...result,processExitConfirmed:true,terminationUnconfirmed:false,artifactIds:['missing']}}),/artifact_missing/);assert.equal(journal.snapshot().pending.length,0);await journal.close();
+});
+test('unsafe permissions are rejected rather than silently repaired',async t=>{
+ if(process.platform==='win32'){t.skip('Windows ACL verification requires Windows acceptance');return;}const directory=await temporary(t);await chmod(directory,0o755);await assert.rejects(openExecutionJournal({directory,identity}),/permissions_unsafe/);
+});
+
+test('confirmed process result stays pending until exact artifact/result/event receipts and final acknowledgement',async t=>{
+ const directory=await temporary(t),journal=await openExecutionJournal({directory,identity});await journal.append(phase('claimed'));await journal.append(event());await journal.append(phase('workspace_ready',2,'workspace-fixture'));await journal.append(phase('launch_intent',2,'workspace-fixture'));
+ const processIdentity={pid:1234,startedAt:'2026-10-18T12:00:00.000Z',supervisorId:'fixture-supervisor',ownershipSha256:'d'.repeat(64)};await journal.append(phase('process_started',2,'workspace-fixture',processIdentity));await journal.append(phase('process_exited',2,'workspace-fixture',processIdentity));
+ await journal.append({kind:'artifact',value:{id:'report-fixture',filename:'report.json',contentType:'application/json',bytes:2,sha256:'e'.repeat(64),relativePath:'artifacts/report-fixture'}});
+ await journal.append({kind:'result',value:{attemptId:identity.attemptId,epoch:2,disposition:'succeeded',requestedModel:'fixture',observedModel:'fixture',modelVerified:true,terminalProtocolObserved:true,processExitConfirmed:true,terminationUnconfirmed:false,artifactIds:['report-fixture'],usage:{inputTokens:null,outputTokens:null,runtimeSeconds:null,costDollars:null},diagnostic:'ok'}});
+ await assert.rejects(journal.append(phase('result_uploaded',2,'workspace-fixture',processIdentity)),/receipt_required/);for(const pending of journal.snapshot().pending.filter(row=>row.entry.kind!=='event'))await journal.append({kind:'receipt',value:{target:pending.entry.kind,id:pending.entry.kind==='result'?identity.attemptId:pending.entry.value.id,sha256:pending.sha256,receivedAt:'2026-10-18T12:00:01.000Z'}});
+ await journal.append(phase('result_uploaded',2,'workspace-fixture',processIdentity));await assert.rejects(journal.append(phase('acknowledged',2,'workspace-fixture',processIdentity)),/unacknowledged_execution_data/);const pending=journal.snapshot().pending[0];await journal.append({kind:'receipt',value:{target:'event',id:'1',sha256:pending.sha256,receivedAt:'2026-10-18T12:00:02.000Z'}});await journal.append(phase('acknowledged',2,'workspace-fixture',processIdentity));assert.equal(journal.snapshot().pending.length,0);assert.ok(journal.snapshot().records.length>10);await journal.close();
+});

@@ -1,7 +1,7 @@
 name: Control Room schema generation probe
 on:
   push:
-    branches: ['feat/**']
+    branches: ['prep/control-room-agent-schema']
     paths: ['db/schema.ts', 'scripts/probe-schema-cloud.mjs', '.github/workflows/control-room-schema-probe.yml']
 permissions:
   contents: read
