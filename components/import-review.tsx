@@ -1,0 +1,163 @@
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
+import type { Command, Workspace } from '@/lib/types';
+import type { ImportDiagnostic, ImportPreview } from '@/lib/import-quarantine';
+import type { PlanningCollection, PlanningMergePreview, PlanningMergeSelection } from '@/lib/workspace-merge';
+import { boundedRequest } from '@/lib/save-controller';
+import { SessionExpiredError } from '@/lib/workspace-client';
+import { dateLabel } from './ui';
+
+const collections: PlanningCollection[] = ['projects', 'milestones', 'tasks', 'captures', 'activity'];
+const emptySelection = (): PlanningMergeSelection => ({ projects: [], milestones: [], tasks: [], captures: [], activity: [] });
+const PAGE_SIZE = 100;
+interface StagedFile { id: string; hash: string; bytes: number; diagnostics: ImportDiagnostic[]; expiresAt: number | string }
+interface Review { preview: ImportPreview; planningBefore: Workspace; planningIncoming: Workspace | null; mergePreview?: PlanningMergePreview }
+async function request<T>(url: string, init: RequestInit = {}, decode?: (response: Response) => Promise<T>): Promise<T> {
+  try {
+    return await boundedRequest(url, { credentials: 'same-origin', cache: 'no-store', ...init }, async response => {
+      if (!response.ok) throw new Error(response.status === 400 ? 'The review could not be prepared. Check your selection, including linked projects and milestones, then try again.' : 'This import review is unavailable or expired. Your workspace has not changed.');
+      return decode ? decode(response) : await response.json() as T;
+    });
+  } catch (error) {
+    if (error instanceof SessionExpiredError) window.dispatchEvent(new Event('control-room-session-expired'));
+    throw error;
+  }
+}
+function downloadOriginal(bytes: ArrayBuffer, id: string) {
+  const url = URL.createObjectURL(new Blob([bytes], { type: 'application/octet-stream' }));
+  const link = document.createElement('a'); link.href = url; link.download = `control-room-original-${id}.json`; link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+function recordLabel(value: object) {
+  const row = value as Record<string, unknown>;
+  return String(row.title ?? row.name ?? row.text ?? row.id ?? 'Record');
+}
+function replacementChanges(review: Review) {
+  if (!review.planningIncoming) return [];
+  return collections.flatMap(collection => {
+    const before = new Map<string, object>(review.planningBefore[collection].map(row => [row.id, row]));
+    const after = new Map<string, object>(review.planningIncoming![collection].map(row => [row.id, row]));
+    const diff = review.preview.diff[`planning.${collection}`];
+    return [...new Set([...(diff?.added ?? []), ...(diff?.changed ?? []), ...(diff?.deleted ?? [])])].map(id => ({ collection, id, before: before.get(id) ?? null, after: after.get(id) ?? null }));
+  });
+}
+function ReviewRecords({ title, records }: { title: string; records: unknown[] }) {
+  const [page, setPage] = useState(0);
+  const last = Math.max(0, Math.ceil(records.length / PAGE_SIZE) - 1);
+  const index = Math.min(page, last);
+  return <details><summary>{title} ({records.length})</summary>{records.slice(index * PAGE_SIZE, (index + 1) * PAGE_SIZE).map((record, position) => <pre key={index * PAGE_SIZE + position} style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{JSON.stringify(record, null, 2)}</pre>)}{records.length > PAGE_SIZE && <div className="data-actions"><button type="button" className="button secondary" disabled={index === 0} onClick={() => setPage(index - 1)}>Previous 100</button><span>Page {index + 1} of {last + 1}</span><button type="button" className="button secondary" disabled={index === last} onClick={() => setPage(index + 1)}>Next 100</button></div>}</details>;
+}
+
+export function ImportReview({ revision, busy, onImport }: { revision: number; busy: boolean; onImport?: (command: Command) => Promise<void> }) {
+  const [stage, setStage] = useState<StagedFile | null>(null);
+  const [review, setReview] = useState<Review | null>(null);
+  const [filename, setFilename] = useState('');
+  const [selection, setSelection] = useState<PlanningMergeSelection>(emptySelection);
+  const [collection, setCollection] = useState<PlanningCollection>('projects');
+  const [page, setPage] = useState(0);
+  const [mode, setMode] = useState<'replace' | 'merge'>('merge');
+  const [mergeKey, setMergeKey] = useState<string | null>(null);
+  const [accepted, setAccepted] = useState(false);
+  const [working, setWorking] = useState('');
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  const generation = useRef(0);
+  useEffect(() => { const epoch = ++generation.current; return () => { generation.current = epoch + 1; }; }, []);
+  const endpoint = stage ? `/api/workspace/imports/${encodeURIComponent(stage.id)}` : '';
+  const disabled = busy || !!working;
+  const selectionKey = JSON.stringify(selection);
+  const selectedCount = collections.reduce((count, key) => count + selection[key].length, 0);
+  const stale = !!review && review.preview.targetRevision !== revision;
+  const diagnostics = review?.preview.diagnostics ?? stage?.diagnostics ?? [];
+  const rows = review?.planningIncoming?.[collection] ?? [];
+  const pageRows = rows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const lastPage = Math.max(0, Math.ceil(rows.length / PAGE_SIZE) - 1);
+
+  const choose = async (file?: File) => {
+    if (!file || disabled || stage) return;
+    const epoch = generation.current;
+    setWorking('stage'); setError(''); setMessage('');
+    try {
+      if (file.size > 8_000_000) throw new Error('Choose a file no larger than 8,000,000 bytes.');
+      // Send the original bytes, including invalid JSON, for diagnostics and retrieval.
+      const staged = await request<StagedFile>('/api/workspace/imports', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: file });
+      if (generation.current !== epoch) return;
+      setStage(staged); setFilename(file.name); setSelection(emptySelection()); setAccepted(false); setMergeKey(null);
+      const result = await request<Review>(`/api/workspace/imports/${encodeURIComponent(staged.id)}`);
+      if (generation.current === epoch) setReview(result);
+    } catch (cause) { if (generation.current === epoch) setError(cause instanceof Error ? cause.message : 'The file could not be staged.'); }
+    finally { if (generation.current === epoch) setWorking(''); }
+  };
+  const preview = async (merge: boolean) => {
+    if (!stage) return;
+    const epoch = generation.current;
+    setWorking('preview'); setError(''); setAccepted(false); setMergeKey(null);
+    try {
+      const result = await request<Review>(endpoint, merge ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'merge', selection }) } : {});
+      if (generation.current !== epoch) return;
+      setReview(result);
+      if (merge && result.mergePreview) setMergeKey(selectionKey);
+    } catch (cause) { if (generation.current === epoch) setError(cause instanceof Error ? cause.message : 'The review could not be prepared.'); }
+    finally { if (generation.current === epoch) setWorking(''); }
+  };
+  const original = async () => {
+    if (!stage) return;
+    const epoch = generation.current;
+    setWorking('download'); setError('');
+    try {
+      const bytes = await request(endpoint + '?download=1', {}, response => response.arrayBuffer());
+      if (generation.current === epoch) downloadOriginal(bytes, stage.id);
+    } catch (cause) { if (generation.current === epoch) setError(cause instanceof Error ? cause.message : 'The original file could not be downloaded.'); }
+    finally { if (generation.current === epoch) setWorking(''); }
+  };
+  const discard = async () => {
+    if (!stage) return;
+    const epoch = generation.current;
+    setWorking('discard'); setError('');
+    try {
+      await request(endpoint, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      if (generation.current !== epoch) return;
+      setStage(null); setReview(null); setFilename(''); setSelection(emptySelection()); setMergeKey(null); setAccepted(false); setMessage('Staged file discarded. Your workspace has not changed.');
+    } catch (cause) { if (generation.current === epoch) setError(cause instanceof Error ? cause.message : 'The staged file could not be discarded.'); }
+    finally { if (generation.current === epoch) setWorking(''); }
+  };
+  const commit = async () => {
+    if (!onImport || !stage || !review || diagnostics.length || stale || !accepted || (mode === 'merge' && (!selectedCount || mergeKey !== selectionKey || !review.mergePreview))) return;
+    const epoch = generation.current;
+    setWorking('commit'); setError(''); setMessage('');
+    try {
+      await onImport({ type: 'workspace.import.commit', importId: stage.id, hash: stage.hash, targetRevision: review.preview.targetRevision, mode, ...(mode === 'merge' ? { selection } : {}) });
+      if (generation.current !== epoch) return;
+      setStage(null); setReview(null); setAccepted(false); setMessage('The reviewed import was saved.');
+    } catch (cause) { if (generation.current === epoch) setError(cause instanceof Error ? cause.message : 'Import could not be confirmed. Keep this review open.'); }
+    finally { if (generation.current === epoch) setWorking(''); }
+  };
+  const toggle = (id: string, checked: boolean) => {
+    setSelection(previous => ({ ...previous, [collection]: checked ? [...previous[collection], id] : previous[collection].filter(value => value !== id) }));
+    setMergeKey(null); setAccepted(false);
+  };
+
+  return <section className="panel data-panel" aria-labelledby="import-review-heading"><h2 id="import-review-heading">Review an import</h2><p>Choose Planning JSON or a complete bundle. The original file is held separately for review; choosing it does not change your workspace. No automatic repair, acceptance or completion is performed.</p>
+    <input type="file" accept=".json,application/json" aria-label="Choose file for import review" disabled={disabled || !!stage} onChange={event => { void choose(event.target.files?.[0]); event.target.value = ''; }} />
+    {stage && <div className="restore-section"><h3>{filename}</h3><p>{stage.bytes.toLocaleString()} original bytes · Review expires {dateLabel(new Date(stage.expiresAt).toISOString(), true)}</p><p className="field-hint" style={{ overflowWrap: 'anywhere' }}>File digest: {stage.hash}</p><div className="data-actions"><button type="button" className="button secondary" disabled={disabled} onClick={() => void original()}>Download original file</button><button type="button" className="button secondary" disabled={disabled} onClick={() => void discard()}>Discard staged file</button><button type="button" className="button secondary" disabled={disabled} onClick={() => void preview(false)}>Refresh review</button></div>
+      {diagnostics.length > 0 && <div role="alert"><h3>This file needs attention</h3><p>It remains separate from your workspace. Download the unchanged original for correction.</p><ul>{diagnostics.map((item, index) => <li key={index}>{item.path}: {item.code}</li>)}</ul></div>}
+      {review && diagnostics.length === 0 && review.planningIncoming && <><p>Reviewed against saved revision {review.preview.targetRevision}. Attachment completeness: {review.preview.attachmentCompleteness}.</p><p>Module versions: {Object.entries(review.preview.moduleVersions).map(([name, version]) => `${name} v${version}`).join(', ') || 'Planning only'}. {review.preview.backupAvailable ? 'A previous recovery export is available.' : 'No previous recovery export was reported.'}</p>
+        <div style={{ overflowX: 'auto' }}><table><thead><tr><th scope="col">Collection</th><th scope="col">Current</th><th scope="col">Incoming</th><th scope="col">Added</th><th scope="col">Absent from incoming</th><th scope="col">Changed</th></tr></thead><tbody>{Object.entries(review.preview.diff).map(([key, diff]) => <tr key={key}><th scope="row">{key}</th><td>{diff.before}</td><td>{diff.after}</td><td>{diff.added.length}</td><td>{diff.deleted.length}</td><td>{diff.changed.length}</td></tr>)}</tbody></table></div>
+        <label className="field"><span className="field-label">Import mode</span><select value={mode} disabled={disabled} onChange={event => { setMode(event.target.value as 'merge' | 'replace'); setAccepted(false); }}><option value="merge">Merge selected planning records</option><option value="replace">Replace entire workspace</option></select></label>
+        {mode === 'merge' ? <><p>Start with no records selected. Choose each source record and any linked projects, milestones or dependencies it needs. Available module records are not merged by this action. New tasks remain proposals; existing task completion, acceptance and weekly commitments are preserved.</p><p>{collections.map(key => `${key}: ${selection[key].length}/${review.planningIncoming![key].length} selected`).join(' · ')}</p>
+          <label className="field"><span className="field-label">Source collection</span><select value={collection} disabled={disabled} onChange={event => { setCollection(event.target.value as PlanningCollection); setPage(0); }}>{collections.map(key => <option key={key} value={key}>{key} ({review.planningIncoming![key].length})</option>)}</select></label>
+          <p>Showing {rows.length ? page * PAGE_SIZE + 1 : 0}–{Math.min((page + 1) * PAGE_SIZE, rows.length)} of {rows.length} source records.</p>
+          {pageRows.map(row => <div className="capture-preview" key={row.id}><label><input type="checkbox" disabled={disabled} checked={selection[collection].includes(row.id)} onChange={event => toggle(row.id, event.target.checked)} /> {recordLabel(row)}</label><small> {row.id}</small><details><summary>Review source record</summary><pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{JSON.stringify(row, null, 2)}</pre></details></div>)}
+          <div className="data-actions"><button type="button" className="button secondary" disabled={disabled || page === 0} onClick={() => setPage(page - 1)}>Previous 100</button><span>Page {page + 1} of {lastPage + 1}</span><button type="button" className="button secondary" disabled={disabled || page >= lastPage} onClick={() => setPage(page + 1)}>Next 100</button><button type="button" className="button secondary" disabled={disabled || !selectedCount} onClick={() => { setSelection(emptySelection()); setMergeKey(null); setAccepted(false); }}>Clear all selections</button><button type="button" className="button primary" disabled={disabled || !selectedCount} onClick={() => void preview(true)}>Preview selected merge</button></div>
+          {mergeKey === selectionKey && review.mergePreview && <div className="restore-preview"><h3>Selected merge review</h3><p>{review.mergePreview.added} added · {review.mergePreview.changed} changed · {review.mergePreview.conflicts.length} existing record collisions · {review.mergePreview.sourceClaims.length} imported lifecycle claims retained as source history.</p><ReviewRecords title="Existing record collisions, before and after" records={review.mergePreview.conflicts} /><ReviewRecords title="Imported source claims" records={review.mergePreview.sourceClaims} /><ReviewRecords title="Resulting selected records" records={collections.flatMap(key => review.mergePreview!.workspace[key].filter(row => selection[key].includes(row.id)).map(record => ({ collection: key, record })))} /></div>}
+        </> : <div className="restore-preview" role="alert"><h3>Replace the entire workspace</h3><p>This replaces planning and the supported replaceable module records shown in the comparison, including records absent from the incoming file. Imported audit history is appended to the retained history ledger. A recovery snapshot must be saved in the same operation. If validation or backup preparation fails, the replacement is rejected.</p><p>Imported completion and acceptance values are source claims from this file. Review every changed lifecycle value before proceeding. Download the original file to inspect the module content listed above.</p><ReviewRecords title="Replacement planning changes, before and after" records={replacementChanges(review)} /><ReviewRecords title="Incoming planning records" records={collections.flatMap(key => review.planningIncoming![key].map(record => ({ collection: key, record })))} /></div>}
+        {stale && <p role="alert">Your workspace changed after this review. Refresh the review and check it again before importing.</p>}
+        <label className="check-card"><input type="checkbox" checked={accepted} disabled={disabled || stale || (mode === 'merge' && mergeKey !== selectionKey)} onChange={event => setAccepted(event.target.checked)} /><span>{mode === 'replace' ? 'I reviewed the full replacement and its recovery snapshot requirement.' : 'I reviewed this selected merge and its existing record changes.'}</span></label>
+        <button type="button" className="button primary" disabled={disabled || !onImport || stale || !accepted || (mode === 'merge' && (!selectedCount || mergeKey !== selectionKey))} onClick={() => void commit()}>{working === 'commit' ? 'Saving reviewed import…' : mode === 'replace' ? 'Replace entire workspace with reviewed file' : 'Import reviewed selection'}</button>
+        {!onImport && <p className="field-hint">You can review and download this file. Import saving is unavailable in this session.</p>}
+      </>}
+    </div>}
+    {error && <p className="form-error" role="alert">{error}</p>}{message && <p className="restore-message" role="status">{message}</p>}
+  </section>;
+}

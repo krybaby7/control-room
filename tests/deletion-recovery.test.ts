@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { database } from './helpers/sqlite.ts';
 import { createSeedWorkspace } from '../lib/seed.ts';
 import { loadWorkspace, readCurrent, type SqlDatabase } from '../lib/workspace-store.ts';
-import { executeWorkspaceCommand, type CommandHandlerRegistry } from '../lib/workspace-transaction.ts';
+import { executeWorkspaceCommand, hashJson, type CommandHandlerRegistry } from '../lib/workspace-transaction.ts';
 import { workspaceHandlers } from '../lib/workspace-handlers.ts';
 import { readWorkspaceBackup, listWorkspaceBackups, BACKUP_LIMITS } from '../lib/workspace-backups.ts';
 import { exportRegistry, ownerExportModule } from '../lib/workspace-export.ts';
@@ -33,7 +33,7 @@ test('separate manual commands retain multiple generations; replay does not crea
 });
 
 test('failed protected module CAS creates no deletion snapshot or receipt',async()=>{
- const {db,sqlite}=await setup();sqlite.prepare('INSERT INTO decisions VALUES (?,?,?,?,?)').run('a','source',1,'{}','hash');
+ const {db,sqlite}=await setup();sqlite.prepare('INSERT INTO decisions VALUES (?,?,?,?,?)').run('a','source',1,'{}',await hashJson({}));
  const handlers:CommandHandlerRegistry=new Map([['fixture.delete',{prepare:async context=>({planningAfter:context.before.workspace,writes:[{table:'decisions',operation:'delete',id:'source',expectedRowRevision:1}],events:[],jobs:[],backup:{reason:'delete'}})}]]);
  const raced=intercept(db,()=>{sqlite.prepare('UPDATE decisions SET row_revision=2 WHERE user_id=?').run('a');});
  await assert.rejects(executeWorkspaceCommand('a',input('delete-backup-0001',1,{type:'fixture.delete'}),deps(raced,handlers)),ModuleConflictError);noEffects(sqlite);assert.equal(count(sqlite,'decisions'),1);

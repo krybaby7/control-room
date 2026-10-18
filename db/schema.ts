@@ -33,7 +33,7 @@ export const auditEvents = sqliteTable('audit_events', {
   userId:text('user_id').notNull(),eventId:text('event_id').notNull(),workspaceRevision:integer('workspace_revision'),ordinal:integer('ordinal'),streamId:text('stream_id'),streamSequence:integer('stream_sequence'),kind:text('kind').notNull(),entityType:text('entity_type').notNull(),entityId:text('entity_id'),occurredAt:text('occurred_at').notNull(),payloadJson:text('payload_json').notNull(),
 },table=>[primaryKey({columns:[table.userId,table.eventId]}),uniqueIndex('audit_owner_order').on(table.userId,table.workspaceRevision,table.ordinal).where(sql`${table.workspaceRevision} IS NOT NULL`),uniqueIndex('audit_stream_order').on(table.userId,table.streamId,table.streamSequence).where(sql`${table.streamId} IS NOT NULL`),check('audit_one_order_domain',sql`(${table.workspaceRevision} IS NOT NULL AND ${table.ordinal} IS NOT NULL AND ${table.streamId} IS NULL AND ${table.streamSequence} IS NULL) OR (${table.workspaceRevision} IS NULL AND ${table.ordinal} IS NULL AND ${table.streamId} IS NOT NULL AND ${table.streamSequence} IS NOT NULL)`)]);
 export const workspaceJobIntents = sqliteTable('workspace_job_intents', {
-  userId:text('user_id').notNull(),id:text('id').notNull(),kind:text('kind').notNull(),dedupeKey:text('dedupe_key').notNull(),payloadJson:text('payload_json').notNull(),notBefore:text('not_before').notNull(),status:text('status').notNull(),
+  userId:text('user_id').notNull(),id:text('id').notNull(),kind:text('kind').notNull(),dedupeKey:text('dedupe_key').notNull(),payloadJson:text('payload_json').notNull(),notBefore:text('not_before').notNull(),status:text('status').notNull(),executionEpoch:integer('execution_epoch').notNull().default(0),cancelRequested:integer('cancel_requested').notNull().default(0),
 },table=>[primaryKey({columns:[table.userId,table.id]}),uniqueIndex('intent_dedupe').on(table.userId,table.kind,table.dedupeKey)]);
 function moduleTable(name:string) {return sqliteTable(name,{
   userId:text('user_id').notNull(),id:text('id').notNull(),rowRevision:integer('row_revision').notNull(),payloadJson:text('payload_json').notNull(),contentHash:text('content_hash').notNull(),
@@ -62,3 +62,7 @@ export const workspaceImports=sqliteTable('workspace_imports',{
 export const workspaceImportChunks=sqliteTable('workspace_import_chunks',{
  userId:text('user_id').notNull(),importId:text('import_id').notNull(),ordinal:integer('ordinal').notNull(),contentBase64:text('content_base64').notNull(),
 },table=>[primaryKey({columns:[table.userId,table.importId,table.ordinal]})]);
+
+export const workspaceExecutionState=sqliteTable('workspace_execution_state',{
+ userId:text('user_id').primaryKey().notNull(),epoch:integer('epoch').notNull(),restoredAt:text('restored_at').notNull(),
+});

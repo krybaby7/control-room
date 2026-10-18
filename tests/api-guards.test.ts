@@ -32,3 +32,10 @@ test('versioned envelopes adapt to the same mutation and unknown authority field
  assert.equal((await readMutation(request(JSON.stringify({protocolVersion:1,expectedRevision:2,mutationId:'protocol-00000001',command:{type:'task.create'}})))).revision,2);
  for(const extra of [{owner:'another'},{protocolVersion:2},{expectedRevision:3}])await assert.rejects(readMutation(request(JSON.stringify({revision:1,mutationId:'protocol-00000001',command:{type:'task.create'},...extra}))),{status:400});
 });
+
+test('only the named reviewed import boundary accepts a larger selection command',async()=>{
+ const body=JSON.stringify({revision:1,mutationId:'import-envelope-0001',command:{type:'workspace.import.commit',importId:'stage',selection:{tasks:['x'.repeat(70000)]}}});
+ await assert.rejects(readMutation(request(body)),{status:413});
+ assert.equal((await readMutation(request(body),{importId:'stage'})).revision,1);
+ await assert.rejects(readMutation(request(body),{importId:'another-stage'}),{status:400});
+});

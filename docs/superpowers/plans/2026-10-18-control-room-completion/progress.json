@@ -8,17 +8,16 @@
   "phases": [
     {
       "id": 0,
-      "status": "in_progress",
+      "status": "complete",
       "evidence": [
         "160 imported baseline hashes match",
         "Baseline: 71 tests, typecheck, lint, build passed",
         "Shared contracts and independent architecture review",
         "Synthetic migration rehearsal and owner A/B failure fixtures",
-        "CI workflow added; hosted CI result not yet observed"
+        "CI workflow added; hosted CI result not yet observed",
+        "GitHub CI run39127618834/job117675962970 at ea075cda6d0631491d1aceb51702ea1087502961: clean locked install,169 tests,typecheck,lint,build all passed"
       ],
-      "blockers": [
-        "Clean npm run install:ci blocked by registry network policy; exact locked cache recovery enabled checks but is not a successful clean install"
-      ]
+      "blockers": []
     },
     {
       "id": 1,
@@ -32,15 +31,22 @@
         "Consistent export registry, durable chunked import staging, quarantine core",
         "Multiple verified D1 backup core/API/UI, protected quotas and R2 adapter fixtures",
         "Epoch tombstones and real executor retirement race tests",
-        "Integrated checkpoint:169 tests pass, typecheck/lint/build pass"
+        "Integrated checkpoint:169 tests pass, typecheck/lint/build pass",
+        "Reviewed atomic full-bundle replacement and selective planning merge; audit claims append-only, execution epoch rotation/cancellation",
+        "Owner/hash/expiry staging assertions plus bulk normalized replacement CAS and rollback tests",
+        "Archived task/capture deletion with recoverable snapshots and reference/race guards",
+        "Explicit old snapshot removal requires newer independently verified recovery point",
+        "Strict portable metadata schemas and pseudonymized exported audit actors",
+        "Server-issued namespaced submission IDs integrated; no new client UUID fallback",
+        "Pinned Playwright1.64.1 added via verified cloud lock artifact; existing locked dependencies unchanged",
+        "Expanded Node checkpoint243 tests passed;typecheck/lint/build passed; actual isolated built-worker HTTP fixture smoke passed"
       ],
       "blockers": [
-        "Browser harness/dependency and live browser acceptance pending",
-        "Atomic reviewed full-bundle restore/merge/repair and execution epoch invalidation pending",
-        "Permanent deletion UI and recovery workflows pending",
-        "Scheduled backup substrate/unattended writer/R2 acceptance pending",
-        "Trusted-device outbox browser integration/acceptance pending",
-        "Hosted route/session/private ingress verification pending"
+        "Prepared Playwright suite awaits actual Chromium cloud CI execution",
+        "Selected repair operations/normalized selective merge and typed cross-module reference cleanup remain pending",
+        "Trusted-device outbox browser opt-in/integration/real IndexedDB acceptance pending",
+        "Scheduled backup policy/runner provisioning, receipt compaction policy/usage UI and real R2 acceptance pending",
+        "Authenticated hosted gateway/device session acceptance remains separate from synthetic fixtures"
       ]
     },
     {
@@ -86,7 +92,7 @@
       "blockers": []
     }
   ],
-  "nextAction": "Complete Phase 1 reviewed bundle import/restore and recovery workflows; add browser harness when locked package/browser access is available, then Phase 2. Preserve active owner data and disabled effects.",
+  "nextAction": "Run and fix cloud Playwright recovery acceptance; complete remaining Phase1 policy/privacy/repair gates before Phase2 prerequisites. Preserve original owner records and disabled effects.",
   "allowedStatuses": [
     "not_started",
     "in_progress",

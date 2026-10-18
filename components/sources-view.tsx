@@ -2,17 +2,19 @@
 
 import { useRef, useState } from 'react';
 import { AlertCircle, ArrowDownToLine, Clock3, Database, ExternalLink, GitBranch, Laptop, RefreshCw, ShieldCheck, Upload } from 'lucide-react';
-import type { Workspace, WorkspaceEnvelope } from '@/lib/types';
+import type { Command, Workspace, WorkspaceEnvelope } from '@/lib/types';
 import type { Submission } from '@/lib/workspace-client';
 import { parseWorkspaceExport, WORKSPACE_LIMITS } from '@/lib/workspace-validation';
 import { measurePlanning } from '@/lib/workspace-codec';
 import { dateLabel, ProjectIcon } from './ui';
 import { BackupHistory, CompleteBundleExport } from './backup-history';
+import { ImportReview } from './import-review';
+import { ArchivedRecordCleanup } from './delete-record-dialog';
 
 type RestoreBase = { revision: number; submission?: Submission | null };
 type RestorePreview = { workspace: Workspace; filename: string; date: string | null; sourceVersion: number; base: RestoreBase };
 
-export function SourcesView({ envelope, busy, onRefresh, onRestore, onPreviousBackup, onBackup }: { envelope: WorkspaceEnvelope; busy: boolean; onRefresh: () => void; onRestore: (workspace: Workspace, base: RestoreBase) => Promise<void>; onPreviousBackup: () => Promise<WorkspaceEnvelope>; onBackup?: () => Promise<void> }) {
+export function SourcesView({ envelope, busy, onRefresh, onRestore, onPreviousBackup, onBackup, onImport, onDelete, onBackupRemove }: { envelope: WorkspaceEnvelope; busy: boolean; onRefresh: () => void; onRestore: (workspace: Workspace, base: RestoreBase) => Promise<void>; onPreviousBackup: () => Promise<WorkspaceEnvelope>; onBackup?: () => Promise<void>; onImport?: (command: Command) => Promise<void>; onDelete?: (command: Command) => Promise<void>; onBackupRemove?: (command: Command) => Promise<void> }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<RestorePreview | null>(null);
   const [error, setError] = useState('');
@@ -59,12 +61,14 @@ export function SourcesView({ envelope, busy, onRefresh, onRestore, onPreviousBa
     <section className="connections-section" aria-labelledby="connections-heading"><div className="section-heading"><h2 id="connections-heading">Connections</h2></div><div className="panel connection-list"><div className="connection-row"><span className="connection-icon"><GitBranch size={22} /></span><div><h3>GitHub source sync</h3><p>Automatic repository imports are a future integration. Repository links above open the source directly.</p></div><span className="disconnected-badge">Not connected</span></div><div className="connection-row"><span className="connection-icon"><Laptop size={22} /></span><div><h3>PC collector</h3><p>Local runtime and agent activity are not connected. This planning workspace works independently of your PC.</p></div><span className="disconnected-badge">Not connected</span></div></div></section>
     <section className="panel data-panel"><div className="data-panel-copy"><Database size={23} /><div><h2>Your workspace, in your hands.</h2><p>Planning JSON contains projects, milestones, tasks, captures and recent activity. The complete bundle also includes available module records; each download reports whether attachment files are included.</p><span className="data-metadata">Saved revision {envelope.revision} · Updated {dateLabel(envelope.updatedAt, true)}</span></div></div><div className="data-actions"><button className="button secondary" onClick={onRefresh} disabled={busy}><RefreshCw size={15} className={busy ? 'spinning' : ''} />Refresh workspace</button><button className="button primary" onClick={() => exportWorkspace()}><ArrowDownToLine size={15} />Planning JSON</button><CompleteBundleExport disabled={disabled} /></div><p className="data-footnote"><ShieldCheck size={14} />Private planning data. Export reflects the saved revision currently shown.</p>
       <p className="workspace-usage">Stored usage: {envelope.workspace.tasks.length}/{WORKSPACE_LIMITS.tasks} tasks - {envelope.workspace.captures.length}/{WORKSPACE_LIMITS.captures} captures - {envelope.workspace.milestones.length}/{WORKSPACE_LIMITS.milestones} milestones - {(contentBytes / 1000).toFixed(1)}/{WORKSPACE_LIMITS.bytes / 1000} KB content · {(serializedBytes / 1000).toFixed(1)}/{WORKSPACE_LIMITS.serializedBytes / 1000} KB serialized. Normalized module usage is reported separately when those modules are enabled. {archived} archived records are included. Archiving keeps records and history, so it does not free storage.</p>
-      <div className="restore-section"><h3>Restore a JSON export</h3><p>Choose a file to validate and preview it. Restoring replaces this workspace’s projects, milestones, tasks, captures, and activity. A recovery snapshot of the previous workspace is retained automatically.</p><input ref={fileRef} type="file" accept=".json,application/json" aria-label="Choose workspace JSON export" disabled={disabled} onChange={event => void chooseFile(event.target.files?.[0])} />
+      <div className="restore-section"><h3>Restore Planning JSON</h3><p>Choose a planning export to validate and preview it. For complete bundles, use Review an import below. Restoring replaces this workspace’s projects, milestones, tasks, captures, and activity. A recovery snapshot of the previous workspace is retained automatically.</p><input ref={fileRef} type="file" accept=".json,application/json" aria-label="Choose Planning JSON export" disabled={disabled} onChange={event => void chooseFile(event.target.files?.[0])} />
         {preview && <div className="restore-preview"><h4>Review before restoring</h4><p className="import-filename">{preview.filename}</p><p>Source schema v{preview.sourceVersion} · Import schema v{preview.workspace.schemaVersion} · {preview.date ? dateLabel(preview.date, true) : 'Export date not recorded'}</p><dl className="preview-counts"><div><dt>Projects</dt><dd>{preview.workspace.projects.length}</dd></div><div><dt>Milestones</dt><dd>{preview.workspace.milestones.length}</dd></div><div><dt>Tasks</dt><dd>{preview.workspace.tasks.length}</dd></div><div><dt>Captures</dt><dd>{preview.workspace.captures.length}</dd></div></dl><p>The restore will check saved revision {preview.base.revision}. If another session changed it, the preview stays here for your review before you retry.</p><div className="data-actions"><button className="button secondary" disabled={disabled} onClick={() => { setPreview(null); setError(''); }}>Cancel import</button><button className="button primary" disabled={disabled} onClick={() => void restore()}><Upload size={15} />{working ? 'Restoring…' : 'Restore this workspace'}</button></div></div>}
         {envelope.previousBackupAvailable && <button className="button secondary recovery-download" onClick={() => void downloadPrevious()} disabled={disabled}><ArrowDownToLine size={15} />Download workspace from before last restore</button>}
         {error && <p className="form-error" role="alert"><AlertCircle size={17} /><span>{error}</span></p>}{message && <p className="restore-message" role="status">{message}</p>}
       </div>
     </section>
-    <BackupHistory busy={disabled} onBackup={onBackup} />
+    <ImportReview revision={envelope.revision} busy={disabled} onImport={onImport} />
+    <BackupHistory busy={disabled} onBackup={onBackup} targetRevision={envelope.revision} onBackupRemove={onBackupRemove} />
+    <ArchivedRecordCleanup workspace={envelope.workspace} revision={envelope.revision} busy={disabled} onDelete={onDelete} />
   </>;
 }

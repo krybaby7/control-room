@@ -49,8 +49,23 @@ export async function boundedRequest<T>(input: RequestInfo | URL, init: RequestI
   } catch (error) { check(); throw error; } finally { clearTimeout(timer); }
 }
 
+/** Obtain an epoch-bound server identity before any draft persistence or command execution. */
+export function issueSubmissionId(options: RequestOptions = {}): Promise<string> {
+  return boundedRequest('/api/workspace/mutation-ids', {
+    method: 'POST', credentials: 'same-origin', cache: 'no-store',
+    headers: { 'Content-Type': 'application/json' }, body: '{}',
+  }, async response => {
+    if (!response.ok) throw new Error('A submission ID could not be issued. Try again before saving.');
+    const body: unknown = await response.json().catch(() => null);
+    if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).length !== 1 || !('mutationId' in body) || typeof body.mutationId !== 'string' || !/^m1_[a-f0-9]{32}_[a-f0-9]{32}$/.test(body.mutationId)) throw new Error('The submission ID response was invalid. Try again before saving.');
+    return body.mutationId;
+  }, options);
+}
+
 export function sendCommand(submission: { revision: number; mutationId: string; command: unknown }, options: RequestOptions = {}): Promise<WorkspaceEnvelope> {
-  return boundedRequest('/api/workspace', {
+  const command=submission.command as {type?:unknown;importId?:unknown}|null;
+  const url=command?.type==='workspace.import.commit' && typeof command.importId==='string'?`/api/workspace/imports/${encodeURIComponent(command.importId)}/commit`:'/api/workspace';
+  return boundedRequest(url, {
     method: 'POST', credentials: 'same-origin', cache: 'no-store',
     headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(submission),
   }, readWorkspaceResponse, options);

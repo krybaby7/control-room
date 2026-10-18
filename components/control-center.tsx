@@ -5,7 +5,7 @@ import { AlertCircle, ArrowRight, Check, ChevronDown, FolderOpen, Inbox, LayoutG
 import type { Capture, Command, Milestone, Project, Task, Workspace, WorkspaceEnvelope } from '@/lib/types';
 import { isCurrentWeek } from '@/lib/calendar';
 import { readWorkspaceResponse, SessionExpiredError, WorkspaceRequestError, submissionFor, type Submission } from '@/lib/workspace-client';
-import { boundedRequest, sendCommand, reconcileSubmission, SaveSessionGeneration, StaleSessionError } from '@/lib/save-controller';
+import { boundedRequest, issueSubmissionId, sendCommand, reconcileSubmission, SaveSessionGeneration, StaleSessionError } from '@/lib/save-controller';
 import { DurableDraftProvider, type DurableDraftController, type RecoveredSubmission } from './durable-draft';
 import { SessionExpiredContext } from './session-state';
 import { TaskEditor } from './task-editor';
@@ -70,8 +70,9 @@ export default function ControlCenter({ userName }: { userName: string }) {
     if (busyRef.current) throw new Error('Another change is saving. Please try again in a moment.');
     busyRef.current = true; setBusy(true); setError('');
     const previous=editorBase?editorBase.submission:directSubmission.current;
-    const submission = submissionFor(previous ?? null, command);
+    let submission = submissionFor(previous ?? null, command);
     try {
+      if(!previous)submission={key:submission.key,mutationId:await issueSubmissionId({session:sessionGeneration.current})};
       if(previous && previous.key!==submission.key){
         const original=await reconcileSubmission(previous.mutationId,{session:sessionGeneration.current});
         if(original.status==='committed'){await read();if(editorBase)editorBase.submission=null;else directSubmission.current=null;setUnresolved(items=>items.filter(item=>item.submission.mutationId!==previous.mutationId));throw new Error('The original change saved. Review the refreshed plan, then submit your new change.');}
@@ -160,7 +161,7 @@ export default function ControlCenter({ userName }: { userName: string }) {
         {view === 'today' && <TodayView workspace={workspace} onProject={openProject} onTask={openTask} onPin={pinTask} onProjects={() => navigate('projects')} onCapture={() => openEditor({ type: 'capture' })} busy={busy} />}
         {view === 'projects' && (project ? <ProjectDetail key={project.id} project={project} workspace={workspace} busy={busy} onBack={() => setProjectId(null)} onProjectEdit={() => openEditor({ type: 'project', project })} onMilestone={milestone => openEditor({ type: 'milestone', milestone, project })} onNewMilestone={() => openEditor({ type: 'milestone', project })} onTask={openTask} onNewTask={() => openEditor({ type: 'task', projectId: project.id })} onPin={pinTask} onApplyBaseline={(project, baselineId) => run({ type: 'baseline.apply', projectId: project.id, baselineId })} /> : <ProjectsView workspace={workspace} onProject={openProject} />)}
         {view === 'inbox' && <InboxView workspace={workspace} busy={busy} onCreate={() => openEditor({ type: 'capture' })} onEdit={capture => openEditor({ type: 'capture', capture })} onConvert={capture => openEditor({ type: 'convert', capture })} onTask={openTask} onCommand={run} />}
-        {view === 'sources' && envelope && <SourcesView envelope={envelope} busy={busy || loading} onRefresh={() => void refresh()} onRestore={restoreWorkspace} onPreviousBackup={loadPreviousBackup} onBackup={()=>mutate({type:'workspace.backup'})} />}
+        {view === 'sources' && envelope && <SourcesView envelope={envelope} busy={busy || loading} onRefresh={() => void refresh()} onRestore={restoreWorkspace} onPreviousBackup={loadPreviousBackup} onBackup={()=>mutate({type:'workspace.backup'})} onImport={command=>mutate(command)} onDelete={command=>mutate(command)} onBackupRemove={command=>mutate(command)} />}
       </>}
     </main><footer className="app-footer"><span>CONTROL ROOM</span><span>A little clarity. A steady next step.</span></footer></div>
     {notice && <div className="save-toast" role="status"><Check size={16} />{notice}</div>}

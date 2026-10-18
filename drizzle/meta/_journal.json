@@ -43,6 +43,13 @@
       "when": 1792326476223,
       "tag": "0005_rich_shinobi_shaw",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1792326897975,
+      "tag": "0006_woozy_korath",
+      "breakpoints": true
     }
   ]
 }

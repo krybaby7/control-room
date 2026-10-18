@@ -22,3 +22,12 @@ This is an in-progress implementation checkpoint, not a complete Phase 1 or rele
 ## Remaining work / next command
 
 Run `git status --short` and `npm test` when resuming; inspect progress.json and current changes before editing. Complete reviewed atomic full-bundle restore/merge/repair, complete backup/deletion recovery and operational epoch invalidation, add browser harness when dependency access exists, then begin Phase 2. Keep provider inference and operational effects disabled. Provider, Windows/device and scheduler acceptance require their real configured execution path; fixtures are not live proof.
+
+## Expanded recovery checkpoint
+
+- First delivered source: ea075cda6d0631491d1aceb51702ea1087502961; [CI run39127618834](https://github.com/krybaby7/control-room/actions/runs/39127618834) passed a real clean install,169 tests,typecheck,lint and production build.
+- Current expanded recovery source:243 Node tests pass, zero failures/skips; typecheck, lint and production build pass. Actual isolated Wrangler HTTP smoke passes with synthetic owners and actual migrations: GET, capture commit, unchanged receipt replay exactly once, and foreign-origin rejection.
+- Reviewed import transactions replace normalized modules atomically, preserve target history and source claims, rotate execution epoch, cancel pending intents and request reconciliation for running ones. Selective planning merge creates proposed/unpinned tasks and preserves existing lifecycle authority. Missing/expired/changed previews never write planning.
+- Permanent removal requires archived/unreferenced records, exact impact digest/revision and a full pre-change backup. Snapshot retention never automatically evicts manual/pinned generations; explicit removal requires a newer verified recovery point under the same transaction guard.
+- Standard Playwright tests now exist for response loss after real commit, server draft reload/owner isolation and expired-session hiding. The actual browser result is not yet claimed; cloud CI will run Chromium against the isolated fixture.
+- Remaining Phase1 work is recorded in progress.json. Later phases remain unstarted; no private deployment, provider/device execution or paid inference is claimed.

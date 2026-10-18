@@ -37,15 +37,6 @@ export async function loadPreviousWorkspace(db:SqlDatabase,userId:string):Promis
   const row = await db.prepare('SELECT content, revision, updated_at FROM workspace_recovery WHERE user_id = ?').bind(userId).first<Row>();
   return row ? envelope(row) : null;
 }
-/** Kept for low-level CAS compatibility; application commands use mutateWorkspace receipts. */
-export async function saveWorkspace(db: SqlDatabase, userId: string, revision: number, workspace: Workspace, now: string): Promise<WorkspaceEnvelope | null> {
-  owner(userId);
-  if (!Number.isSafeInteger(revision) || revision < 1) throw new Error('A valid revision is required.');
-  const validated = parseWorkspaceExport(workspace,now);
-  const result = await db.prepare('UPDATE workspaces SET content = ?, revision = revision + 1, updated_at = ? WHERE user_id = ? AND revision = ?').bind(encodePlanning(validated),now,userId,revision).run();
-  if (result.meta.changes !== 1) return null;
-  return readCurrent(db,userId);
-}
 /** Legacy adapter; all production commands now reach the shared executor. */
 export async function mutateWorkspace(db:SqlDatabase,userId:string,revision:number,mutationId:string,command:unknown,now:string):Promise<WorkspaceEnvelope|null> {
   const { executeWorkspaceCommand } = await import('./workspace-transaction.ts');

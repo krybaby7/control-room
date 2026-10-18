@@ -16,6 +16,9 @@ export interface Workspace { schemaVersion: 1 | 2 | 3; projects: Project[]; mile
 export interface WorkspaceEnvelope { workspace: Workspace; revision: number; updatedAt: string; previousBackupAvailable?: boolean; }
 export type Command =
   | { type: 'workspace.backup' }
+  | {type:'workspace.backup.remove';id:string;sha256:string;targetRevision:number}
+  | { type:'entity.delete';entityType:'task'|'capture';id:string;previewHash:string;targetRevision:number }
+  | { type: 'workspace.import.commit'; importId:string;hash:string;targetRevision:number;mode:'replace'|'merge';selection?:{projects:string[];milestones:string[];tasks:string[];captures:string[];activity:string[]} }
   | { type: 'baseline.apply'; projectId: string; baselineId: '2026-10-17' }
   | { type: 'workspace.restore'; workspace: Workspace }
   | { type: 'task.restore'; id: string }
