@@ -27,10 +27,12 @@ the installed cloud-environment and Sites skills where available. Preserve
 the existing project_id in .openai/hosting.json and the owner's private access.
 Do not create a replacement Site, reset existing data or invent a Git remote.
 
-Use exactly gpt-6.1-sol for implementation and review workers. Verify the selected
-worker model through the actual runtime controls before implementation; a prompt
-mention alone is not verification. If this environment cannot select or confirm
-that model, stop before implementation and report the required model-selection step.
+Use exactly gpt-6.1-sol for implementation and review workers. Select the model
+through the supported runtime/agent parameter and record the accepted request and
+worker ID. A successful explicit model selection is sufficient configuration
+evidence; do not require unavailable resolved-model telemetry or self-identification.
+A prompt mention alone is insufficient. If the model request is rejected or the
+runtime cannot select it, stop before implementation and report that exact blocker.
 Execute Phases 0–8 in dependency order. Delegate bounded parallel tasks and keep
 one integrator responsible for shared types,
 migrations and release packaging. Make reviewable commits, run meaningful

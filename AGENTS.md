@@ -4,7 +4,7 @@ Read `docs/superpowers/plans/2026-10-18-control-room-completion/CLOUD-START.md`,
 
 ## Model and coordination
 
-- The owner explicitly requests **GPT-6.1 Sol** (`gpt-6.1-sol`) for implementation and review workers. Select it through actual runtime/agent controls and verify the model; merely putting its name in a prompt does not configure it. If the runtime cannot select or verify this model, report that blocker before implementation. Do not silently substitute a different model.
+- The owner explicitly requests **GPT-6.1 Sol** (`gpt-6.1-sol`) for implementation and review workers. Select it through the supported runtime/agent model parameter and record the accepted request and returned worker ID. A successful explicit model selection is sufficient configuration evidence; separate resolved-model telemetry is not required when the runtime does not expose it. Merely mentioning the model in prompt text is insufficient. Stop if the runtime rejects that model or cannot select it; do not silently substitute another model or ask a worker to infer its identity.
 - Use one integrator and bounded parallel workers. Establish the foundation transaction, schema, history and export contracts before parallelizing dependent features. Give leaf workers non-overlapping files; the integrator owns shared types, migrations and central UI changes.
 - Execute phases in dependency order, retain meaningful test evidence, and update the progress checkpoint and gap ledger. Do not mark mocked provider/device behavior as live verified integration.
 
