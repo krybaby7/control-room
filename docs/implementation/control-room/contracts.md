@@ -12,3 +12,11 @@ The integrator owns shared types, schema migrations, production transaction comp
 - Imports and analysis produce proposals; completion, acceptance, weekly commitment and execution authorization require explicit owner commands. Paid inference and operational effects remain disabled.
 
 Independent architecture review: explicit model=gpt-6.1-sol accepted for worker /root/foundation_review. Review highlighted zero-row CAS, export snapshot races and avoiding a second production mutation path.
+
+### Typed reference snapshots
+
+`ReferenceRegistry` admits only implemented module descriptors with strict payload parsing and explicit reference extraction. Populated unregistered modules fail closed. Deletion combines planning references with normalized impacts and binds the complete row-set digest to its preview. The shared compiler asserts every covered module's exact count/ID/revision/hash set under the transient transaction claim, including empty sets; a newly inserted reference cannot escape the preview guard. Feature phases must register their actual schemas before enabling writes.
+
+### Receipt capacity
+
+Receipt detail has a 75,000-row warning and 100,000-row hard owner limit. Existing replay is checked before admission; reads/exports remain available. New commands check the limit before preparation and atomically under the command claim, returning `receipt_capacity` without partial writes. No receipt is evicted to admit a command. Legacy IDs remain indefinite. Internal retired-epoch detail compaction requires the permanent tombstone and unchanged, valid, unexpired server-draft set; it never reactivates an old ID or runs automatically.

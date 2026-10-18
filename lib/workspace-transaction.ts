@@ -6,6 +6,7 @@ import { OWNER_TABLES, ownerReader, ownerTable, type GuardedWrite, type RowPreco
 import type { AuditEventDraft, CommandResult, JobIntent, MutationOutcome, WorkspaceCommand } from './workspace-protocol.ts';
 import { readStagedImport } from './import-staging.ts';
 import { prepareWorkspaceBackup, readWorkspaceBackup, listWorkspaceBackups, BACKUP_LIMITS } from './workspace-backups.ts';
+import { RECEIPT_CAPACITY, WorkspaceCapacityError, receiptCount } from './workspace-capacity.ts';
 import { checkMutationEpoch } from './idempotency-retention.ts';
 import { RetiredMutationError, CommandValidationError, MutationIdReuseError, ModuleConflictError, WorkspaceStorageError } from './workspace-errors.ts';
 export interface ModuleReplacement {table:RegisteredOwnerTable;beforeRows:ModuleRow[];records:Array<{id:string;value:import('./workspace-protocol.ts').JsonValue}>;}
@@ -45,6 +46,7 @@ export async function executeWorkspaceCommand(userId:string,input:{protocolVersi
   if(epoch.status==='retired')throw new RetiredMutationError('This mutation epoch is retired.');
   const replay=await checkReceipt();if(replay)return replay;
   const before=await readCurrent(db,userId);if(before.revision!==revision)return {status:'conflict',currentRevision:before.revision};
+  if(await receiptCount(db,userId)>=RECEIPT_CAPACITY.hard)throw new WorkspaceCapacityError();
   const handler=deps.handlers.get(command.type);if(!handler)throw new CommandValidationError('Unknown command.');
   const now=deps.now();let plan:MutationPlan;
   try {plan=await handler.prepare({userId,before,command,now,query:ownerReader(db,userId),readImport:id=>readStagedImport(db,userId,id,now),backups:{get:id=>readWorkspaceBackup(db,userId,id),list:()=>listWorkspaceBackups(db,userId)}});plan.planningAfter=parseWorkspaceExport(plan.planningAfter,now);}
@@ -66,6 +68,7 @@ export async function executeWorkspaceCommand(userId:string,input:{protocolVersi
   const token=crypto.randomUUID(),guard=[userId,id,token];
   const statements:SqlStatement[]=[db.prepare(`INSERT INTO workspace_command_guards (user_id,mutation_id,claim_token,valid) SELECT ?,?,?,1 FROM workspaces WHERE user_id = ? AND revision = ? AND NOT EXISTS (SELECT 1 FROM workspace_mutations WHERE user_id = ? AND mutation_id = ?)${epoch.status==='active'?" AND EXISTS (SELECT 1 FROM workspace_mutation_epochs WHERE user_id = ? AND epoch = ? AND status = 'active')":''}`).bind(...guard,userId,revision,userId,id,...(epoch.status==='active'?[userId,epoch.epoch]:[]))];
   const assertion=(condition:string,values:(string|number|null)[])=>statements.push(db.prepare(`INSERT INTO workspace_assertions (user_id,mutation_id,valid) SELECT ?,?,CASE WHEN ${condition} THEN 1 ELSE 0 END WHERE ${claim}`).bind(userId,id,...values,...guard));
+  assertion('(SELECT COUNT(*) FROM workspace_mutations WHERE user_id=?) < ?',[userId,RECEIPT_CAPACITY.hard]);
   if(plan.referenceSnapshot){
     const snapshot=plan.referenceSnapshot;
     if(snapshot.coveredModules.length!==OWNER_TABLES.length || new Set(snapshot.coveredModules).size!==OWNER_TABLES.length)throw new CommandValidationError('Incomplete reference snapshot.');
@@ -150,6 +153,7 @@ export async function executeWorkspaceCommand(userId:string,input:{protocolVersi
     const current=await readCurrent(db,userId);if(current.revision!==revision)return {status:'conflict',currentRevision:current.revision};
     // Only classify a row conflict when an authoritative reread proves it; otherwise storage remains uncertain.
     if(plan.importSource){const source=await db.prepare('SELECT id FROM workspace_imports WHERE user_id=? AND id=? AND content_hash=? AND expires_at>?').bind(userId,plan.importSource.id,plan.importSource.hash,now).first<{id:string}>();if(!source)throw new ModuleConflictError('The staged import changed or expired. Review a new preview.');}
+    if(await receiptCount(db,userId)>=RECEIPT_CAPACITY.hard)throw new WorkspaceCapacityError();
     const reader=ownerReader(db,userId);
     if(plan.referenceSnapshot){
       for(const table of plan.referenceSnapshot.coveredModules){

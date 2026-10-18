@@ -5,7 +5,7 @@ import type {Workspace} from '../../lib/types';
 async function issueMutationId(page:Page){const response=await page.request.post('/api/workspace/mutation-ids',{headers:{Origin:fixtureOrigin},data:{}});expect(response.ok()).toBeTruthy();const {mutationId}=await response.json();expect(mutationId).toMatch(/^m1_[a-f0-9]{32}_[a-f0-9]{32}$/);return mutationId as string;}
 async function explicitRepair(page:Page,operation:string,fields:Record<string,string>){
  const panel=page.getByRole('region',{name:'Review an import'});const button=panel.getByRole('button',{name:'Create separate repaired review',exact:true});
- await expect(button).toBeEnabled();await panel.getByLabel('Repair operation',{exact:true}).selectOption(operation);
+ await expect(button).toBeEnabled();const operationField=panel.getByRole('combobox',{name:'Repair operation',exact:true});await expect(operationField).toHaveAccessibleName('Repair operation');await operationField.selectOption(operation);
  for(const [label,value]of Object.entries(fields)){const field=panel.getByLabel(label,{exact:true});if(label==='Repair collection')await field.selectOption(value);else await field.fill(value);}
  const responsePromise=page.waitForResponse(response=>response.request().method()==='POST'&&new URL(response.url()).pathname.endsWith('/repair'));
  await button.click();const response=await responsePromise;expect(response.ok()).toBeTruthy();const child=await response.json();await expect(button).toBeEnabled();await expect(panel.getByRole('heading',{name:'Repair history for this file'})).toBeVisible();return child;

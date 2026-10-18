@@ -20,7 +20,7 @@ export async function readMutation(request: Request,options:{importId?:string}={
   const bytes = new Uint8Array(length); let offset = 0;
   for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
   let body: unknown;
-  try { body = JSON.parse(new TextDecoder().decode(bytes)); } catch { throw new RequestError('The request is not valid JSON.', 400); }
+  try { body = JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes)); } catch { throw new RequestError('The request is not valid JSON.', 400); }
   if (!body || typeof body !== 'object' || Array.isArray(body)) throw new RequestError('A change and revision are required.', 400);
   const input=body as Record<string,unknown>;
   const versioned='protocolVersion' in input;

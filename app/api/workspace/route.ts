@@ -3,6 +3,7 @@ import { getChatGPTUser } from '../../chatgpt-auth';
 import { readMutation, RequestError } from '../../../lib/api-guards';
 import { loadWorkspace, loadPreviousWorkspace, mutateWorkspace, MutationIdReuseError, CommandValidationError } from '../../../lib/workspace-store';
 import { MutationEpochError } from '../../../lib/idempotency-retention';
+import { WorkspaceCapacityError } from '../../../lib/workspace-capacity';
 import { ModuleConflictError, RetiredMutationError } from '../../../lib/workspace-errors';
 import { WorkspaceValidationError } from '../../../lib/workspace-validation';
 import { createSeedWorkspace } from '../../../lib/seed';
@@ -47,6 +48,7 @@ export async function handleWorkspacePOST(request:Request,importId?:string) {
   } catch (error) {
     if (error instanceof RequestError) return failure(error.message,'request_invalid',requestId,error.status);
     if (error instanceof MutationEpochError) return failure(error.message,'request_invalid',requestId,400);
+    if (error instanceof WorkspaceCapacityError) return failure(error.message,error.code,requestId,429);
     if (error instanceof RetiredMutationError) return failure(error.message,'mutation_retired',requestId,409);
     if (error instanceof ModuleConflictError) return failure(error.message,'module_conflict',requestId,409);
     if (error instanceof MutationIdReuseError) return failure(error.message,'mutation_id_reused',requestId,409);

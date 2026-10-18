@@ -1,3 +1,4 @@
+import {RECEIPT_CAPACITY} from './workspace-capacity.ts';
 import type {SqlDatabase} from './workspace-store.ts';
 import {OWNER_TABLES,ownerTable} from './workspace-modules.ts';
 import {DRAFT_MAX_BYTES,DRAFT_TTL_MS} from './drafts.ts';
@@ -22,7 +23,7 @@ export interface WorkspaceUsage {
  generatedAt:string;
  byteAccounting:'logical stored payload and metadata bytes; excludes owner identifiers, SQLite indexes and page overhead';
  planning:Size;
- receipts:Size & {legacyCount:number;epochCount:number;recentCount:number;olderCount:number;recentSince:string};
+ receipts:Size & {legacyCount:number;epochCount:number;recentCount:number;olderCount:number;recentSince:string;limits:{soft:number;hard:number}};
  epochs:Size & {activeCount:number;retiredCount:number};
  drafts:ExpiringSize & {limits:{activeCount:number;perDraftBytes:number;retentionMs:number}};
  imports:ExpiringSize & {storedBytes:number;limits:{activeCount:number;rawBytes:number;perStageBytes:number;retentionMs:number}};
@@ -51,5 +52,5 @@ export async function readWorkspaceUsage(db:SqlDatabase,owner:string,now=new Dat
   Promise.all(OWNER_TABLES.map(async module=>({...await one<Size>(db,sizeSql(ownerTable(module),`${textBytes('id')}+${textBytes('payload_json')}+${textBytes('content_hash')}+8`),owner),module}))),
   one<Size>(db,sizeSql('audit_events',`${textBytes('payload_json')}+${textBytes('event_id')}+${textBytes('kind')}+${textBytes('entity_type')}+COALESCE(${textBytes('entity_id')},0)+${textBytes('occurred_at')}+COALESCE(${textBytes('stream_id')},0)+COALESCE(length(workspace_revision),0)+COALESCE(length(ordinal),0)+COALESCE(length(stream_sequence),0)`),owner),
  ]);
- return {generatedAt,byteAccounting:'logical stored payload and metadata bytes; excludes owner identifiers, SQLite indexes and page overhead',planning,receipts:{...receipts,recentSince},epochs,drafts:{...drafts,limits:{activeCount:100,perDraftBytes:DRAFT_MAX_BYTES,retentionMs:DRAFT_TTL_MS}},imports:{...imports,storedBytes:importStorage.bytes,limits:{activeCount:IMPORT_STAGING_LIMITS.stages,rawBytes:IMPORT_STAGING_LIMITS.ownerBytes,perStageBytes:IMPORT_STAGING_LIMITS.bytes,retentionMs:IMPORT_STAGING_LIMITS.ttlMs}},backups:{...backups,limits:{count:BACKUP_LIMITS.snapshots,bytes:BACKUP_LIMITS.ownerBytes,perBundleBytes:BACKUP_LIMITS.d1BundleBytes}},modules,audit,receiptPolicy:RECEIPT_RETENTION_POLICY};
+ return {generatedAt,byteAccounting:'logical stored payload and metadata bytes; excludes owner identifiers, SQLite indexes and page overhead',planning,receipts:{...receipts,recentSince,limits:RECEIPT_CAPACITY},epochs,drafts:{...drafts,limits:{activeCount:100,perDraftBytes:DRAFT_MAX_BYTES,retentionMs:DRAFT_TTL_MS}},imports:{...imports,storedBytes:importStorage.bytes,limits:{activeCount:IMPORT_STAGING_LIMITS.stages,rawBytes:IMPORT_STAGING_LIMITS.ownerBytes,perStageBytes:IMPORT_STAGING_LIMITS.bytes,retentionMs:IMPORT_STAGING_LIMITS.ttlMs}},backups:{...backups,limits:{count:BACKUP_LIMITS.snapshots,bytes:BACKUP_LIMITS.ownerBytes,perBundleBytes:BACKUP_LIMITS.d1BundleBytes}},modules,audit,receiptPolicy:RECEIPT_RETENTION_POLICY};
 }

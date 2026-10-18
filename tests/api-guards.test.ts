@@ -39,3 +39,10 @@ test('only the named reviewed import boundary accepts a larger selection command
  assert.equal((await readMutation(request(body),{importId:'stage'})).revision,1);
  await assert.rejects(readMutation(request(body),{importId:'another-stage'}),{status:400});
 });
+
+test('mutation boundary rejects invalid UTF-8 instead of silently replacing owner text',async()=>{
+ const source=new TextEncoder().encode(JSON.stringify({revision:1,mutationId:'mutation-utf8-0001',command:{type:'capture.create',text:'X'}}));
+ source[source.indexOf(88)]=255;
+ const malformed=new Request('https://app.example/api/workspace',{method:'POST',headers:{origin:'https://app.example','content-type':'application/json'},body:source});
+ await assert.rejects(readMutation(malformed),{status:400});
+});
