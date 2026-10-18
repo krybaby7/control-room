@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { migratePlanningV3ToV4 } from './planning-migration.ts';
 import { currentWeek } from './calendar.ts';
 import type { Workspace } from './types.ts';
 import { migratePlanningV1ToV2, migratePlanningV2ToV3, measurePlanning } from './workspace-migrations.ts';
@@ -14,12 +15,12 @@ const taskSchema = z.object({
   id, projectId:id, milestoneId:id.nullable(), title:text(200,true), notes:text(10000), status:z.enum(['proposed','todo','doing','review','done','archived']),
   horizon:z.enum(['now','next','later']), priority:z.enum(['high','normal','low']), dueDate:day.nullable(), weekly:z.boolean(), dependsOn:z.array(id).max(50),
   blocker:text(1000), sourceUrl:url.nullable(), evidence:text(5000), createdAt:stamp, updatedAt:stamp, completedAt:stamp.nullable(),
-  weeklyWeek:day.nullable().optional(), archivedFromStatus:liveStatus.nullable().optional(),
+  estimateMinutes:z.number().int().min(1).max(10080).nullable().optional(), weeklyWeek:day.nullable().optional(), archivedFromStatus:liveStatus.nullable().optional(),
 }).strict();
 const workspaceSchema = z.object({
-  schemaVersion:z.union([z.literal(1), z.literal(2), z.literal(3)]),
-  projects:z.array(z.object({id,name:text(200,true),description:text(5000),goal:text(5000),color:z.enum(['orange','teal']),priority:z.literal('equal'),repositories:z.array(z.object({name:text(200,true),url}).strict()).max(100)}).strict()).max(100),
-  milestones:z.array(z.object({id,projectId:id,title:text(200,true),description:text(5000),acceptance:text(5000),status:z.enum(['planned','active','achieved']),targetDate:day.nullable(),evidence:text(5000),updatedAt:stamp}).strict()).max(WORKSPACE_LIMITS.milestones),
+  schemaVersion:z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
+  projects:z.array(z.object({id,name:text(200,true),description:text(5000),goal:text(5000),color:z.enum(['orange','teal']),priority:z.literal('equal'),archivedAt:stamp.nullable().optional(),repositories:z.array(z.object({name:text(200,true),url}).strict()).max(100)}).strict()).max(100),
+  milestones:z.array(z.object({id,projectId:id,title:text(200,true),description:text(5000),acceptance:text(5000),status:z.enum(['planned','active','achieved']),targetDate:day.nullable(),evidence:text(5000),updatedAt:stamp,archivedAt:stamp.nullable().optional(),sortKey:z.number().int().nonnegative().safe().optional()}).strict()).max(WORKSPACE_LIMITS.milestones),
   tasks:z.array(taskSchema).max(WORKSPACE_LIMITS.tasks),
   captures:z.array(z.object({id,title:text(200,true),body:text(10000),projectId:id.nullable(),kind:z.enum(['idea','task','decision']),sourceUrl:url.nullable(),status:z.enum(['inbox','filed','archived']),createdAt:stamp,convertedTaskId:id.nullable()}).strict()).max(WORKSPACE_LIMITS.captures),
   activity:z.array(z.object({id,text:text(10000,true),at:stamp,projectId:id.nullable()}).strict()).max(100),
@@ -31,7 +32,7 @@ export function parseWorkspaceExport(value: unknown, savedAt?: string, options: 
   const wrapper = value as Record<string,unknown>;
   const raw = 'workspace' in wrapper ? wrapper.workspace : value;
   const version = raw && typeof raw === 'object' ? (raw as Record<string,unknown>).schemaVersion : undefined;
-  if (version !== 1 && version !== 2 && version !== 3) fail('Unsupported workspace schema version.');
+  if (version !== 1 && version !== 2 && version !== 3 && version !== 4) fail('Unsupported workspace schema version.');
   const parsed = workspaceSchema.safeParse(raw);
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
@@ -40,13 +41,18 @@ export function parseWorkspaceExport(value: unknown, savedAt?: string, options: 
   void options; // Legacy callers no longer need a migration overflow exception.
   const anchor = savedAt ?? (typeof wrapper.updatedAt === 'string' ? wrapper.updatedAt : undefined);
   if (anchor && !stamp.safeParse(anchor).success) fail('Workspace saved timestamp is invalid.');
-  let ws: Workspace = parsed.data;
+  let ws: Workspace = parsed.data as Workspace;
   if (ws.schemaVersion === 1) ws = migratePlanningV1ToV2(ws, anchor);
   if (ws.schemaVersion === 2) {
     if (ws.tasks.some(task => task.weeklyWeek === undefined || task.archivedFromStatus === undefined)) fail('Version 2 tasks require weekly and archive history fields.');
     ws = migratePlanningV2ToV3(ws);
   }
-  ws.tasks = ws.tasks.map(task => ({ ...task, weeklyWeek: task.weeklyWeek ?? null, archivedFromStatus: task.archivedFromStatus ?? null }));
+  if(ws.schemaVersion===3)ws=migratePlanningV3ToV4(ws);
+  const milestonePositions=new Map<string,number>();
+  ws.projects=ws.projects.map(project=>({...project,archivedAt:project.archivedAt??null}));
+  ws.milestones=ws.milestones.map(milestone=>{const next=milestonePositions.get(milestone.projectId)??0;milestonePositions.set(milestone.projectId,next+1);return {...milestone,archivedAt:milestone.archivedAt??null,sortKey:milestone.sortKey??next};});
+  const milestoneKeys=new Set<string>();for(const milestone of ws.milestones){const key=JSON.stringify([milestone.projectId,milestone.sortKey]);if(milestoneKeys.has(key))fail('Milestone ordering keys must be unique per project.');milestoneKeys.add(key);}
+  ws.tasks = ws.tasks.map(task => ({ ...task, estimateMinutes:task.estimateMinutes??null, weeklyWeek: task.weeklyWeek ?? null, archivedFromStatus: task.archivedFromStatus ?? null }));
   const allIds = new Set<string>();
   for (const entry of [...ws.projects, ...ws.milestones, ...ws.tasks, ...ws.captures, ...ws.activity]) {
     if (allIds.has(entry.id)) fail('Workspace IDs must be unique.');

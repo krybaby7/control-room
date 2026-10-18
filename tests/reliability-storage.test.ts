@@ -1,3 +1,4 @@
+import { legacyWorkspaceFixture } from './helpers/workspace.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as storage from '../lib/workspace-store.ts';
@@ -26,23 +27,23 @@ test('durable receipt replays a lost success after reload and revision refresh w
 });
 
 test('stored legacy workspaces migrate from saved timestamp without reseeding or silent persistence', async () => {
-  const {db,sqlite} = database(); const legacy = seed(); legacy.schemaVersion=1; legacy.tasks[0].weekly=true;
+  const {db,sqlite} = database(); const legacy = legacyWorkspaceFixture(1,at); legacy.tasks[0].weekly=true;
   delete legacy.tasks[0].weeklyWeek; delete legacy.tasks[0].archivedFromStatus;
   sqlite.prepare('INSERT INTO workspaces VALUES (?, ?, ?, ?)').run('owner',JSON.stringify(legacy),12,at);
   const loaded = await storage.loadWorkspace(db,'owner',() => { throw new Error('must not reseed'); },'2026-10-20T12:00:00Z');
-  assert.equal(loaded.revision,12); assert.equal(loaded.workspace.schemaVersion,3);
+  assert.equal(loaded.revision,12); assert.equal(loaded.workspace.schemaVersion,4);
   assert.equal(loaded.workspace.tasks[0].weeklyWeek,'2026-10-12');
   assert.equal(JSON.parse(sqlite.prepare('SELECT content FROM workspaces').get()!.content as string).schemaVersion,1);
   const saved = await storage.mutateWorkspace(db,'owner',12,'migration-0000001',{type:'project.update',id:legacy.projects[0].id,patch:{goal:'Kept'}},at);
   assert.equal(saved?.workspace.tasks[0].weeklyWeek,'2026-10-12');
-  assert.equal(JSON.parse(sqlite.prepare('SELECT content FROM workspaces').get()!.content as string).schemaVersion,3);
+  assert.equal(JSON.parse(sqlite.prepare('SELECT content FROM workspaces').get()!.content as string).schemaVersion,4);
   sqlite.prepare('UPDATE workspaces SET content = ?').run(JSON.stringify({...legacy,schemaVersion:100}));
   await assert.rejects(storage.loadWorkspace(db,'owner',seed,at),/version/);
   assert.equal(JSON.parse(sqlite.prepare('SELECT content FROM workspaces').get()!.content as string).schemaVersion,100);
 });
 
 function nearLimitLegacyFixture() {
-  const legacy = seed(); legacy.schemaVersion=1;
+  const legacy = legacyWorkspaceFixture(1,at);
   const template = {...legacy.tasks[0],title:'Task',notes:''};
   delete template.weeklyWeek; delete template.archivedFromStatus;
   legacy.tasks=Array.from({length:1800},(_,i) => ({...template,id:`legacy-${i}`}));
@@ -53,7 +54,8 @@ function nearLimitLegacyFixture() {
 }
 test('near-limit legacy content can migrate, export, restore and shrink', async () => {
   const source = nearLimitLegacyFixture();
-  const migrated = migratePlanningV2ToV3(migratePlanningV1ToV2(source, at));
+  const v3 = migratePlanningV2ToV3(migratePlanningV1ToV2(source, at));
+  const migrated = parsePlanningImport(v3,at);
   const encoded = encodePlanning(migrated);
   assert.ok(measurePlanning(migrated).serializedBytes <= 1_250_000);
   assert.deepEqual(decodePlanning(encoded, at), migrated);

@@ -4,15 +4,15 @@ export type Horizon = 'now' | 'next' | 'later';
 export type Priority = 'high' | 'normal' | 'low';
 export type MilestoneStatus = 'planned' | 'active' | 'achieved';
 export type CaptureKind = 'idea' | 'task' | 'decision';
-export interface Project { id: string; name: string; description: string; goal: string; color: 'orange' | 'teal'; priority: 'equal'; repositories: { name: string; url: string }[]; }
+export interface Project { id: string; name: string; description: string; goal: string; color: 'orange' | 'teal'; priority: 'equal'; archivedAt: string | null; repositories: { name: string; url: string }[]; }
 export interface MilestoneInput { projectId: string; title: string; description: string; acceptance: string; status: MilestoneStatus; targetDate: string | null; evidence: string; }
-export interface Milestone extends MilestoneInput { id: string; updatedAt: string; }
-export interface TaskInput { projectId: string; milestoneId: string | null; title: string; notes: string; status: TaskStatus; horizon: Horizon; priority: Priority; dueDate: string | null; weekly: boolean; dependsOn: string[]; blocker: string; sourceUrl: string | null; evidence: string; }
+export interface Milestone extends MilestoneInput { id: string; updatedAt: string; archivedAt: string | null; sortKey: number; }
+export interface TaskInput { estimateMinutes: number | null; projectId: string; milestoneId: string | null; title: string; notes: string; status: TaskStatus; horizon: Horizon; priority: Priority; dueDate: string | null; weekly: boolean; dependsOn: string[]; blocker: string; sourceUrl: string | null; evidence: string; }
 export interface Task extends TaskInput { id: string; createdAt: string; updatedAt: string; completedAt: string | null; weeklyWeek?: string | null; archivedFromStatus?: Exclude<TaskStatus, 'archived'> | null; }
 export interface CaptureInput { title: string; body: string; projectId: string | null; kind: CaptureKind; sourceUrl: string | null; }
 export interface Capture extends CaptureInput { id: string; status: 'inbox' | 'filed' | 'archived'; createdAt: string; convertedTaskId: string | null; }
 export interface Activity { id: string; text: string; at: string; projectId: string | null; }
-export interface Workspace { schemaVersion: 1 | 2 | 3; projects: Project[]; milestones: Milestone[]; tasks: Task[]; captures: Capture[]; activity: Activity[]; }
+export interface Workspace { schemaVersion: 1 | 2 | 3 | 4; projects: Project[]; milestones: Milestone[]; tasks: Task[]; captures: Capture[]; activity: Activity[]; }
 export interface WorkspaceEnvelope { workspace: Workspace; revision: number; updatedAt: string; previousBackupAvailable?: boolean; }
 export type Command =
   | { type: 'workspace.backup' }

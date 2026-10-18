@@ -3,7 +3,7 @@ import { currentWeek, isCurrentWeek } from './calendar.ts';
 import { parseWorkspaceExport } from './workspace-validation.ts';
 import { applyProjectBaseline, BASELINE_ID } from './project-baselines.ts';
 
-const TASK_FIELDS = ['projectId', 'milestoneId', 'title', 'notes', 'status', 'horizon', 'priority', 'dueDate', 'weekly', 'dependsOn', 'blocker', 'sourceUrl', 'evidence'];
+const TASK_FIELDS = ['estimateMinutes','projectId', 'milestoneId', 'title', 'notes', 'status', 'horizon', 'priority', 'dueDate', 'weekly', 'dependsOn', 'blocker', 'sourceUrl', 'evidence'];
 const MILESTONE_FIELDS = ['projectId', 'title', 'description', 'acceptance', 'status', 'targetDate', 'evidence'];
 const CAPTURE_FIELDS = ['title', 'body', 'projectId', 'kind', 'sourceUrl'];
 const DAY_MS = 86_400_000;
@@ -82,9 +82,10 @@ function validateTask(value: unknown, workspace: Workspace): TaskInput {
     const dependency = workspace.tasks.find((task) => task.id === id);
     if (!dependency || dependency.projectId !== project) throw new Error('Dependencies must be existing tasks in the same project.');
   }
+  if(data.estimateMinutes!==undefined && data.estimateMinutes!==null && (typeof data.estimateMinutes!=='number' || !Number.isInteger(data.estimateMinutes) || data.estimateMinutes<1 || data.estimateMinutes>10080))throw new Error('Estimate must be an integer from1 to10080 minutes, or unknown.');
   const status = choice(data.status, ['proposed', 'todo', 'doing', 'review', 'done', 'archived'] as const, 'Task status');
   return {
-    projectId: project, milestoneId: milestoneId(data.milestoneId, project, workspace),
+    estimateMinutes:(data.estimateMinutes as number|null|undefined)??null, projectId: project, milestoneId: milestoneId(data.milestoneId, project, workspace),
     title: text(data.title, 'Title', 200, true), notes: text(data.notes, 'Notes', 10000), status,
     horizon: choice(data.horizon, ['now', 'next', 'later'] as const, 'Horizon'),
     priority: choice(data.priority, ['high', 'normal', 'low'] as const, 'Priority'),
@@ -217,7 +218,7 @@ export function applyCommand(workspace: Workspace, command: unknown, now?: strin
       fields(data, ['type', 'milestone'], 'Command');
       capacity(next.milestones.length, 100, 'milestones');
       const input = validateMilestone(data.milestone, next);
-      next.milestones.push({ ...input, id: crypto.randomUUID(), updatedAt: at });
+      next.milestones.push({ ...input, id: crypto.randomUUID(), updatedAt: at, archivedAt:null, sortKey:Math.max(-1,...next.milestones.filter(row=>row.projectId===input.projectId).map(row=>row.sortKey))+1 });
       activityText = `Created milestone: ${input.title}`;
       activityProject = input.projectId;
       break;

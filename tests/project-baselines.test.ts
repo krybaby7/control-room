@@ -90,7 +90,7 @@ test('milestones match exact original titles in this project; renamed or absent 
   const seed = createSeedWorkspace(AT);
   const android = seed.milestones[0];
   android.title = 'My renamed reliability milestone';
-  seed.milestones.push({ ...android, id: 'other-project-title', projectId: seed.projects[1].id, title: 'Android reliability accepted' });
+  seed.milestones.push({ ...android, id: 'other-project-title', projectId: seed.projects[1].id, sortKey:seed.milestones.filter(m=>m.projectId===seed.projects[1].id).length, title: 'Android reliability accepted' });
   const next = apply(seed);
   const added = next.tasks.slice(seed.tasks.length);
   assert.equal(added[0].milestoneId, null);

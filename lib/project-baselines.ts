@@ -223,7 +223,7 @@ export function applyProjectBaseline(workspace: Workspace, projectId: string, ba
   const tasks: Task[] = proposals.map(proposal => {
     const sources = baseline.sources.filter(source => proposal.sourceIds.includes(source.id));
     return {
-      id: proposal.id, projectId, milestoneId: proposal.milestoneId, title: proposal.title,
+      id: proposal.id, estimateMinutes:null, projectId, milestoneId: proposal.milestoneId, title: proposal.title,
       notes: `Proposed from baseline ${BASELINE_ID}. Existing work: ${proposal.existingWork}.\n\nAcceptance: ${proposal.acceptance}\n\nMilestone: ${proposal.milestoneNote}\n\nSource evidence (dated; not a new verification):\n${sources.map(sourceText).join('\n\n')}`,
       status: 'proposed', horizon: proposal.horizon, priority: 'normal', dueDate: null,
       weekly: false, weeklyWeek: null, dependsOn: [], blocker: '', sourceUrl: sources.find(source => source.url)?.url ?? null,

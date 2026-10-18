@@ -1,3 +1,4 @@
+import { legacyWorkspaceFixture } from './helpers/workspace.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createSeedWorkspace } from '../lib/seed.ts';
@@ -34,8 +35,8 @@ test('exclusion retains exact record in recovery report without cascading or dro
  source.tasks.push({...source.tasks[0]});await assert.rejects(repairPlanningImport(encode(source),{type:'exclude-record',collection:'tasks',id:source.tasks[0].id}),/ambiguous/);
 });
 test('migration uses saved anchor and fails closed on unknown versions while ordinary repairs preserve them',async()=>{
- const source=createSeedWorkspace(at);source.schemaVersion=1;source.tasks[0].weekly=true;
- const migrated=decode((await repairPlanningImport(encode({workspace:source,updatedAt:at}),{type:'migrate'})).raw);assert.equal(migrated.workspace.schemaVersion,3);assert.equal(migrated.workspace.tasks[0].weeklyWeek,'2026-10-12');
+ const source=legacyWorkspaceFixture(1,at);source.tasks[0].weekly=true;
+ const migrated=decode((await repairPlanningImport(encode({workspace:source,updatedAt:at}),{type:'migrate'})).raw);assert.equal(migrated.workspace.schemaVersion,4);assert.equal(migrated.workspace.tasks[0].weeklyWeek,'2026-10-12');
  const future={...source,schemaVersion:999};await assert.rejects(repairPlanningImport(encode(future),{type:'migrate'}),/version/);
  const repaired=await repairPlanningImport(encode(future),{type:'exclude-record',collection:'captures',id:source.captures[0].id});assert.equal(decode(repaired.raw).schemaVersion,999);
 });

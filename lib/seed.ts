@@ -12,13 +12,13 @@ export function createSeedWorkspace(now?: string): Workspace {
 
   function milestone(projectId: string, title: string, description: string, acceptance: string): string {
     const id = crypto.randomUUID();
-    milestones.push({ id, projectId, title, description, acceptance, status: 'planned', targetDate: null, evidence: '', updatedAt: at });
+    milestones.push({ archivedAt:null, sortKey:milestones.filter(row=>row.projectId===projectId).length, id, projectId, title, description, acceptance, status: 'planned', targetDate: null, evidence: '', updatedAt: at });
     return id;
   }
 
   function task(projectId: string, milestoneId: string, title: string, notes: string, sourceUrl: string, horizon: Horizon = 'now', priority: Priority = 'normal', dependsOn: string[] = []): string {
     const id = crypto.randomUUID();
-    tasks.push({ id, projectId, milestoneId, title, notes, sourceUrl, horizon, priority, dependsOn, status: 'proposed', dueDate: null, weekly: false, weeklyWeek: null, archivedFromStatus: null, blocker: '', evidence: '', createdAt: at, updatedAt: at, completedAt: null });
+    tasks.push({ estimateMinutes:null, id, projectId, milestoneId, title, notes, sourceUrl, horizon, priority, dependsOn, status: 'proposed', dueDate: null, weekly: false, weeklyWeek: null, archivedFromStatus: null, blocker: '', evidence: '', createdAt: at, updatedAt: at, completedAt: null });
     return id;
   }
 
@@ -77,13 +77,13 @@ export function createSeedWorkspace(now?: string): Workspace {
     'https://github.com/krybaby7/trade-graph', 'later', 'normal', [operationReview]);
 
   return {
-    schemaVersion: 2,
+    schemaVersion: 4,
     projects: [
-      { id: tamenni, name: 'TAMENNI', color: 'orange', priority: 'equal',
+      { id: tamenni, name: 'TAMENNI', color: 'orange', priority: 'equal', archivedAt:null,
         description: 'Android product and map experience, with explicit acceptance for reliability, launch coverage, integration, scaling and economics.',
         goal: 'Deliver an Android experience with accepted map coverage, a verified map-to-app integration, demonstrated scaling readiness and a validated viable profit structure.',
         repositories: [{ name: 'Application', url: 'https://github.com/krybaby7/TMNI' }, { name: 'Map lab', url: 'https://github.com/krybaby7/tameni-map-lab' }] },
-      { id: tradeGraph, name: 'Trade Graph', color: 'teal', priority: 'equal',
+      { id: tradeGraph, name: 'Trade Graph', color: 'teal', priority: 'equal', archivedAt:null,
         description: 'Establish coherent operation first, then refine the graph toward demonstrated profitability after trading and operating costs.',
         goal: 'Refine a coherent trading graph toward demonstrated profitability, supported by an accepted operating cycle and reproducible evidence that accounts for fees, costs and risk.',
         repositories: [{ name: 'Trade Graph', url: 'https://github.com/krybaby7/trade-graph' }] },

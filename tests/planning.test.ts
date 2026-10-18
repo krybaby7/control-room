@@ -2,23 +2,23 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { applyCommand, getBlockers, getRecommendations } from '../lib/planning.ts';
 import { createSeedWorkspace } from '../lib/seed.ts';
+import { projectFixture, taskInputFixture, taskFixture, milestoneFixture } from './helpers/workspace.ts';
 import type { Workspace, Task, TaskInput, CaptureInput, MilestoneInput } from '../lib/types.ts';
 
 const NOW = '2026-10-17T12:00:00.000Z';
 const LATER = '2026-10-18T12:00:00.000Z';
 
 function workspace(): Workspace {
-  return { schemaVersion: 1, projects: [
-    { id: 'p1', name: 'TAMENNI', description: '', goal: '', color: 'orange', priority: 'equal', repositories: [] },
-    { id: 'p2', name: 'Trade Graph', description: '', goal: '', color: 'teal', priority: 'equal', repositories: [] },
+  return { schemaVersion: 4, projects: [
+    projectFixture({ id: 'p1', name: 'TAMENNI' }),
+    projectFixture({ id: 'p2', name: 'Trade Graph', color: 'teal' }),
   ], milestones: [], tasks: [], captures: [], activity: [] };
 }
 function input(patch: Partial<TaskInput> = {}): TaskInput {
-  return { projectId: 'p1', milestoneId: null, title: 'Review acceptance criteria', notes: '', status: 'todo', horizon: 'now', priority: 'normal', dueDate: null, weekly: false, dependsOn: [], blocker: '', sourceUrl: null, evidence: '', ...patch };
+  return taskInputFixture(patch);
 }
 function task(id: string, patch: Partial<TaskInput> = {}): Task {
-  const data = input(patch);
-  return { ...data, id, createdAt: NOW, updatedAt: NOW, completedAt: data.status === 'done' ? NOW : null };
+  return taskFixture(id, { ...patch, createdAt: NOW, updatedAt: NOW });
 }
 function capture(patch: Partial<CaptureInput> = {}): CaptureInput {
   return { title: 'An operating criterion', body: 'Keep this complete source text.', projectId: 'p1', kind: 'idea', sourceUrl: 'https://example.com/evidence', ...patch };
@@ -65,7 +65,7 @@ test('dates must be actual calendar dates and source URLs must be HTTP or HTTPS'
 
 test('milestone references must exist and belong to the task project', () => {
   const original = workspace();
-  original.milestones = [{ ...milestone({ projectId: 'p2' }), id: 'm2', updatedAt: NOW }];
+  original.milestones = [milestoneFixture({ ...milestone({ projectId: 'p2' }), id: 'm2', updatedAt: NOW })];
   for (const milestoneId of ['missing', 'm2']) {
     assert.throws(() => applyCommand(original, { type: 'task.create', task: input({ milestoneId }) }, NOW), /milestone/i);
   }
@@ -147,7 +147,7 @@ test('archiving a task clears its weekly commitment and can be reversed', () => 
 test('existing task and milestone cannot be reassigned to a different project', () => {
   const original = workspace();
   original.tasks = [task('a')];
-  original.milestones = [{ ...milestone(), id: 'm1', updatedAt: NOW }];
+  original.milestones = [milestoneFixture({ ...milestone(), id: 'm1', updatedAt: NOW })];
   assert.throws(() => applyCommand(original, { type: 'task.update', id: 'a', patch: { projectId: 'p2' } }, NOW), /project/i);
   assert.throws(() => applyCommand(original, { type: 'milestone.update', id: 'm1', patch: { projectId: 'p2' } }, NOW), /project/i);
 });
@@ -218,7 +218,7 @@ test('conversion can assign an unassigned capture and create its task in one com
 
 test('the selected project overrides the capture project and validates its selected milestone', () => {
   const captured = applyCommand(workspace(), { type: 'capture.create', capture: capture({ projectId: 'p1' }) }, NOW);
-  captured.milestones = [{ ...milestone({ projectId: 'p2' }), id: 'm2', updatedAt: NOW }];
+  captured.milestones = [milestoneFixture({ ...milestone({ projectId: 'p2' }), id: 'm2', updatedAt: NOW })];
   const converted = applyCommand(captured, { type: 'capture.convert', id: captured.captures[0].id, projectId: 'p2', milestoneId: 'm2', horizon: 'now' }, LATER);
   assert.equal(captured.captures[0].projectId, 'p1');
   assert.equal(converted.captures[0].projectId, 'p2');
@@ -239,7 +239,7 @@ test('an invalid selected project cannot change the capture or create a task', (
 
 test('a foreign milestone in a conversion rejects the project reassignment too', () => {
   const captured = applyCommand(workspace(), { type: 'capture.create', capture: capture({ projectId: 'p1' }) }, NOW);
-  captured.milestones = [{ ...milestone({ projectId: 'p1' }), id: 'm1', updatedAt: NOW }];
+  captured.milestones = [milestoneFixture({ ...milestone({ projectId: 'p1' }), id: 'm1', updatedAt: NOW })];
   const before = structuredClone(captured);
   assert.throws(() => applyCommand(captured, { type: 'capture.convert', id: captured.captures[0].id, projectId: 'p2', milestoneId: 'm1', horizon: 'now' }, LATER), /milestone belonging to this project/i);
   assert.deepEqual(captured, before);
@@ -261,7 +261,7 @@ test('workspace size and activity bounds prevent unbounded writes', () => {
   captures.captures = Array.from({ length: 1000 }, (_, i) => ({ ...capture(), id: `c${i}`, status: 'inbox', createdAt: NOW, convertedTaskId: null }));
   assert.throws(() => applyCommand(captures, { type: 'capture.create', capture: capture() }, NOW), /1000|limit/i);
   const milestones = workspace();
-  milestones.milestones = Array.from({ length: 100 }, (_, i) => ({ ...milestone(), id: `m${i}`, updatedAt: NOW }));
+  milestones.milestones = Array.from({ length: 100 }, (_, i) => milestoneFixture({ ...milestone(), id: `m${i}`, updatedAt: NOW, sortKey:i }));
   assert.throws(() => applyCommand(milestones, { type: 'milestone.create', milestone: milestone() }, NOW), /100|limit/i);
   const logged = workspace();
   logged.activity = Array.from({ length: 100 }, (_, i) => ({ id: `a${i}`, text: `Old ${i}`, at: NOW, projectId: null }));

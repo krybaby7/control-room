@@ -30,7 +30,7 @@ test('archived target lifecycle history survives imported task status and weekly
   assert.equal(task.status,'archived');assert.equal(task.archivedFromStatus,'done');assert.equal(task.completedAt,at);assert.equal(task.weekly,false);assert.equal(task.weeklyWeek,'2026-10-12');assert.equal(task.notes,'Imported evidence notes');
 });
 test('new achieved milestone retains source acceptance claim without granting acceptance',()=>{
-  const current=seed(),incoming=seed();incoming.milestones.push({...incoming.milestones[0],id:'source-milestone',status:'achieved',evidence:'Source says accepted'});
+  const current=seed(),incoming=seed();incoming.milestones.push({...incoming.milestones[0],id:'source-milestone',sortKey:incoming.milestones.filter(m=>m.projectId===incoming.milestones[0].projectId).length,status:'achieved',evidence:'Source says accepted'});
   const result=previewPlanningMerge(current,incoming,selection({milestones:['source-milestone']}));
   assert.equal(result.workspace.milestones.at(-1)!.status,'planned');assert.equal((result.sourceClaims[0].record as typeof incoming.milestones[number]).status,'achieved');
 });

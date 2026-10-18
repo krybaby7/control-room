@@ -1,3 +1,4 @@
+import { legacyWorkspaceFixture } from './helpers/workspace.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as calendar from '../lib/calendar.ts';
@@ -13,9 +14,9 @@ test('Cairo Monday rollover and dated completions use Cairo local date', () => {
   assert.equal(calendar.isCompletedThisWeek({ completedAt: at }, '2026-10-19'), false);
 });
 test('legacy pins use last saved week and retain all content; future schemas fail', () => {
-  const old = createSeedWorkspace(at); old.schemaVersion = 1; old.tasks[0].weekly = true;
+  const old = legacyWorkspaceFixture(1,at); old.tasks[0].weekly = true;
   const migrated = parseWorkspaceExport({ workspace: old, updatedAt: at, revision: 8 });
-  assert.equal(migrated.schemaVersion, 3);
+  assert.equal(migrated.schemaVersion, 4);
   assert.equal(migrated.tasks[0].weeklyWeek, '2026-10-12');
   assert.equal(calendar.isCurrentWeek(migrated.tasks[0], '2026-10-19'), false);
   assert.equal(migrated.tasks[0].notes, old.tasks[0].notes);
@@ -54,5 +55,5 @@ test('large valid workspace exports survive formatted export, strict preview and
   const envelope = {workspace,revision:9,updatedAt:at,exportedAt:at};
   assert.ok(new TextEncoder().encode(JSON.stringify(workspace)).byteLength > 900000);
   assert.ok(new TextEncoder().encode(JSON.stringify(workspace)).byteLength < 1000000);
-  assert.deepEqual(parseWorkspaceExport(JSON.parse(JSON.stringify(envelope,null,2))),{...workspace,schemaVersion:3});
+  assert.deepEqual(parseWorkspaceExport(JSON.parse(JSON.stringify(envelope,null,2))),{...workspace,schemaVersion:4});
 });

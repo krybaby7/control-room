@@ -1,3 +1,4 @@
+import { legacyWorkspaceFixture } from './helpers/workspace.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createSeedWorkspace } from '../lib/seed.ts';
@@ -5,7 +6,7 @@ import { encodePlanning, decodePlanning, parsePlanningImport, measurePlanning } 
 import { migratePlanningV1ToV2, migratePlanningV2ToV3 } from '../lib/workspace-migrations.ts';
 const at = '2026-10-17T12:00:00.000Z';
 test('explicit migrations preserve original records and saved weekly/archive history', () => {
-  const source = createSeedWorkspace(at); source.schemaVersion=1;
+  const source = legacyWorkspaceFixture(1,at);
   source.tasks[0].weekly=true;
   source.tasks[1].status='archived'; source.tasks[1].completedAt=at;
   const original=structuredClone(source);
@@ -28,7 +29,7 @@ test('compact defaults hydrate and repeated exports are stable without losing ow
   assert.deepEqual(current,workspace);
   assert.equal(encodePlanning(current),encoded);
   assert.throws(()=>decodePlanning('{',at),/JSON/);
-  assert.throws(()=>parsePlanningImport({...workspace,schemaVersion:4}),/version/);
+  assert.throws(()=>parsePlanningImport({...workspace,schemaVersion:999}),/version/);
 });
 test('UTF-8 content boundary counts Arabic bytes and only excludes generated fields', () => {
   const workspace=parsePlanningImport(createSeedWorkspace(at));
