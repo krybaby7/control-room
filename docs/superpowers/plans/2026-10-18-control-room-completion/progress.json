@@ -151,7 +151,7 @@
       "blockers": []
     }
   ],
-  "nextAction": "Commit and publish validated source/transport followup exacttree; inspect terminalcloudCI43default+3R2+HTTP before Phase5.",
+  "nextAction": "Finish terminal-page followup Node/type/lint/build gates, publish exacttree and rerun43default+3R2 cloudCI; then rootPhase5 contracts including G48recoverability work.",
   "allowedStatuses": [
     "not_started",
     "in_progress",
@@ -178,21 +178,22 @@
     "evidence": "Explicit supported model selection accepted and worker IDs returned."
   },
   "checkpoint": {
-    "publishedCommit": "7ca20391a067b38312f1b97985ca1fba5512c162",
-    "workingTree": "Validated source follow-up ready for commit: confirmed evidence clears dirty fields, manual imports refresh root revision, exact accessible select browser locators and clean-navigation assertions, selected-only retention docs, sanitized fixture stage diagnostics/client response consumption, bounded unused-body settlement on workspace/source/service POST responses.",
+    "publishedCommit": "7217bbbd1fa1b114409a3f3fc863685fc9fdd623",
+    "workingTree": "Phase4 terminal-page UI fix and exact restore-response capture/native assertions under validation; updated gap/checkpoint and readonly Phase5 contract/capacity notes.",
     "tests": "979/979Node tests pass,zero failures/skips;typecheck/lint/buildpass. RebuiltHTTPfixture single-run all36sanitizedrequeststages pass, including32byteR2reserve/stage/finalize/replay/download/isolation/forgery SHA256ee8061dff83dd68f205b6597c2333557be9e2b07a15c5dab79b35e707fb8104e. PriorCI39151986196 had42/43default+3/3R2pass; newselectlocatorandtransport followuprequirescloudrerun. ActualD1/R2source19migrations/retained73bytearchive+reviewedrestore remainsverified.",
     "knownFailures": [
-      "Prior cloud source-browser exact label selector timeout is corrected; exact accessible combobox and clean-navigation assertions await rerun.",
-      "Prior cloud final HTTPtimeout rootcause not conclusively reproduced; current rebuilt single-run HTTP passes withstage diagnostics, consumed responses and bounded unused-body denial settlement. Cloud rerun required."
+      "Actual Sources UI rejected valid terminal first pages when both cursors null; nonnull-only loop guard fixed and native empty/one-observation/proposal terminal checks added, rerun pending.",
+      "Planning restore browser response body was evicted; capture actual POST body before browser consumption, no retry or mocked result. Rerun pending.",
+      "Shared recoverability capacity gap G48 confirmed: source row limits do not bound 8MB complete bundles or lower1.8MB D1backup/replacement/provenance ceilings; implement coherent guard/recovery in Phase5/8."
     ],
     "unfinished": [
       "Finish Phase4 cloudCI39151986196, validate/publish small UI/source-doc follow-up and rerun required browser gates; then Phase5.",
       "Phases5\u20138 notstarted; execute in dependencyorder after Phase4 validation.",
       "Liveprovider/renewableprincipal/privatehostedrelease/ownerphysicaldevice acceptance remains external."
     ],
-    "nextCommand": "Commit and publish validated source/transport followup exacttree; inspect terminalcloudCI43default+3R2+HTTP before Phase5.",
-    "publishedTree": "dd6a9d25e21195de7f9a0497e36b96032ca07fda",
-    "cloudRun": "CI39151986196/job117747350451 at7ca20391 terminalfailure: cleanlockedinstall,978Node,type/lint/build,allactualD1/R2gatespassed;42/43defaultChromium+3/3R2passed. Newsourcebrowser selectlabel locator timedout (fixed locally toexactcomboboxrole); finalbuiltHTTPfixture timedout afterbaseline smoke andisunderinvestigation.",
-    "currentCommit": "7ca20391a067b38312f1b97985ca1fba5512c162"
+    "nextCommand": "Finish terminal-page followup Node/type/lint/build gates, publish exacttree and rerun43default+3R2 cloudCI; then rootPhase5 contracts including G48recoverability work.",
+    "publishedTree": "4cf0536829d4cd1ee679333c6c700b17bd7dc81b",
+    "cloudRun": "CI39152936910/job117750123657 terminalfailureat7217bbbd:979Node,type/lint/build/allactualD1R2/36stageHTTPand3/3R2Chromiumpass;41/43defaultChromium. SourceUIterminalnullcursorbug and planningrestoreCDPresponse-bodyeviction correctedlocally; rerunrequired.",
+    "currentCommit": "7217bbbd1fa1b114409a3f3fc863685fc9fdd623"
   }
 }
