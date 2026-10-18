@@ -2,6 +2,7 @@ import { env } from 'cloudflare:workers';
 import { getChatGPTUser } from '../../chatgpt-auth';
 import { readMutation, RequestError } from '../../../lib/api-guards';
 import { loadWorkspace, loadPreviousWorkspace, mutateWorkspace, MutationIdReuseError, CommandValidationError } from '../../../lib/workspace-store';
+import { ModuleConflictError, RetiredMutationError } from '../../../lib/workspace-errors';
 import { WorkspaceValidationError } from '../../../lib/workspace-validation';
 import { createSeedWorkspace } from '../../../lib/seed';
 
@@ -44,6 +45,8 @@ export async function POST(request: Request) {
     return json(saved,requestId);
   } catch (error) {
     if (error instanceof RequestError) return failure(error.message,'request_invalid',requestId,error.status);
+    if (error instanceof RetiredMutationError) return failure(error.message,'mutation_retired',requestId,409);
+    if (error instanceof ModuleConflictError) return failure(error.message,'module_conflict',requestId,409);
     if (error instanceof MutationIdReuseError) return failure(error.message,'mutation_id_reused',requestId,409);
     if (error instanceof CommandValidationError) return failure(error.message,'command_invalid',requestId,400);
     return unavailable(error,requestId,'write');

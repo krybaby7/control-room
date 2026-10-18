@@ -3,19 +3,111 @@
   "createdDate": "2026-10-18",
   "timezone": "Africa/Cairo",
   "baselineCommit": "b50aa5c34783ffc0109c46d91c599923df9cc305",
-  "implementationBranch": null,
-  "status": "planned",
+  "implementationBranch": "feat/control-room-completion-cloud",
+  "status": "in_progress",
   "phases": [
-    {"id": 0, "status": "not_started", "evidence": [], "blockers": []},
-    {"id": 1, "status": "not_started", "evidence": [], "blockers": []},
-    {"id": 2, "status": "not_started", "evidence": [], "blockers": []},
-    {"id": 3, "status": "not_started", "evidence": [], "blockers": []},
-    {"id": 4, "status": "not_started", "evidence": [], "blockers": []},
-    {"id": 5, "status": "not_started", "evidence": [], "blockers": []},
-    {"id": 6, "status": "not_started", "evidence": [], "blockers": []},
-    {"id": 7, "status": "not_started", "evidence": [], "blockers": []},
-    {"id": 8, "status": "not_started", "evidence": [], "blockers": []}
+    {
+      "id": 0,
+      "status": "in_progress",
+      "evidence": [
+        "160 imported baseline hashes match",
+        "Baseline: 71 tests, typecheck, lint, build passed",
+        "Shared contracts and independent architecture review",
+        "Synthetic migration rehearsal and owner A/B failure fixtures",
+        "CI workflow added; hosted CI result not yet observed"
+      ],
+      "blockers": [
+        "Clean npm run install:ci blocked by registry network policy; exact locked cache recovery enabled checks but is not a successful clean install"
+      ]
+    },
+    {
+      "id": 1,
+      "status": "in_progress",
+      "evidence": [
+        "Planning v3 compact codec + lossless 1800-task migration/restore/shrink regression",
+        "Shared transaction compiler: owner-scoped rows, CHECK assertions, receipt/hash replay, ordered audit and job intents",
+        "36 transaction tests including lost CAS and ten rollback failure points",
+        "Bounded save/reconciliation + durable server drafts with original submission preservation",
+        "Opt-in outbox core, session invalidation and privacy tests; no browser activation claim",
+        "Consistent export registry, durable chunked import staging, quarantine core",
+        "Multiple verified D1 backup core/API/UI, protected quotas and R2 adapter fixtures",
+        "Epoch tombstones and real executor retirement race tests",
+        "Integrated checkpoint:169 tests pass, typecheck/lint/build pass"
+      ],
+      "blockers": [
+        "Browser harness/dependency and live browser acceptance pending",
+        "Atomic reviewed full-bundle restore/merge/repair and execution epoch invalidation pending",
+        "Permanent deletion UI and recovery workflows pending",
+        "Scheduled backup substrate/unattended writer/R2 acceptance pending",
+        "Trusted-device outbox browser integration/acceptance pending",
+        "Hosted route/session/private ingress verification pending"
+      ]
+    },
+    {
+      "id": 2,
+      "status": "not_started",
+      "evidence": [],
+      "blockers": []
+    },
+    {
+      "id": 3,
+      "status": "not_started",
+      "evidence": [],
+      "blockers": []
+    },
+    {
+      "id": 4,
+      "status": "not_started",
+      "evidence": [],
+      "blockers": []
+    },
+    {
+      "id": 5,
+      "status": "not_started",
+      "evidence": [],
+      "blockers": []
+    },
+    {
+      "id": 6,
+      "status": "not_started",
+      "evidence": [],
+      "blockers": []
+    },
+    {
+      "id": 7,
+      "status": "not_started",
+      "evidence": [],
+      "blockers": []
+    },
+    {
+      "id": 8,
+      "status": "not_started",
+      "evidence": [],
+      "blockers": []
+    }
   ],
-  "nextAction": "Follow CLOUD-START.md, establish the cloud baseline and lock shared contracts.",
-  "allowedStatuses": ["not_started", "in_progress", "implemented", "verified_local", "verified_hosted", "complete", "externally_blocked"]
+  "nextAction": "Complete Phase 1 reviewed bundle import/restore and recovery workflows; add browser harness when locked package/browser access is available, then Phase 2. Preserve active owner data and disabled effects.",
+  "allowedStatuses": [
+    "not_started",
+    "in_progress",
+    "implemented",
+    "verified_local",
+    "verified_hosted",
+    "complete",
+    "externally_blocked"
+  ],
+  "sourceImportCommit": "8d0bc78a6e557734b571a435546812fec382006a",
+  "launchInstructionsCommit": "c08e8a15dc7291c4f68fa5edebaf2fa8c583d820",
+  "modelConfiguration": {
+    "integrator": "gpt-6.1-sol",
+    "workerModelParameter": "gpt-6.1-sol",
+    "acceptedWorkers": [
+      "/root/foundation_review",
+      "/root/codec",
+      "/root/save_client",
+      "/root/export_registry",
+      "/root/drafts"
+    ],
+    "evidence": "Explicit supported model selection accepted and worker IDs returned."
+  }
 }

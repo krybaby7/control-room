@@ -9,6 +9,7 @@ export function database() {
     prepare(sql) { let values: (string | number | null)[] = []; const run = () => ({ meta: { changes: Number(sqlite.prepare(sql).run(...values).changes) } }); const statement: SqlStatement = {
       bind(...args) { values = args; return this; },
       async first<T>() { return (sqlite.prepare(sql).get(...values) ?? null) as T | null; },
+      async all<T>() { return {results:sqlite.prepare(sql).all(...values) as T[]}; },
       async run() { return run(); },
     }; runs.set(statement, run); return statement; },
     async batch(statements) { sqlite.exec('BEGIN IMMEDIATE'); try { const results = statements.map(s => runs.get(s)!()); sqlite.exec('COMMIT'); return results; } catch (e) { sqlite.exec('ROLLBACK'); throw e; } },

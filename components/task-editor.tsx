@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { Command, Task, TaskInput, Workspace } from '@/lib/types';
+import { useDurableDraft } from './durable-draft';
 import { changedFields } from '@/lib/draft';
 import { isCurrentWeek, weekRange } from '@/lib/calendar';
 import { Field, FormDialog } from './form-dialog';
@@ -9,19 +10,20 @@ import { dateLabel, statusLabels } from './ui';
 
 export function TaskEditor({ task, projectId, workspace, onSave, onClose }: { task?: Task; projectId: string; workspace: Workspace; onSave: (command: Command) => Promise<void>; onClose: () => void }) {
   const initial: TaskInput = task ? { projectId: task.projectId, milestoneId: task.milestoneId, title: task.title, notes: task.notes, status: task.status, horizon: task.horizon, priority: task.priority, dueDate: task.dueDate, weekly: isCurrentWeek(task), dependsOn: [...task.dependsOn], blocker: task.blocker, sourceUrl: task.sourceUrl, evidence: task.evidence } : { projectId, milestoneId: null, title: '', notes: '', status: 'todo', horizon: 'now', priority: 'normal', dueDate: null, weekly: false, dependsOn: [], blocker: '', sourceUrl: null, evidence: '' };
-  const [baseline] = useState(initial);
-  const [draft, setDraft] = useState(initial);
+  const { baseline, draft, setDraft, saved, notice } = useDurableDraft('task', task?.id ?? `new:${projectId}`, initial);
   const [archiveAction, setArchiveAction] = useState<'restore' | 'reopen'>('restore');
   const range = weekRange();
   const set = <K extends keyof TaskInput>(key: K, value: TaskInput[K]) => setDraft(d => ({ ...d, [key]: value }));
   const milestones = workspace.milestones.filter(m => m.projectId === draft.projectId);
   const dependencies = workspace.tasks.filter(t => t.projectId === draft.projectId && t.id !== task?.id);
-  if (task?.status === 'archived') return <FormDialog title="Restore archived task" subtitle="Restore its previous status and completion history, or explicitly reopen it as To do." dirty={archiveAction === 'reopen'} onClose={onClose} submitLabel={archiveAction === 'restore' ? 'Restore task' : 'Reopen as To do'} onSave={() => onSave(archiveAction === 'restore' ? { type: 'task.restore', id: task.id } : { type: 'task.update', id: task.id, patch: { status: 'todo' } })}>
+  if (task?.status === 'archived') return <FormDialog title="Restore archived task" subtitle="Restore its previous status and completion history, or explicitly reopen it as To do." dirty={archiveAction === 'reopen'} onClose={onClose} submitLabel={archiveAction === 'restore' ? 'Restore task' : 'Reopen as To do'} onSave={async () => { await onSave(archiveAction === 'restore' ? { type: 'task.restore', id: task.id } : { type: 'task.update', id: task.id, patch: { status: 'todo' } }); await saved(); }}>
+    {notice}
     <div className="capture-preview"><h3>{task.title}</h3><p>Previous status: {statusLabels[task.archivedFromStatus ?? (task.completedAt ? 'done' : 'todo')]}.{task.completedAt ? ` Completed ${dateLabel(task.completedAt, true)}.` : ''}</p>{task.evidence && <p>{task.evidence}</p>}</div>
     <Field label="Action"><select value={archiveAction} onChange={event => setArchiveAction(event.target.value as 'restore' | 'reopen')}><option value="restore">Restore previous status and completion history</option><option value="reopen">Explicitly reopen as To do</option></select></Field>
     <p className="field-hint">Reopening clears completion and is blocked if a completed dependent task still relies on this work.</p>
   </FormDialog>;
-  return <FormDialog title={task ? 'Edit task' : 'A clear next step'} subtitle={task?.status === 'proposed' ? 'This is a suggestion. Change the status to “To do” when you accept it.' : 'Keep it specific enough to know when it’s done.'} dirty={JSON.stringify(draft) !== JSON.stringify(baseline)} onClose={onClose} submitLabel={task ? 'Save task' : 'Create task'} onSave={() => onSave(task ? { type: 'task.update', id: task.id, patch: changedFields(baseline, draft) } : { type: 'task.create', task: draft })}>
+  return <FormDialog title={task ? 'Edit task' : 'A clear next step'} subtitle={task?.status === 'proposed' ? 'This is a suggestion. Change the status to “To do” when you accept it.' : 'Keep it specific enough to know when it’s done.'} dirty={JSON.stringify(draft) !== JSON.stringify(baseline)} onClose={onClose} submitLabel={task ? 'Save task' : 'Create task'} onSave={async () => { await onSave(task ? { type: 'task.update', id: task.id, patch: changedFields(baseline, draft) } : { type: 'task.create', task: draft }); await saved(); }}>
+    {notice}
     <Field label="Task title"><input autoFocus required maxLength={200} value={draft.title} onChange={e => set('title', e.target.value)} placeholder="What’s the next concrete action?" /></Field>
     <div className="form-grid"><Field label="Project"><select disabled={!!task} value={draft.projectId} onChange={e => setDraft(d => ({ ...d, projectId: e.target.value, milestoneId: null, dependsOn: [] }))}>{workspace.projects.map(p => <option value={p.id} key={p.id}>{p.name}</option>)}</select></Field><Field label="Milestone"><select value={draft.milestoneId ?? ''} onChange={e => set('milestoneId', e.target.value || null)}><option value="">No milestone</option>{milestones.map(m => <option key={m.id} value={m.id}>{m.title}</option>)}</select></Field></div>
     <div className="form-grid three"><Field label="Status"><select value={draft.status} onChange={e => set('status', e.target.value as TaskInput['status'])}>{Object.entries(statusLabels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></Field><Field label="Horizon"><select value={draft.horizon} onChange={e => set('horizon', e.target.value as TaskInput['horizon'])}><option value="now">Now</option><option value="next">Next</option><option value="later">Later</option></select></Field><Field label="Priority"><select value={draft.priority} onChange={e => set('priority', e.target.value as TaskInput['priority'])}><option value="high">High</option><option value="normal">Normal</option><option value="low">Low</option></select></Field></div>

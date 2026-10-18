@@ -65,3 +65,7 @@ Legacy migration preserves the available history and anchors existing weekly pin
 The 17 October baseline is a snapshot, not live monitoring. It matches verified repository identities, preserves all existing project/task/milestone edits and adds proposed records only. Source implementation, historical test reports, current runtime acceptance and profitability are separate claims. The baseline grants no installation, trading, paid-call or deployment approval.
 
 The approved scope and implementation checklist are under `docs/superpowers/`. The [reliability and baseline verification record](docs/superpowers/verification/2026-10-17-reliability-baseline.md) separates completed local checks from remaining publication and hosted verification.
+
+## Completion implementation status
+
+Cloud implementation is in progress on the completion branch. The existing deployed version has not been replaced by this checkpoint. See [progress](docs/superpowers/plans/2026-10-18-control-room-completion/progress.json) and the [cloud verification checkpoint](docs/superpowers/verification/2026-10-18-cloud-foundation.md) for implemented slices, exact checks and remaining acceptance gates.

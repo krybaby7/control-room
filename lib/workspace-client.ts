@@ -1,5 +1,10 @@
 import type { WorkspaceEnvelope } from './types';
 
+export class WorkspaceRequestError extends Error {
+  readonly status:number;
+  readonly diagnostic?:string;
+  constructor(message:string,status:number,diagnostic?:string) {super(message);this.status=status;this.diagnostic=diagnostic;}
+}
 export interface Submission { key: string; mutationId: string; }
 export class SessionExpiredError extends Error {
   constructor() { super('Your session has expired. Sign in again to open your private workspace.'); }
@@ -15,8 +20,8 @@ export function submissionFor(previous: Submission | null, command: unknown, cre
 }
 export async function readWorkspaceResponse(response: Response): Promise<WorkspaceEnvelope> {
   if (response.status === 401) throw new SessionExpiredError();
-  const body = await response.json().catch(() => null) as (Partial<WorkspaceEnvelope> & { error?: string }) | null;
-  if (!response.ok) throw new Error(body?.error ?? 'Your workspace could not be loaded. Check your connection and try again.');
+  const body = await response.json().catch(() => null) as (Partial<WorkspaceEnvelope> & { error?: string; diagnostic?: string }) | null;
+  if (!response.ok) throw new WorkspaceRequestError(body?.error ?? 'Your workspace could not be loaded. Check your connection and try again.',response.status,body?.diagnostic);
   if (!body?.workspace || typeof body.revision !== 'number' || typeof body.updatedAt !== 'string') throw new Error('The workspace response was incomplete. Your change may have saved; retry the unchanged submission safely.');
   return body as WorkspaceEnvelope;
 }

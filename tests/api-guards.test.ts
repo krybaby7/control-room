@@ -13,7 +13,7 @@ test('rejects a cross-origin request before parsing its payload', async () => {
 test('rejects form submissions and invalid or oversized JSON', async () => {
   await assert.rejects(readMutation(request('{}', 'https://app.example', 'text/plain')), { status: 415 });
   await assert.rejects(readMutation(request('not json')), { status: 400 });
-  await assert.rejects(readMutation(request('x'.repeat(1_100_001))), { status: 413 });
+  await assert.rejects(readMutation(request('x'.repeat(1_350_001))), { status: 413 });
   await assert.rejects(readMutation(request(JSON.stringify({revision:1,mutationId:'mutation-00000001',command:{type:'capture.create',text:'x'.repeat(65_536)}}))), {status:413});
 });
 
@@ -26,4 +26,9 @@ test('rejects absent, fractional and untrusted revision values', async () => {
   for (const revision of [undefined, -1, 0, 1.2, '1', Number.MAX_SAFE_INTEGER + 1]) {
     await assert.rejects(readMutation(request(JSON.stringify({ revision, command: {} }))), { status: 400 });
   }
+});
+
+test('versioned envelopes adapt to the same mutation and unknown authority fields fail',async()=>{
+ assert.equal((await readMutation(request(JSON.stringify({protocolVersion:1,expectedRevision:2,mutationId:'protocol-00000001',command:{type:'task.create'}})))).revision,2);
+ for(const extra of [{owner:'another'},{protocolVersion:2},{expectedRevision:3}])await assert.rejects(readMutation(request(JSON.stringify({revision:1,mutationId:'protocol-00000001',command:{type:'task.create'},...extra}))),{status:400});
 });

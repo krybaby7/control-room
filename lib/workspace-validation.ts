@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { currentWeek } from './calendar.ts';
 import type { Workspace } from './types.ts';
-export const WORKSPACE_LIMITS = { tasks: 2000, captures: 1000, milestones: 100, bytes: 1_000_000 } as const;
+import { migratePlanningV1ToV2, migratePlanningV2ToV3, measurePlanning } from './workspace-migrations.ts';
+export const WORKSPACE_LIMITS = { tasks: 2000, captures: 1000, milestones: 100, bytes: 1_000_000, serializedBytes: 1_250_000 } as const;
 export class WorkspaceValidationError extends Error {}
 const id = z.string().min(1).max(128).refine(s => s.trim() === s);
 const text = (max: number, required = false) => z.string().max(max).refine(s => !required || s.trim().length > 0);
@@ -16,7 +17,7 @@ const taskSchema = z.object({
   weeklyWeek:day.nullable().optional(), archivedFromStatus:liveStatus.nullable().optional(),
 }).strict();
 const workspaceSchema = z.object({
-  schemaVersion:z.union([z.literal(1), z.literal(2)]),
+  schemaVersion:z.union([z.literal(1), z.literal(2), z.literal(3)]),
   projects:z.array(z.object({id,name:text(200,true),description:text(5000),goal:text(5000),color:z.enum(['orange','teal']),priority:z.literal('equal'),repositories:z.array(z.object({name:text(200,true),url}).strict()).max(100)}).strict()).max(100),
   milestones:z.array(z.object({id,projectId:id,title:text(200,true),description:text(5000),acceptance:text(5000),status:z.enum(['planned','active','achieved']),targetDate:day.nullable(),evidence:text(5000),updatedAt:stamp}).strict()).max(WORKSPACE_LIMITS.milestones),
   tasks:z.array(taskSchema).max(WORKSPACE_LIMITS.tasks),
@@ -30,16 +31,22 @@ export function parseWorkspaceExport(value: unknown, savedAt?: string, options: 
   const wrapper = value as Record<string,unknown>;
   const raw = 'workspace' in wrapper ? wrapper.workspace : value;
   const version = raw && typeof raw === 'object' ? (raw as Record<string,unknown>).schemaVersion : undefined;
-  if (version !== 1 && version !== 2) fail('Unsupported workspace schema version.');
+  if (version !== 1 && version !== 2 && version !== 3) fail('Unsupported workspace schema version.');
   const parsed = workspaceSchema.safeParse(raw);
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
     fail(`Invalid workspace ${issue.path.join('.') || 'document'}: ${issue.message}`);
   }
-  const ws = parsed.data;
-  const legacy = ws.schemaVersion === 1;
-  const sourceBytes = new TextEncoder().encode(JSON.stringify(ws)).byteLength;
-  if (sourceBytes > WORKSPACE_LIMITS.bytes) fail('Workspace exceeds the 1 MB storage limit.');
+  void options; // Legacy callers no longer need a migration overflow exception.
+  const anchor = savedAt ?? (typeof wrapper.updatedAt === 'string' ? wrapper.updatedAt : undefined);
+  if (anchor && !stamp.safeParse(anchor).success) fail('Workspace saved timestamp is invalid.');
+  let ws: Workspace = parsed.data;
+  if (ws.schemaVersion === 1) ws = migratePlanningV1ToV2(ws, anchor);
+  if (ws.schemaVersion === 2) {
+    if (ws.tasks.some(task => task.weeklyWeek === undefined || task.archivedFromStatus === undefined)) fail('Version 2 tasks require weekly and archive history fields.');
+    ws = migratePlanningV2ToV3(ws);
+  }
+  ws.tasks = ws.tasks.map(task => ({ ...task, weeklyWeek: task.weeklyWeek ?? null, archivedFromStatus: task.archivedFromStatus ?? null }));
   const allIds = new Set<string>();
   for (const entry of [...ws.projects, ...ws.milestones, ...ws.tasks, ...ws.captures, ...ws.activity]) {
     if (allIds.has(entry.id)) fail('Workspace IDs must be unique.');
@@ -52,20 +59,11 @@ export function parseWorkspaceExport(value: unknown, savedAt?: string, options: 
   for (const milestone of ws.milestones) { project(milestone.projectId); if (milestone.status === 'achieved' && !milestone.evidence.trim()) fail('Achieved milestones require evidence.'); }
   for (const capture of ws.captures) { project(capture.projectId); if (capture.convertedTaskId !== null && !tasks.has(capture.convertedTaskId)) fail('Capture refers to a missing converted task.'); }
   for (const activity of ws.activity) project(activity.projectId);
-  const anchor = savedAt ?? (typeof wrapper.updatedAt === 'string' ? wrapper.updatedAt : undefined);
-  if (anchor && !stamp.safeParse(anchor).success) fail('Workspace saved timestamp is invalid.');
   for (const task of ws.tasks) {
     project(task.projectId);
     if (task.milestoneId !== null && milestones.get(task.milestoneId)?.projectId !== task.projectId) fail('Task milestone belongs to a missing or different project.');
     if (new Set(task.dependsOn).size !== task.dependsOn.length) fail('Duplicate dependencies are invalid.');
     for (const dependencyId of task.dependsOn) if (tasks.get(dependencyId)?.projectId !== task.projectId) fail('Dependency belongs to a missing or different project.');
-    if (ws.schemaVersion === 1) {
-      // Raw legacy exports have no envelope: task.updatedAt is the last available saved date.
-      task.weeklyWeek = task.weekly ? currentWeek(anchor ?? task.updatedAt) : null;
-      task.archivedFromStatus = task.status === 'archived' ? (task.completedAt ? 'done' : 'todo') : null;
-    } else {
-      if (task.weeklyWeek === undefined || task.archivedFromStatus === undefined) fail('Version 2 tasks require weekly and archive history fields.');
-    }
     if (task.weeklyWeek !== null && currentWeek(task.weeklyWeek!) !== task.weeklyWeek) fail('Weekly commitment must identify a Monday.');
     if (task.weekly && !task.weeklyWeek) fail('Weekly commitment requires its saved week.');
     if (task.status === 'archived' && (task.weekly || !task.archivedFromStatus)) fail('Archived tasks require their previous status and cannot be pinned.');
@@ -85,9 +83,8 @@ export function parseWorkspaceExport(value: unknown, savedAt?: string, options: 
       if (task.blocker.trim() || task.dependsOn.some(id => { const d = tasks.get(id)!; return d.status !== 'done' && !(d.status === 'archived' && d.archivedFromStatus === 'done'); })) fail('Completed tasks cannot have unfinished dependencies or blockers.');
     }
   }
-  const result:Workspace = { ...ws, schemaVersion:2 };
-  // Read-only migration must never lock an existing valid document out of export.
-  // Import previews and every new write keep the actual compact 1 MB bound.
-  if (!(legacy && options.allowLegacyMigrationOverflow) && new TextEncoder().encode(JSON.stringify(result)).byteLength > WORKSPACE_LIMITS.bytes) fail('Workspace exceeds the 1 MB storage limit.');
-  return result;
+  const measured = measurePlanning(ws);
+  if (measured.contentBytes > WORKSPACE_LIMITS.bytes) fail('Workspace exceeds the 1 MB user-content storage limit.');
+  if (measured.serializedBytes > WORKSPACE_LIMITS.serializedBytes) fail('Workspace exceeds the 1.25 MB serialized storage limit.');
+  return ws;
 }

@@ -15,6 +15,34 @@
       "when": 1792254142195,
       "tag": "0001_clear_greymalkin",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1792325852348,
+      "tag": "0002_easy_venus",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1792326009413,
+      "tag": "0003_wonderful_pestilence",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1792326308061,
+      "tag": "0004_massive_landau",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1792326476223,
+      "tag": "0005_rich_shinobi_shaw",
+      "breakpoints": true
     }
   ]
 }

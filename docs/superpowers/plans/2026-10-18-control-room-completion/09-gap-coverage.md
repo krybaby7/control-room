@@ -1,6 +1,6 @@
 # Control Room Audit Gap Coverage
 
-This ledger defines what “complete the things it cannot do” means. Every audited limitation has an implementation phase or an explicit evidence/activation boundary. Update the Evidence column with a commit, test result and hosted/device proof as relevant. All rows start **planned**; no implementation is asserted here.
+This ledger defines what “complete the things it cannot do” means. Every audited limitation has an implementation phase or an explicit evidence/activation boundary. Update the Evidence column with a commit, test result and hosted/device proof as relevant. Rows without implementation evidence remain **planned**. The 18 October cloud checkpoint implements foundation slices only; it is not a completion claim for any full phase.
 
 | ID | Audit gap | Delivery phase | Concrete acceptance | Evidence |
 |---|---|---|---|---|
@@ -32,15 +32,15 @@ This ledger defines what “complete the things it cannot do” means. Every aud
 | G26 | No changes-since-review view | 3, 5 | Acknowledged snapshot and source watermark produce reproducible changes; newer events remain unread | Planned |
 | G27 | No background reviews/alerts | 5 | One real unattended scheduled occurrence, correct next due, quiet unchanged state and deduplicated meaningful notification | Planned; renewable access required |
 | G28 | No push synchronization | 5 | Verified same-origin SSE reconnects using cursor; fallback polling labeled correctly and never overwrites dirty edits | Planned; streaming host test required |
-| G29 | No durable/offline drafts | 1 | Server draft restore plus explicitly enabled trusted-device offline outbox; logout/account change protects cached private drafts | Planned |
-| G30 | Save can wait indefinitely | 1 | Bounded timeout exits busy state; uncertain outcome reconciles by original mutation ID before resubmit | Planned |
-| G31 | Single manual recovery snapshot | 1, 5 | Multiple complete backups, version browser, tested restore and an actually executed scheduled backup | Planned; R2/unattended gate |
+| G29 | No durable/offline drafts | 1 | Server draft restore plus explicitly enabled trusted-device offline outbox; logout/account change protects cached private drafts | Partial: durable draft API/editor recovery + opt-in outbox core; unit tests pass. Native browser/privacy acceptance and outbox activation pending. |
+| G30 | Save can wait indefinitely | 1 | Bounded timeout exits busy state; uncertain outcome reconciles by original mutation ID before resubmit | Implemented timeout/reconciliation core and UI; bounded fetch/body, response loss and original-ID tests pass. Hosted/browser acceptance pending. |
+| G31 | Single manual recovery snapshot | 1, 5 | Multiple complete backups, version browser, tested restore and an actually executed scheduled backup | Partial: multiple verified D1 snapshots/API/history UI and R2 adapter fixtures; scheduled/live R2 acceptance pending. |
 | G32 | No merge import | 1 | Dry-run record/ID/reference conflict preview, selective merge and atomic application; source provenance preserved | Planned |
 | G33 | Archive cannot free capacity | 1, 2 | Explicit dependency-aware purge/cleanup with recovery; read-only/export remain available at the byte limit | Planned |
-| G34 | Near-limit legacy migration can block writes/restore | 1 | Regression fixture migrates, exports/restores and permits reducing edits without silently dropping content | Planned |
-| G35 | Receipts have no retention strategy | 1 | Bounded receipt payload retention preserves replay tombstones/horizon rejection; pruned old IDs cannot execute again | Planned |
-| G36 | Only 100 generic events and no history screen | 3 | Paginated immutable structured history beyond 100 events; filter, actor, entity and field changes visible | Planned |
-| G37 | Baseline/restore changes skip ordinary history | 1, 3 | Both operations produce correlated committed history including restore lineage; failure produces no false success event | Planned |
+| G34 | Near-limit legacy migration can block writes/restore | 1 | Regression fixture migrates, exports/restores and permits reducing edits without silently dropping content | Core verified: v3 compact codec, 1,800-task migrate/export/restore/shrink regression passes; browser/hosted acceptance pending. |
+| G35 | Receipts have no retention strategy | 1 | Bounded receipt payload retention preserves replay tombstones/horizon rejection; pruned old IDs cannot execute again | Partial: legacy receipts retained, server epoch tombstones and retirement race tests pass. Compaction policy UI/usage and bounded live operation pending. |
+| G36 | Only 100 generic events and no history screen | 3 | Paginated immutable structured history beyond 100 events; filter, actor, entity and field changes visible | Partial: immutable ordered audit table writes committed with mutations. History pagination/UI acceptance pending. |
+| G37 | Baseline/restore changes skip ordinary history | 1, 3 | Both operations produce correlated committed history including restore lineage; failure produces no false success event | Partial: baseline/restore events committed transactionally; restore snapshot failure rolls back history. History screen pending. |
 | G38 | No field-level undo | 3 | Inverse action previews current conflicts and records a new event; cannot blindly rewind external effects | Planned |
 | G39 | PC collector disconnected | 6 | Real enrolled Windows bridge sends bounded observations, then offline/reconnect/revocation behavior is verified | Planned; local installation required |
 | G40 | No current project runtime health | 6 | Adapter maps actual deployment/heartbeat/source timestamps; offline/stale/unknown are distinct from healthy/failed | Planned; real runtime access required |
@@ -48,8 +48,8 @@ This ledger defines what “complete the things it cannot do” means. Every aud
 | G42 | No agent ownership/status/cancel/results | 7 | Lease, event history, cancellation/reconciliation, result artifacts and human review survive restarts and duplicate delivery | Planned |
 | G43 | No cost/approval scope for execution | 7 | Requested effects, resource allowlist and budget bound each job; changed requests invalidate approval; unknown cost remains explicit | Planned |
 | G44 | Agent Lab is not integrated | 7 | Read existing run/evaluation evidence and invoke only its actual supported bounded evaluations; general coding uses a separate adapter | Planned; local lab test required |
-| G45 | Release docs are stale | 0, 8 | Current version/source/deployment/test/device facts agree and link to actual evidence; historical reports retained as historical | Planned |
-| G46 | No committed automated browser suite/CI proof | 0, 8 | Repeatable isolated browser/failure/migration suite and portable CI script; hosted CI only claimed for a real configured repository/run | Planned |
+| G45 | Release docs are stale | 0, 8 | Current version/source/deployment/test/device facts agree and link to actual evidence; historical reports retained as historical | Partial: sanitized environment/contracts/decisions/checkpoint added; final release/device/source reconciliation pending. |
+| G46 | No committed automated browser suite/CI proof | 0, 8 | Repeatable isolated browser/failure/migration suite and portable CI script; hosted CI only claimed for a real configured repository/run | Partial: CI workflow and isolated SQLite/failure/migration tests added; browser harness and actual hosted CI proof pending. |
 | G47 | New reliability behavior not proven on phone/tablet | 8 | Current-version viewport, keyboard/accessibility and actual selected-device acceptance results; passkey step completed by owner | Planned; physical device required |
 
 ## Boundaries requiring different completion criteria

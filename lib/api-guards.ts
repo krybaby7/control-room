@@ -13,7 +13,7 @@ export async function readMutation(request: Request): Promise<{ revision: number
       const { value, done } = await reader.read();
       if (done) break;
       length += value.byteLength;
-      if (length > 1_100_000) { await reader.cancel(); throw new RequestError('This entry is too large. A workspace backup must fit the 1 MB storage limit.', 413); }
+      if (length > 1_350_000) { await reader.cancel(); throw new RequestError('This entry is too large. A workspace backup must fit the planning storage limit.', 413); }
       chunks.push(value);
     }
   } finally { reader.releaseLock(); }
@@ -22,7 +22,12 @@ export async function readMutation(request: Request): Promise<{ revision: number
   let body: unknown;
   try { body = JSON.parse(new TextDecoder().decode(bytes)); } catch { throw new RequestError('The request is not valid JSON.', 400); }
   if (!body || typeof body !== 'object' || Array.isArray(body)) throw new RequestError('A change and revision are required.', 400);
-  const { revision, mutationId, command } = body as Record<string, unknown>;
+  const input=body as Record<string,unknown>;
+  const versioned='protocolVersion' in input;
+  const allowed=versioned?['protocolVersion','expectedRevision','mutationId','command']:['revision','mutationId','command'];
+  if(Object.keys(input).some(key=>!allowed.includes(key)) || versioned && input.protocolVersion!==1)throw new RequestError('Unsupported command envelope.',400);
+  const revision=versioned?input.expectedRevision:input.revision;
+  const { mutationId, command }=input;
   if (typeof revision !== 'number' || !Number.isSafeInteger(revision) || revision < 1 || !command || typeof command !== 'object' || Array.isArray(command)) throw new RequestError('A valid change and revision are required.', 400);
   if (typeof mutationId !== 'string' || !/^[A-Za-z0-9_-]{16,128}$/.test(mutationId)) throw new RequestError('A valid mutation ID is required.', 400);
   if ((command as {type?: unknown}).type !== 'workspace.restore' && length > 65_536) throw new RequestError('This entry is too large. Shorten the excerpt and try again.', 413);

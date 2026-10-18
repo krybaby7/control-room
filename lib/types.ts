@@ -12,9 +12,10 @@ export interface Task extends TaskInput { id: string; createdAt: string; updated
 export interface CaptureInput { title: string; body: string; projectId: string | null; kind: CaptureKind; sourceUrl: string | null; }
 export interface Capture extends CaptureInput { id: string; status: 'inbox' | 'filed' | 'archived'; createdAt: string; convertedTaskId: string | null; }
 export interface Activity { id: string; text: string; at: string; projectId: string | null; }
-export interface Workspace { schemaVersion: 1 | 2; projects: Project[]; milestones: Milestone[]; tasks: Task[]; captures: Capture[]; activity: Activity[]; }
+export interface Workspace { schemaVersion: 1 | 2 | 3; projects: Project[]; milestones: Milestone[]; tasks: Task[]; captures: Capture[]; activity: Activity[]; }
 export interface WorkspaceEnvelope { workspace: Workspace; revision: number; updatedAt: string; previousBackupAvailable?: boolean; }
 export type Command =
+  | { type: 'workspace.backup' }
   | { type: 'baseline.apply'; projectId: string; baselineId: '2026-10-17' }
   | { type: 'workspace.restore'; workspace: Workspace }
   | { type: 'task.restore'; id: string }
