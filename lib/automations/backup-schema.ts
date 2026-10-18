@@ -18,3 +18,15 @@ export const backupArchiveCleanupClaims=sqliteTable('backup_archive_cleanup_clai
  userId:text('user_id').notNull(),storageKey:text('storage_key').notNull(),archiveId:text('archive_id').notNull(),partNumber:integer('part_number').notNull(),
  token:text('token').notNull(),claimedAt:text('claimed_at').notNull(),purgedAt:text('purged_at')
 },t=>[primaryKey({columns:[t.userId,t.storageKey]}),uniqueIndex('backup_archive_cleanup_key_unique').on(t.storageKey),index('backup_archive_cleanup_owner_archive').on(t.userId,t.archiveId)]);
+
+/**
+ * Old immutable generations retained after an operator recovery rekeys a ready
+ * archive. This is a charge/provenance ledger, never DELETE authority. Rows and
+ * keys are permanent; imported continuity cannot authorize physical cleanup.
+ */
+export const backupArchiveRetainedObjects=sqliteTable('backup_archive_retained_objects',{
+ userId:text('user_id').notNull(),storageKey:text('storage_key').notNull(),
+ sourceArchiveId:text('source_archive_id').notNull(),partNumber:integer('part_number').notNull(),namespace:text('namespace').notNull(),
+ bytes:integer('bytes').notNull(),sha256:text('sha256').notNull(),createdAt:text('created_at').notNull(),
+ verifiedAt:text('verified_at').notNull(),purgedAt:text('purged_at')
+},t=>[primaryKey({columns:[t.userId,t.storageKey]}),uniqueIndex('backup_archive_retained_key_unique').on(t.storageKey),index('backup_archive_retained_owner_charge').on(t.userId,t.purgedAt)]);
