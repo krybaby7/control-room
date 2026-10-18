@@ -17,3 +17,17 @@ Save handling settles only trusted typed application rejection pairs with matchi
 ## Resume
 
 Publish this reviewed sanitized source to the existing draft PR,observe terminal expanded Chromium CI,fix failures and reconcile remaining Phase2 acceptance before Phase3. Start with `git status --short` and progress.json. Preserve all edits and the existing private Site/owner records. The rejected local inspection commit is outside implementation ancestry and must never be pushed. Checkpoints omit hosting identifiers,private host details,credentials and owner records.
+
+## Published checkpoint
+
+Source commit `3311f935d71a7161e0137f8fd5bb4b779ba687ca`, tree `5b99907a45a0961d2c0a9c012df2a2543879d21a`, exactly matches the authoring414-test source. Draft PR1 remains open/unmerged. CI39134562558 is running; no terminal expanded-browser result is claimed. Resume by checking that run's jobs/logs and reconciling Phase2 requirements. The rejected inspection commit is not an ancestor.
+
+## First expanded Chromium result and next work
+
+CI39134562558/job117696330430 at3311f935 completed:clean locked install,414Node,typecheck,lint,build and actual fixture passed;15/19Chromium passed. All five native navigation/focus/proxy408/receipt-confirmation journeys passed. Portfolio checks exposed duplicate sibling keys on ProjectDetail/TaskBulkActions,which accumulated stale interactive fragments; namespaced-key correction is prepared. The mobile fixture waited for a deliberately hidden sidebar action,now changed to visible workspace readiness. One weekly journey used a noncanonical entity URL; an explicit inspection action and corrected journey are being added. No broad test scoping hides duplicate DOM.
+
+Remaining source acceptance work is isolated in bounded workers:copyable search/filter/page state with history restoration,attention from canonical weekly history with explicit source-week review/removal,all-ready-work entry and zero-ready project explanations,and native fullnormalizedrestore/legacyv2/durableweekly journeys. Current source edits are uncommitted after3311f935; preserve them. Resume with git status,worker updates,and a fresh integrated Node/type/lint/build/fixture gate before the next cloud run. Phase3 contracts were inspected only;implementation has not started ahead of Phase2 acceptance.
+
+## Stable acceptance follow-up
+
+The prepared follow-up passes423Node tests,zero failures/skips,typecheck,lint,production build and isolated fixture smoke. It namespaces sibling keys,uses visible mobile readiness,and inspects proposals through the actual weekly UI. Search query/filter/page URL state survives copy/reload/history;closing an editor restores its source location. Canonical attention retains every source-week action while All deduplicates entities. All-ready work and zero-ready explanations are reachable. Twenty-four native journeys now include fullnormalizedrestore,truev2proposal import,durableweeklyreviewconflict,searchhistory andallreadywork. Their execution remains pending. Phase2 source manual recurrence is enabled only by explicit commands;unattended job activation remains dependent on Phase5/renewable-runner acceptance.

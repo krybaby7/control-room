@@ -4,7 +4,7 @@ export async function setFixtureSession(page:Page,owner:'a'|'b'|'expired'){
  const response=await page.request.post(`/__test/session?owner=${owner}`,{headers:{Origin:fixtureOrigin}});expect(response.status()).toBe(204);
 }
 export async function openFixture(page:Page,owner:'a'|'b'='a'){
- await setFixtureSession(page,owner);await page.goto('/');await expect(page.getByRole('button',{name:'Quick capture',exact:true})).toBeEnabled();
+ await setFixtureSession(page,owner);await page.goto('/');await expect(page.getByRole('status').filter({hasText:/^Last saved /})).toBeVisible();
 }
 /** The real upstream request commits before its response is deliberately lost. */
 export async function loseNextWorkspaceResponse(page:Page){

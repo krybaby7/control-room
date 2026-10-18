@@ -1,23 +1,23 @@
 # Control Room Audit Gap Coverage
 
-This ledger defines what “complete the things it cannot do” means. Every audited limitation has an implementation phase or an explicit evidence/activation boundary. Update the Evidence column with a commit, test result and hosted/device proof as relevant. Rows without implementation evidence remain **planned**. The 18 October cloud checkpoint implements foundation slices only; it is not a completion claim for any full phase.
+This ledger defines what “complete the things it cannot do” means. Every audited limitation has an implementation phase or an explicit evidence/activation boundary. Update the Evidence column with a commit, test result and hosted/device proof as relevant. Rows without implementation evidence remain **planned**. The 18 October cloud checkpoints implement recovery and planning slices; acceptance evidence below distinguishes source checks from native/provider/device execution.
 
 | ID | Audit gap | Delivery phase | Concrete acceptance | Evidence |
 |---|---|---|---|---|
-| G01 | Fixed project portfolio | 2 | Create, rename, edit goals/repositories, archive/restore; delete only after impact preview and valid dependent-record resolution | Planned |
-| G02 | Milestone opens only an editor | 2, 3 | Stable milestone URL opens tasks, criteria, evidence, blockers, decisions and history together | Planned |
-| G03 | No milestone archive/delete/reorder | 2 | Reorder survives reload; archive preserves descendants; delete rejects linked tasks and missing recovery protection | Planned |
-| G04 | Cannot move tasks between projects | 2 | Dependency-aware move preview preserves IDs, evidence and capture links; invalid completed graph rejected | Planned |
-| G05 | No bulk editing | 2 | Preview and apply one validated batch atomically; no partial edits on one invalid member | Planned |
-| G06 | Search only within one project's tasks | 2, 3 | Global search covers tasks/milestones/captures/decisions/evidence, scoped to owner and archive preference | Planned |
-| G07 | Dependencies confined to one project | 2 | Cross-project edges work inside one workspace; global cycles/foreign-owner/missing references rejected | Planned |
-| G08 | No dependency visualization | 2 | Interactive graph/list shows blockers and completed prerequisites with working detail links and accessible equivalent | Planned |
-| G09 | Only first three review items visible | 2 | Attention queue enumerates all review items with pagination/filter counts agreeing with stored data | Planned |
-| G10 | No unified blocked/overdue/proposed/stale queue | 2, 3, 5 | All categories have actionable reason, relevant evidence and a resolution/detail link; no silent truncation | Planned |
-| G11 | No weekly history or review archive | 2, 5 | Past weeks retain commitments/completions/review snapshots without silently renewing commitments | Planned |
-| G12 | No recurring tasks | 2, 5 | One proposed unpinned task per occurrence; retries and missed schedules do not create duplicates or invented commitments | Planned |
-| G13 | No time/capacity planning | 2 | Optional estimates and weekly capacity show known load and unestimated work separately; over-budget is advisory | Planned |
-| G14 | Capture lacks search and richer triage | 2 | Search/filter/edit/file/convert/archive/restore work without losing source or duplicate conversion | Planned |
+| G01 | Fixed project portfolio | 2 | Create, rename, edit goals/repositories, archive/restore; delete only after impact preview and valid dependent-record resolution | Portfolio source + deletion guards tested; first Chromium run exposed duplicate keys, corrected for24-journey rerun. |
+| G02 | Milestone opens only an editor | 2, 3 | Stable milestone URL opens tasks, criteria, evidence, blockers, decisions and history together | Milestone workspace includes inline evidence and decision captures; structured evidence/history remains Phase3. Native rerun pending. |
+| G03 | No milestone archive/delete/reorder | 2 | Reorder survives reload; archive preserves descendants; delete rejects linked tasks and missing recovery protection | Archive/order/removal guards tested in423-test source; native rerun pending. |
+| G04 | Cannot move tasks between projects | 2 | Dependency-aware move preview preserves IDs, evidence and capture links; invalid completed graph rejected | Final-graph move preview/identity/capture preservation tested; native rerun pending. |
+| G05 | No bulk editing | 2 | Preview and apply one validated batch atomically; no partial edits on one invalid member | Bounded atomic task/capture batches tested;100-row native acceptance rerun pending. |
+| G06 | Search only within one project's tasks | 2, 3 | Global search covers tasks/milestones/captures/decisions/evidence, scoped to owner and archive preference | Planning/inline-evidence/capture search with bounded URL state implemented; structured evidence/decisions await Phase3. Native rerun pending. |
+| G07 | Dependencies confined to one project | 2 | Cross-project edges work inside one workspace; global cycles/foreign-owner/missing references rejected | Global cross-project graph/cycle/completion guards pass; native rerun pending. |
+| G08 | No dependency visualization | 2 | Interactive graph/list shows blockers and completed prerequisites with working detail links and accessible equivalent | Bounded graph + complete accessible paginated remainder implemented; native rerun pending. |
+| G09 | Only first three review items visible | 2 | Attention queue enumerates all review items with pagination/filter counts agreeing with stored data | Complete paginated attention implemented;100-review browser journey passed CI39134562558. |
+| G10 | No unified blocked/overdue/proposed/stale queue | 2, 3, 5 | All categories have actionable reason, relevant evidence and a resolution/detail link; no silent truncation | Planning categories and canonical prior-week links implemented; external evidence/source/job findings await owning phases. Native rerun pending. |
+| G11 | No weekly history or review archive | 2, 5 | Past weeks retain commitments/completions/review snapshots without silently renewing commitments | Frozen weekly review/correction/restore pass SQLite;durable prose and native restore journeys added for rerun. Review automation remains Phase5. |
+| G12 | No recurring tasks | 2, 5 | One proposed unpinned task per occurrence; retries and missed schedules do not create duplicates or invented commitments | Manual proposed/unpinned stable-ledger generation tested;actual recurrence browser journey passed CI39134562558. Unattended job activation remains Phase5/renewable-runner gate. |
+| G13 | No time/capacity planning | 2 | Optional estimates and weekly capacity show known load and unestimated work separately; over-budget is advisory | Null versus zero capacity and unknown effort tested;corrected explicit acceptance native journey pending. |
+| G14 | Capture lacks search and richer triage | 2 | Search/filter/edit/file/convert/archive/restore work without losing source or duplicate conversion | Complete capture filters/atomic reviewed triage implemented;conversion source/lifecycle tested. Native rerun pending. |
 | G15 | No file attachments | 3 | Private bounded upload/download with digest, owner check, lifecycle cleanup and portable backup manifest | Planned |
 | G16 | Evidence is only loose text/links | 3 | Multiple structured evidence versions link to task/milestone/decision, each with provenance/date/basis | Planned |
 | G17 | No acceptance completeness policy | 3 | Configurable criteria distinguish missing/stale/conflicting evidence; acceptance records cite exact versions and explicit owner assessment | Planned |

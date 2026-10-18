@@ -25,7 +25,7 @@ Automated GitHub/document synchronization and the PC collector are not connected
 
 ## Local development
 
-Node 22.13+ and npm are required (Node 24 is used for the built-in SQLite tests). Install with `npm ci` after cloning. PowerShell users can invoke `npm.cmd` if execution policy blocks `npm.ps1`.
+Use Node 24 and install the locked dependencies with `npm run install:ci` after cloning. PowerShell users can invoke `npm.cmd` if execution policy blocks `npm.ps1`.
 
 ```text
 npm run db:generate
@@ -35,7 +35,7 @@ node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1
 npm run dev
 ```
 
-Apply each migration once. Production migrations are applied by Sites during publication. Preview and production databases are separate.
+The commands above show the original two migrations. For the completion branch, also apply every later `drizzle/*.sql` in filename order once to the isolated local database; never edit an already applied migration. Production migrations are applied by Sites during publication. Preview and production databases are separate.
 
 The portable starter defaults to port 5173. Use its printed URL. Loopback development simulates sign-in at `/signin-with-chatgpt?return_to=/`; hosted sign-in and private access are provided by Sites. The mock identity is not included in production builds. Never add authentication headers or tokens to browser code.
 
@@ -54,9 +54,9 @@ The private Site identity is tracked in `.openai/hosting.json`. Source publicati
 
 ## Data behavior
 
-The first visit initializes a workspace once. Changing seed code never resets an existing plan. A stale save receives HTTP 409; the interface refreshes the latest state while retaining the editor draft for review and explicit retry. An unchanged uncertain retry keeps its mutation ID, including after revision refresh, so an already-committed submission is not executed twice. Failed refresh retains the last saved workspace with a stale indication; session expiry hides protected state and offers sign-in. Drafts are not persisted to browser storage.
+The first visit initializes a workspace once. Changing seed code never resets an existing plan. A stale save receives HTTP 409; the interface refreshes the latest state while retaining the editor draft for review and explicit retry. An unchanged uncertain retry keeps its mutation ID, including after revision refresh, so an already-committed submission is not executed twice. Failed refresh retains the last saved workspace with a stale indication; session expiry hides protected state and offers sign-in. Server drafts are separate from the authoritative plan. Browser device drafts are off by default and require explicit trust and unlock; their recovery never submits automatically.
 
-Dependencies must be within one project and acyclic. Blocked tasks cannot be completed, and reopening a predecessor cannot invalidate an already-completed dependent. Achieved milestones require acceptance evidence. Completion is an owner-recorded fact, not automatic verification of release readiness or profitability.
+On the completion branch, dependencies can cross projects within one authenticated workspace and must remain globally acyclic. Blocked tasks cannot be completed, and reopening a predecessor cannot invalidate an already-completed dependent. Achieved milestones require acceptance evidence. Completion is an owner-recorded fact, not automatic verification of release readiness or profitability.
 
 Use Sources → Export to download a portable JSON snapshot. Restore validates the schema, references and storage limits, previews counts, requires a final action and protects the current revision. The previous workspace is retained atomically and can be downloaded after restore. This remains a user-managed backup flow. Archive retains stored records and does not free capacity.
 
@@ -69,3 +69,13 @@ The approved scope and implementation checklist are under `docs/superpowers/`. T
 ## Completion implementation status
 
 Cloud implementation is in progress on the completion branch. The existing deployed version has not been replaced by this checkpoint. See [progress](docs/superpowers/plans/2026-10-18-control-room-completion/progress.json) and the [cloud verification checkpoint](docs/superpowers/verification/2026-10-18-cloud-foundation.md) for implemented slices, exact checks and remaining acceptance gates.
+
+## Planning completion branch
+
+This source branch adds editable portfolio identities,archive/restore,milestone ordering and workspaces,safe final-clone task moves/bulk changes,full capture triage,copyable search and complete attention queues. Archived project/milestone descendants retain their IDs and history. Removing an archived record requires a revision-bound impact review and a verified recovery point; nothing cascades silently.
+
+Weekly plans use Cairo Monday weeks with optional capacity and task estimates. Unknown estimates remain unknown; over-capacity is advisory. Carry/remove and frozen review corrections are explicit owner commands. The review editor retains recoverable prose; later task changes do not rewrite frozen snapshots. Recurrence is manual proposal generation with stable occurrence identities,empty evidence and no weekly pin. Removed occurrences retain their disposition and cannot regenerate. No unattended scheduler is activated.
+
+Search query,filters and page can be copied in the URL; treat such links as private workspace context. Attention explains planning findings and links old commitments to their source week for explicit review. Missing external providers do not imply fresh sources. Today retains a six-item preview and an explicit complete ready-work queue.
+
+Run the full regression gate with `npm test`,`npm run typecheck`,`npm run lint`,`npm run build`,`npm run test:fixture` and `npm run test:e2e`. The latter two use an isolated synthetic worker/database; they do not prove hosted identity,physical devices,provider execution or deployment. See [planning verification](docs/verification/planning-workflows.md) for the actual source version and cloud results.
