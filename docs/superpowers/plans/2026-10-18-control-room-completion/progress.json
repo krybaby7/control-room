@@ -49,10 +49,11 @@
         "Typed reference descriptor foundation integrated into deletion preview/transaction with full module-set CAS; future schemas must register actual descriptors",
         "CI39130469730 at897a541 passed clean install,305 Node tests,typecheck,lint,build,fixture; Chromium4/6 passed. Two autosave failures exposed separate-clock retention drift; same-timestamp fix and deterministic regression prepared for rerun.",
         "CI39130860774/job117685546351 at4126c973 passed clean install,305 Node tests,typecheck,lint,build,fixture and7/8 Chromium journeys; every device/server/clock regression passed. Repair exact-label lookup failed before first repair; accessible field naming correction in progress.",
-        "Working-tree334 Node tests and typecheck/lint/build pass, including receipt-capacity preflight/atomic races, strict UTF8 rejection and24 independent graph/polling groundwork tests"
+        "Working-tree334 Node tests and typecheck/lint/build pass, including receipt-capacity preflight/atomic races, strict UTF8 rejection and24 independent graph/polling groundwork tests",
+        "CI39131201669/job117686570149 at a775d793 passed clean install,334 Node tests,all build/fixture checks and7/8 browser journeys. Repair staging/report/review/commit completed; final test incorrectly expected mutation epoch retirement. Test corrected to preserve receipt namespace and unused ID not-found; operational epoch remains covered by transaction tests."
       ],
       "blockers": [
-        "Repair browser journey rerun required after accessible field naming correction; device/server browser gates pass at4126c973",
+        "Final cloud browser rerun after correcting mutation-vs-operational epoch assertion",
         "Normalized selective merge and feature-specific reference/repair adapters await the owning Phase2/3 schemas; unknown populated modules fail closed",
         "Backup policy reports disabled/unavailable defaults; persistence/activation and concrete job-store adapter await registered renewable runner and verified private R2 storage",
         "Authenticated hosted gateway/device session acceptance remains separate from synthetic fixtures"
@@ -60,10 +61,11 @@
     },
     {
       "id": 2,
-      "status": "not_started",
+      "status": "in_progress",
       "evidence": [
         "Independent pure selector groundwork only: stable links,complete paginated search and attention with11 tests; not integrated or accepted",
-        "Independent unintegrated taskgraph16 tests and polling8 fake-clock tests pass; no shared schema/workflow integration yet"
+        "Independent unintegrated taskgraph16 tests and polling8 fake-clock tests pass; no shared schema/workflow integration yet",
+        "Uncommitted schema-v4 migration and typed legacy fixture preparation:336 Node tests and typecheck/lint pass; production build checking. Dependent workflows not enabled before final foundation browser gate."
       ],
       "blockers": []
     },
