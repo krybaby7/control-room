@@ -26,7 +26,6 @@ jobs:
       - run: npm run lint
       - id: build
         run: npm run build
-      - run: npm run test:runtime-d1
       - run: npm run test:generation-d1
       - run: npm run test:workspace-d1
       - run: npm run test:sources-d1
@@ -34,16 +33,19 @@ jobs:
       - run: npm run test:reviews-d1
       - run: npm run test:scheduled-backup-d1
       - run: npm run test:scheduled-source-d1
+      - id: runtime_d1
+        run: npm run test:runtime-d1
+        timeout-minutes: 5
       - run: npm run test:fixture
       - run: npm run test:attachments-r2
       - run: npm run test:attachment-recovery-r2
-      - if: ${{ !cancelled() && steps.build.conclusion == 'success' }}
+      - if: ${{ !cancelled() && steps.build.conclusion == 'success' && steps.runtime_d1.conclusion == 'success' }}
         run: npx playwright install --with-deps chromium
-      - if: ${{ !cancelled() && steps.build.conclusion == 'success' }}
+      - if: ${{ !cancelled() && steps.build.conclusion == 'success' && steps.runtime_d1.conclusion == 'success' }}
         run: npm run test:e2e
-      - if: ${{ !cancelled() && steps.build.conclusion == 'success' }}
+      - if: ${{ !cancelled() && steps.build.conclusion == 'success' && steps.runtime_d1.conclusion == 'success' }}
         run: npm run test:e2e:r2
-      - if: ${{ !cancelled() && steps.build.conclusion == 'success' }}
+      - if: ${{ !cancelled() && steps.build.conclusion == 'success' && steps.runtime_d1.conclusion == 'success' }}
         run: npm run test:attachments-http
       - uses: actions/upload-artifact@v4
         if: failure() || cancelled()
