@@ -57,7 +57,8 @@ test('cancel/local disable/used approval/active attempt and historical claims ne
 test('finite budget and exact owner immutable artifact inputs are enforced',()=>{
  const f=fixture();for(const patch of [{usedJobs:1},{usedRuntimeSeconds:1}])denied({...f,context:{...f.context,...patch}},'finite_budget_exceeded');
  denied({...f,approval:{...f.approval,budget:{jobs:1,timeoutSeconds:59}}},'finite_budget_exceeded');
- for(const artifacts of [[],[{...f.context.artifacts[0],ownerKey:'other-owner'}],[{...f.context.artifacts[0],immutable:false}],[f.context.artifacts[0],f.context.artifacts[0]]])denied({...f,context:{...f.context,artifacts}},'immutable_input_unavailable');
+ for(const artifacts of [[],[{...f.context.artifacts[0],ownerKey:'other-owner'}],[{...f.context.artifacts[0],immutable:false}]])denied({...f,context:{...f.context,artifacts}},'immutable_input_unavailable');
+ assert.throws(()=>checkExecutionAdmission({...f,context:{...f.context,artifacts:[f.context.artifacts[0],f.context.artifacts[0]]}}),error=>error.code==='duplicate_value');
  const spec={...f.spec,inputArtifactIds:['input-fixture','second']},artifacts=[{...f.context.artifacts[0],bytes:32768},{...f.context.artifacts[0],id:'second',bytes:1}],changed={...f,spec,specSha256:jobSpecSha256(spec),approval:{...f.approval,specSha256:jobSpecSha256(spec)},context:{...f.context,artifacts}};denied(changed,'immutable_input_unavailable');
 });
 test('bounded dependency DAG rejects self/cycle/missing/foreign and requires exact successful dependency records',()=>{

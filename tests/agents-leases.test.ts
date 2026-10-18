@@ -11,9 +11,9 @@ import {agentCapabilitySchema,agentJobResultSchema,type AgentJobResultV1} from '
 import {buildAgentJobSpec,agentJobSpecSha256,buildAgentExecutionBinding,agentExecutionBindingSha256,buildAgentApprovalEnvelope} from '../lib/agents/policy.ts';
 import {claimAgentJob,renewAgentLease,reportAgentEvents,completeAgentAttempt,expireAgentAttempts,reconcileAgentAttempt,reportAgentCapability,type AgentLease,type AgentStoreOptions} from '../lib/agents/store.ts';
 const now='2026-10-18T12:00:00.000Z',later=(seconds:number)=>new Date(Date.parse(now)+seconds*1000).toISOString(),sha='a'.repeat(64),nonce='synthetic_journal_nonce_0000000000000001';
-async function fixture(timeoutSeconds=120){
+async function fixture(timeoutSeconds=120,notes=''){
  const f=database(),owner='synthetic-owner',deviceId='synthetic-device',jobId='synthetic-job',intentId='synthetic-intent';
- const workspace=workspaceFixture({tasks:[taskFixture('task-1')]});await loadWorkspace(f.db,owner,()=>workspace,now);
+ const workspace=workspaceFixture({tasks:[taskFixture('task-1',{notes})]});await loadWorkspace(f.db,owner,()=>workspace,now);
  f.sqlite.prepare('INSERT INTO workspace_execution_state(user_id,epoch,restored_at) VALUES(?,0,?)').run(owner,now);
  const display={id:deviceId,label:'Synthetic lease fixture',createdAt:now,archivedAt:null},scopes=['jobs:poll','jobs:report'];
  f.sqlite.prepare('INSERT INTO devices(user_id,id,row_revision,payload_json,content_hash,created_at) VALUES(?,?,1,?,?,?)').run(owner,deviceId,canonical(display),await contentHash(canonical(display)),now);
@@ -236,4 +236,9 @@ test('frozen task and approval are returned intact on resume/renew, never rebase
  const resumed=await claim(f),renewed=await renewAgentLease(f.db,f.principal,{attemptId:resumed.attemptId,leaseToken:resumed.leaseToken},{...f.options,now:later(15)});
  assert.deepEqual(resumed.taskInput,first.taskInput);assert.deepEqual(renewed.taskInput,first.taskInput);assert.deepEqual(renewed.approvalEnvelope,first.approvalEnvelope);
  assert.equal(renewed.serverNow,later(15));assert.equal(renewed.deadlineAt,first.deadlineAt);
+}finally{f.sqlite.close();}});
+
+test('UTF8 frozen prompt bytes are bounded without truncating owner text or consuming a lease',async()=>{const f=await fixture(120,'測'.repeat(11000));try{
+ await assert.rejects(claim(f),/frozen_task_input_capacity/);assert.equal(count(f,'job_attempts'),0);assert.equal(count(f,'agent_device_slots'),0);assert.equal(f.sqlite.prepare('SELECT consumed_at FROM job_approvals').get()!.consumed_at,null);assert.equal(f.sqlite.prepare('SELECT status FROM workspace_job_intents').get()!.status,'pending');
+ const planning=JSON.parse(f.sqlite.prepare('SELECT content FROM workspaces').get()!.content as string);assert.equal(planning.tasks[0].notes,'測'.repeat(11000));
 }finally{f.sqlite.close();}});
