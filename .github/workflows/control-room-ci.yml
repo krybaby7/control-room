@@ -17,6 +17,7 @@ jobs:
           cache: npm
       - run: npm run install:ci
       - run: npm test
+      - run: npm run test:bridge
       - run: npm run typecheck
       - run: npm run lint
       - id: build
