@@ -16,6 +16,7 @@ export function createReviewedImportHandler(registry:ExportRegistry=exportRegist
  if(command.mode==='replace'&&command.selection)throw new Error('Selection applies only to merge.');
  const {stage,provenance}=await context.readImport(command.importId);
  if(stage.hash!==command.hash||!stage.bundle||stage.diagnostics.length)throw new Error('Import is invalid or its digest changed.');
+ const mergeSnapshot:import('./workspace-references.ts').ReferenceSnapshot={coveredModules:[...OWNER_TABLES],rows:[],digest:''};
  const bundle=stage.bundle;const replacements:NonNullable<MutationPlan['replacements']>=[];
  const adapters=registry.entries(),coverage=new Map<RegisteredOwnerTable,string>();
  for(const adapter of adapters){const tables=moduleTables(adapter);if(new Set(tables).size!==tables.length)throw new Error('Duplicate physical module coverage.');for(const raw of tables){const table=ownerTable(raw);if(coverage.has(table))throw new Error('Overlapping physical module coverage.');coverage.set(table,adapter.key);}}
@@ -37,16 +38,18 @@ export function createReviewedImportHandler(registry:ExportRegistry=exportRegist
   const seen=new Set<RegisteredOwnerTable>();
   for(const raw of split){if(!raw||typeof raw!=='object'||Array.isArray(raw)||Object.keys(raw).some(key=>!['table','records'].includes(key)))throw new Error('Invalid physical replacement wrapper.');const table=ownerTable(raw.table);if(!declared.includes(table)||seen.has(table)||incoming.has(table))throw new Error('Undeclared or duplicate physical replacement table.');seen.add(table);if(!Array.isArray(raw.records)||raw.records.length>BUNDLE_LIMITS.rows)throw new Error('Physical replacement row limit exceeded.');const ids=new Set<string>();const records=[];for(const input of raw.records){const record=physicalRecordSchema.parse(input);if(ids.has(record.id))throw new Error('Duplicate physical replacement identity.');ids.add(record.id);assertPortable(record.value);incomingBytes+=new TextEncoder().encode(JSON.stringify(record)).byteLength;if(incomingBytes>BUNDLE_LIMITS.bytes)throw new Error('Expanded physical import byte bound exceeded.');records.push({id:record.id,value:record.value as JsonValue});}incoming.set(table,records);}
  }
- if(command.mode==='replace'){
+ {
   let bytes=0;
   for(const table of OWNER_TABLES){
    const beforeRows:ModuleRow[]=[];let after='';
    for(;;){const page=await context.query.list(table,{after,limit:BUNDLE_LIMITS.pageSize});if(page.length>BUNDLE_LIMITS.pageSize)throw new Error('Invalid module page size.');for(const row of page){if(typeof row.id!=='string'||row.id<=after)throw new Error('Invalid module pagination.');after=row.id;beforeRows.push(row);bytes+=new TextEncoder().encode(JSON.stringify(row)).byteLength;if(beforeRows.length>BUNDLE_LIMITS.rows||bytes>BUNDLE_LIMITS.bytes)throw new Error('Module snapshot bound exceeded.');}if(page.length<BUNDLE_LIMITS.pageSize)break;}
+   if(command.mode==='merge'){for(const row of beforeRows)mergeSnapshot.rows.push({module:table,id:row.id,rowRevision:row.row_revision,contentHash:row.content_hash,references:[]});continue;}
    const records=incoming.get(table);
    if(!records){if(beforeRows.length)throw new Error('Import omits populated normalized owner data.');continue;}
    if(beforeRows.length||records.length)replacements.push({table,beforeRows,records});
   }
  }
+ if(command.mode==='merge')mergeSnapshot.digest=await contentHash(canonical({coveredModules:mergeSnapshot.coveredModules,rows:mergeSnapshot.rows}));
  const history=bundle.modules.audit_events?.records??[];
  if(history.length>BUNDLE_LIMITS.rows||new TextEncoder().encode(JSON.stringify(history)).byteLength>1_800_000)throw new Error('Imported history exceeds transaction limit.');
  const historyImports:NonNullable<MutationPlan['historyImports']>=await prepareHistoricalAuditRows(history,bundle.source.auditNamespace??null,stage.hash);
@@ -61,6 +64,6 @@ export function createReviewedImportHandler(registry:ExportRegistry=exportRegist
   for(const source of merge.sourceClaims){assertPortable(source);const index=bundle.planning[source.collection].findIndex(row=>row.id===source.id);historyImports.push({id:`import_${stage.hash}_claim_${source.collection}_${index}`,source:source as unknown as JsonValue,importHash:stage.hash});}
  }
  if(historyImports.length>BUNDLE_LIMITS.rows||new TextEncoder().encode(JSON.stringify(historyImports)).byteLength>1_800_000)throw new Error('Imported provenance exceeds transaction limit.');
- return {importSource:{id:command.importId,hash:stage.hash},planningAfter,writes:[],replacements,historyImports,restoreEpoch:true,backup:{reason:'restore'},jobs:[],events:[{id:crypto.randomUUID(),kind:'workspace.import.commit',entityType:'workspace',entityId:null,changes:[],origin:'owner',actorId:context.userId,occurredAt:context.now,sourceRef:stage.hash,undoOf:null}]};
+ return {...(command.mode==='merge'?{preserveModules:true,referenceSnapshot:mergeSnapshot}:{}),importSource:{id:command.importId,hash:stage.hash},planningAfter,writes:[],replacements,historyImports,restoreEpoch:true,backup:{reason:'restore'},jobs:[],events:[{id:crypto.randomUUID(),kind:'workspace.import.commit',entityType:'workspace',entityId:null,changes:[],origin:'owner',actorId:context.userId,occurredAt:context.now,sourceRef:stage.hash,undoOf:null}]};
 }};}
 export const reviewedImportHandler=createReviewedImportHandler();

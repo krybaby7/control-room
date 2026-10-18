@@ -21,3 +21,13 @@ Independent review found and fixed restore-induced exception-grant resurrection.
 Open boundaries: source object keys remain historical attachment metadata, not target availability; file-inclusive archive/restore needs explicit rekey/byte verification. The cleanup adapter has fake-contract tests but still needs persistent SQL fencing and a concrete registered runner. Requirements/linking, owner assessment and explicit decision-action UI, complete undo families, stable evidence/detail citations and current-assessment freshness remain unfinished. No Phase3 acceptance or new deployment is claimed.
 
 The final built-worker synthetic HTTP GET/POST/replay/CSRF smoke passed. The private Site identity is unchanged and the rejected inspection commit is excluded from implementation ancestry.
+
+Published source: `6e31db7e33e5d0d0876f949958ee25f20536fe73`, exact tree `0d45a996a9e4c9daf9842bcede90a613de5bc554`, on the existing draft PR. Cloud CI39139870503 is in progress; no new browser pass is claimed yet.
+
+## First Phase 3 cloud browser result
+
+CI39139870503/job117711897996 at6e31db7e completed with clean locked install,604 Node tests,typecheck,lint,build and actual HTTP fixture passing. Chromium passed **27/31**, including all five new evidence/decision journeys. The four failures all exercise reviewed planning merges after evidence modules are populated. The shared compiler incorrectly applied full-replacement completeness rules to a merge that preserves current normalized data. A narrow merge-only preservation path now guards the complete16-table rowset; four new actual SQLite tests cover byte-exact module/grant retention, receipt replay, recovery backup and direct row races. The original browser merge journeys remain unchanged for the rerun.
+
+Uncommitted follow-on work also distinguishes current owner-assessment attribution from imported history, adds immutable-record freshness assessments and a bounded read-only owner preview. Additional protected link/criterion/assessment/decision-action UI is in progress. These follow-on changes have not yet been published or accepted by cloud browser tests.
+
+The coherent backend merge fix passes **617 Node tests**, zero failures/skips, typecheck,lint,production build and actual isolated HTTP fixture. Four new SQLite merge regressions retain every normalized row and current owner grant while rejecting direct row-set races. Cloud rerun is pending publication of this patch; protected action UI remains separate work.

@@ -1,4 +1,4 @@
-import {readAuditCommandGroup} from './history-command-group.ts';
+import {ownerPrepareContext} from './workspace-context.ts';
 import {auditProjectIds} from './audit-projects.ts';
 import {moduleProjection,moduleColumnNames,IMMUTABLE_MODULE_TABLES} from './module-columns.ts';
 import type { Workspace, WorkspaceEnvelope } from './types.ts';
@@ -13,8 +13,8 @@ import { RECEIPT_CAPACITY, WorkspaceCapacityError, receiptCount } from './worksp
 import { checkMutationEpoch } from './idempotency-retention.ts';
 import { RetiredMutationError, CommandValidationError, MutationIdReuseError, ModuleConflictError, WorkspaceStorageError } from './workspace-errors.ts';
 export interface ModuleReplacement {table:RegisteredOwnerTable;beforeRows:ModuleRow[];records:Array<{id:string;value:import('./workspace-protocol.ts').JsonValue}>;}
-export interface MutationPlan { decisionGrants?:Array<{id:string;version:number;hash:string}>; referenceSnapshot?:import('./workspace-references.ts').ReferenceSnapshot; backupRemoval?:{id:string;sha256:string;newerId:string;newerSha256:string};emptyModules?:RegisteredOwnerTable[];importSource?:{id:string;hash:string};replacements?:ModuleReplacement[];restoreEpoch?:boolean;historyImports?:Array<{id:string;source:import('./workspace-protocol.ts').JsonValue;importHash:string;sourceIdentity?:string;sourceHash?:string}>; planningAfter: Workspace; writes: GuardedWrite[]; preconditions?: RowPrecondition[]; events: AuditEventDraft[]; backup?: {reason:'restore'|'delete'|'repair'|'manual'}; jobs: JobIntent[]; }
-export interface PrepareContext { mutationId?:string; userId: string; before: WorkspaceEnvelope; command: WorkspaceCommand; now: string; query: OwnerScopedReader; backups?:{get:(id:string)=>ReturnType<typeof readWorkspaceBackup>;list:()=>ReturnType<typeof listWorkspaceBackups>};readAuditGroup?:(eventId:string)=>Promise<import('./history-command-group.ts').AuditCommandGroup|null>;trustedDecisionVersion?:(id:string,version:number,hash:string)=>Promise<boolean>;attachmentAccess?:{ownerNamespace:string;store:import('./attachments.ts').BlobStore};verifyAttachment?:(record:import('./evidence-contract.ts').AttachmentRecord)=>Promise<import('./evidence-requirements.ts').VerifiedAttachment|null>;readImport:(id:string)=>ReturnType<typeof readStagedImport>; }
+export interface MutationPlan { preserveModules?:boolean; decisionGrants?:Array<{id:string;version:number;hash:string}>; referenceSnapshot?:import('./workspace-references.ts').ReferenceSnapshot; backupRemoval?:{id:string;sha256:string;newerId:string;newerSha256:string};emptyModules?:RegisteredOwnerTable[];importSource?:{id:string;hash:string};replacements?:ModuleReplacement[];restoreEpoch?:boolean;historyImports?:Array<{id:string;source:import('./workspace-protocol.ts').JsonValue;importHash:string;sourceIdentity?:string;sourceHash?:string}>; planningAfter: Workspace; writes: GuardedWrite[]; preconditions?: RowPrecondition[]; events: AuditEventDraft[]; backup?: {reason:'restore'|'delete'|'repair'|'manual'}; jobs: JobIntent[]; }
+export interface PrepareContext { mutationId?:string; userId: string; before: WorkspaceEnvelope; command: WorkspaceCommand; now: string; query: OwnerScopedReader; backups?:{get:(id:string)=>ReturnType<typeof readWorkspaceBackup>;list:()=>ReturnType<typeof listWorkspaceBackups>};readAuditGroup?:(eventId:string)=>Promise<import('./history-command-group.ts').AuditCommandGroup|null>;trustedAcceptanceRecord?:(id:string,hash:string)=>Promise<boolean>;trustedDecisionVersion?:(id:string,version:number,hash:string)=>Promise<boolean>;attachmentAccess?:{ownerNamespace:string;store:import('./attachments.ts').BlobStore};verifyAttachment?:(record:import('./evidence-contract.ts').AttachmentRecord)=>Promise<import('./evidence-requirements.ts').VerifiedAttachment|null>;readImport:(id:string)=>ReturnType<typeof readStagedImport>; }
 export interface CommandHandler { prepare(context: PrepareContext): Promise<MutationPlan>; }
 export type CommandHandlerRegistry = ReadonlyMap<string, CommandHandler>;
 export interface WorkspaceTransactionDeps { db: SqlDatabase; now:()=>string; handlers: CommandHandlerRegistry; verifyAttachment?:PrepareContext['verifyAttachment'];attachmentAccess?:PrepareContext['attachmentAccess']; }
@@ -52,9 +52,10 @@ export async function executeWorkspaceCommand(userId:string,input:{protocolVersi
   if(await receiptCount(db,userId)>=RECEIPT_CAPACITY.hard)throw new WorkspaceCapacityError();
   const handler=deps.handlers.get(command.type);if(!handler)throw new CommandValidationError('Unknown command.');
   let plan:MutationPlan;
-  try {plan=await handler.prepare({mutationId:id,userId,before,command,now,query:ownerReader(db,userId),verifyAttachment:deps.verifyAttachment,attachmentAccess:deps.attachmentAccess,readAuditGroup:eventId=>readAuditCommandGroup(db,userId,eventId),trustedDecisionVersion:async(decisionId,version,hash)=>Boolean(await db.prepare('SELECT decision_id FROM decision_owner_grants WHERE user_id=? AND decision_id=? AND version=? AND content_hash=?').bind(userId,decisionId,version,hash).first()),readImport:id=>readStagedImport(db,userId,id,now),backups:{get:id=>readWorkspaceBackup(db,userId,id),list:()=>listWorkspaceBackups(db,userId)}});plan.planningAfter=parseWorkspaceExport(plan.planningAfter,now);}
+  try {plan=await handler.prepare(ownerPrepareContext(db,userId,before,command,now,{attachmentAccess:deps.attachmentAccess,verifyAttachment:deps.verifyAttachment},id));plan.planningAfter=parseWorkspaceExport(plan.planningAfter,now);}
   catch(error){throw new CommandValidationError(error instanceof Error?error.message:'This change is invalid.');}
-  if(plan.backup?.reason==='restore'){const query=ownerReader(db,userId);for(const table of OWNER_TABLES)if((await query.list(table,{limit:1})).length && !plan.replacements?.some(replacement=>replacement.table===table))throw new CommandValidationError('This restore requires a complete normalized bundle. Export all modules before replacing planning records.');}
+  if(plan.preserveModules && (command.type!=='workspace.import.commit'||command.mode!=='merge'||plan.replacements?.length||plan.writes.length||!plan.restoreEpoch||plan.backup?.reason!=='restore'||!plan.referenceSnapshot))throw new CommandValidationError('Only a reviewed planning merge may preserve normalized modules.');
+  if(plan.backup?.reason==='restore'&&!plan.preserveModules){const query=ownerReader(db,userId);for(const table of OWNER_TABLES)if((await query.list(table,{limit:1})).length && !plan.replacements?.some(replacement=>replacement.table===table))throw new CommandValidationError('This restore requires a complete normalized bundle. Export all modules before replacing planning records.');}
   if(plan.writes.length>200 || plan.events.length>200 || plan.jobs.length>50)throw new CommandValidationError('Command batch is too large.');
   if(plan.restoreEpoch && (!plan.backup || plan.jobs.length))throw new CommandValidationError('Recovery must retain a backup and cannot dispatch new jobs.');
   if(new Set((plan.replacements??[]).map(replacement=>replacement.table)).size!==(plan.replacements??[]).length)throw new CommandValidationError('Duplicate replacement module.');
@@ -113,7 +114,7 @@ export async function executeWorkspaceCommand(userId:string,input:{protocolVersi
   }
   if(plan.backup?.reason==='restore'){
     // Until normalized restore is enabled, reject snapshots that would omit normalized records.
-    for(const table of OWNER_TABLES)if(!plan.replacements?.some(replacement=>replacement.table===table))assertion(`NOT EXISTS (SELECT 1 FROM ${table} WHERE user_id = ?)`,[userId]);
+    for(const table of plan.preserveModules?[]:OWNER_TABLES)if(!plan.replacements?.some(replacement=>replacement.table===table))assertion(`NOT EXISTS (SELECT 1 FROM ${table} WHERE user_id = ?)`,[userId]);
     statements.push(db.prepare(`INSERT INTO workspace_recovery (user_id,content,revision,updated_at) SELECT user_id,content,revision,updated_at FROM workspaces WHERE user_id = ? AND ${claim} ON CONFLICT(user_id) DO UPDATE SET content=excluded.content,revision=excluded.revision,updated_at=excluded.updated_at`).bind(userId,...guard));
   }
   if(plan.backupRemoval)statements.push(db.prepare(`DELETE FROM workspace_backups WHERE user_id=? AND id=? AND sha256=? AND ${claim}`).bind(userId,plan.backupRemoval.id,plan.backupRemoval.sha256,...guard));
@@ -124,8 +125,11 @@ export async function executeWorkspaceCommand(userId:string,input:{protocolVersi
     statements.push(db.prepare(`INSERT INTO ${table} (user_id,${columns.join(',')}) SELECT ?,${columns.map(column=>`json_extract(value,'$.${column}')`).join(',')} FROM json_each(?) WHERE ${claim}`).bind(userId,payload,...guard));
   }
   if(plan.restoreEpoch){
+    if(!plan.preserveModules){
+    statements.push(db.prepare(`DELETE FROM acceptance_owner_grants WHERE user_id=? AND ${claim}`).bind(userId,...guard));
     // Restored decision history is a claim, never a resurrected current exception grant.
     statements.push(db.prepare(`DELETE FROM decision_owner_grants WHERE user_id=? AND ${claim}`).bind(userId,...guard));
+    }
     statements.push(db.prepare(`INSERT INTO workspace_execution_state (user_id,epoch,restored_at) SELECT ?,1,? WHERE ${claim} ON CONFLICT(user_id) DO UPDATE SET epoch=workspace_execution_state.epoch+1,restored_at=excluded.restored_at`).bind(userId,now,...guard));
     statements.push(db.prepare(`UPDATE workspace_job_intents SET status=CASE WHEN status='pending' THEN 'cancelled' ELSE status END,cancel_requested=CASE WHEN status IN ('running','claimed') THEN 1 ELSE cancel_requested END WHERE user_id=? AND ${claim}`).bind(userId,...guard));
   }
@@ -138,6 +142,11 @@ export async function executeWorkspaceCommand(userId:string,input:{protocolVersi
     }
     else if(write.operation==='delete')statements.push(db.prepare(`DELETE FROM ${table} WHERE user_id=? AND id=? AND row_revision=? AND ${claim}`).bind(userId,write.id,write.expectedRowRevision,...guard));
     else throw new CommandValidationError('Unknown module operation.');
+  }
+  if(command.type==='acceptance.record')for(const write of plan.writes)if(write.table==='acceptance_records'&&write.operation==='insert'){
+    const value=write.value as unknown as import('./evidence-contract.ts').AcceptanceRecord;
+    if(value.recordedAt!==now)throw new CommandValidationError('Owner assessment recording time must be current.');
+    statements.push(db.prepare(`INSERT INTO acceptance_owner_grants(user_id,record_id,content_hash) SELECT ?,?,? WHERE ${claim}`).bind(userId,value.id,await hashJson(value),...guard));
   }
   if(command.type==='decisions.decide'||command.type==='decisions.supersede')for(const write of plan.writes)if(write.table==='decision_versions'&&write.operation==='insert'){
     const value=write.value as unknown as import('./evidence-contract.ts').DecisionVersion;

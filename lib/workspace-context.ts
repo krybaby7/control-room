@@ -1,0 +1,18 @@
+import type {SqlDatabase} from './workspace-store.ts';
+import type {WorkspaceEnvelope} from './types.ts';
+import type {WorkspaceCommand} from './workspace-protocol.ts';
+import type {PrepareContext} from './workspace-transaction.ts';
+import {ownerReader} from './workspace-modules.ts';
+import {readStagedImport} from './import-staging.ts';
+import {readWorkspaceBackup,listWorkspaceBackups} from './workspace-backups.ts';
+import {readAuditCommandGroup} from './history-command-group.ts';
+export type OwnerCommandServices=Pick<PrepareContext,'attachmentAccess'|'verifyAttachment'>;
+/** Used by authenticated server routes and the compiler; no request may override owner or authority lookups. */
+export function ownerPrepareContext(db:SqlDatabase,userId:string,before:WorkspaceEnvelope,command:WorkspaceCommand,now:string,services:OwnerCommandServices={},mutationId?:string):PrepareContext{
+ if(!userId)throw new Error('An authenticated owner is required.');
+ return {mutationId,userId,before,command,now,query:ownerReader(db,userId),attachmentAccess:services.attachmentAccess,verifyAttachment:services.verifyAttachment,
+  readImport:id=>readStagedImport(db,userId,id,now),backups:{get:id=>readWorkspaceBackup(db,userId,id),list:()=>listWorkspaceBackups(db,userId)},readAuditGroup:eventId=>readAuditCommandGroup(db,userId,eventId),
+  trustedDecisionVersion:async(id,version,hash)=>Boolean(await db.prepare('SELECT decision_id FROM decision_owner_grants WHERE user_id=? AND decision_id=? AND version=? AND content_hash=?').bind(userId,id,version,hash).first()),
+  trustedAcceptanceRecord:async(id,hash)=>Boolean(await db.prepare('SELECT record_id FROM acceptance_owner_grants WHERE user_id=? AND record_id=? AND content_hash=?').bind(userId,id,hash).first()),
+ };
+}

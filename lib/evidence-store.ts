@@ -14,7 +14,7 @@ type Table=typeof TABLES[number];
 export const EVIDENCE_SNAPSHOT_LIMITS={rows:10000,bytes:8_000_000,attempts:3,pageSize:200} as const;
 export type AttachmentSnapshot=Omit<AttachmentRecord,'storageKey'|'uploadMutationId'>;
 export interface EvidenceSnapshot {
- revision:number;asOf:string;evidenceHeads:VersionedRecordHead[];evidenceVersions:EvidenceVersion[];evidenceMappings:LegacyEvidenceMapping[];
+ requirementRowRevisions:Record<string,number>;revision:number;asOf:string;evidenceHeads:VersionedRecordHead[];evidenceVersions:EvidenceVersion[];evidenceMappings:LegacyEvidenceMapping[];
  links:EvidenceLink[];requirements:EvidenceRequirement[];acceptances:AcceptanceRecord[];decisionHeads:VersionedRecordHead[];decisionVersions:DecisionVersion[];
  attachments:AttachmentSnapshot[];attachmentUsage:{bytes:number;files:number}|null;legacyCounts:Partial<Record<Table,number>>;warnings:string[];attachmentRecovery:'metadata-only';
 }
@@ -25,7 +25,7 @@ async function scan(db:SqlDatabase,userId:string):Promise<Record<Table,ModuleRow
 }
 function object(value:unknown):value is Record<string,unknown>{return !!value&&typeof value==='object'&&!Array.isArray(value);}
 async function parseSnapshot(rows:Record<Table,ModuleRow[]>,revision:number,now:string):Promise<EvidenceSnapshot>{
- const result:EvidenceSnapshot={revision,asOf:now,evidenceHeads:[],evidenceVersions:[],evidenceMappings:[],links:[],requirements:[],acceptances:[],decisionHeads:[],decisionVersions:[],attachments:[],attachmentUsage:null,legacyCounts:{},warnings:[],attachmentRecovery:'metadata-only'};
+ const result:EvidenceSnapshot={requirementRowRevisions:{},revision,asOf:now,evidenceHeads:[],evidenceVersions:[],evidenceMappings:[],links:[],requirements:[],acceptances:[],decisionHeads:[],decisionVersions:[],attachments:[],attachmentUsage:null,legacyCounts:{},warnings:[],attachmentRecovery:'metadata-only'};
  for(const table of TABLES)for(const row of rows[table]){
   let value:unknown;try{value=JSON.parse(row.payload_json);}catch{throw new Error('Stored evidence metadata cannot be parsed.');}
   const legacy=table==='decisions'||table==='evidence_records'&&(!object(value)||!Object.hasOwn(value,'currentVersion'))||table==='evidence_links'&&(!object(value)||!Object.hasOwn(value,'evidenceId'))||table==='attachments'&&(!object(value)||!Object.hasOwn(value,'status'));
@@ -36,7 +36,7 @@ async function parseSnapshot(rows:Record<Table,ModuleRow[]>,revision:number,now:
    case 'evidence_versions':{const version=evidenceVersionSchema.parse(value);if(await versionRowId(version.id,version.version)!==row.id)throw new Error('Evidence version physical identity differs.');result.evidenceVersions.push(version);break;}
    case 'evidence_mappings':result.evidenceMappings.push(legacyEvidenceMappingSchema.parse(value));break;
    case 'evidence_links':{const link=evidenceLinkSchema.parse(value);if(link.id!==row.id)throw new Error('Evidence link identity differs.');result.links.push(link);break;}
-   case 'evidence_requirements':{const requirement=evidenceRequirementSchema.parse(value);if(requirement.id!==row.id)throw new Error('Requirement identity differs.');result.requirements.push(requirement);break;}
+   case 'evidence_requirements':{const requirement=evidenceRequirementSchema.parse(value);if(requirement.id!==row.id)throw new Error('Requirement identity differs.');result.requirements.push(requirement);result.requirementRowRevisions[requirement.id]=row.row_revision;break;}
    case 'acceptance_records':{const acceptance=acceptanceRecordSchema.parse(value);if(acceptance.id!==row.id)throw new Error('Acceptance identity differs.');result.acceptances.push(acceptance);break;}
    case 'decision_records':{const head=evidenceHeadSchema.parse(value);if(head.id!==row.id)throw new Error('Decision head identity differs.');result.decisionHeads.push(head);break;}
    case 'decision_versions':{const version=decisionVersionSchema.parse(value);if(await versionRowId(version.id,version.version)!==row.id)throw new Error('Decision version physical identity differs.');result.decisionVersions.push(version);break;}

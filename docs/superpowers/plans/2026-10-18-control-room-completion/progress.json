@@ -95,7 +95,9 @@
         "Working-tree checkpoint:568 Node tests passed,zero failures/skips; includes real SQLite ownership, immutable version/acceptance, foreign-key restore rollback, criterion/contradiction/grant races, stable audit import and scope history tests. Subsequent attachment/undo route integration and new migration changes require a fresh complete gate.",
         "Independent exact-model workers completed focused validation, attachment policy, decisions, acceptance, history, composite module and migration reviews; no live provider/R2/device execution inferred.",
         "Coherent Phase3 source checkpoint:604 Node tests passed,zero failures/skips; typecheck,lint,production build pass;31 Chromium journeys discovered including5new evidence/history tests, execution pending cloud CI. Protected evidence/decision editors and history/whole-command undo review integrated; attachment manifests explicitly exclude ready-file bytes and report missing files.",
-        "Actual isolated built-worker HTTP GET/POST/replay/CSRF fixture passed on the coherent604-test source. Private Site identity unchanged; rejected inspection commit excluded from implementation ancestry."
+        "Actual isolated built-worker HTTP GET/POST/replay/CSRF fixture passed on the coherent604-test source. Private Site identity unchanged; rejected inspection commit excluded from implementation ancestry.",
+        "CI39139870503/job117711897996 at6e31db7e passed cleanlockedinstall,604Node,typecheck,lint,build,actualHTTPfixture and27/31Chromium. All5new evidence/decision journeys passed. Four existingreviewedmerge journeys exposed one real overbroadnormalizedrestoreguard; narrowedfix +4actualSQLite preservation/race regressions prepared,rerunpending.",
+        "Merge-fix working source passes617 Node tests,zero failures/skips,typecheck,lint,productionbuild andactualisolatedHTTPfixture;4newSQLite regressions retainall16modules andcurrentownergrants while rejecting complete-set races. Owner assessment freshness/read-only preview and server-only attribution are implemented; currentprotectedactionUI is not yet integrated."
       ],
       "blockers": [
         "Private R2 provisioning and actual hosted upload/download/restore acceptance remain unverified; optional BUCKET availability must be established through supported Sites release workflow.",
@@ -161,17 +163,20 @@
     "evidence": "Explicit supported model selection accepted and worker IDs returned."
   },
   "checkpoint": {
-    "publishedCommit": "ac17e4ba2d5d55b4fe6f0e16c1638ffc78ed6a8f",
-    "workingTree": "Coherent Phase3 source checkpoint ready for reviewable commit;604 Node tests/typecheck/lint/build pass. New31-test browser suite awaits cloud execution. Preserve current source and all worker files.",
-    "tests": "Published ac17e4ba:423 Node+26 Chromium+all gates. New Phase3 source:604 Node,zero failures/skips,typecheck/lint/production build pass;31 Chromium journeys discovered,not yet executed on this source. Actual isolated built-worker HTTP fixture also passed.",
-    "knownFailures": [],
+    "publishedCommit": "6e31db7e33e5d0d0876f949958ee25f20536fe73",
+    "workingTree": "Uncommitted guarded merge fix, owner assessment freshness/private attribution and read-only preview; protected link/requirement/assessment/decision UI leaf work also underway. Preserve all files.",
+    "tests": "Published6e31db7e CI:604Node/allbuildfixturepass,27/31Chromiuminclall5newjourneys;4mergefailures. Newmergefixbackend workingtree:617Node/type/lint/build/HTTPfixturepass;rerunpending.",
+    "knownFailures": [
+      "Published6e31db7e rejects reviewedplanning merges whennormalizedmodulespopulated;rootfixuncommitted narrows module-preservation authority toreviewedmerge andassertsall16currentrowsets. FouractualSQLite regressionspass;original4browsermergejourneysunchanged,rerunpending."
+    ],
     "unfinished": [
       "Phase3 coherent integration, guarded attachment lifecycle, protected UI and real-browser evidence/history regression; explicit private blob gate",
       "Phases4\u20138",
       "External hosted/provider/device/renewable runner/private blob acceptance"
     ],
-    "nextCommand": "Publish the committed sanitized Phase3 tree to existing draft branch; run cloud CI31 Chromium journeys, fix observed failures, then finish Phase3 open UI/cleanup/file recovery before Phases4\u20138.",
-    "publishedTree": "1d09e43e923e1a06a06d8a5e2bc49882870ca82e",
-    "cloudRun": "39136249732 terminalsuccess:423Node+all26Chromium(1.1m)"
+    "nextCommand": "Complete current merge-fix full source gates andfixture, publish coherent backendfix toexistingdraftbranch, rerun31Chromium; integrate protected remainingPhase3UI andlocalR2fixture whileCIruns.",
+    "publishedTree": "0d45a996a9e4c9daf9842bcede90a613de5bc554",
+    "cloudRun": "39139870503/job117711897996 at6e31db7e terminalfailure: cleaninstall604Node/type/lint/build/HTTPfixturepass;Chromium27/31 inclall5newevidencejourneys. All4failures reviewedplanningmerge withpopulatednormalizedtables.",
+    "currentCommit": "6e31db7e33e5d0d0876f949958ee25f20536fe73"
   }
 }
