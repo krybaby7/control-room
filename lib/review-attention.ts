@@ -31,8 +31,15 @@ export async function buildReviewAttention(workspace:Workspace,snapshot:Evidence
   if(record.evidenceRefs.some(ref=>snapshot.evidenceVersions.some(e=>e.id===ref.id&&e.version===ref.version&&e.attachmentIds.length)))reasons.push('Review actual attachment verification; this snapshot includes metadata only.');
   if(reasons.length)items.push({id:`assessment:${record.id}`,kind:'assessment-review',subject:record.subject,projectId:project(record.subject),title:`${trustedRecord?'Review assessment':'Contextual assessment'}: ${title(record.subject)}`,reasons,href:'/?view=evidence'});
  }
- const today=cairoDate(asOf);for(const decision of snapshot.decisionVersions){if(!snapshot.decisionHeads.some(h=>h.id===decision.id&&h.currentVersion===decision.version&&h.archivedAt===null)||decision.status==='superseded'||decision.reviewOn===null||decision.reviewOn>today)continue;
-  const subject=decision.subjects.length===1?decision.subjects[0]:undefined;const projects=[...new Set(decision.subjects.map(project).filter((p):p is string=>p!==null))];items.push({id:`decision:${decision.id}:${decision.version}`,kind:'decision-review',...(subject?{subject}:{}),projectId:projects.length===1?projects[0]:null,title:`Review decision: ${decision.title}`,reasons:[`Recorded review date ${decision.reviewOn} is due as of Cairo date ${today}.`,decision.status==='draft'?'This is a draft, not a recorded decision or execution authorization.':'Recorded choice is historical context; reviewing it does not execute an action or establish current acceptance authority.'],href:reviewHref({kind:'decision',id:decision.id,version:decision.version})});
+ const today=cairoDate(asOf);for(const decision of snapshot.decisionVersions){
+  if(!snapshot.decisionHeads.some(h=>h.id===decision.id&&h.currentVersion===decision.version&&h.archivedAt===null)||decision.status==='superseded')continue;
+  const reasons:string[]=[];
+  if(decision.reviewOn!==null&&decision.reviewOn<=today)reasons.push(`Recorded review date ${decision.reviewOn} is due as of Cairo date ${today}.`);
+  for(const linked of decision.subjects){const basis=decision.criteriaBasis?.find(value=>sameSubject(value.subject,linked));if(!basis){reasons.push(`Recorded criteria context for ${linked.type} ${linked.id} is unknown; no criteria change is inferred.`);continue;}if(basis.hash!==await criteriaHash(linked,snapshot.requirements))reasons.push(`Recorded criteria context for ${linked.type} ${linked.id} differs from current criteria; inspect this exact decision version.`);}
+  if(!reasons.length)continue;
+  reasons.push(decision.status==='draft'?'This is a draft, not a recorded decision or execution authorization.':'Recorded choice and criteria basis are historical context; they do not establish current owner authority or execute an action.');
+  const subject=decision.subjects.length===1?decision.subjects[0]:undefined;const projects=[...new Set(decision.subjects.map(project).filter((p):p is string=>p!==null))];items.push({id:`decision:${decision.id}:${decision.version}`,kind:'decision-review',...(subject?{subject}:{}),projectId:projects.length===1?projects[0]:null,title:`Review decision: ${decision.title}`,reasons:[...new Set(reasons)],href:reviewHref({kind:'decision',id:decision.id,version:decision.version})});
  }
+
  if(items.length>10000||new TextEncoder().encode(canonical(items)).length>8_000_000)throw new Error('Review attention output exceeds bounded limit.');return items;
 }

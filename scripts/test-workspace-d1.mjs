@@ -15,6 +15,10 @@ import {beginUpload,finishUpload} from '../lib/attachment-upload-fences.ts';
 import {exportWorkspaceBundle} from '../lib/workspace-export.ts';
 import {writeAttachmentArchive} from '../lib/attachment-archive-export.ts';
 import {stageAttachmentArchive} from '../lib/attachment-archive-staging.ts';
+import {BASELINE_ID,getProjectBaseline} from '../lib/project-baselines.ts';
+import {legacyEvidenceId} from '../lib/evidence-migration.ts';
+import {versionRowId} from '../lib/version-identity.ts';
+import {criteriaHash} from '../lib/evidence-requirements.ts';
 import {resolveAttachmentNamespace} from '../lib/attachment-namespace-access.ts';
 assert.ok(Number(process.versions.node.split('.')[0])>=24,'Node 24 or newer is required.');
 const owner='synthetic-d1-native-archive-owner',now='2026-10-18T12:00:00.000Z',bytes=new TextEncoder().encode('Actual Miniflare D1 and R2 fixture bytes.\n');
@@ -28,6 +32,24 @@ try{
  await loadWorkspace(db,owner,()=>createSeedWorkspace(now),now);
  async function send(command){return executeWorkspaceCommand(owner,{protocolVersion:1,expectedRevision:(await readCurrent(db,owner,now)).revision,mutationId:crypto.randomUUID(),command},{db,handlers:workspaceHandlers,now:()=>now,...await ownerAttachmentServices(db,owner,now,bucket)});}
  const before=await readCurrent(db,owner,now),project=before.workspace.projects[0];assert.ok(project);
+ const baseline=getProjectBaseline(project);assert.ok(baseline);
+ assert.equal((await send({type:'baseline.apply',projectId:project.id,baselineId:BASELINE_ID})).status,'committed');
+ const contextLinks=(await ownerReader(db,owner).list('evidence_links')).map(r=>JSON.parse(r.payload_json)).filter(link=>link.subject.type==='project'&&link.subject.id===project.id);assert.equal(contextLinks.length,baseline.sources.length);assert.ok(contextLinks.every(link=>link.relation==='context'&&link.subject.id===project.id));
+ const baselineAudit=await db.prepare("SELECT source_ref FROM audit_events WHERE user_id=? AND kind='baseline.evidence.imported'").bind(owner).all();assert.equal(baselineAudit.results.length,baseline.sources.length);
+ const task=(await readCurrent(db,owner,now)).workspace.tasks[0];assert.ok(task);const legacySubject={type:'task',id:task.id},legacyId=await legacyEvidenceId(legacySubject);
+ assert.equal((await send({type:'task.update',id:task.id,patch:{evidence:'Original D1 compatibility evidence'}})).status,'committed');
+ assert.equal((await send({type:'evidence.migrate-legacy',subject:legacySubject})).status,'committed');
+ const originalLegacy=await ownerReader(db,owner).get('evidence_versions',await versionRowId(legacyId,1));assert.ok(originalLegacy);
+ assert.equal((await send({type:'task.update',id:task.id,patch:{evidence:'Corrected D1 compatibility evidence'}})).status,'committed');
+ assert.deepEqual(await ownerReader(db,owner).get('evidence_versions',await versionRowId(legacyId,1)),originalLegacy);
+ const correctedLegacy=JSON.parse((await ownerReader(db,owner).get('evidence_versions',await versionRowId(legacyId,2))).payload_json);assert.equal(correctedLegacy.statement,'Corrected D1 compatibility evidence');assert.equal(correctedLegacy.supersedesVersion,1);
+ const subject={type:'project',id:project.id};assert.equal((await send({type:'evidence.requirement.create',value:{subject,label:'Synthetic D1 criterion',scope:'implementation',required:true,maxAgeDays:null,candidate:null,requireAttachment:false}})).status,'committed');
+ const requirementRows=(await ownerReader(db,owner).list('evidence_requirements')).map(r=>JSON.parse(r.payload_json)),basis=await criteriaHash(subject,requirementRows);
+ assert.equal((await send({type:'decisions.create',value:{title:'Synthetic D1 decision',question:'Choose fixture path?',options:[{id:'yes',label:'Yes',description:''}],selectedOptionId:null,rationale:'',reviewOn:null,subjects:[subject],evidenceRefs:[],sourceCaptureId:null,sourceUrl:null,supersedesDecisionId:null}})).status,'committed');
+ const decisionId=(await ownerReader(db,owner).list('decision_records'))[0].id,firstDecision=await ownerReader(db,owner).get('decision_versions',await versionRowId(decisionId,1));assert.deepEqual(JSON.parse(firstDecision.payload_json).criteriaBasis,[{subject,hash:basis}]);
+ assert.equal((await send({type:'decisions.decide',id:decisionId,expectedVersion:1,choice:{selectedOptionId:'yes',rationale:'Explicit synthetic owner choice'}})).status,'committed');
+ assert.deepEqual(await ownerReader(db,owner).get('decision_versions',await versionRowId(decisionId,1)),firstDecision);assert.deepEqual(JSON.parse((await ownerReader(db,owner).get('decision_versions',await versionRowId(decisionId,2))).payload_json).criteriaBasis,[{subject,hash:basis}]);
+ assert.equal((await db.prepare('SELECT COUNT(*) n FROM decision_owner_grants WHERE user_id=?').bind(owner).first()).n,1);
  assert.equal((await send({type:'project.edit',id:project.id,patch:{name:'Synthetic D1 verified project'}})).status,'committed');
  assert.equal((await send({type:'attachment.reserve',value:{filename:'d1-fixture.txt',mimeType:'text/plain',expectedBytes:bytes.length}})).status,'committed');
  const row=(await ownerReader(db,owner).list('attachments'))[0],original=attachmentRecordSchema.parse(JSON.parse(row.payload_json)),namespace=(await getWorkspaceNamespaces(db,owner)).blobNamespace;
@@ -44,7 +66,8 @@ try{
  assert.equal(stage.archive.files,1);assert.equal((await send({type:'workspace.import.commit',importId:stage.stage.id,hash:stage.stage.hash,targetRevision:revision,mode:'replace'})).status,'committed');
  const restored=attachmentRecordSchema.parse(JSON.parse((await ownerReader(db,owner).get('attachments',ready.id)).payload_json)),restoredNamespace=await resolveAttachmentNamespace(db,owner,restored);assert.ok(restoredNamespace);assert.notEqual(restored.storageKey,ready.storageKey);assert.equal(restored.sha256,ready.sha256);
  assert.deepEqual((await readReadyAttachment(owner,restored,store,{ownerNamespace:restoredNamespace,now})).bytes,bytes);assert.deepEqual((await ownerReader(db,owner).list('evidence_versions')).map(r=>({id:r.id,payload:r.payload_json})),evidence);
+ assert.equal((await db.prepare('SELECT COUNT(*) n FROM decision_owner_grants WHERE user_id=?').bind(owner).first()).n,0);
  assert.equal((await db.prepare('SELECT status FROM attachment_archive_stages WHERE user_id=? AND id=?').bind(owner,stage.archive.id).first()).status,'committed');
- console.log(JSON.stringify({migrations:migrationNames.length,planning:'committed',finalization:'verified-ledger',nativeArchive:'reviewed-restored',sameLogicalId:restored.id===ready.id,bytes:bytes.length,revision:(await readCurrent(db,owner,now)).revision}));
+ console.log(JSON.stringify({migrations:migrationNames.length,planning:'committed',baseline:'context-sources',legacyEvidence:'immutable-correction',decisionCriteria:'captured-create-and-decide',finalization:'verified-ledger',nativeArchive:'reviewed-restored',sameLogicalId:restored.id===ready.id,bytes:bytes.length,revision:(await readCurrent(db,owner,now)).revision}));
  console.log('PASS actual isolated Miniflare D1 + R2: migrations, planning, reservation, upload, finalization, native ZIP staging and reviewed restore.');
 }finally{await mf.dispose();}

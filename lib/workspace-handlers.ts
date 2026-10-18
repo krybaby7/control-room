@@ -1,3 +1,6 @@
+import {prepareBaselineEvidence} from './evidence-baseline.ts';
+import {getProjectBaseline} from './project-baselines.ts';
+import {prepareLegacyEvidenceSync} from './evidence-legacy-sync.ts';
 import {attachmentCommandHandlers} from './attachment-handlers.ts';
 import {historyUndoHandler} from './history-undo-store.ts';
 import {acceptanceCommandHandlers} from './acceptance-handlers.ts';
@@ -21,7 +24,10 @@ export const workspaceHandlers: CommandHandlerRegistry = new Map(planningCommand
       const next = new Map(planningAfter[collection].map(row => [row.id,row]));
       return [...new Set([...previous.keys(), ...next.keys()])].filter(id => JSON.stringify(previous.get(id)) !== JSON.stringify(next.get(id))).map(id => ({path:[collection,id], before:{exists:previous.has(id),value:(previous.get(id) ?? null) as unknown as JsonValue},after:{exists:next.has(id),value:(next.get(id) ?? null) as unknown as JsonValue}}));
     });
-    return { planningAfter, writes:type.startsWith('task.')?await syncLegacyWeeklyPins(context,planningAfter):[], events:[{id:crypto.randomUUID(),kind:type,entityType:type.split('.')[0],entityId:typeof context.command.id === 'string' ? context.command.id : null,changes,origin:'owner' as const,actorId:context.userId,occurredAt:context.now,sourceRef:null,undoOf:null}],jobs:[],...(type === 'workspace.restore' ? {backup:{reason:'restore' as const},restoreEpoch:true} : {}) };
+    const legacy=await prepareLegacyEvidenceSync(context,planningAfter);
+    const baseline=type==='baseline.apply'?await prepareBaselineEvidence(context,planningAfter):{writes:[],preconditions:[],events:[]};
+    const sourcePackage=type==='baseline.apply'?getProjectBaseline(context.before.workspace.projects.find(project=>project.id===context.command.projectId)!):null;
+    return { planningAfter, writes:[...(type.startsWith('task.')?await syncLegacyWeeklyPins(context,planningAfter):[]),...legacy.writes,...baseline.writes],preconditions:[...(legacy.preconditions??[]),...(baseline.preconditions??[])], events:[...legacy.events,...baseline.events,{id:crypto.randomUUID(),kind:type,entityType:type.split('.')[0],entityId:typeof context.command.id === 'string' ? context.command.id : null,changes,origin:'owner' as const,actorId:context.userId,occurredAt:context.now,sourceRef:sourcePackage?`baseline:${sourcePackage.id}:${sourcePackage.key}:${sourcePackage.checkedAt}`:null,undoOf:null}],jobs:[],...(type === 'workspace.restore' ? {backup:{reason:'restore' as const},restoreEpoch:true} : {}) };
   },
 }]));
 

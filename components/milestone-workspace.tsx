@@ -1,5 +1,6 @@
 'use client';
 
+import {SubjectAssessmentStatus} from './subject-assessment-status';
 import {SubjectReviewLink} from './subject-review-link';
 
 import {useId,useState} from 'react';
@@ -10,10 +11,10 @@ import {taskGraphFulfilled} from '@/lib/task-graph';
 import {dateLabel,EmptyState,horizonLabels,Status,statusLabels} from './ui';
 
 export interface MilestoneWorkspaceProps {
- workspace:Workspace;milestone:Milestone;onTask:(task:Task)=>void;onEdit:(milestone:Milestone)=>void;onNewTask:(milestone:Milestone)=>void;onCapture?:(capture:Capture)=>void;onCommand:(command:PlanningWorkflowCommand)=>Promise<void>;onBack:()=>void;
+ revision:number;workspace:Workspace;milestone:Milestone;onTask:(task:Task)=>void;onEdit:(milestone:Milestone)=>void;onNewTask:(milestone:Milestone)=>void;onCapture?:(capture:Capture)=>void;onCommand:(command:PlanningWorkflowCommand)=>Promise<void>;onBack:()=>void;
 }
 const PAGE_SIZE=25;
-export function MilestoneWorkspace({workspace,milestone:selected,onTask,onEdit,onNewTask,onCapture,onCommand,onBack}:MilestoneWorkspaceProps){
+export function MilestoneWorkspace({revision,workspace,milestone:selected,onTask,onEdit,onNewTask,onCapture,onCommand,onBack}:MilestoneWorkspaceProps){
  const milestone=workspace.milestones.find(row=>row.id===selected.id)??selected;
  const heading=useId();const [query,setQuery]=useState('');const [status,setStatus]=useState('all');const [horizon,setHorizon]=useState('all');const [page,setPage]=useState(0);const [busy,setBusy]=useState(false);const [error,setError]=useState('');const [notice,setNotice]=useState('');
  const project=workspace.projects.find(row=>row.id===milestone.projectId);const current=workspace.milestones.find(row=>row.id===milestone.id&&row.projectId===milestone.projectId);
@@ -29,7 +30,7 @@ export function MilestoneWorkspace({workspace,milestone:selected,onTask,onEdit,o
  const renderCaptures=(rows:Capture[],empty:string)=><div className="capture-list">{rows.length?rows.map(capture=><article className="capture-card" key={capture.id}><div className="capture-content"><p className="eyebrow">{capture.kind} · {capture.status}</p>{onCapture?<button className="capture-title" onClick={()=>onCapture(capture)}>{capture.title}</button>:<h3>{capture.title}</h3>}<p className="capture-body">{capture.body||'No additional notes.'}</p><p className="field-hint">Linked through {workspace.tasks.find(task=>task.id===capture.convertedTaskId)?.title??'an unavailable task'}.</p></div></article>):<div className="panel"><EmptyState title={empty} text="Only capture records linked through this milestone’s tasks appear here. Project-wide notes are not treated as milestone decisions."/></div>}</div>;
  return <section aria-labelledby={heading}>
   <button type="button" className="back-button" onClick={onBack}><ArrowLeft size={16}/>Back to {project.name}</button>
-  <p><SubjectReviewLink subject={{type:'milestone',id:milestone.id}}/></p>
+  <p><SubjectReviewLink subject={{type:'milestone',id:milestone.id}}/></p><SubjectAssessmentStatus revision={revision} subject={{type:'milestone',id:milestone.id}} planningStatus={milestone.status}/>
   <header className="page-heading"><div><p className="eyebrow">MILESTONE · {project.name}{project.archivedAt?' · PROJECT ARCHIVED':''}</p><h1 id={heading}>{milestone.title}</h1><p>{milestone.description||'No description added.'}</p></div><button type="button" className="button secondary" disabled={busy} onClick={()=>onEdit(milestone)}><Edit3 size={16}/>Edit milestone</button></header>
   {(milestone.archivedAt||project.archivedAt)&&<p className="capture-preview" role="status">{milestone.archivedAt?'This milestone is archived.':'This project is archived.'} Linked tasks, evidence and completion history remain available.</p>}
   {error&&<p className="form-error" role="alert">{error}</p>}<p className="field-hint" role="status">{notice}</p>

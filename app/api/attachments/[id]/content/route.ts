@@ -1,3 +1,4 @@
+import {settleUploadBody} from '../../../../../lib/upload-body-settlement';
 import {resolveAttachmentNamespace} from '../../../../../lib/attachment-namespace-access';
 import {canonical,contentHash} from '../../../../../lib/canonical-json';
 import {attachmentDownloadHeaders,AttachmentPolicyError} from '../../../../../lib/attachment-policy';
@@ -29,17 +30,17 @@ export async function GET(request:Request,{params}:{params:Promise<{id:string}>}
 /** Transport stages immutable bytes only. Finalization remains a separate receipted owner command. */
 export async function PUT(request:Request,{params}:{params:Promise<{id:string}>}){
  const headers={'Cache-Control':'no-store, private','X-Content-Type-Options':'nosniff'};
- // Cancel unused transport bodies on denial; rejected content is never staged.
- const discardBody=()=>{try{void request.body?.cancel().catch(()=>{});}catch{}};
- const reply=(body:unknown,init?:ResponseInit)=>{discardBody();return Response.json(body,init);};
+ // Await bounded transport settlement before returning a response to workerd.
+ const finish=async(response:Response)=>{await settleUploadBody(request.body);return response;};
+ const reply=(body:unknown,init?:ResponseInit)=>finish(Response.json(body,init));
  const user=await getChatGPTUser();if(!user)return reply({error:'Sign in again before uploading.'},{status:401,headers});
  if(request.headers.get('origin')!==new URL(request.url).origin)return reply({error:'Upload from this app.'},{status:403,headers});
  if(!env.DB)return reply({error:'Attachment storage is unavailable.'},{status:503,headers});
- const {id}=await params;if(!id||id.length>128)return (discardBody(),new Response(null,{status:404,headers}));
+ const {id}=await params;if(!id||id.length>128)return finish(new Response(null,{status:404,headers}));
  try{
   const row=await ownerReader(env.DB,user.userId).get('attachments',id),namespaces=await getWorkspaceNamespaces(env.DB,user.userId);
-  if(!row||!namespaces)return (discardBody(),new Response(null,{status:404,headers}));
-  const payload=JSON.parse(row.payload_json);if(await contentHash(canonical(payload))!==row.content_hash)throw new Error('Attachment metadata differs.');const record=attachmentRecordSchema.parse(payload);if(record.id!==id)return (discardBody(),new Response(null,{status:404,headers}));
+  if(!row||!namespaces)return finish(new Response(null,{status:404,headers}));
+  const payload=JSON.parse(row.payload_json);if(await contentHash(canonical(payload))!==row.content_hash)throw new Error('Attachment metadata differs.');const record=attachmentRecordSchema.parse(payload);if(record.id!==id)return finish(new Response(null,{status:404,headers}));
   if(record.status!=='reserved')return reply({error:'This reservation is no longer open.'},{status:409,headers});
   if(request.headers.get('content-type')?.split(';')[0].trim().toLowerCase()!==record.mimeType||!request.body)return reply({error:'Use the reserved file type and original body.'},{status:415,headers});
   const length=request.headers.get('content-length');if(length!==null&&(!/^\d+$/.test(length)||Number(length)!==record.expectedBytes))return reply({error:'File length differs from its reservation.'},{status:413,headers});

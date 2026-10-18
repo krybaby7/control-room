@@ -35,8 +35,10 @@ export interface DecisionVersion {
  subjects:EvidenceSubject[];evidenceRefs:EvidenceRef[];sourceCaptureId:string|null;sourceUrl:string|null;
  supersedesDecisionId:string|null;supersedesVersion:number|null;recordedAt:string;
  exception:{scope:ClaimScope;expiresAt:string;requirementIds:string[]}|null;
+ /** Server-captured comparison context; imported copies are contextual, never grants. */
+ criteriaBasis?:{subject:EvidenceSubject;hash:string}[];
 }
-export type DecisionInput=Omit<DecisionVersion,'id'|'version'|'status'|'decidedAt'|'recordedAt'|'supersedesVersion'|'exception'>;
+export type DecisionInput=Omit<DecisionVersion,'id'|'version'|'status'|'decidedAt'|'recordedAt'|'supersedesVersion'|'exception'|'criteriaBasis'>;
 export interface AttachmentRecord {
  id:string;status:'reserved'|'ready'|'quarantined'|'deleted';filename:string;mimeType:string;
  expectedBytes:number;actualBytes:number|null;sha256:string|null;storageKey:string;

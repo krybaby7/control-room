@@ -1,3 +1,4 @@
+import {criteriaHash} from './evidence-requirements.ts';
 import {z} from 'zod';
 import {OWNER_TABLES,type ModuleRow,type RegisteredOwnerTable} from './workspace-modules.ts';
 import type {CommandHandler,PrepareContext,MutationPlan} from './workspace-transaction.ts';
@@ -45,7 +46,9 @@ const handler:CommandHandler={async prepare(ctx){
  case 'decisions.migrate-capture':{const capture=context.captures.get(command.captureId);if(!capture)throw new Error('Capture is missing for this owner.');results=[await migrateCaptureDecision(capture,context)];break;}
  }
  const plan:MutationPlan={planningAfter:ctx.before.workspace,writes:[],jobs:[],events:[],referenceSnapshot:loaded.snapshot};
- for(const record of results){const prior=context.records.get(record.head.id),headRow=loaded.tables.get('decision_records')!.find(row=>row.id===record.head.id);
+ for(const record of results){const prior=context.records.get(record.head.id);
+ for(const value of record.versions.filter(v=>v.version>(prior?.head.currentVersion??0)))value.criteriaBasis=await Promise.all(value.subjects.map(async subject=>({subject,hash:await criteriaHash(subject,[...context.requirements.values()])})));
+ const headRow=loaded.tables.get('decision_records')!.find(row=>row.id===record.head.id);
  if(!prior||canonical(prior.head)!==canonical(record.head))plan.writes.push({table:'decision_records',id:record.head.id,operation:headRow?'update':'insert',expectedRowRevision:headRow?.row_revision??null,value:record.head as unknown as JsonValue});
  for(const value of record.versions.filter(v=>v.version>(prior?.head.currentVersion??0)))plan.writes.push({table:'decision_versions',id:await versionRowId(value.id,value.version),operation:'insert',expectedRowRevision:null,value:value as unknown as JsonValue});
  const eventKind=command.type==='decisions.decide'?'decision.decide':command.type.replace('decisions.','decision.');
