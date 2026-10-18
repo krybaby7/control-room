@@ -100,7 +100,7 @@ new, so old cursor MACs do not authorize the new binding. This policy does not
 change ordinary portable imports: imported history remains claims and cannot
 mint native grants.
 
-The closed private profile also preserves existing owner assessment/decision
+The closed 42-table private profile also preserves existing owner assessment/decision
 attribution, exact review acknowledgements, notification read state, active
 baseline head identity and unsubmitted server drafts. Source grants are checked
 against exact same-owner immutable body hashes. The target seal independently
@@ -115,3 +115,21 @@ Execution credentials, provider grants/capabilities and paid consent remain
 excluded; pending jobs stay cancelled and unknown attempts remain fenced.
 
 Single-owner eligibility is checked before source maintenance DDL and again in the atomic freeze predicate and frozen-source verification. Foreign user rows are rejected; the explicitly inventoried global device rate buckets convey no owner data. Final readiness requires the actual source audit identity, a distinct target blob namespace and a fresh cursor secret. Current agent attempt identities retain their complete original approval envelope, task input and frozen admission bytes; a real claim fixture verifies preservation without restoring lease authority.
+
+The remaining dated native source/review integration journals, occurrence claims,
+source cursor/freshness state and automation history are copied as inert data.
+Integration lease credentials are cleared; schedules and sources stay paused.
+Native device sessions, heartbeat receipts, observation/latest/aggregate bodies
+and sequence floors remain original, while runtimes are revoked and sessions
+retired. Original reported/observed/received dates are preserved. Credentials,
+provider grants and fresh execution consent are never copied. The closed table
+classification rejects unclassified schema additions and populated transient
+claim/assertion/guard tables instead of dropping them.
+
+Final readiness independently reads each actual frozen private source row and
+its exact owner/primary-key target row, hashes the full scalar bodies and checks
+the deterministic inert transformation and exact row counts. This comparison
+uses primary-key pages, with single-row pages for large serialized bodies, avoiding giant aggregate JSON proofs. The five physical
+backup rekey tables follow the separately verified byte/ledger adapter. A
+caller recomputing a generic target inventory cannot excuse an omitted
+observation, altered receipt or changed sequence floor.

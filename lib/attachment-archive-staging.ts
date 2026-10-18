@@ -31,7 +31,7 @@ export async function stageAttachmentArchive(db: SqlDatabase, owner: string, str
       validateAttachmentContent(bytes, record.mimeType, record.expectedBytes);
       if (await contentHash(bytes) !== digest) throw new Error('Archive attachment digest differs.');
       const key = record.storageKey, token = crypto.randomUUID(), now = options.now();
-      const attemptCapacity=await privateCapacityGuard(db,owner,{growth:[privateRowGrowth('attachment_upload_attempts',null,{token,attachment_id:id,storage_key:key,created_at:now,settled_at:null})]});
+      const attemptCapacity=await privateCapacityGuard(db,owner,{newPendingPuts:1,growth:[privateRowGrowth('attachment_upload_attempts',null,{token,attachment_id:id,storage_key:key,created_at:now,settled_at:null})]});
       const attempt = await db.prepare(`INSERT INTO attachment_upload_attempts(user_id,token,attachment_id,storage_key,created_at,settled_at)
         SELECT ?,?,?,?,?,NULL WHERE EXISTS(SELECT 1 FROM attachment_archive_stages s JOIN attachment_blob_objects o ON o.user_id=s.user_id AND o.namespace=s.namespace JOIN attachment_blob_namespaces n ON n.user_id=s.user_id AND n.namespace=s.namespace
         WHERE s.user_id=? AND s.id=? AND s.status='preparing' AND s.expires_at>? AND o.storage_key=? AND o.attachment_id=? AND o.bytes=? AND o.sha256=? AND o.verified_at IS NULL AND o.purged_at IS NULL AND n.purpose='archive-stage' AND n.source_import_id IS NULL AND o.storage_key='attachments/'||s.namespace||'/'||o.attachment_id AND ${priorGeneration})

@@ -47,6 +47,21 @@ test('actual native heartbeat, dated latest, aggregate and sequence floors survi
   assert.equal(target.sqlite.prepare('SELECT revoked_at FROM device_runtime').get()!.revoked_at,now);
   assert.equal(target.sqlite.prepare('SELECT last_live_received_at FROM device_runtime').get()!.last_live_received_at,now);
   assert.equal(target.sqlite.prepare('SELECT COUNT(*) count FROM device_credentials').get()!.count,0);
+  // Even an honest recomputed inventory cannot seal an omitted or mutated dated row.
+  const originalLatest=target.sqlite.prepare('SELECT payload_json FROM runtime_latest').get()!;
+  await db.prepare('UPDATE runtime_latest SET payload_json=? WHERE user_id=?').bind('{"tampered":true}',source.owner).run();
+  let badInventory=await recoveryTargetInventorySha256(target.db,destination);
+  await assert.rejects(markRecoveryTargetReady(target.db,source.db,frozen,destination,{privateSha256:value.sha256,inventorySha256:badInventory,actualInventorySha256:()=>recoveryTargetInventorySha256(target.db,destination)}),/Private owner history/);
+  await db.prepare('UPDATE runtime_latest SET payload_json=? WHERE user_id=?').bind(String(originalLatest.payload_json),source.owner).run();
+  await db.prepare('UPDATE device_sessions SET last_window_sequence=2 WHERE user_id=?').bind(source.owner).run();
+  badInventory=await recoveryTargetInventorySha256(target.db,destination);
+  await assert.rejects(markRecoveryTargetReady(target.db,source.db,frozen,destination,{privateSha256:value.sha256,inventorySha256:badInventory,actualInventorySha256:()=>recoveryTargetInventorySha256(target.db,destination)}),/Private owner history/);
+  await db.prepare('UPDATE device_sessions SET last_window_sequence=1 WHERE user_id=?').bind(source.owner).run();
+  await db.prepare('DELETE FROM runtime_observations WHERE user_id=?').bind(source.owner).run();
+  badInventory=await recoveryTargetInventorySha256(target.db,destination);
+  await assert.rejects(markRecoveryTargetReady(target.db,source.db,frozen,destination,{privateSha256:value.sha256,inventorySha256:badInventory,actualInventorySha256:()=>recoveryTargetInventorySha256(target.db,destination)}),/Private owner history/);
+  const observation=value.tables.runtime_observations[0],observationColumns=Object.keys(observation) as Array<keyof typeof observation>;
+  await db.prepare('INSERT INTO runtime_observations(user_id,'+observationColumns.join(',')+') VALUES('+['user_id',...observationColumns].map(()=>'?').join(',')+')').bind(source.owner,...observationColumns.map(column=>observation[column])).run();
   const inventorySha256=await recoveryTargetInventorySha256(target.db,destination);await markRecoveryTargetReady(target.db,source.db,frozen,destination,{privateSha256:value.sha256,inventorySha256,actualInventorySha256:()=>recoveryTargetInventorySha256(target.db,destination)});
   await assert.rejects(ingestHeartbeat(target.db,source.principal,source.envelope,now),/authority|credential|device/i);
  }finally{source.sqlite.close();target.sqlite.close();}

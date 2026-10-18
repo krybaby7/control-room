@@ -23,7 +23,7 @@ export async function beginUpload(db:SqlDatabase,userId:string,input:BeginAttach
  const key=attachmentStorageKey(input.ownerNamespace,record.id);
  if(record.storageKey!==key||record.status!=='reserved'||Date.parse(record.expiresAt)<=Date.parse(input.now))return null;
  const hash=await contentHash(canonical(record)),token=crypto.randomUUID();
- const capacity=await privateCapacityGuard(db,userId,{growth:[privateRowGrowth('attachment_upload_attempts',null,{token,attachment_id:record.id,storage_key:key,created_at:input.now,settled_at:null})]});
+ const capacity=await privateCapacityGuard(db,userId,{newPendingPuts:1,growth:[privateRowGrowth('attachment_upload_attempts',null,{token,attachment_id:record.id,storage_key:key,created_at:input.now,settled_at:null})]});
  const result=await db.prepare(`INSERT INTO attachment_upload_attempts(user_id,token,attachment_id,storage_key,created_at,settled_at)
  SELECT ?,?,?,?,?,NULL WHERE EXISTS (
  SELECT 1 FROM attachments a JOIN workspace_source_namespaces n ON n.user_id=a.user_id
@@ -45,7 +45,7 @@ export interface FinishAttachmentUpload {token:string;now:string;definitivelySet
 export async function finishUpload(db:SqlDatabase,userId:string,input:FinishAttachmentUpload):Promise<boolean>{
  owner(userId);uuid.parse(input.token);evidenceDateSchema.parse(input.now);if(input.definitivelySettled!==true)return false;
  const before=await db.prepare('SELECT token,attachment_id,storage_key,created_at,settled_at FROM attachment_upload_attempts WHERE user_id=? AND token=? AND settled_at IS NULL').bind(userId,input.token).first<{token:string;attachment_id:string;storage_key:string;created_at:string;settled_at:null}>();if(!before)return false;
- const capacity=await privateCapacityGuard(db,userId,{growth:[privateRowGrowth('attachment_upload_attempts',before,{...before,settled_at:input.now})]});
+ const capacity=await privateCapacityGuard(db,userId,{settlingPendingPuts:1,growth:[privateRowGrowth('attachment_upload_attempts',before,{...before,settled_at:input.now})]});
  const result=await db.prepare(`UPDATE attachment_upload_attempts SET settled_at=? WHERE user_id=? AND token=? AND settled_at IS NULL AND julianday(created_at)<=julianday(?) AND (${capacity.sql})`).bind(input.now,userId,input.token,input.now,...capacity.bindings).run();
  return result.meta.changes===1;
 }

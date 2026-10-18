@@ -1,3 +1,4 @@
+import {recoveryPrivateTargetRow} from './recovery-private-transform.ts';
 import {PRIVATE_PROFILE_TABLES} from './private-profile.ts';
 import {z} from 'zod';
 import {canonical,contentHash} from './canonical-json.ts';
@@ -269,4 +270,36 @@ export function assessPrivateRecoveryContinuity(value:RecoveryPrivateContinuity)
  if(parsed.tables.attachment_blob_objects.some(row=>row.purged_at===null))blockers.push('physical_namespace_handoff_unsupported');
  if(parsed.tables.attachment_blob_fences.some(fence=>fence.purged_at!==null&&!parsed.tables.attachment_blob_objects.some(object=>object.storage_key===fence.storage_key&&object.attachment_id===fence.attachment_id&&object.purged_at!==null&&object.sha256!==null&&object.verified_at!==null)))blockers.push('purged_identity_unverified');
  return {installable:false,blockers,nextExecutionEpoch:parsed.sourceContext.executionEpoch+1,retainedUnknownAttempts:parsed.tables.job_attempts.filter(row=>row.result_json===null&&row.reconciled_at===null).length};
+}
+
+/** Independently proves that the actual frozen source's private DATA survived.
+ * No caller-supplied package, callback inventory or imported claim can replace
+ * these exact owner/PK-bound native reads. Physical backup rekeying is separate. */
+export async function verifyRecoveryPrivateTarget(source:SqlDatabase,target:SqlDatabase,owner:string,now:string):Promise<void>{
+ id.parse(owner);stamp.parse(now);
+ const rekeyed=new Set<string>(['backup_archives','backup_archive_objects','backup_archive_cleanup_claims','backup_archive_retained_objects','workspace_backups']);
+ for(const table of PRIVATE_CONTINUITY_TABLES){
+  if(rekeyed.has(table))continue;
+  const columns=Object.keys(schemas[table].shape),pk=keys[table];
+  const limit=columns.some(column=>column.endsWith('_json')||column==='content'||column==='cursor'||column==='etag')?1:64;
+  let after:Row|null=null,count=0;
+  for(;;){
+   const where:string=after?' AND ('+pk.join(',')+')>('+pk.map(()=>'?').join(',')+')':'',bindings:(string|number|null)[]=after?pk.map(key=>after![key]):[];
+   // Native row pages, never aggregated SQL JSON or a giant proof parameter.
+   const sql='SELECT '+columns.join(',')+' FROM '+table+' WHERE user_id=?'+where+' ORDER BY '+pk.join(',')+' LIMIT ?';
+   const originalPage=(await source.prepare(sql).bind(owner,...bindings,limit).all<Row>()).results;
+   const actualPage=(await target.prepare(sql).bind(owner,...bindings,limit).all<Row>()).results;
+   if(originalPage.length!==actualPage.length)throw new Error('Private owner history row count differs at target: '+table);
+   if(!originalPage.length)break;
+   for(let index=0;index<originalPage.length;index++){
+    const original=schemas[table].parse(originalPage[index]) as unknown as Row,actual=actualPage[index];
+    if(++count>PRIVATE_CONTINUITY_LIMITS.tableRows)throw new Error('Private target verification row bound exceeded.');
+    if(await contentHash(canonical(actual))!==await contentHash(canonical(recoveryPrivateTargetRow(table,original,now))))throw new Error('Private owner history differs at target: '+table);
+    after=original;
+   }
+   if(originalPage.length<limit)break;
+  }
+  const total=await target.prepare('SELECT COUNT(*) count FROM '+table+' WHERE user_id=?').bind(owner).first<{count:number}>();
+  if(total?.count!==count)throw new Error('Private owner history row count differs at target: '+table);
+ }
 }
