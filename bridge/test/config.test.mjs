@@ -25,3 +25,10 @@ test('configuration reads strict bounded UTF8 from an absolute regular file',asy
   await writeFile(path,' '.repeat(65537));await assert.rejects(readConfig(path));await assert.rejects(readConfig('relative.json'));await assert.rejects(readConfig(directory));
  }finally{await rm(directory,{recursive:true,force:true});}
 });
+
+test('GPU local identifier and owner alias are an explicit strict pair',()=>{
+ const cpu=validateConfig(config());assert.equal(cpu.pcCommandCenter.selectedGpuId,null);assert.equal(cpu.pcCommandCenter.selectedGpuAlias,null);
+ const paired=config();paired.pcCommandCenter.selectedGpuId='gpu-local-1';paired.pcCommandCenter.selectedGpuAlias='owner-primary';assert.equal(validateConfig(paired).pcCommandCenter.selectedGpuAlias,'owner-primary');
+ for(const selection of [{selectedGpuId:'gpu-local-1',selectedGpuAlias:null},{selectedGpuId:null,selectedGpuAlias:'owner-primary'},{selectedGpuId:'gpu-local-1',selectedGpuAlias:'x'.repeat(65)}]){const value=config();Object.assign(value.pcCommandCenter,selection);assert.throws(()=>validateConfig(value));}
+ const missing=config();delete missing.pcCommandCenter.selectedGpuAlias;assert.throws(()=>validateConfig(missing));
+});

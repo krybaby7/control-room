@@ -16,7 +16,8 @@ function validateHeartbeat(bytes){
  if(!Array.isArray(value.observations)||value.observations.length>8)throw new Error('Observation bound exceeded');
  const identities=new Set();
  for(const observation of value.observations){
-  exactObject(observation,['source','instanceId','observedAt','reportedAgeSeconds','state','diagnostic','metrics']);
+  exactObject(observation,['source','instanceId','observedAt','reportedAgeSeconds','state','diagnostic','metrics',...(Object.hasOwn(observation,'selectedGpuAlias')?['selectedGpuAlias']:[])]);
+  if(Object.hasOwn(observation,'selectedGpuAlias')&&observation.selectedGpuAlias!==null){opaqueId(observation.selectedGpuAlias);if(observation.selectedGpuAlias.length>64)throw new Error('GPU alias exceeds bound');}
   if(!['pc-command-center','agent-lab','trade-graph'].includes(observation.source))throw new Error('Unsupported observation');
   opaqueId(observation.instanceId);const identity=observation.source+':'+observation.instanceId;if(identities.has(identity))throw new Error('Duplicate observation');identities.add(identity);
   if(observation.observedAt!==null)timestamp(observation.observedAt);

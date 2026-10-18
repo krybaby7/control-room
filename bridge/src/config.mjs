@@ -2,7 +2,7 @@ import {open} from 'node:fs/promises';
 import {isAbsolute} from 'node:path';
 
 export const BRIDGE_LIMITS=Object.freeze({sampleEveryMs:30000,localDeadlineMs:2000,responseBytes:262144,cloudDeadlineMs:10000,outboxBytes:8388608,outboxRecords:240,retryMinMs:5000,retryMaxMs:300000});
-export const DEFAULT_CONFIG=Object.freeze({schemaVersion:1,cloudBaseUrl:null,deviceId:null,bridgeVersion:'0.1.0',pcCommandCenter:Object.freeze({enabled:false,instanceId:'pc-command-center',selectedGpuId:null}),adapters:Object.freeze(['agent-lab','trade-graph'].map(id=>Object.freeze({id,version:1,enabled:false,capabilities:Object.freeze([]),endpointAlias:id})))});
+export const DEFAULT_CONFIG=Object.freeze({schemaVersion:1,cloudBaseUrl:null,deviceId:null,bridgeVersion:'0.1.0',pcCommandCenter:Object.freeze({enabled:false,instanceId:'pc-command-center',selectedGpuId:null,selectedGpuAlias:null}),adapters:Object.freeze(['agent-lab','trade-graph'].map(id=>Object.freeze({id,version:1,enabled:false,capabilities:Object.freeze([]),endpointAlias:id})))});
 export function exactObject(value,keys){
  if(!value||Object.getPrototypeOf(value)!==Object.prototype||Object.keys(value).length!==keys.length||keys.some(key=>!Object.hasOwn(value,key)))throw new Error('Invalid object shape');
  return value;
@@ -30,7 +30,7 @@ export function validateConfig(value){
  if(value.cloudBaseUrl!==null){if(typeof value.cloudBaseUrl!=='string')throw new Error('Invalid cloud origin');const url=new URL(value.cloudBaseUrl);if(url.protocol!=='https:'||url.origin!==value.cloudBaseUrl||url.username||url.password)throw new Error('Invalid cloud origin');}
  if(value.deviceId!==null)opaqueId(value.deviceId);
  if(typeof value.bridgeVersion!=='string'||!/^\d{1,4}\.\d{1,4}\.\d{1,4}$/.test(value.bridgeVersion))throw new Error('Invalid bridge version');
- const pc=exactObject(value.pcCommandCenter,['enabled','instanceId','selectedGpuId']);if(typeof pc.enabled!=='boolean')throw new Error('Invalid enabled flag');opaqueId(pc.instanceId);if(pc.selectedGpuId!==null)opaqueId(pc.selectedGpuId);
+ const pc=exactObject(value.pcCommandCenter,['enabled','instanceId','selectedGpuId','selectedGpuAlias']);if(typeof pc.enabled!=='boolean')throw new Error('Invalid enabled flag');opaqueId(pc.instanceId);validateGpuSelection(pc);
  if(!Array.isArray(value.adapters)||value.adapters.length!==2)throw new Error('Invalid disabled adapters');
  const ids=new Set();for(const adapter of value.adapters){exactObject(adapter,['id','version','enabled','capabilities','endpointAlias']);if(!['agent-lab','trade-graph'].includes(adapter.id)||ids.has(adapter.id)||adapter.version!==1||adapter.enabled!==false||adapter.endpointAlias!==adapter.id||!Array.isArray(adapter.capabilities)||adapter.capabilities.length)throw new Error('Unsupported adapter');ids.add(adapter.id);}
  return JSON.parse(canonicalJson(value));
@@ -42,4 +42,12 @@ export async function readConfig(path){
   const chunks=[];let bytes=0;for await(const chunk of file.createReadStream({highWaterMark:4096,autoClose:false})){bytes+=chunk.length;if(bytes>65536)throw new Error('Configuration exceeds bound');chunks.push(chunk);}
   return validateConfig(JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks))));
  }finally{await file.close();}
+}
+
+/** Raw collector IDs stay local; only this owner-chosen alias enters telemetry. */
+export function validateGpuSelection({selectedGpuId=null,selectedGpuAlias=null}){
+ if((selectedGpuId===null)!==(selectedGpuAlias===null))throw new Error('GPU ID and owner alias must be selected together.');
+ if(selectedGpuId!==null)opaqueId(selectedGpuId);
+ if(selectedGpuAlias!==null){opaqueId(selectedGpuAlias);if(selectedGpuAlias.length>64)throw new Error('GPU alias exceeds bound');}
+ return {selectedGpuId,selectedGpuAlias};
 }

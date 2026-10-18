@@ -55,3 +55,12 @@ test('physical main and rollback journal remain below eight MiB during a rolled-
  }finally{try{database.exec('ROLLBACK');}catch{}database.close();}
  assert.equal(outbox.status().records,1);assert.equal(outbox.pending({now})[0].id,first.id);assert.equal(outbox.pending({now})[0].heartbeatBytes,heartbeat(1));
 }));
+
+test('optional GPU alias accepts new samples without hydrating or rewriting historical heartbeat bytes',()=>fixture(context=>{
+ const observation={source:'pc-command-center',instanceId:'pc-command-center',observedAt:now,reportedAgeSeconds:1,state:'ready',diagnostic:'ok',metrics:null};
+ const oldBytes=heartbeat(1,{observations:[observation]});const old=context.outbox.enqueue(entry(1,{heartbeatBytes:oldBytes}));
+ const box=context.reopen(),freshBytes=heartbeat(2,{observations:[{...observation,selectedGpuAlias:'owner-primary'}]}),fresh=box.enqueue(entry(2,{heartbeatBytes:freshBytes}));
+ assert.equal(box.pending({now})[0].heartbeatBytes,freshBytes);box.ack(fresh.id,{classification:'live'});const history=box.pending({now})[0];assert.equal(history.id,old.id);assert.equal(history.heartbeatBytes,oldBytes);assert.equal(Object.hasOwn(JSON.parse(history.heartbeatBytes).observations[0],'selectedGpuAlias'),false);
+ box.enqueue(entry(3,{heartbeatBytes:heartbeat(3,{observations:[{...observation,selectedGpuAlias:null}]})}));
+ for(const extra of [{selectedGpuAlias:'x'.repeat(65)},{selectedGpuAlias:42},{selectedGpuAlias:'owner-primary',selectedGpuId:'raw-local-id'},{selectedGpuAlias:'owner-primary',execute:true}])assert.throws(()=>box.enqueue(entry(4,{heartbeatBytes:heartbeat(4,{observations:[{...observation,...extra}]})})));
+}));

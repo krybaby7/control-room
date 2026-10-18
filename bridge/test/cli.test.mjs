@@ -4,7 +4,7 @@ import {createHash} from 'node:crypto';
 import {EventEmitter} from 'node:events';
 import {runBridgeOnce,main,readMaskedSecret} from '../src/cli.mjs';
 function canonical(v){if(Array.isArray(v))return '['+v.map(canonical).join(',')+']';if(v&&typeof v==='object')return '{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+canonical(v[k])).join(',')+'}';return JSON.stringify(v);}
-const stamp='2026-10-18T12:00:00.000Z',session={deviceId:'device',bootId:'boot',generation:2},config={deviceId:'device',bridgeVersion:'0.1.0',pcCommandCenter:{enabled:true,instanceId:'pc',selectedGpuId:null}};
+const stamp='2026-10-18T12:00:00.000Z',session={deviceId:'device',bootId:'boot',generation:2},config={deviceId:'device',bridgeVersion:'0.1.0',pcCommandCenter:{enabled:true,instanceId:'pc',selectedGpuId:null,selectedGpuAlias:null}};
 function window(){return {windowId:'synthetic-window',bootId:'boot',generation:2,sequence:1,issuedAt:stamp,expiresAt:'2026-10-18T12:00:30.000Z'};}
 function receipt(heartbeat,classification='live'){return {bootId:heartbeat.bootId,generation:heartbeat.generation,sequence:heartbeat.sequence,heartbeatHash:createHash('sha256').update(canonical(heartbeat)).digest('hex'),classification};}
 test('window precedes actual sample and confirmed fresh receipt precedes unchanged historical spool',async()=>{
@@ -48,7 +48,7 @@ test('CLI rejects arbitrary commands, secret argv, and relative config before pl
 test('actual configured run-once uses a dedicated SQLite outbox and only closed cloud requests',async()=>{
   const {mkdtemp,writeFile,mkdir,rm}=await import('node:fs/promises'),{tmpdir}=await import('node:os'),{join}=await import('node:path'),{DEFAULT_CONFIG}=await import('../src/config.mjs');
   const directory=await mkdtemp(join(tmpdir(),'synthetic-bridge-cli-')),path=join(directory,'config.json'),requests=[];
-  const active={...structuredClone(DEFAULT_CONFIG),cloudBaseUrl:'https://private.example',pcCommandCenter:{enabled:true,instanceId:'synthetic-pc',selectedGpuId:null}};
+  const active={...structuredClone(DEFAULT_CONFIG),cloudBaseUrl:'https://private.example',pcCommandCenter:{enabled:true,instanceId:'synthetic-pc',selectedGpuId:null,selectedGpuAlias:null}};
   try{
     await writeFile(path,JSON.stringify(active));await mkdir(join(directory,'.control-room-bridge'));await writeFile(join(directory,'.control-room-bridge','credentials.dpapi'),'synthetic-ciphertext');
     const credential={deviceId:'synthetic-device',credentialId:'synthetic-credential',deviceCredential:'synthetic-secret',expiresAt:'2099-01-01T00:00:00Z'};
@@ -95,4 +95,14 @@ test('cross-device retained history is not sent or deleted and cannot hide curre
   const outbox={async enqueue(){return {id:'new'};},async ack(id){acked.push(id);},async pending({limit}){assert.equal(limit,240);return [...foreignRows,{id:'current-old',heartbeatBytes:canonical(current),liveWindowId:null}];}};
   await runBridgeOnce({config,session,sequence:1,transport,outbox,now:()=>stamp,sample:async()=>({})});
   assert.equal(delivered.length,2);assert.equal(delivered[0].delivery,'live');assert.equal(delivered[1].heartbeat.deviceId,'device');assert.equal(delivered[1].heartbeat.bootId,'current-old-boot');assert.deepEqual(acked,['new','current-old']);
+});
+
+test('CLI forwards explicit local GPU selection and uploads only its owner alias',async()=>{
+ const active={...config,pcCommandCenter:{enabled:true,instanceId:'pc',selectedGpuId:'raw-local-gpu-1',selectedGpuAlias:'owner-primary'}};
+ let uploaded;
+ await runBridgeOnce({config:active,session,sequence:1,now:()=>stamp,sample:async selection=>{
+  assert.equal(selection.selectedGpuId,'raw-local-gpu-1');assert.equal(selection.selectedGpuAlias,'owner-primary');
+  return {source:'pc-command-center',instanceId:'pc',selectedGpuAlias:selection.selectedGpuAlias,observedAt:null,reportedAgeSeconds:null,state:'unavailable',diagnostic:'source_unreachable',metrics:null};
+ },outbox:{async enqueue(){return {id:'new'};},async ack(){},async pending(){return [];}},transport:{async liveWindow(){return window();},async heartbeat(envelope){uploaded=envelope;return receipt(envelope.heartbeat);}}});
+ assert.equal(uploaded.heartbeat.observations[0].selectedGpuAlias,'owner-primary');assert.equal(canonical(uploaded).includes('raw-local-gpu-1'),false);
 });

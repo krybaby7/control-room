@@ -25,7 +25,7 @@ export async function runBridgeOnce({config,session,sequence,transport,outbox,sa
   const window=await transport.liveWindow({bootId:session.bootId,generation:session.generation,sequence});
   const at=Date.parse(now());
   if(!window||!identity(window.windowId)||window.bootId!==session.bootId||window.generation!==session.generation||window.sequence!==sequence||!Number.isFinite(at)||!Number.isFinite(Date.parse(window.issuedAt))||Date.parse(window.issuedAt)>at||!Number.isFinite(Date.parse(window.expiresAt))||Date.parse(window.expiresAt)<=at)throw new Error('Live window unavailable.');
-  const observations=config.pcCommandCenter.enabled?[await sample({instanceId:config.pcCommandCenter.instanceId,selectedGpuId:config.pcCommandCenter.selectedGpuId,now})]:[];
+  const observations=config.pcCommandCenter.enabled?[await sample({instanceId:config.pcCommandCenter.instanceId,selectedGpuId:config.pcCommandCenter.selectedGpuId,selectedGpuAlias:config.pcCommandCenter.selectedGpuAlias,now})]:[];
   const heartbeat={schemaVersion:1,deviceId:config.deviceId,bootId:session.bootId,generation:session.generation,sequence,sentAt:now(),bridgeVersion:config.bridgeVersion,observations};
   const item=await outbox.enqueue({heartbeatBytes:canonical(heartbeat),liveWindowId:window.windowId,windowExpiresAt:window.expiresAt,createdAt:now()});
   const receipt=await transport.heartbeat({schemaVersion:1,delivery:'live',liveWindowId:window.windowId,heartbeat});

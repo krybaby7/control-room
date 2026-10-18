@@ -19,7 +19,7 @@ async function fixture(){
  let latest:Omit<SelectedRuntimeEvidence,'id'|'origin'>|null=null;
  async function prepare(command:WorkspaceCommand,patch:Partial<PrepareContext>={}):Promise<MutationPlan>{
   const handler=deviceRuntimeHandlers.get(command.type);assert.ok(handler);
-  return handler.prepare({userId:owner,before:await readCurrent(f.db,owner,now),command,now,query:ownerReader(f.db,owner),readImport:async()=>null,deviceRuntime:{enrollment:material,latest:async()=>latest},...patch});
+  return handler.prepare({userId:owner,before:await readCurrent(f.db,owner,now),command,now,query:ownerReader(f.db,owner),readImport:async()=>{throw new Error('No staged import in this fixture.');},deviceRuntime:{enrollment:material,latest:async()=>latest},...patch});
  }
  async function compile(plan:MutationPlan,type:string,beforeBatch?:()=>void,claimPresent=true){
   const mutationId=crypto.randomUUID(),guard=[owner,mutationId,crypto.randomUUID()],claim='EXISTS(SELECT 1 FROM workspace_command_guards WHERE user_id=? AND mutation_id=? AND claim_token=?)',controls=await deviceControlStatements(f.db,owner,plan,type,claim,guard,now);

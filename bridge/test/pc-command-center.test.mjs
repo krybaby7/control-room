@@ -7,12 +7,12 @@ const now='2026-10-18T12:00:00Z';
 const health=()=>({app:'pc-command-center',ready:true,worker_alive:true,collector_state:'running',last_sample_at:now,sample_age_seconds:1,hostname:'private-host',token:'secret'});
 const summary=()=>({schema_version:1,timestamp:now,cpu:{percent:12.5},memory:{percent:32},gpus:[{id:'gpu-0',utilization_percent:99},{id:'gpu-1',utilization_percent:6,memory_used_bytes:2,memory_total_bytes:17,temperature_c:42}],disk_io:{read_bytes_per_sec:1000,write_bytes_per_sec:2000},network:{sent_bytes_per_sec:1000,received_bytes_per_sec:3000},prompt:'private prompt',path:'C:/private'});
 test('sanitizer uses only explicitly selected GPU and strips private fields',()=>{
- const result=sanitizePcCommandCenter(health(),summary(),{instanceId:'pc',selectedGpuId:'gpu-1'});
- assert.equal(result.metrics.gpuUtilizationPercent,6);assert.equal(result.state,'ready');assert.ok(!JSON.stringify(result).includes('private'));assert.ok(!JSON.stringify(result).includes('secret'));
+ const result=sanitizePcCommandCenter(health(),summary(),{instanceId:'pc',selectedGpuId:'gpu-1',selectedGpuAlias:'owner-primary'});
+ assert.equal(result.selectedGpuAlias,'owner-primary');assert.ok(!JSON.stringify(result).includes('gpu-1'));assert.ok(!JSON.stringify(result).includes('gpu-0'));assert.equal(result.metrics.gpuUtilizationPercent,6);assert.equal(result.state,'ready');assert.ok(!JSON.stringify(result).includes('private'));assert.ok(!JSON.stringify(result).includes('secret'));
  assert.equal(sanitizePcCommandCenter(health(),summary(),{instanceId:'pc'}).metrics.gpuUtilizationPercent,null);
- assert.equal(sanitizePcCommandCenter(health(),summary(),{instanceId:'pc',selectedGpuId:'missing'}).diagnostic,'source_invalid');
+ assert.equal(sanitizePcCommandCenter(health(),summary(),{instanceId:'pc',selectedGpuId:'missing',selectedGpuAlias:'owner-primary'}).diagnostic,'source_invalid');
  const changed=summary();changed.cpu.percent=-1;changed.memory.percent=101;changed.gpus[1].memory_used_bytes=20;
- const sanitized=sanitizePcCommandCenter(health(),changed,{instanceId:'pc',selectedGpuId:'gpu-1'});assert.equal(sanitized.metrics.cpuPercent,null);assert.equal(sanitized.metrics.memoryPercent,null);assert.equal(sanitized.metrics.gpuMemoryUsedBytes,null);
+ const sanitized=sanitizePcCommandCenter(health(),changed,{instanceId:'pc',selectedGpuId:'gpu-1',selectedGpuAlias:'owner-primary'});assert.equal(sanitized.metrics.cpuPercent,null);assert.equal(sanitized.metrics.memoryPercent,null);assert.equal(sanitized.metrics.gpuMemoryUsedBytes,null);
  const clock=health();clock.last_sample_at='2026-10-18T11:59:59Z';assert.equal(sanitizePcCommandCenter(clock,summary(),{instanceId:'pc'}).reportedAgeSeconds,null);
 });
 test('fixed numeric loopback reader GETs health and summary only; rejects redirects, oversized, invalid and hanging bodies',async()=>{
@@ -29,9 +29,18 @@ test('fixed numeric loopback reader GETs health and summary only; rejects redire
  server.listen(47631,'127.0.0.1');await once(server,'listening');
  const previous=process.env.HTTP_PROXY;process.env.HTTP_PROXY='http://127.0.0.1:1';
  try{
-  const good=await samplePcCommandCenter({instanceId:'pc',selectedGpuId:'gpu-1',now:()=>now});assert.equal(good.state,'ready');assert.deepEqual(requests.sort(),[['GET','/api/health'],['GET','/api/snapshot?detail=summary']]);
-  for(mode of ['redirect','oversized','invalid']){const result=await samplePcCommandCenter({instanceId:'pc',now:()=>now});assert.equal(result.state,'unavailable');assert.equal(result.diagnostic,'source_invalid');}
+  const good=await samplePcCommandCenter({instanceId:'pc',selectedGpuId:'gpu-1',selectedGpuAlias:'owner-primary',now:()=>now});assert.equal(good.state,'ready');assert.equal(good.selectedGpuAlias,'owner-primary');assert.deepEqual(requests.sort(),[['GET','/api/health'],['GET','/api/snapshot?detail=summary']]);
+  for(mode of ['redirect','oversized','invalid']){const result=await samplePcCommandCenter({instanceId:'pc',selectedGpuId:'gpu-1',selectedGpuAlias:'owner-primary',now:()=>now});assert.equal(result.state,'unavailable');assert.equal(result.selectedGpuAlias,'owner-primary');assert.ok(!JSON.stringify(result).includes('gpu-1'));assert.equal(result.diagnostic,'source_invalid');}
   mode='hang';const started=Date.now();const result=await samplePcCommandCenter({instanceId:'pc',now:()=>now});assert.equal(result.diagnostic,'source_unreachable');assert.ok(Date.now()-started<4000);
   assert.ok(requests.every(([method,path])=>method==='GET'&&['/api/health','/api/snapshot?detail=summary'].includes(path)));
  }finally{if(previous===undefined)delete process.env.HTTP_PROXY;else process.env.HTTP_PROXY=previous;for(const socket of sockets)socket.destroy();await new Promise(resolve=>server.close(resolve));}
+});
+
+test('GPU binding requires both local ID and owner alias; CPU-only samples report an explicit null alias',async()=>{
+ const cpu=sanitizePcCommandCenter(health(),summary(),{instanceId:'pc'});assert.equal(cpu.selectedGpuAlias,null);assert.equal(cpu.metrics.gpuUtilizationPercent,null);
+ for(const selection of [{selectedGpuId:'gpu-1'},{selectedGpuAlias:'owner-primary'},{selectedGpuId:'gpu-1',selectedGpuAlias:'x'.repeat(65)}]){
+  assert.throws(()=>sanitizePcCommandCenter(health(),summary(),{instanceId:'pc',...selection}));
+  await assert.rejects(samplePcCommandCenter({instanceId:'pc',...selection,now:()=>now}));
+ }
+ const missing=sanitizePcCommandCenter(null,null,{instanceId:'pc',selectedGpuId:'gpu-1',selectedGpuAlias:'owner-primary'});assert.equal(missing.state,'unavailable');assert.equal(missing.selectedGpuAlias,'owner-primary');assert.ok(!JSON.stringify(missing).includes('gpu-1'));
 });
