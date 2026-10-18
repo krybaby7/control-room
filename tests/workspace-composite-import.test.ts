@@ -23,8 +23,8 @@ test('omitted populated physical data rejects; explicit empty composite split pr
  const existing:ModuleRow={id:'existing',row_revision:1,payload_json:'{}',content_hash:'a'.repeat(64)};const omitted=await fixture({before:{decisions:[existing]}});await assert.rejects(createReviewedImportHandler(omitted.registry).prepare(omitted.context),/omits populated/);
  const f=await fixture({records:[],before:{evidence_records:[existing],evidence_versions:[existing]}});const plan=await createReviewedImportHandler(f.registry).prepare(f.context);assert.equal(plan.replacements?.length,2);for(const replacement of plan.replacements!){assert.deepEqual(replacement.records,[]);assert.deepEqual(replacement.beforeRows,[existing]);}
 });
-test('normalized merge remains unsupported and configuration authority cannot enter through composite aliases',async()=>{
- const merge=await fixture();merge.context.command={...merge.context.command,mode:'merge',selection:{projects:[],milestones:[],tasks:[],captures:[],activity:[]}};await assert.rejects(createReviewedImportHandler(merge.registry).prepare(merge.context),/Normalized module merge/);
+test('malformed composite merge values reject and configuration authority cannot enter through aliases',async()=>{
+ const merge=await fixture();merge.context.command={...merge.context.command,mode:'merge',selection:{projects:[],milestones:[],tasks:[],captures:[],activity:[]}};await assert.rejects(createReviewedImportHandler(merge.registry).prepare(merge.context),error=>error instanceof Error&&error.name==='ZodError'&&/kind|physicalId|record/.test(error.message));
  const configuration=await fixture({adapter:{...composite(),tables:['workspace_configuration']}});await assert.rejects(createReviewedImportHandler(configuration.registry).prepare(configuration.context),/Configuration authority/);
 });
 test('physical before-snapshot pagination and byte bounds reject invalid or oversized readers',async()=>{

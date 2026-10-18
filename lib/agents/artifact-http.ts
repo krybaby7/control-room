@@ -17,7 +17,7 @@ import {evidenceDateSchema} from '../evidence-validation.ts';
 import {agentIdSchema,agentDigestSchema} from './contracts.ts';
 import {agentArtifactTypeSchema} from './artifacts.ts';
 import {agentArtifactCommandHandlers,agentArtifactReserveValueSchema,validateAgentArtifactMetadata} from './artifact-handlers.ts';
-import {authorizeAgentArtifactAttempt,readOwnedAgentArtifact,AgentArtifactStoreError,type AgentArtifactMaterial} from './artifact-store.ts';
+import {authorizeAgentArtifactAttempt,assertAgentArtifactReservationCapacity,readOwnedAgentArtifact,AgentArtifactStoreError,type AgentArtifactMaterial} from './artifact-store.ts';
 import {RecoverabilityCapacityError} from '../recoverability-admission.ts';
 import {RetiredMutationError,MutationIdReuseError,ModuleConflictError,CommandValidationError} from '../workspace-errors.ts';
 export type AgentArtifactHttpAction='mutation-id'|'reserve'|'finalize'|'content';
@@ -64,7 +64,7 @@ export async function handleAgentArtifactHttp(action:AgentArtifactHttpAction,req
   const input=action==='reserve'?reserve.parse(raw):finalize.parse(raw),credentials={attemptId:input.attemptId,leaseToken:input.leaseToken};await activeMutation(db,principal.ownerId,input.mutationId);
   let material:AgentArtifactMaterial,command:unknown;
   if(action==='reserve'){
-   const selected=reserve.parse(input),value=validateAgentArtifactMetadata({filename:selected.filename,mimeType:selected.mimeType,expectedBytes:selected.expectedBytes},selected.logicalType),auth=await authorizeAgentArtifactAttempt(db,principal,credentials,fresh);material={attemptId:auth.attemptId,logicalType:selected.logicalType,sha256:selected.sha256,bytes:selected.expectedBytes,guard:auth.guard};command={type:'jobs.artifact.reserve',value,logicalType:selected.logicalType,sha256:selected.sha256};
+   const selected=reserve.parse(input),value=validateAgentArtifactMetadata({filename:selected.filename,mimeType:selected.mimeType,expectedBytes:selected.expectedBytes},selected.logicalType),auth=await authorizeAgentArtifactAttempt(db,principal,credentials,fresh);await assertAgentArtifactReservationCapacity(db,principal.ownerId,auth.attemptId,selected.expectedBytes,selected.mutationId);material={attemptId:auth.attemptId,logicalType:selected.logicalType,sha256:selected.sha256,bytes:selected.expectedBytes,guard:auth.guard};command={type:'jobs.artifact.reserve',value,logicalType:selected.logicalType,sha256:selected.sha256};
   }else{const selected=finalize.parse(input),owned=await readOwnedAgentArtifact(db,principal,credentials,selected.id,fresh);material=owned.material;command={type:'jobs.artifact.finalize',id:selected.id};}
   const access=await ownerAttachmentServices(db,principal.ownerId,fresh,deps.bucket),result=await executeWorkspaceCommand(principal.ownerId,{protocolVersion:1,expectedRevision:input.revision,mutationId:input.mutationId,command},{db,now:()=>fresh,handlers:new Map([...workspaceHandlers,...agentArtifactCommandHandlers]),...access,agentArtifact:material});
   if(result.status==='conflict')return response({status:'conflict',currentRevision:result.currentRevision},409);

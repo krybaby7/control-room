@@ -141,7 +141,7 @@ test('new occurrence source claims cannot suppress generation under a retained o
  const f=await fixture();try{
   const task=(await readCurrent(f.db,owner,now)).workspace.tasks[0],{id:ignoredId,createdAt:ignoredCreated,updatedAt:ignoredUpdated,completedAt:ignoredCompleted,weeklyWeek:ignoredWeek,archivedFromStatus:ignoredArchive,status:ignoredStatus,weekly:ignoredWeekly,dueDate:ignoredDue,dependsOn:ignoredDepends,evidence:ignoredEvidence,...template}=task;
   void ignoredId;void ignoredCreated;void ignoredUpdated;void ignoredCompleted;void ignoredWeek;void ignoredArchive;void ignoredStatus;void ignoredWeekly;void ignoredDue;void ignoredDepends;void ignoredEvidence;
-  const rule={id:'retained-active-rule',startDate:'2026-10-18',endDate:null,enabled:true,pattern:{frequency:'daily',interval:1},template};
+  const rule={id:'44444444-4444-4444-8444-444444444444',startDate:'2026-10-18',endDate:null,enabled:true,pattern:{frequency:'daily',interval:1},template};
   await f.put(owner,'recurrence_rules',rule.id,rule);await f.put(source,'recurrence_rules',rule.id,rule);
   await f.put(source,'recurrence_occurrences',rule.id+':2026-10-19',{ruleId:rule.id,occurrenceDate:'2026-10-19',taskId:null,generatedAt:now,disposition:'skipped'});
   const bundle=await exportWorkspaceBundle(f.db,source,{now:()=>now}),before=await readCurrent(f.db,owner,now);

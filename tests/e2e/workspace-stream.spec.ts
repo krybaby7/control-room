@@ -1,0 +1,8 @@
+import {test,expect} from '@playwright/test';
+import {openFixture,setFixtureSession,fixtureOrigin} from './helpers';
+test('unverified hosted streaming remains explicit polling and expiry redacts the owner workspace',async({page})=>{
+ await openFixture(page,'b');await expect(page.getByText('Live updates: polling (streaming unverified)',{exact:true})).toBeVisible();
+ const unavailable=await page.request.get('/api/workspace/events',{headers:{Origin:fixtureOrigin,Accept:'text/event-stream'}});expect(unavailable.status()).toBe(503);expect(await unavailable.json()).toMatchObject({diagnostic:'stream_unavailable'});expect(unavailable.headers()['cache-control']).toContain('no-store');expect(unavailable.headers()['content-type']).not.toContain('text/event-stream');
+ const focused=page.waitForResponse(response=>response.request().method()==='GET'&&new URL(response.url()).pathname==='/api/workspace'&&response.ok());await page.evaluate(()=>window.dispatchEvent(new Event('focus')));await focused;await expect(page.getByText('Live updates: polling (streaming unverified)',{exact:true})).toBeVisible();
+ await setFixtureSession(page,'expired');const expired=page.waitForResponse(response=>response.request().method()==='GET'&&new URL(response.url()).pathname==='/api/workspace'&&response.status()===401);await page.evaluate(()=>window.dispatchEvent(new Event('focus')));await expired;await expect(page.getByRole('status').filter({hasText:'Session expired'})).toBeVisible();await expect(page.getByRole('button',{name:'Quick capture',exact:true})).toBeDisabled();
+});

@@ -10,6 +10,8 @@ import {parseAuditEvent} from './audit-events.ts';
 export const PRIVATE_CONTINUITY_LIMITS=Object.freeze({bytes:64*1024*1024,rows:100000,page:8});
 const digest=z.string().regex(/^[a-f0-9]{64}$/),integer=z.number().int().nonnegative().safe(),positive=integer.min(1),stamp=z.string().datetime({offset:true}),nullableStamp=stamp.nullable(),id=z.string().min(1).max(500),json=z.string().max(1800000),flag=z.union([z.literal(0),z.literal(1)]);
 const schemas={
+ workspace_backups:z.object({id,source_revision:positive,created_at:stamp,reason:id,bytes:integer.max(8000000),sha256:digest,content:z.string().max(8000000),status:z.enum(['preparing','ready','failed','expired']),pinned:flag}).strict(),
+ backup_archive_cleanup_claims:z.object({storage_key:id,archive_id:id,part_number:integer.max(4),token:id,claimed_at:stamp,purged_at:nullableStamp}).strict(),
  attachment_blob_fences:z.object({storage_key:id,attachment_id:id,namespace:id,token:id,created_at:stamp,purged_at:nullableStamp}).strict(),
  attachment_blob_objects:z.object({storage_key:id,attachment_id:id,namespace:id,bytes:integer,sha256:digest.nullable(),created_at:stamp,verified_at:nullableStamp,purged_at:nullableStamp}).strict(),
  attachment_upload_attempts:z.object({token:id,attachment_id:id,storage_key:id,created_at:stamp,settled_at:nullableStamp}).strict(),
@@ -30,7 +32,7 @@ const schemas={
 };
 type Table=keyof typeof schemas;
 export const PRIVATE_CONTINUITY_TABLES=Object.freeze(Object.keys(schemas) as Table[]);
-const keys:Record<Table,readonly string[]>={attachment_blob_fences:['storage_key'],attachment_blob_objects:['storage_key'],attachment_upload_attempts:['token'],attachment_blob_namespaces:['namespace'],attachment_archive_cleanup_claims:['storage_key'],workspace_mutation_epochs:['epoch'],workspace_mutations:['mutation_id'],workspace_job_intents:['id'],agent_job_state:['job_id'],job_approvals:['id'],job_attempts:['id'],job_events:['attempt_id','epoch','sequence'],agent_device_slots:['device_id'],agent_budgets:['id'],agent_artifacts:['attempt_id','artifact_id'],backup_archives:['id'],backup_archive_objects:['archive_id','part_number']};
+const keys:Record<Table,readonly string[]>={workspace_backups:['id'],backup_archive_cleanup_claims:['storage_key'],attachment_blob_fences:['storage_key'],attachment_blob_objects:['storage_key'],attachment_upload_attempts:['token'],attachment_blob_namespaces:['namespace'],attachment_archive_cleanup_claims:['storage_key'],workspace_mutation_epochs:['epoch'],workspace_mutations:['mutation_id'],workspace_job_intents:['id'],agent_job_state:['job_id'],job_approvals:['id'],job_attempts:['id'],job_events:['attempt_id','epoch','sequence'],agent_device_slots:['device_id'],agent_budgets:['id'],agent_artifacts:['attempt_id','artifact_id'],backup_archives:['id'],backup_archive_objects:['archive_id','part_number']};
 const sourceContextSchema=z.object({workspaceRevision:positive,executionEpoch:integer,operationalWatermarks:z.record(z.string().regex(/^[a-z][a-z0-9_-]{0,63}$/),integer).refine(value=>Object.keys(value).length<=32)}).strict();
 const deletionSchema=z.object({event_id:id,kind:z.literal('entity.delete'),entity_type:z.enum(['task','capture']),entity_id:id,occurred_at:stamp,payload_json:json}).strict();
 const tablesSchema=z.object(Object.fromEntries(PRIVATE_CONTINUITY_TABLES.map(table=>[table,z.array(schemas[table]).max(PRIVATE_CONTINUITY_LIMITS.rows)])) as unknown as {[K in Table]:z.ZodArray<typeof schemas[K]>}).strict();
@@ -57,6 +59,13 @@ export async function validateRecoveryPrivateContinuity(raw:unknown,expected:Pri
  if(value.sourceNamespaces.audit_namespace===value.sourceNamespaces.blob_namespace)throw new Error('Source audit/blob namespaces must be distinct.');
  if(encoder.encode(canonical(value)).byteLength>PRIVATE_CONTINUITY_LIMITS.bytes)throw new Error('Private continuity byte limit exceeded.');
  if(value.manifestSha256!==trusted.manifestSha256||value.ownerContextHash!==trusted.ownerContextHash||canonical(value.sourceContext)!==canonical(trusted.sourceContext)||sha256!==trusted.sha256||await contentHash(canonical(body))!==sha256)throw new Error('Trusted private continuity identity/hash differs.');
+ for(const logical of value.tables.workspace_backups){
+  if(encoder.encode(logical.content).length!==logical.bytes||(logical.content!==''||logical.status==='ready')&&await contentHash(logical.content)!==logical.sha256)throw new Error('Logical backup metadata digest differs.');
+ }
+ for(const claim of value.tables.backup_archive_cleanup_claims){
+  const archive=value.tables.backup_archives.find(row=>row.id===claim.archive_id);
+  if(!archive||claim.storage_key!=='backups/'+archive.namespace+'/part-'+String(claim.part_number).padStart(4,'0'))throw new Error('Backup cleanup physical identity differs.');
+ }
  let count=value.baselineRemovalFences.length;
  for(const table of PRIVATE_CONTINUITY_TABLES){const rows=value.tables[table] as unknown as Row[];count+=rows.length;ordered(rows,keys[table]);}
  if(count>PRIVATE_CONTINUITY_LIMITS.rows)throw new Error('Private continuity row limit exceeded.');

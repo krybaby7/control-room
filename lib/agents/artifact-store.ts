@@ -61,3 +61,12 @@ export async function readOwnedAgentArtifact(db:SqlDatabase,principal:DevicePrin
  if(!await db.prepare('SELECT 1 WHERE '+guard.sql).bind(...guard.bindings).first())fail('artifact_changed');
  return {authorization,material:{attemptId:authorization.attemptId,logicalType:binding.logical_type,sha256:binding.sha256,bytes:binding.bytes,guard},row,attachment};
 }
+
+/** Read-only UX classification; the compiler must still assert count/bytes atomically. */
+export async function assertAgentArtifactReservationCapacity(db:SqlDatabase,ownerId:string,attemptId:string,bytes:number,mutationId:string):Promise<void>{
+ agentIdSchema.parse(attemptId);z.number().int().nonnegative().max(AGENT_ARTIFACT_LIMITS.packageBytes).parse(bytes);
+ const quota=await db.prepare('SELECT COUNT(*) files,COALESCE(SUM(bytes),0) bytes,EXISTS(SELECT 1 FROM workspace_mutations m WHERE m.user_id=? AND m.mutation_id=?) replay FROM agent_artifacts WHERE user_id=? AND attempt_id=?').bind(ownerId,mutationId,ownerId,attemptId).first<{files:number;bytes:number;replay:number}>();
+ if(!quota||!Number.isSafeInteger(quota.files)||quota.files<0||!Number.isSafeInteger(quota.bytes)||quota.bytes<0)fail('artifact_quota_unavailable',503);
+ if(quota.replay===1)return; // Existing receipt is hash-checked by the central executor; no new reservation is admitted.
+ if(quota.files>=AGENT_ARTIFACT_LIMITS.count||quota.bytes+bytes>AGENT_ARTIFACT_LIMITS.packageBytes)fail('artifact_capacity',409);
+}

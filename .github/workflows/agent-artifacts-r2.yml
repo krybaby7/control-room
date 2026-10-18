@@ -1,0 +1,25 @@
+name: Control Room isolated agent artifacts
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  agent-artifacts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm run install:ci
+      - name: Check artifact SQLite and HTTP boundaries
+        run: node --experimental-strip-types --test tests/agent-artifact-store.test.ts tests/agent-artifact-http.test.ts
+      - name: Check actual isolated D1 and R2 lifecycle
+        run: node --experimental-strip-types scripts/test-agent-artifacts-r2.mjs

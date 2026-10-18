@@ -12,3 +12,9 @@ export const backupArchiveObjects=sqliteTable('backup_archive_objects',{
  bytes:integer('bytes').notNull(),sha256:text('sha256'),createdAt:text('created_at').notNull(),verifiedAt:text('verified_at'),purgedAt:text('purged_at'),
  pendingToken:text('pending_token'),settledAt:text('settled_at')
 },t=>[primaryKey({columns:[t.userId,t.archiveId,t.partNumber]}),uniqueIndex('backup_archive_object_key_unique').on(t.storageKey),index('backup_archive_object_owner_charge').on(t.userId,t.purgedAt)]);
+
+/** Permanent retired-key fence and write-ahead DELETE claim. Never time-expired or removed. */
+export const backupArchiveCleanupClaims=sqliteTable('backup_archive_cleanup_claims',{
+ userId:text('user_id').notNull(),storageKey:text('storage_key').notNull(),archiveId:text('archive_id').notNull(),partNumber:integer('part_number').notNull(),
+ token:text('token').notNull(),claimedAt:text('claimed_at').notNull(),purgedAt:text('purged_at')
+},t=>[primaryKey({columns:[t.userId,t.storageKey]}),uniqueIndex('backup_archive_cleanup_key_unique').on(t.storageKey),index('backup_archive_cleanup_owner_archive').on(t.userId,t.archiveId)]);

@@ -20,7 +20,7 @@ import type {BackupArchiveBucket} from '../lib/backup-archive-storage.ts';
 const now='2026-10-18T12:00:00.000Z',principal={ownerId:'synthetic-backup-owner',principalId:'synthetic-backup-principal'};
 /** REAL isolated local D1/R2 emulator; private registration below is synthetic fixture authority only. */
 async function fixture(options:{fileBytes?:number;fileMode?:boolean}={}){
- const mf=new Miniflare({modules:true,script:'export default {fetch(){return new Response("isolated backup fixture")}}',compatibilityDate:'2026-10-18',d1Databases:['DB'],r2Buckets:['BUCKET']});
+ const mf=new Miniflare({modules:true,script:'export default {fetch(){return new Response("isolated backup fixture")}}',compatibilityDate:'2026-05-22',d1Databases:['DB'],r2Buckets:['BUCKET']});
  try{
   const native=await mf.getD1Database('DB'),bucket=await mf.getR2Bucket('BUCKET');
   for(const name of readdirSync(new URL('../drizzle/',import.meta.url)).filter(name=>name.endsWith('.sql')).sort()){

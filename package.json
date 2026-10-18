@@ -29,7 +29,12 @@
     "test:scheduled-source-d1": "node --experimental-strip-types scripts/test-scheduled-source-d1.mjs",
     "test:bridge": "node --test --test-timeout=30000 bridge/test/*.test.mjs",
     "test:runtime-d1": "node --experimental-strip-types scripts/test-runtime-d1.mjs",
-    "package:bridge": "node scripts/package-bridge.mjs"
+    "package:bridge": "node scripts/package-bridge.mjs",
+    "test:agents-d1": "node --experimental-strip-types scripts/test-agents-d1.mjs",
+    "test:recovery-segments-d1": "node --experimental-strip-types scripts/test-recovery-segments-d1.mjs",
+    "test:recovery-maintenance-d1": "node --experimental-strip-types scripts/test-recovery-maintenance-d1.mjs",
+    "test:agent-artifacts-r2": "node --experimental-strip-types scripts/test-agent-artifacts-r2.mjs",
+    "test:benchmark": "node --experimental-strip-types scripts/benchmark-workspace.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
