@@ -15,6 +15,7 @@ import {readReadyFileBackup,type FileBackupServices} from '../lib/automations/ba
 import {readBackupQuotaUsage,backupQuotaGuard} from '../lib/backup-archive-quota.ts';
 import {backupArchiveKey,createBackupArchiveStorage,type BackupArchiveBucket} from '../lib/backup-archive-storage.ts';
 import type {BackupArchiveCleanupBucket} from '../lib/automations/backup-archive-cleanup.ts';
+import {prepareFileBackupRemoval,fileBackupRemovalStatements} from '../lib/automations/backup-archive-removal.ts';
 import {cleanupRetainedFileBackup,listRetainedFileBackupGenerations} from '../lib/automations/backup-archive-retained-cleanup.ts';
 const now='2026-10-18T12:00:00.000Z',principal={ownerId:'synthetic-backup-owner',principalId:'synthetic-backup-principal'};
 /** REAL isolated local D1/R2 emulator; private registration below is synthetic fixture authority only. */
@@ -144,5 +145,43 @@ test('sanitized retained-generation listing exposes no owner/key/namespace and p
   const text=JSON.stringify(page);assert.equal(text.includes(principal.ownerId),false);assert.equal(text.includes(f.old),false);assert.equal(text.includes(f.current),false);assert.equal(text.includes('backups/'),false);
   const next=await listRetainedFileBackupGenerations(f.db,principal.ownerId,{after:f.job.backupId,limit:1});assert.deepEqual(next,{items:[],nextAfter:null});
   await assert.rejects(listRetainedFileBackupGenerations(f.db,principal.ownerId,{limit:51}));
+ }finally{await f.mf.dispose();}
+});
+
+async function removalPair(){
+ const f=await prepared();try{
+  const next=await f.admit(),later='2026-10-18T12:01:00.000Z';
+  assert.equal((await runScheduledBackup(f.db,principal,next.intentId,{now:()=>later,files:f.services})).status,'completed');
+  const sha=(await f.db.prepare('SELECT sha256 FROM workspace_backups WHERE user_id=? AND id=?').bind(principal.ownerId,f.job.backupId).first<{sha256:string}>())!.sha256;
+  const newerSha=(await f.db.prepare('SELECT sha256 FROM workspace_backups WHERE user_id=? AND id=?').bind(principal.ownerId,next.backupId).first<{sha256:string}>())!.sha256;
+  return {...f,removalInput:{id:f.job.backupId,sha256:sha,newerId:next.backupId,newerSha256:newerSha},removalAt:'2026-10-18T12:02:00.000Z'};
+ }catch(error){await f.mf.dispose();throw error;}
+}
+test('logical retirement cannot orphan charged retained generations and succeeds only after actual verified cleanup',async()=>{
+ const f=await removalPair();try{
+  await assert.rejects(prepareFileBackupRemoval(f.db,principal.ownerId,f.removalInput,f.services,f.removalAt),/retained file generations/);
+  assert.equal((await f.db.prepare('SELECT status FROM backup_archives WHERE user_id=? AND id=?').bind(principal.ownerId,f.job.backupId).first<{status:string}>())!.status,'ready');
+  assert.equal((await cleanupRetainedFileBackup(f.db,principal.ownerId,f.input,{now:()=>f.removalAt,services:f.cleanupServices})).status,'completed');
+  const control=await prepareFileBackupRemoval(f.db,principal.ownerId,f.removalInput,f.services,f.removalAt);
+  await f.db.batch([...fileBackupRemovalStatements(f.db,principal.ownerId,control,f.removalAt,'1',[],'retained-lifecycle-success'),f.db.prepare('DELETE FROM workspace_backups WHERE user_id=? AND id=?').bind(principal.ownerId,f.job.backupId)]);
+  assert.equal((await f.db.prepare('SELECT status FROM backup_archives WHERE user_id=? AND id=?').bind(principal.ownerId,f.job.backupId).first<{status:string}>())!.status,'retired');
+  assert.equal(await f.db.prepare('SELECT 1 FROM workspace_backups WHERE user_id=? AND id=?').bind(principal.ownerId,f.job.backupId).first(),null);
+  const newer=await readReadyFileBackup(f.db,principal.ownerId,f.removalInput.newerId,f.services);assert.ok(newer);await newer.stream.cancel();
+ }finally{await f.mf.dispose();}
+});
+test('concurrent retained-generation insertion after removal preparation aborts the whole actual D1 retirement transaction',async()=>{
+ const f=await removalPair();try{
+  assert.equal((await cleanupRetainedFileBackup(f.db,principal.ownerId,f.input,{now:()=>f.removalAt,services:f.cleanupServices})).status,'completed');
+  const control=await prepareFileBackupRemoval(f.db,principal.ownerId,f.removalInput,f.services,f.removalAt);
+  const namespace=crypto.randomUUID(),storage=createBackupArchiveStorage(f.services.bucket);
+  for(const chunk of f.ready.index.chunks){
+   const bytes=await storage.get(f.current,chunk);assert.ok(bytes);await storage.put(namespace,chunk,bytes);
+   await f.run('INSERT INTO backup_archive_retained_objects(user_id,storage_key,source_archive_id,part_number,namespace,bytes,sha256,created_at,verified_at,purged_at) VALUES(?,?,?,?,?,?,?,?,?,NULL)',principal.ownerId,backupArchiveKey(namespace,chunk.part),f.job.backupId,chunk.part,namespace,chunk.bytes,chunk.sha256,now,now);
+  }
+  const before=await readBackupQuotaUsage(f.db,principal.ownerId);
+  await assert.rejects(f.db.batch([...fileBackupRemovalStatements(f.db,principal.ownerId,control,f.removalAt,'1',[],'retained-lifecycle-race'),f.db.prepare('DELETE FROM workspace_backups WHERE user_id=? AND id=?').bind(principal.ownerId,f.job.backupId)]));
+  assert.equal((await f.db.prepare('SELECT status FROM backup_archives WHERE user_id=? AND id=?').bind(principal.ownerId,f.job.backupId).first<{status:string}>())!.status,'ready');
+  assert.ok(await f.db.prepare('SELECT 1 FROM workspace_backups WHERE user_id=? AND id=?').bind(principal.ownerId,f.job.backupId).first());
+  assert.deepEqual(await readBackupQuotaUsage(f.db,principal.ownerId),before);assert.ok(await f.bucket.get(backupArchiveKey(namespace,0)));
  }finally{await f.mf.dispose();}
 });

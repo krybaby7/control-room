@@ -27,6 +27,7 @@ async function side(db:SqlDatabase,owner:string,selectedId:string){
 export async function prepareFileBackupRemoval(db:SqlDatabase,owner:string,input:{id:string;sha256:string;newerId:string;newerSha256:string},services:FileBackupServices,now:string):Promise<FileBackupRemovalControl>{
  const parsed=z.object({id,sha256:digest,newerId:id,newerSha256:digest}).strict().parse(input);stamp.parse(now);
  if(!owner||owner.trim()!==owner||owner.length>256||/[\u0000-\u001f\u007f]/u.test(owner)||parsed.id===parsed.newerId)throw new Error('Select a different owner recovery point.');
+ if(await db.prepare('SELECT 1 FROM backup_archive_retained_objects WHERE user_id=? AND source_archive_id=? AND purged_at IS NULL LIMIT 1').bind(owner,parsed.id).first())throw new Error('Explicitly clean up retained file generations before removing this recovery point.');
  const selected=await readWorkspaceBackup(db,owner,parsed.id),newer=await readWorkspaceBackup(db,owner,parsed.newerId);
  if(!selected||!newer||selected.manifest.sha256!==parsed.sha256||newer.manifest.sha256!==parsed.newerSha256||selected.manifest.fileArchive?.status!=='ready'||newer.manifest.fileArchive?.status!=='ready')throw new Error('Two exact owner file recovery points are required.');
  if(Date.parse(selected.manifest.createdAt)>Date.parse(now)||Date.parse(newer.manifest.createdAt)>Date.parse(now))throw new Error('Recovery point timestamps are ahead of the current server clock.');
@@ -43,7 +44,12 @@ export async function prepareFileBackupRemoval(db:SqlDatabase,owner:string,input
 export function fileBackupRemovalStatements(db:SqlDatabase,owner:string,input:FileBackupRemovalControl,now:string,gate:string,binds:(string|number|null)[],mutationId:string):SqlStatement[]{
  const proof=fileBackupRemovalControlSchema.parse(input);stamp.parse(now);
  const assert=(sql:string,values:(string|number|null)[])=>db.prepare('INSERT INTO workspace_assertions(user_id,mutation_id,valid) SELECT ?,?,CASE WHEN '+sql+' THEN 1 ELSE 0 END WHERE '+gate).bind(owner,mutationId,...values,...binds);
- const statements:SqlStatement[]=[assert('COALESCE((SELECT epoch FROM workspace_execution_state WHERE user_id=?),0)=?',[owner,proof.executionEpoch])];
+ const statements:SqlStatement[]=[
+ assert('COALESCE((SELECT epoch FROM workspace_execution_state WHERE user_id=?),0)=?',[owner,proof.executionEpoch]),
+ // Preserve the only authorized cleanup path for redundant generations. This
+ // absence assertion must execute atomically before retiring the current head.
+ assert('NOT EXISTS(SELECT 1 FROM backup_archive_retained_objects WHERE user_id=? AND source_archive_id=? AND purged_at IS NULL)',[owner,proof.selected.logical.id]),
+ ];
  for(const entry of [proof.selected,proof.newer]){
   statements.push(assert('EXISTS(SELECT 1 FROM workspace_backups WHERE user_id=? AND '+logicalColumns.map(column=>column+'=?').join(' AND ')+')',[owner,...logicalColumns.map(column=>entry.logical[column])]));
   statements.push(assert('EXISTS(SELECT 1 FROM backup_archives WHERE user_id=? AND '+archiveColumns.map(column=>column+'=?').join(' AND ')+')',[owner,...archiveColumns.map(column=>entry.archive[column])]));
