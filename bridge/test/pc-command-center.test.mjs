@@ -29,9 +29,9 @@ test('fixed numeric loopback reader GETs health and summary only; rejects redire
  server.listen(47631,'127.0.0.1');await once(server,'listening');
  const previous=process.env.HTTP_PROXY;process.env.HTTP_PROXY='http://127.0.0.1:1';
  try{
-  const good=await samplePcCommandCenter({instanceId:'pc',selectedGpuId:'gpu-1',now:()=>now});assert.equal(good.state,'ready');assert.deepEqual(requests.sort(),[['GET','/api/health'],['GET','/api/summary']]);
+  const good=await samplePcCommandCenter({instanceId:'pc',selectedGpuId:'gpu-1',now:()=>now});assert.equal(good.state,'ready');assert.deepEqual(requests.sort(),[['GET','/api/health'],['GET','/api/snapshot?detail=summary']]);
   for(mode of ['redirect','oversized','invalid']){const result=await samplePcCommandCenter({instanceId:'pc',now:()=>now});assert.equal(result.state,'unavailable');assert.equal(result.diagnostic,'source_invalid');}
   mode='hang';const started=Date.now();const result=await samplePcCommandCenter({instanceId:'pc',now:()=>now});assert.equal(result.diagnostic,'source_unreachable');assert.ok(Date.now()-started<4000);
-  assert.ok(requests.every(([method,path])=>method==='GET'&&['/api/health','/api/summary'].includes(path)));
+  assert.ok(requests.every(([method,path])=>method==='GET'&&['/api/health','/api/snapshot?detail=summary'].includes(path)));
  }finally{if(previous===undefined)delete process.env.HTTP_PROXY;else process.env.HTTP_PROXY=previous;for(const socket of sockets)socket.destroy();await new Promise(resolve=>server.close(resolve));}
 });

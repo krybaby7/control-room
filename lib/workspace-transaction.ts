@@ -136,6 +136,9 @@ export async function executeWorkspaceCommand(userId:string,input:{protocolVersi
     statements.push(db.prepare(`INSERT INTO workspace_recovery (user_id,content,revision,updated_at) SELECT user_id,content,revision,updated_at FROM workspaces WHERE user_id = ? AND ${claim} ON CONFLICT(user_id) DO UPDATE SET content=excluded.content,revision=excluded.revision,updated_at=excluded.updated_at`).bind(userId,...guard));
   }
   if(plan.backupRemoval)statements.push(db.prepare(`DELETE FROM workspace_backups WHERE user_id=? AND id=? AND sha256=? AND ${claim}`).bind(userId,plan.backupRemoval.id,plan.backupRemoval.sha256,...guard));
+  // Device capabilities are never restored from portable history. Clear the private
+  // telemetry plane before replacing device parents; frozen selected evidence remains portable.
+  if(plan.restoreEpoch)for(const table of ['runtime_observations','device_heartbeats','device_live_windows','device_sessions','runtime_latest','runtime_minute_aggregates','device_credentials','device_enrollments','device_runtime'])statements.push(db.prepare(`DELETE FROM ${table} WHERE user_id=? AND ${claim}`).bind(userId,...guard));
   // Delete children first, then restore parents first. Each statement shares the claim.
   for(const table of [...OWNER_TABLES].reverse())if(replacementPayloads.has(table))statements.push(db.prepare(`DELETE FROM ${table} WHERE user_id=? AND ${claim}`).bind(userId,...guard));
   for(const table of OWNER_TABLES){const payload=replacementPayloads.get(table);if(payload===undefined)continue;

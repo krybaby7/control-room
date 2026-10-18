@@ -3,7 +3,7 @@ import net from 'node:net';
 import {performance} from 'node:perf_hooks';
 import {BRIDGE_LIMITS,opaqueId,timestamp} from './config.mjs';
 export {BRIDGE_LIMITS} from './config.mjs';
-export const PC_READS=Object.freeze({health:'http://127.0.0.1:47631/api/health',summary:'http://127.0.0.1:47631/api/summary'});
+export const PC_READS=Object.freeze({health:'http://127.0.0.1:47631/api/health',summary:'http://127.0.0.1:47631/api/snapshot?detail=summary'});
 class LocalReadError extends Error{constructor(diagnostic){super(diagnostic);this.diagnostic=diagnostic;}}
 function readFixedJson(alias){
  return new Promise((resolve,reject)=>{

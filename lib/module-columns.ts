@@ -1,3 +1,5 @@
+import {deviceDisplaySchema} from './devices/validation.ts';
+import {runtimeAdapterConfigurationSchema,selectedRuntimeEvidenceSchema} from './runtime/validation.ts';
 import {baselineRevisionSchema} from './baselines/validation.ts';
 import {reviewSnapshotSchema,reviewAcknowledgementSchema,notificationEventSchema,notificationPreferencesSchema,analysisPolicySchema,reviewAnalysisSchema} from './reviews/validation.ts';
 import {automationScheduleSchema,automationOccurrenceSchema} from './automations/validation.ts';
@@ -25,10 +27,11 @@ const columns={
  source_connections:['provider','access_mode','enabled','archived_at'],source_targets:['connection_id','project_id','kind','selection_version','archived_at'],source_observations:['source_id','external_id','source_revision','content_digest','observed_at','stream_sequence'],source_sync_runs:['source_id','finished_at','stream_sequence'],source_proposals:['source_id','state','dedup_key','created_at'],integration_history:['source_id','finished_at','stream_sequence'],
  review_snapshots:['workspace_revision','generated_at','source_watermark','scope_hash','stream_sequence'],review_acknowledgements:['snapshot_id','snapshot_hash','acknowledged_at','scope_hash'],automation_schedules:['kind','enabled','configuration_version','source_id','archived_at'],automation_occurrences:['schedule_id','due_at','finished_at','configuration_hash','stream_sequence'],notification_events:['dedup_key','created_at','kind','severity','source_id','project_id','stream_sequence'],review_settings:['setting_kind'],review_analysis_runs:['snapshot_id','snapshot_hash','started_at','finished_at','status','stream_sequence'],
  project_baseline_revisions:['project_id','parent_revision_id','parent_hash','recorded_at','source_watermark'],
+ devices:['created_at','archived_at'],runtime_adapter_configurations:['device_id','project_id','source','instance_id'],runtime_evidence:['device_id','source','received_at','payload_hash'],
 } satisfies Record<RegisteredOwnerTable,string[]>;
 for(const names of Object.values(columns))Object.freeze(names);
 Object.freeze(columns);
-export const IMMUTABLE_MODULE_TABLES:ReadonlySet<RegisteredOwnerTable>=new Set(['evidence_versions','decision_versions','acceptance_records','source_observations','source_sync_runs','integration_history','review_snapshots','review_acknowledgements','automation_occurrences','notification_events','review_analysis_runs','project_baseline_revisions']);
+export const IMMUTABLE_MODULE_TABLES:ReadonlySet<RegisteredOwnerTable>=new Set(['evidence_versions','decision_versions','acceptance_records','source_observations','source_sync_runs','integration_history','review_snapshots','review_acknowledgements','automation_occurrences','notification_events','review_analysis_runs','project_baseline_revisions','runtime_evidence']);
 /** Only these server-owned identifiers may be interpolated by the transaction compiler. */
 export function moduleColumnNames(table:RegisteredOwnerTable):readonly string[]{return columns[ownerTable(table)];}
 const attachmentSchema=z.object({
@@ -44,6 +47,9 @@ export async function moduleProjection(table:RegisteredOwnerTable,id:string,valu
  const names=moduleColumnNames(table);evidenceIdSchema.parse(id);
  const empty=()=>Object.fromEntries(names.map(name=>[name,null]));
  switch(table){
+ case 'devices':{const r=deviceDisplaySchema.parse(value);matchingId(id,r.id);return {created_at:r.createdAt,archived_at:r.archivedAt};}
+ case 'runtime_adapter_configurations':{const r=runtimeAdapterConfigurationSchema.parse(value);matchingId(id,r.id);return {device_id:r.deviceId,project_id:r.projectId,source:r.manifest.id,instance_id:r.manifest.endpointAlias};}
+ case 'runtime_evidence':{const r=selectedRuntimeEvidenceSchema.parse(value);matchingId(id,r.id);return {device_id:r.deviceId,source:r.source,received_at:r.receivedAt,payload_hash:r.payloadHash};}
  case 'project_baseline_revisions':{const r=baselineRevisionSchema.parse(value);matchingId(id,r.id);return {project_id:r.projectId,parent_revision_id:r.parent.kind==='revision'?r.parent.id:null,parent_hash:r.parent.kind==='revision'?r.parent.hash:r.parent.kind==='bundled'?r.parent.packageHash:r.parent.projectHash,recorded_at:r.recordedAt,source_watermark:r.sourceWatermark};}
  case 'review_snapshots':{const r=reviewSnapshotSchema.parse(value);matchingId(id,r.id);return {workspace_revision:r.workspaceRevision,generated_at:r.generatedAt,source_watermark:r.sourceWatermark,scope_hash:await contentHash(canonical(r.scope)),stream_sequence:0};}
  case 'review_acknowledgements':{const r=reviewAcknowledgementSchema.parse(value);matchingId(id,r.id);return {snapshot_id:r.snapshotId,snapshot_hash:r.snapshotHash,acknowledged_at:r.acknowledgedAt,scope_hash:await contentHash(canonical(r.scope))};}

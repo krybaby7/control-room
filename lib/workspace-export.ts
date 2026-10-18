@@ -1,3 +1,4 @@
+import {runtimeExportAdapters} from './runtime/module.ts';
 import {baselineExportAdapters} from './baselines/module.ts';
 import {reviewExportAdapters} from './reviews/module.ts';
 import {sourceExportAdapters} from './sources/module.ts';
@@ -75,7 +76,7 @@ exportRegistry.register({key:'audit_events',schemaVersion:1,policy:'append-only'
   const rows=await boundedPages<Record<string,unknown> & {id:string}>(async after=>(await ctx.db.prepare(`SELECT ${auditColumns} FROM audit_events WHERE user_id = ? AND event_id > ? AND NOT EXISTS(SELECT 1 FROM json_each(?) frozen WHERE frozen.key=audit_events.stream_id AND audit_events.stream_sequence>frozen.value) ORDER BY event_id LIMIT ?`).bind(ctx.userId,after,JSON.stringify(ctx.operationalWatermarks??{}),BUNDLE_LIMITS.pageSize).all<Record<string,unknown>>()).results.map(row=>({id:row.event_id as string,...row})));
   return rows.map(({id:_,...row})=>{void _;return serializePortableAuditRow(row as Record<string,unknown>&{event_id:string;payload_json:string});});
 },parseAndMigrate(input) { if(input.schemaVersion!==1) throw new Error('Unknown audit version.'); for(const row of input.records) { assertPortable(row); if(!row || typeof row!=='object' || typeof (row as {id:unknown}).id!=='string') throw new Error('Invalid audit record.'); } return input.records; }});
-for(const adapter of [...planningExportAdapters,...evidenceExportAdapters,...sourceExportAdapters,...reviewExportAdapters,...baselineExportAdapters])exportRegistry.register(adapter);
+for(const adapter of [...planningExportAdapters,...evidenceExportAdapters,...sourceExportAdapters,...reviewExportAdapters,...baselineExportAdapters,...runtimeExportAdapters])exportRegistry.register(adapter);
 export async function exportWorkspaceBundle(db:SqlDatabase,userId:string,options:{now?:()=>string;registry?:ExportRegistry}={}):Promise<WorkspaceBundle> {
   if(!userId) throw new Error('A signed-in owner is required.'); const registry=options.registry??exportRegistry;
   const namespaces=await getWorkspaceNamespaces(db,userId);
