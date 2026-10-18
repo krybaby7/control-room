@@ -315,6 +315,7 @@ try{
   await db.prepare('UPDATE workspace_source_namespaces SET audit_namespace=? WHERE user_id=?').bind(sourceNamespaces.auditNamespace,OWNER).run();
   const namespaces=await getWorkspaceNamespaces(db,OWNER);assert.equal(namespaces.auditNamespace,sourceNamespaces.auditNamespace);assert.notEqual(namespaces.blobNamespace,sourceNamespaces.blobNamespace);assert.notDeepEqual(namespaces.cursorSecret,sourceNamespaces.cursorSecret);
   await db.prepare('INSERT INTO workspaces(user_id,content,revision,updated_at) VALUES(?,?,?,?)').bind(OWNER,encodePlanning(planning),context.workspaceRevision,NOW).run();
+  const intentRoots=await installRecoveryIntentRoots(source,sourceReceipt,rawTarget,targetReceipt,privateContinuity,privateContinuity.sha256);assert.equal(intentRoots,privateContinuity.tables.workspace_job_intents.length);
   let writes=0;
   for(const table of tableOrder){
    const statements=[];
@@ -338,11 +339,11 @@ try{
    }
    try{await batch(db,statements);}catch(cause){throw new Error('Closed normalized recovery table failed: '+table,{cause});}writes+=statements.length;if(failAfter!==null&&writes>=failAfter)throw new Error('Synthetic interrupted physical installation');
   }
-  let auditAfter='';const auditDigest=createHash('sha256');auditDigest.update('[');
+  let auditAfter='',auditRows=0;const auditDigest=createHash('sha256');auditDigest.update('[');
   for(;;){
    const page=(await stage.prepare("SELECT row_json FROM staged_rows WHERE install_id='interrupted' AND module='audit_events' AND id>? ORDER BY id LIMIT 32").bind(auditAfter).all()).results;if(!page.length)break;
    const original=page.map(row=>JSON.parse(row.row_json));
-   for(const row of original){assert.equal(row.contentHash,await hash(row.value));if(ordinal+original.indexOf(row))auditDigest.update(',');auditDigest.update(canonical(row.value));}
+   for(const row of original){assert.equal(row.contentHash,await hash(row.value));if(auditRows++)auditDigest.update(',');auditDigest.update(canonical(row.value));}
    const nativeColumns=['event_id','workspace_revision','ordinal','stream_id','stream_sequence','kind','entity_type','entity_id','occurred_at','payload_json','origin','actor_id','source_ref','undo_of'],statements=[];
    for(const row of original){
     const native=await source.prepare('SELECT '+nativeColumns.join(',')+' FROM audit_events WHERE user_id=? AND event_id=?').bind(OWNER,row.id).first();assert.ok(native);
@@ -355,7 +356,7 @@ try{
    assert.deepEqual(preserved,nativeSource,'Native audit IDs, actor/origin, stream/null fields and exact original payload differ.');
    auditAfter=original.at(-1).id;
   }
-  auditDigest.update(']');assert.equal(auditDigest.digest('hex'),sourceHashes.audit_events);
+  auditDigest.update(']');assert.equal(auditDigest.digest('hex'),sourceHashes.audit_events);assert.equal(auditRows,manifest.modules.find(recoveryModule=>recoveryModule.key==='audit_events').rows);
   assert.deepEqual((await readCurrent(db,OWNER,NOW)).workspace,planning);
   const auditCount=(await db.prepare('SELECT COUNT(*) n FROM audit_events WHERE user_id=?').bind(OWNER).first()).n;
   assert.equal(auditCount,manifest.modules.find(recoveryModule=>recoveryModule.key==='audit_events').rows);
