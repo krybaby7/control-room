@@ -1,0 +1,27 @@
+name: Control Room isolated segmented recovery
+on:
+  push:
+    branches: ['feat/**']
+    paths:
+      - 'scripts/test-recovery-segments-d1.mjs'
+      - 'lib/recovery-segments.ts'
+      - '.github/workflows/control-room-segmented-recovery.yml'
+  pull_request:
+    paths:
+      - 'scripts/test-recovery-segments-d1.mjs'
+      - 'lib/recovery-segments.ts'
+      - '.github/workflows/control-room-segmented-recovery.yml'
+permissions:
+  contents: read
+jobs:
+  isolated-replacement:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm run install:ci
+      - run: node --experimental-strip-types scripts/test-recovery-segments-d1.mjs

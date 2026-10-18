@@ -1,13 +1,19 @@
-# Cloud checkpoint
+# Cloud implementation checkpoint
 
-Implementation head before this checkpoint: `bf34cb43aed4dcd2f5e4a061d362fe2838b54d45`. Branch `feat/control-room-completion-cloud`; draft PR #1 remains open/unmerged. Exact `gpt-6.1-sol` supported model selections remain accepted for the integrator and six existing workers. No replacement model or original Windows checkout is used.
+Source before this checkpoint: `60e50fc16218a25ea04374d69a4ff9680ac5fb91`.
 
-Workspace command execution/filesystem access remains unavailable. GitHub source APIs plus actual Linux and Windows Actions runners are the supported cloud continuation. Local AF checkout/WIP must be compared with remote source before any reset or merge when execution recovers.
+Explicit supported selection `gpt-6.1-sol` accepted for the integrator and workers `/root/foundation_review`, `/root/codec`, `/root/save_client`, `/root/export_registry`, `/root/drafts`, `/root/runtime_probe`. No resolved-model telemetry is required by the corrected launch.
 
-Phase5 AF fully passed1301Node/48default/3R2 plusallD1/HTTP/build gates. Phase6 c3b9 quickD1 run39165557223/job117787643096 passed23migrations and the actual ownercommands/CLI/SQLiteOutbox/transport/HTTP/D1 live-history-reenrollment-export-reviewedrestore journey. Fixture retryclocks were corrected to respect unchanged serverwindows/cadence. No synthetic ingress is enabled in production.
+## Verified cloud evidence
 
-94b4 fullgate passed1370Node/39bridge/type/lint/build/priorD1/HTTP and48/49default+3/3R2. Subsequent review-list stable-ID/SHA selection, lostsecret-alert persistence and R2 body-capture fixes are integrated; latestbf34 fullCI39165625546 remainspending. Package generation is gated after validated checks, embeds exactcheckoutsource/hash/inventory and creates a dependency-free Windows npm tarball. No coherent release has yet been declared.
+- Full CI39166693216/job117791010617 at3d9d993c passed all source checks,23migration D1/R2/HTTP journeys,50Chromium and3R2 Chromium tests. Package artifact12151126759 source3d9d993c has tarball SHA256 `6b5530225fcaf1b7e1015197e5682198faf6a9744fe61a8dc16e3b26d6c76088`.
+- Windows39167078521/job117792148035 at60e50fc passed actual synthetic ACL/DPAPI/spool protection and unsafe-parent/hardlink/junction rejection. Owner device, collector and Task Scheduler acceptance were not run.
+- Exact60e50fc full CI39167082234 still running; quick runtime D1 passed.
 
-Actual cloudWindows selectedunit/structuralchecks passed run39165557212; the synthetic ACL/DPAPI fixture failed preparation atsynthetic-ownership. The next change adds bounded stage/numeric diagnostics without relaxing production ACLs. OwnerWindows/device/collector, TaskScheduler and supported privateingress acquisition/renewal remainnot-run or unavailable.
+## Current work
 
-Next: inspect39165625546 and the newWindows diagnostic run; fix exactfailures and finishPhase6. Then implementPhase7 coordinator/disabledexecutor with sharedqueue/approval/lease/reconciliation, followedbyPhase8 isolated segmented recovery and release gates. Pure prep orphanSHAs are recorded inprogress.json; they are not integrated/tested acceptance. G48 is still open. Paid inference and operational/trading effects remain disabled. No new Site deployment or realprovider/model/device execution is claimed.
+Phase7 pure policy, transitions, evaluation and artifact validators now enter cloud tests. Coordinator schema generation is isolated on prep/control-room-agent-schema; shared command/control/store integration, scoped protocol routes, owner UI and durable executor remain unfinished. Phase8 segmented D1/R2 rehearsal uses synthetic isolated databases/buckets only and does not install or cut over an existing Site.
+
+The workspace command runner is disconnected. Source APIs and actual GitHub Actions Linux/Windows runners remain available. Preserve existing local unpublished work on recovery; do not reset or blindly merge it. The rejected inspection checkpoint remains local and is absent from the publication branch.
+
+Next command: inspect the new pure-policy/recovery runs, integrate generated additive schema and bounded Phase7 workers, then run actual coordinator D1/browser acceptance before Phase8 release packaging. G48 remains open until a reviewed private-continuity/cutover workflow exists. Private service ingress, provider consent/runtime installation and hosted deployment remain explicit external gates. No new Site, production data reset, paid inference, or operational/trading effect has occurred.

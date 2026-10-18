@@ -1,0 +1,48 @@
+{
+  "fixture": "synthetic; no Agent Lab or model queried",
+  "version": "0.1.0",
+  "queue": {
+    "paused": true,
+    "activeId": null
+  },
+  "csrfToken": "SYNTHETIC_CSRF_DO_NOT_FORWARD",
+  "settings": {
+    "providerExecutable": "C:\\synthetic\\not-a-real-provider.exe"
+  },
+  "providers": [
+    {
+      "path": "C:\\synthetic\\not-a-real-provider.exe",
+      "authToken": "SYNTHETIC_DO_NOT_FORWARD"
+    }
+  ],
+  "runs": [
+    {
+      "id": "fixture-run-1",
+      "taskId": "incident-evidence-v1",
+      "taskVersion": 1,
+      "fixtureHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "provider": "codex",
+      "requestedModel": "gpt-6-luna",
+      "observedModel": null,
+      "modelVerified": false,
+      "runtimeVersion": "fixture-runtime",
+      "runtimeToolPolicy": "native-sandbox",
+      "promptMode": "structured",
+      "effort": "medium",
+      "status": "blocked",
+      "grade": null,
+      "review": {
+        "verdict": "pending",
+        "minutes": null,
+        "corrections": null
+      },
+      "usage": null,
+      "createdAt": "2026-10-18T12:00:00Z",
+      "finishedAt": "2026-10-18T12:00:01Z",
+      "stdout": "SYNTHETIC_TRANSCRIPT_DO_NOT_FORWARD",
+      "stderr": "SYNTHETIC_ERROR_DO_NOT_FORWARD",
+      "finalText": "SYNTHETIC_FINAL_DO_NOT_FORWARD",
+      "executable": "C:\\synthetic\\not-a-real-provider.exe"
+    }
+  ]
+}
