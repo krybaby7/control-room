@@ -33,7 +33,7 @@ function localLease(wire){return {jobId:wire.jobId,attemptId:wire.attemptId,epoc
  * Resumed leases never authorize another process launch. */
 export function bindAgentLease(raw,{expectedBindingSha256,admission,sentMonotonicMs,receivedMonotonicMs}){
  const wire=parseAgentLease(raw),timing={serverNow:wire.serverNow,sentMonotonicMs,receivedMonotonicMs};
- const local=admitExecutionLease({lease:localLease(wire),envelope:wire.approvalEnvelope,expectedBindingSha256,admission,timing,serverDeadlineAt:wire.deadlineAt});
+ const local=admitExecutionLease({lease:localLease(wire),envelope:wire.approvalEnvelope,expectedBindingSha256,admission,timing,serverDeadlineAt:wire.deadlineAt,continuation:wire.resumed});
  let current=wire,nextRenew=receivedMonotonicMs+15000,uncertain=false,renewing=false,launchConsumed=false;
  return Object.freeze({
   identity:local.identity,spec:local.spec,binding:local.binding,

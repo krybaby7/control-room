@@ -8,6 +8,7 @@ export const BACKUP_LIMITS = Object.freeze({snapshots:10,ownerBytes:20_000_000,d
 export type BackupReason='manual'|'restore'|'delete'|'repair'|'scheduled'|'migration';
 export interface BackupManifest {
  id:string;ownerScope:string;sourceRevision:number;reason:BackupReason;createdAt:string;formatVersion:1;bytes:number;sha256:string;
+ fileArchive?:{status:'preparing'|'ready'|'failed'|'retired';bytes:number;files:number;sha256:string|null};
  storageKind:'d1'|'r2';storageKey:string;status:'preparing'|'ready'|'failed'|'expired';expiresAt:string|null;completeModules:string[];missingAttachments:string[];
 }
 interface BackupRow {id:string;source_revision:number;created_at:string;reason:BackupReason;bytes:number;sha256:string;content:string;status:BackupManifest['status'];pinned:number;}
@@ -17,12 +18,13 @@ function owner(userId:string):void {if(!userId)throw new Error('A signed-in owne
 function manifest(row:BackupRow,userId:string,bundle:WorkspaceBundle):BackupManifest {
  return {id:row.id,ownerScope:userId,sourceRevision:row.source_revision,reason:row.reason,createdAt:row.created_at,formatVersion:1,bytes:row.bytes,sha256:row.sha256,storageKind:'d1',storageKey:row.id,status:row.status,expiresAt:null,completeModules:['planning',...Object.keys(bundle.modules).sort()],missingAttachments:deriveAttachmentManifest(bundle.modules).map(item=>item.id)};
 }
-async function verify(row:BackupRow,userId:string):Promise<{manifest:BackupManifest;bundle:WorkspaceBundle;content:string;pinned:boolean}> {
+async function verify(db:SqlDatabase,row:BackupRow,userId:string):Promise<{manifest:BackupManifest;bundle:WorkspaceBundle;content:string;pinned:boolean}> {
  if(new TextEncoder().encode(row.content).length!==row.bytes || row.bytes>BACKUP_LIMITS.d1BundleBytes || await contentHash(row.content)!==row.sha256) throw new BackupIntegrityError('Backup bytes or digest do not match.');
  let bundle:WorkspaceBundle;try {bundle=parseWorkspaceBundle(JSON.parse(row.content));}catch {throw new BackupIntegrityError('Backup bundle is invalid or unsupported.');}
  if(bundle.source.workspaceRevision!==row.source_revision || !Number.isFinite(Date.parse(row.created_at)))throw new BackupIntegrityError('Backup source metadata does not match.');
  if(bundle.attachments.some(item=>item.availability==='included'))throw new BackupIntegrityError('D1 cannot contain attachment bytes.');
- return {manifest:manifest(row,userId,bundle),bundle,content:row.content,pinned:!!row.pinned};
+ const fileArchive=await(await import('./automations/backup-archive-store.ts')).readFileArchiveSummary(db,userId,row.id);
+ return {manifest:{...manifest(row,userId,bundle),...(fileArchive?{fileArchive}:{})},bundle,content:row.content,pinned:!!row.pinned};
 }
 /** Read-only preparation. The caller must insert under the command claim and reassert quota/source revision atomically. */
 export async function prepareWorkspaceBackup(db:SqlDatabase,userId:string,before:WorkspaceEnvelope,reason:BackupReason,now:string):Promise<{manifest:BackupManifest;content:string}> {
@@ -41,12 +43,12 @@ export async function prepareWorkspaceBackup(db:SqlDatabase,userId:string,before
 }
 export async function readWorkspaceBackup(db:SqlDatabase,userId:string,id:string):Promise<{manifest:BackupManifest;bundle:WorkspaceBundle;content:string;pinned:boolean}|null> {
  owner(userId);const row=await db.prepare('SELECT id, source_revision, created_at, reason, bytes, sha256, content, status, pinned FROM workspace_backups WHERE user_id = ? AND id = ?').bind(userId,id).first<BackupRow>();
- if(!row)return null;const result=await verify(row,userId);if(row.status!=='ready')throw new BackupIntegrityError('Backup is not ready for recovery.');return result;
+ if(!row)return null;const result=await verify(db,row,userId);if(row.status!=='ready')throw new BackupIntegrityError('Backup is not ready for recovery.');return result;
 }
 export async function listWorkspaceBackups(db:SqlDatabase,userId:string):Promise<Array<BackupManifest & {pinned:boolean}>> {
  owner(userId);const rows=(await db.prepare('SELECT id, source_revision, created_at, reason, bytes, sha256, content, status, pinned FROM workspace_backups WHERE user_id = ? ORDER BY created_at DESC, id DESC LIMIT ?').bind(userId,BACKUP_LIMITS.snapshots+1).all<BackupRow>()).results;
  if(rows.length>BACKUP_LIMITS.snapshots)throw new BackupCapacityError('Backup snapshot quota exceeded.');
  let total=0;const result:Array<BackupManifest & {pinned:boolean}>=[];
- for(const row of rows){total+=row.bytes;const checked=await verify(row,userId);result.push({...checked.manifest,pinned:checked.pinned});}
+ for(const row of rows){total+=row.bytes;const checked=await verify(db,row,userId);result.push({...checked.manifest,pinned:checked.pinned});}
  if(total>BACKUP_LIMITS.ownerBytes)throw new BackupCapacityError('Backup byte quota exceeded.');return result;
 }

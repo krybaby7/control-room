@@ -25,11 +25,13 @@ export function createBackupArchiveStorage(bucket?:BackupArchiveBucket|null){
   await requireBucket().put(backupArchiveKey(namespace,chunk.part),bytes.slice(),{onlyIf:{etagDoesNotMatch:'*'},httpMetadata:{contentType:'application/octet-stream'},customMetadata:{sha256:chunk.sha256}});
  },
  async get(namespace:string,chunk:BackupArchiveChunk,signal?:AbortSignal):Promise<Uint8Array|null>{
-  check(chunk);const object=await bounded(requireBucket().get(backupArchiveKey(namespace,chunk.part)),signal);if(!object)return null;
+  check(chunk);const controller=new AbortController(),deadline=setTimeout(()=>controller.abort(),15000),readSignal=signal?AbortSignal.any([signal,controller.signal]):controller.signal;
+  try{const object=await bounded(requireBucket().get(backupArchiveKey(namespace,chunk.part)).then(object=>{if(readSignal.aborted){void object?.body.cancel().catch(()=>{});throw new Error('Archive read cancelled.');}return object;}),readSignal);if(!object)return null;
   if(object.size!==chunk.bytes||object.customMetadata?.sha256!==chunk.sha256||object.httpMetadata?.contentType!=='application/octet-stream'){void object.body.cancel().catch(()=>{});throw new Error('Archive object metadata differs.');}
   const reader=object.body.getReader(),bytes=new Uint8Array(chunk.bytes);let offset=0;
-  try{for(;;){const next=await bounded(reader.read(),signal);if(next.done)break;if(!(next.value instanceof Uint8Array)||offset+next.value.length>bytes.length)throw new Error('Archive chunk exceeds its byte bound.');bytes.set(next.value,offset);offset+=next.value.length;}if(offset!==chunk.bytes||await contentHash(bytes)!==chunk.sha256)throw new Error('Archive chunk bytes differ.');return bytes;}
+  try{for(;;){const next=await bounded(reader.read(),readSignal);if(next.done)break;if(!(next.value instanceof Uint8Array)||offset+next.value.length>bytes.length)throw new Error('Archive chunk exceeds its byte bound.');bytes.set(next.value,offset);offset+=next.value.length;}if(offset!==chunk.bytes||await contentHash(bytes)!==chunk.sha256)throw new Error('Archive chunk bytes differ.');return bytes;}
   finally{void reader.cancel().catch(()=>{});reader.releaseLock();}
+  }finally{clearTimeout(deadline);}
  }};
 }
 export type BackupArchiveStorage=ReturnType<typeof createBackupArchiveStorage>;

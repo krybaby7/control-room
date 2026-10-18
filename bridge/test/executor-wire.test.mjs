@@ -40,3 +40,15 @@ test('frozen admission refuses foreign/duplicate/dependency and artifact claims 
  for(const mutate of [w=>{w.frozenAdmission.dependencyRows[0].ownerKey='b'.repeat(64);},w=>{w.frozenAdmission.dependencyRows.push({...w.frozenAdmission.dependencyRows[0]});},w=>{w.frozenAdmission.dependencyRows[0].status='running';},w=>{w.frozenAdmission.activeAttemptsBefore=1;},w=>{w.frozenAdmission.approvalConsumedBefore=true;},w=>{w.frozenAdmission.artifactRefs=[{id:'other',sha256:'a'.repeat(64),bytes:1}];}]){const {wire}=wireFixture();mutate(wire);assert.throws(()=>parseAgentLease(wire));}
  const {wire}=wireFixture();wire.taskInput.acceptanceInputs={};wire.taskInput.acceptanceInputs.loop=wire.taskInput.acceptanceInputs;assert.throws(()=>parseAgentLease(wire),/invalid_task_input/);
 });
+
+test('resumed600-second attempt retains frozen admission freshness after capability expiry without another launch',()=>{
+ const {wire,options}=wireFixture(600);wire.resumed=true;wire.serverNow='2026-10-18T12:05:01.000Z';wire.leaseExpiresAt='2026-10-18T12:06:01.000Z';options.admission.now=wire.serverNow;options.sentMonotonicMs=301000;options.receivedMonotonicMs=301100;
+ const lease=bindAgentLease(wire,options);assert.equal(lease.mayLaunch,false);assert.throws(()=>lease.consumeLaunch(301200),/launch_not_admissible/);assert.ok(lease.snapshot().deadlineMonotonicMs<=600100);
+ const fresh=wireFixture(600);fresh.wire.serverNow=wire.serverNow;fresh.wire.leaseExpiresAt=wire.leaseExpiresAt;fresh.options.admission.now=wire.serverNow;assert.throws(()=>bindAgentLease(fresh.wire,fresh.options),/admission_blocked/);
+});
+
+test('resumed admission preserves provider/executable/tool/model/path pins and current local controls',()=>{
+ for(const change of [(o)=>{o.admission.capability.provider='claude';},(o)=>{o.admission.capability.runtime.executableSha256='e'.repeat(64);},(o)=>{o.admission.capability.runtime.toolPolicySha256='e'.repeat(64);},(o)=>{o.admission.capability.models[0].id='another-model';},(o)=>{o.admission.capability.allowedPathsSha256ByRepositoryKey.fixture='e'.repeat(64);},(o)=>{o.admission.context.localDisabled=true;},(o)=>{o.admission.context.cancelRequested=true;},(o)=>{o.admission.context.usedJobs=1;}]){
+  const {wire,options}=wireFixture(600);wire.resumed=true;wire.serverNow='2026-10-18T12:05:01.000Z';wire.leaseExpiresAt='2026-10-18T12:06:01.000Z';options.admission=structuredClone(options.admission);options.admission.now=wire.serverNow;options.sentMonotonicMs=301000;options.receivedMonotonicMs=301100;change(options);assert.throws(()=>bindAgentLease(wire,options),/admission_blocked/);
+ }
+});

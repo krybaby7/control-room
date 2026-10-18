@@ -1,0 +1,37 @@
+name: Control Room isolated recovery maintenance
+on:
+  push:
+    branches: ['feat/**']
+    paths:
+      - 'lib/recovery-maintenance.ts'
+      - 'lib/recovery-private-continuity.ts'
+      - 'tests/helpers/recovery-maintenance.ts'
+      - 'tests/recovery-maintenance.test.ts'
+      - 'scripts/test-recovery-maintenance-d1.mjs'
+      - 'db/schema.ts'
+      - 'lib/automations/backup-schema.ts'
+      - '.github/workflows/control-room-recovery-maintenance.yml'
+  pull_request:
+    paths:
+      - 'lib/recovery-maintenance.ts'
+      - 'lib/recovery-private-continuity.ts'
+      - 'tests/helpers/recovery-maintenance.ts'
+      - 'tests/recovery-maintenance.test.ts'
+      - 'scripts/test-recovery-maintenance-d1.mjs'
+      - 'db/schema.ts'
+      - 'lib/automations/backup-schema.ts'
+      - '.github/workflows/control-room-recovery-maintenance.yml'
+permissions:
+  contents: read
+jobs:
+  actual-d1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm run install:ci
+      - run: node --experimental-strip-types scripts/test-recovery-maintenance-d1.mjs

@@ -24,11 +24,13 @@ const schemas={
  job_events:z.object({attempt_id:id,epoch:integer,sequence:positive,payload_hash:digest,payload_json:json,receipt_json:json,received_at:stamp,applied_at:nullableStamp}).strict(),
  agent_device_slots:z.object({device_id:id,attempt_id:id,reserved_at:stamp,released_at:nullableStamp}).strict(),
  agent_budgets:z.object({id,operational_revision:positive,payload_json:json,maximum_jobs:integer.max(12),maximum_seconds:integer.max(7200),reserved_jobs:integer,reserved_seconds:integer,charged_seconds:integer,enabled:flag,updated_at:stamp}).strict(),
+ backup_archives:z.object({id,namespace:z.string().uuid(),intent_id:id,source_revision:positive,source_sha256:digest,metadata_content:z.string().max(8000000).nullable(),metadata_bytes:integer.max(8000000),execution_epoch:integer,status:z.enum(['preparing','ready','failed','retired']),created_at:stamp,updated_at:stamp,zip_bytes:integer.max(20*1024*1024),files:integer.max(500),file_bytes:integer.max(20*1024*1024),chunk_count:integer.max(5),index_json:z.string().max(1800000).nullable(),index_sha256:digest.nullable()}).strict(),
+ backup_archive_objects:z.object({archive_id:id,part_number:integer.max(4),storage_key:id,bytes:integer.max(4194304),sha256:digest.nullable(),created_at:stamp,verified_at:nullableStamp,purged_at:nullableStamp,pending_token:id.nullable(),settled_at:nullableStamp}).strict(),
  agent_artifacts:z.object({attempt_id:id,artifact_id:id,logical_type:id,sha256:digest,bytes:integer,created_at:stamp}).strict(),
 };
 type Table=keyof typeof schemas;
 export const PRIVATE_CONTINUITY_TABLES=Object.freeze(Object.keys(schemas) as Table[]);
-const keys:Record<Table,readonly string[]>={attachment_blob_fences:['storage_key'],attachment_blob_objects:['storage_key'],attachment_upload_attempts:['token'],attachment_blob_namespaces:['namespace'],attachment_archive_cleanup_claims:['storage_key'],workspace_mutation_epochs:['epoch'],workspace_mutations:['mutation_id'],workspace_job_intents:['id'],agent_job_state:['job_id'],job_approvals:['id'],job_attempts:['id'],job_events:['attempt_id','epoch','sequence'],agent_device_slots:['device_id'],agent_budgets:['id'],agent_artifacts:['attempt_id','artifact_id']};
+const keys:Record<Table,readonly string[]>={attachment_blob_fences:['storage_key'],attachment_blob_objects:['storage_key'],attachment_upload_attempts:['token'],attachment_blob_namespaces:['namespace'],attachment_archive_cleanup_claims:['storage_key'],workspace_mutation_epochs:['epoch'],workspace_mutations:['mutation_id'],workspace_job_intents:['id'],agent_job_state:['job_id'],job_approvals:['id'],job_attempts:['id'],job_events:['attempt_id','epoch','sequence'],agent_device_slots:['device_id'],agent_budgets:['id'],agent_artifacts:['attempt_id','artifact_id'],backup_archives:['id'],backup_archive_objects:['archive_id','part_number']};
 const sourceContextSchema=z.object({workspaceRevision:positive,executionEpoch:integer,operationalWatermarks:z.record(z.string().regex(/^[a-z][a-z0-9_-]{0,63}$/),integer).refine(value=>Object.keys(value).length<=32)}).strict();
 const deletionSchema=z.object({event_id:id,kind:z.literal('entity.delete'),entity_type:z.enum(['task','capture']),entity_id:id,occurred_at:stamp,payload_json:json}).strict();
 const tablesSchema=z.object(Object.fromEntries(PRIVATE_CONTINUITY_TABLES.map(table=>[table,z.array(schemas[table]).max(PRIVATE_CONTINUITY_LIMITS.rows)])) as unknown as {[K in Table]:z.ZodArray<typeof schemas[K]>}).strict();
@@ -91,6 +93,21 @@ export async function validateRecoveryPrivateContinuity(raw:unknown,expected:Pri
   const intent=value.tables.workspace_job_intents.find(row=>row.id===state.intent_id);
   if(!intent||intent.kind!=='agent.execute'||(parseJson(intent.payload_json) as {jobId?:unknown}).jobId!==state.job_id||state.attempt_id!==null&&!attempts.has(state.attempt_id))throw new Error('Retained queue/state identity differs.');
  }
+ const archiveIndex=z.object({format:z.literal('workspace-archive-chunks'),version:z.literal(1),archiveId:id,metadataSha256:digest,manifestSha256:digest,zipBytes:positive.max(20*1024*1024),files:integer.max(500),fileBytes:integer.max(20*1024*1024),chunks:z.array(z.object({part:integer.max(4),bytes:positive.max(4194304),sha256:digest}).strict()).min(1).max(5)}).strict();
+ for(const archive of value.tables.backup_archives){
+  if((archive.index_json===null)!==(archive.index_sha256===null))throw new Error('Backup archive index identity is incomplete.');
+  if(archive.status==='retired'&&(archive.metadata_content!==null||archive.metadata_bytes!==0))throw new Error('Retired backup metadata differs.');
+  if(archive.metadata_content!==null&&(encoder.encode(archive.metadata_content).byteLength!==archive.metadata_bytes||await contentHash(archive.metadata_content)!==archive.source_sha256))throw new Error('Backup source metadata digest differs.');
+  if(archive.index_json!==null){
+   const index=archiveIndex.parse(parseJson(archive.index_json));
+   if(index.archiveId!==archive.id||index.metadataSha256!==archive.source_sha256||await contentHash(canonical(index))!==archive.index_sha256||index.zipBytes!==archive.zip_bytes||index.files!==archive.files||index.fileBytes!==archive.file_bytes||index.chunks.length!==archive.chunk_count||index.chunks.reduce((total,chunk)=>total+chunk.bytes,0)!==index.zipBytes||index.chunks.some((chunk,position)=>chunk.part!==position||(position<index.chunks.length-1&&chunk.bytes!==4194304)))throw new Error('Backup archive index digest/count differs.');
+   if(archive.status==='ready')for(const chunk of index.chunks){const object=value.tables.backup_archive_objects.find(row=>row.archive_id===archive.id&&row.part_number===chunk.part);if(!object||object.bytes!==chunk.bytes||object.sha256!==chunk.sha256||object.verified_at===null||object.purged_at!==null)throw new Error('Ready backup chunk proof is incomplete.');}
+  }else if(archive.status==='ready')throw new Error('Ready backup index is unavailable.');
+ }
+ for(const object of value.tables.backup_archive_objects){
+  const archive=value.tables.backup_archives.find(row=>row.id===object.archive_id);
+  if(!archive||object.storage_key!=='backups/'+archive.namespace+'/part-'+String(object.part_number).padStart(4,'0')||(object.pending_token===null&&object.settled_at!==null))throw new Error('Backup physical identity differs.');
+ }
  ordered(value.baselineRemovalFences,['event_id']);
  for(const fence of value.baselineRemovalFences){const event=parseAuditEvent(parseJson(fence.payload_json));if(event.id!==fence.event_id||event.kind!=='entity.delete'||event.entityType!==fence.entity_type||event.entityId!==fence.entity_id||event.origin!=='owner'||event.actorId!==trusted.ownerId||event.occurredAt!==fence.occurred_at)throw new Error('Baseline removal must be an original owner deletion, not imported history.');}
  return value;
@@ -140,6 +157,8 @@ export function assessPrivateRecoveryContinuity(value:RecoveryPrivateContinuity)
  const parsed=recoveryPrivateContinuitySchema.parse(value),blockers=['source_freeze_unverified','inactive_target_and_cutover_authority_unimplemented'];
  if(parsed.sourceContext.executionEpoch===Number.MAX_SAFE_INTEGER)throw new Error('Execution epoch exhausted.');
  if(parsed.tables.attachment_upload_attempts.some(row=>row.settled_at===null))blockers.push('unsettled_upload_attempts');
+ if(parsed.tables.backup_archive_objects.some(row=>row.pending_token!==null&&row.settled_at===null))blockers.push('unsettled_backup_archive_put');
+ if(parsed.tables.backup_archive_objects.some(row=>row.purged_at===null))blockers.push('backup_archive_namespace_handoff_required');
  if(parsed.tables.attachment_blob_objects.some(row=>row.purged_at===null))blockers.push('physical_namespace_handoff_unsupported');
  if(parsed.tables.attachment_blob_fences.some(fence=>fence.purged_at!==null&&!parsed.tables.attachment_blob_objects.some(object=>object.storage_key===fence.storage_key&&object.attachment_id===fence.attachment_id&&object.purged_at!==null&&object.sha256!==null&&object.verified_at!==null)))blockers.push('purged_identity_unverified');
  return {installable:false,blockers,nextExecutionEpoch:parsed.sourceContext.executionEpoch+1,retainedUnknownAttempts:parsed.tables.job_attempts.filter(row=>row.result_json===null&&row.reconciled_at===null).length};

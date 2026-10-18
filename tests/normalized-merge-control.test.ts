@@ -12,7 +12,7 @@ import type {MutationPlan} from '../lib/workspace-transaction.ts';
 const now='2026-10-18T12:00:00.000Z',owner='compiler-merge-owner';
 async function fixture(){
  const f=database(),before=await loadWorkspace(f.db,owner,()=>workspaceFixture(),now),rows=[];
- const query=ownerReader(f.db,owner);for(const module of OWNER_TABLES)for(const row of await query.list(module,{limit:200}))rows.push({module,id:row.id,rowRevision:row.row_revision,contentHash:row.content_hash,references:[]});
+ const query=ownerReader(f.db,owner);for(const table of OWNER_TABLES)for(const row of await query.list(table,{limit:200}))rows.push({module:table,id:row.id,rowRevision:row.row_revision,contentHash:row.content_hash,references:[]});
  const referenceSnapshot={coveredModules:[...OWNER_TABLES],rows,digest:await contentHash(canonical({coveredModules:[...OWNER_TABLES],rows}))};
  const value={id:'new-head',currentVersion:1,archivedAt:null},hash=await contentHash(canonical(value)),importHash='a'.repeat(64),reviewHash='b'.repeat(64);
  const plan:MutationPlan={normalizedMerge:{importHash,reviewHash,rows:[{module:'evidence',table:'evidence_records',id:value.id,beforeHash:null,afterHash:hash,disposition:'insert'}],verifiedAttachments:[]},referenceSnapshot,importSource:{id:'stage',hash:importHash},planningAfter:before.workspace,writes:[{table:'evidence_records',id:value.id,operation:'insert',expectedRowRevision:null,value}],events:[{id:'merge-event',kind:'workspace.import.commit',entityType:'workspace',entityId:null,changes:[],origin:'owner',actorId:owner,occurredAt:now,sourceRef:importHash,undoOf:null}],jobs:[],backup:{reason:'restore'},restoreEpoch:true};

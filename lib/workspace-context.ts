@@ -12,11 +12,11 @@ import {readWorkspaceBackup,listWorkspaceBackups} from './workspace-backups.ts';
 import {readAuditCommandGroup} from './history-command-group.ts';
 import {canResumeSource} from './sources/runtime-access.ts';
 import {readSourceSyncState} from './sources/store.ts';
-export type OwnerCommandServices=Pick<PrepareContext,'attachmentAccess'|'verifyAttachment'>&{deviceEnrollment?:import('./runtime/command-contracts.ts').DeviceEnrollmentMaterial};
+export type OwnerCommandServices=Pick<PrepareContext,'attachmentAccess'|'verifyAttachment'|'agentArtifact'>&{deviceEnrollment?:import('./runtime/command-contracts.ts').DeviceEnrollmentMaterial};
 /** Used by authenticated server routes and the compiler; no request may override owner or authority lookups. */
 export function ownerPrepareContext(db:SqlDatabase,userId:string,before:WorkspaceEnvelope,command:WorkspaceCommand,now:string,services:OwnerCommandServices={},mutationId?:string):PrepareContext{
  if(!userId)throw new Error('An authenticated owner is required.');
- return {mutationId,userId,before,command,now,query:ownerReader(db,userId),attachmentAccess:services.attachmentAccess,verifyAttachment:services.verifyAttachment,
+ return {agentArtifact:services.agentArtifact,mutationId,userId,before,command,now,query:ownerReader(db,userId),attachmentAccess:services.attachmentAccess,verifyAttachment:services.verifyAttachment,
   agentRuntime:ownerAgentContext(db,userId,now),
   deviceRuntime:{enrollment:services.deviceEnrollment,latest:input=>readLatestRuntimeEvidence(db,userId,input)},
   baselineRuntime:{preview:input=>previewBaselineRevision(db,userId,input,now)},

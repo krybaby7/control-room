@@ -46,7 +46,7 @@ export async function readPreparingArchiveMetadata(db:SqlDatabase,claim:Schedule
 }
 async function layout(bundle:WorkspaceBundle){
  const inspection=inspectAttachmentManifest(bundle.modules);if(inspection.unresolvedLegacy)throw new Error('A file backup requires resolved typed attachment metadata.');
- const attachments=[];for(const entry of inspection.entries)attachments.push({...entry,archivePath:await attachmentArchivePath(entry.id),availability:'included' as const});
+ const attachments:Array<(typeof inspection.entries)[number]&{archivePath:string;availability:'included'}>=[];for(const entry of inspection.entries)attachments.push({...entry,archivePath:await attachmentArchivePath(entry.id),availability:'included' as const});
  const complete={...bundle,attachments,completeness:'complete' as const},manifestBytes=new TextEncoder().encode(JSON.stringify(complete));
  const fileBytes=inspection.entries.reduce((n,entry)=>n+entry.bytes,0),zipBytes=22+manifestBytes.length+76+2*new TextEncoder().encode('manifest.json').length+inspection.entries.reduce((n,entry)=>n+entry.bytes+76+2*new TextEncoder().encode(attachments.find(row=>row.id===entry.id)!.archivePath).length,0);
  if(zipBytes>BACKUP_LIMITS.ownerBytes)throw new BackupCapacityError('The complete file archive exceeds the owner backup byte bound.');
@@ -129,9 +129,19 @@ export async function readReadyFileBackup(db:SqlDatabase,owner:string,id:string,
  const logical=await db.prepare("SELECT sha256,content,status FROM workspace_backups WHERE user_id=? AND id=?").bind(owner,id).first<{sha256:string;content:string;status:string}>();if(!logical||logical.status!=='ready'||logical.sha256!==row.source_sha256||logical.content!==row.metadata_content||!row.index_json||!row.index_sha256)return null;
  const index=backupArchiveIndexSchema.parse(JSON.parse(row.index_json));if(await contentHash(canonical(index))!==row.index_sha256)throw new Error('Retained archive index digest differs.');
  await inspectStored(db,owner,row,index,services,signal);
+ const current=await db.prepare("SELECT 1 FROM backup_archives a JOIN workspace_backups b ON b.user_id=a.user_id AND b.id=a.id WHERE a.user_id=? AND a.id=? AND a.status='ready' AND a.index_sha256=? AND b.status='ready' AND b.sha256=a.source_sha256 AND b.content=a.metadata_content").bind(owner,id,row.index_sha256).first();if(!current)return null;
  return {index,indexHash:row.index_sha256,stream:objectStream(createBackupArchiveStorage(services.bucket),row.namespace,index,signal)};
 }
 /** Explicit logical removal only; physical objects/pending tokens remain charged, never auto-deleted. */
 export function retireFileBackupStatements(db:SqlDatabase,owner:string,id:string,now:string,gate:string,binds:(string|number|null)[]):SqlStatement[]{
  return [db.prepare("UPDATE backup_archives SET status='retired',metadata_content=NULL,metadata_bytes=0,updated_at=? WHERE user_id=? AND id=? AND status='ready' AND "+gate).bind(now,owner,id,...binds)];
+}
+
+/** Dated private bookkeeping only, not a fresh R2 availability assertion. */
+export async function readFileArchiveSummary(db:SqlDatabase,owner:string,id:string):Promise<{status:'preparing'|'ready'|'failed'|'retired';bytes:number;files:number;sha256:string|null}|null>{
+ const row=await archive(db,owner,id);if(!row)return null;
+ if(!['preparing','ready','failed','retired'].includes(row.status)||!Number.isSafeInteger(row.zip_bytes)||row.zip_bytes<1||row.zip_bytes>BACKUP_LIMITS.ownerBytes||!Number.isSafeInteger(row.files)||row.files<0||row.files>500)throw new Error('File backup bookkeeping is invalid.');
+ if(row.index_json!==null||row.index_sha256!==null){if(!row.index_json||!row.index_sha256)throw new Error('File archive index identity is incomplete.');const value=backupArchiveIndexSchema.parse(JSON.parse(row.index_json));if(value.archiveId!==id||value.zipBytes!==row.zip_bytes||value.files!==row.files||await contentHash(canonical(value))!==row.index_sha256)throw new Error('File archive index differs.');}
+ if(row.status==='ready'){if(!row.index_json||!row.index_sha256)throw new Error('Ready file archive has no verified index.');const value=backupArchiveIndexSchema.parse(JSON.parse(row.index_json)),objects=await chunks(db,owner,id);if(objects.length!==value.chunks.length||objects.some((object,part)=>object.part_number!==part||object.storage_key!==backupArchiveKey(row.namespace,part)||object.bytes!==value.chunks[part].bytes||object.sha256!==value.chunks[part].sha256||object.purged_at!==null||object.verified_at===null))throw new Error('Ready file archive physical bookkeeping differs.');}
+ return {status:row.status as 'preparing'|'ready'|'failed'|'retired',bytes:row.zip_bytes,files:row.files,sha256:row.index_sha256};
 }

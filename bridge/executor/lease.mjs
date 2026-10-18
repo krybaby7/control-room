@@ -33,11 +33,14 @@ function timing(lease,raw){
 }
 /** This checks authenticated caller material; it does not authenticate JSON or issue a grant.
  * expectedBindingSha256 must come from the owner's independently retained approval, never the lease response. */
-export function admitExecutionLease({lease:raw,envelope,expectedBindingSha256,admission,timing:clock,serverDeadlineAt=null}){
+export function admitExecutionLease({lease:raw,envelope,expectedBindingSha256,admission,timing:clock,serverDeadlineAt=null,continuation=false}){
  const lease=parseLease(raw);shape(envelope,['approval','executionBinding','bindingSha256','reservationId','approverId']);id(envelope.reservationId);id(envelope.approverId);
  const binding=parseExecutionBinding(envelope.executionBinding),bindingHash=sha(binding);
  if(digest(envelope.bindingSha256)!==bindingHash||digest(expectedBindingSha256)!==bindingHash)fail('execution_binding_differs');
- const approval=envelope.approval,verdict=checkExecutionAdmission({...admission,approval});
+ const approval=envelope.approval;if(typeof continuation!=='boolean'||Date.parse(stamp(admission.now))<Date.parse(stamp(approval.approvedAt)))fail('admission_blocked');
+ // Freshness admits the original claim. A current authenticated resumed lease
+ // may validate its frozen pins at that original approval instant, never launch.
+ const verdict=checkExecutionAdmission({...admission,approval,now:continuation?approval.approvedAt:admission.now});
  if(!verdict.allowed)fail('admission_blocked');
  if(canonical(parseJobSpec(admission.spec))!==canonical(lease.spec)||lease.jobId!==admission.context.jobId||lease.deviceId!==admission.context.deviceId||lease.epoch!==admission.context.executionEpoch||lease.approvalId!==approval.id)fail('lease_identity_differs');
  const spec=lease.spec,capability=parseCapability(admission.capability),policy=parseExecutionPolicy(admission.policy);
