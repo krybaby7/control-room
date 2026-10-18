@@ -54,9 +54,8 @@
         "Final cloud CI39131486192/job117687401755 at c9ba3744f8628b5b84b0841733979168fdb15f48 passed clean locked install,334 Node tests,typecheck,lint,production build,actual isolated Wrangler fixture and all8 Chromium journeys (27.1s)."
       ],
       "blockers": [
-        "Reviewed selective merge is planning-only and preserves normalized owner modules; normalized file/evidence recovery uses complete reviewed replacement. Unregistered populated modules still fail closed.",
-        "Backup policy reports disabled/unavailable defaults; persistence/activation and concrete job-store adapter await registered renewable runner and verified private R2 storage",
-        "Authenticated hosted gateway/device session acceptance remains separate from synthetic fixtures"
+        "Hosted private owner authentication/passkey and actual-device offline acceptance remain external.",
+        "Latest reviewed normalized merge and file-backup deltas require their complete source/native regression gates."
       ]
     },
     {
@@ -82,8 +81,8 @@
         "Final planning cloud gate CI39136249732/job117701249535 atac17e4ba2d5d55b4fe6f0e16c1638ffc78ed6a8f passed cleanlockedinstall,423Node,typecheck,lint,productionbuild,actualisolatedfixture andall26Chromiumjourneys(1.1m),includingheldreadiness,recoveryprivacy,390/1280portfolio,fullnormalizedrestore,truev2imports,searchhistory,weeklyconflict andmanualrecurrence."
       ],
       "blockers": [
-        "Hostedgateway/passkey andactualphone/tablet acceptance remain separate fromsyntheticChromiumfixtures.",
-        "Manualrecurrencecommandworks;unattendedjobdispatcheractivation remains owningPhase5 andrenewablerunneracceptance."
+        "Actual owner phone/tablet/passkey acceptance remains external.",
+        "Real hosted unattended dispatcher activation is unverified; isolated D1 scheduling evidence does not enable it."
       ]
     },
     {
@@ -170,7 +169,9 @@
         "Exact fourteen-field job contracts, full provider/runtime/executable/tool-policy binding, pure transitions, sanitized evaluation import and result-artifact validation integrated for cloud regression; owner commands, private leases, UI and executor journal remain in bounded implementation.",
         "Source0a03f05afcb25a3dad78512f8d909d585e8f1576 agent checks39168864253/job117797532444 terminalsuccess:82 agent/evaluation tests including real D1 lease/lifecycle; typecheck/lint pass. Isolated agents D1 39168864334 terminalsuccess.",
         "Source87929724377b0243b325b5dee4762c7a76a1f5c9 isolated agents D139169280294, runtimeD139169276929, segmented recovery39169280284 and executor39169277012 terminalsuccess. Full source gate failed valid-fixture and enrollment typing issues; corrections integrated ca4f15ba150de009e557a4ee412c21e50cf4bce3, rerun pending.",
-        "Native owner jobs, explicit finite budget, separate executor/evaluation enrollment, immutable approvals, single lease/attempt, ordered exact event receipts, frozen task/grant, retained unknown/reconciliation and explicit result acceptance implemented; artifact upload/production verification and authenticated executor transport still in progress."
+        "Native owner jobs, explicit finite budget, separate executor/evaluation enrollment, immutable approvals, single lease/attempt, ordered exact event receipts, frozen task/grant, retained unknown/reconciliation and explicit result acceptance implemented; artifact upload/production verification and authenticated executor transport still in progress.",
+        "5f46 full Node cloud run39171598479/job117805622351:1525pass/12fail; four actual native agent-artifact-store tests passed. Twelve failures were three stale/invalid merge fixtures, one maintenance global-table scan and eight file-backup workerd compatibility fixture startup errors; corrections integrated f7e6afcf, rerun pending.",
+        "Attempt-scoped reserve/PUT/finalize now reuses native attachment quota/physical ledger with atomic current-lease guards, exact immutable binding, SHA/type/package limits and original m1 replay. Independent review fixed connector audit attribution, quota undercharging and metadata rewrite checks; dedicated actual D1/R2 gate added and pending."
       ],
       "blockers": [
         "Actual pinned upstream runtime extraction and Windows owned process/sandbox acceptance unavailable; production executor remains not_installed.",
@@ -182,15 +183,21 @@
       "status": "in_progress",
       "evidence": [
         "Actual isolated segmented D1/R2 >10000-audit/>8MB recovery rehearsal terminalsuccess at69e6 and879; preserves refs/projections and fresh blob identities. Private continuity capture/validation integrated; operator freeze/target handoff implementation underway, no existing Site mutation.",
-        "Unified bounded Attention findings and real axe/multibrowser workflow integrated ca4f15b; first cloud run pending. Normalized reviewed merge, file-inclusive scheduled backup, controlled performance and release packaging in progress."
+        "Unified bounded Attention findings and real axe/multibrowser workflow integrated ca4f15b; first cloud run pending. Normalized reviewed merge, file-inclusive scheduled backup, controlled performance and release packaging in progress.",
+        "Controlled benchmark at e21f487 and f0971ea passed actual SQLite and Miniflare D1; source f097 runs39171233847/39171229343 terminalsuccess. Near-bound metadata fixtures, positive p50/p95 and declared budgets; no production latency claim.",
+        "Real three-browser scans found and corrected contrast/width issues; latest native Chromium/WebKit touch passed. Nine keyboard journeys exposed dialog autofocus intent lost after showModal; product correction underway, no rules waived.",
+        "26th additive migration generated by actual Node24 Drizzle39171832398/job117806331364; private permanent backup cleanup fence added, existing applied migrations preserved.",
+        "Native reviewed normalized merge, explicit file-backup consent/version ZIP download, genuine bounded SSE protocol/server/client fixtures and default polling label integrated. Production SSE registry remains unverified/disabled.",
+        "Read-only Sites metadata confirms existing owner-only private Site active at version2; no source publication or access change. Supported Sites source/packaging helper needs restored cloud workspace execution; GitHub source/Actions remain available."
       ],
       "blockers": [
-        "Production recovery/cutover requires proven private continuity and operator freeze; rehearsal alone is insufficient.",
-        "No new private Sites deployment; final exact candidate gates/package not yet complete."
+        "Exact final coherent source/full browser/packaging gates still in progress.",
+        "Privileged segmented recovery assembler, ready/retired backup chunk rekey and protected file-backup removal/cleanup integration still underway; existing Site is untouched.",
+        "Actual provider/device/hosted ingress/SSE acceptance and supported Sites source publication helper execution remain unavailable/not-run."
       ]
     }
   ],
-  "nextAction": "Inspect Actions for ca4f15ba; integrate authenticated executor wire, reviewed normalized merge and scheduled file archive; complete isolated freeze, accessibility/performance and exact candidate release gates.",
+  "nextAction": "Inspect f7e6afcf Actions, fix actual artifact/R2/maintenance/native failures; integrate protected file-backup cleanup and full private-continuity replacement assembler; complete exact candidate package/gates and private Sites handoff.",
   "allowedStatuses": [
     "not_started",
     "in_progress",
@@ -217,14 +224,15 @@
     "evidence": "Explicit supported model selection accepted and worker IDs returned."
   },
   "checkpoint": {
-    "implementationHead": "ca4f15ba150de009e557a4ee412c21e50cf4bce3",
+    "implementationHead": "f7e6afcf207c9bbe74eb0a34ea83f100dc73471a",
     "executionMode": "Supported GitHub source APIs and actual GitHub Actions Node24 Linux/Windows cloud runners; exact selected gpt-6.1-sol workers retained. Workspace execution unavailable.",
-    "tests": "Phase6 full source+Windows passed. Phase7 coordinator isolated D1 and executor pass; latest Attention/accessibility/frozen-admission delta awaits Actions.",
+    "tests": "Controlled SQLite+D1 benchmark and isolated agent/runtime/segmented/executor gates passed. Latest26-migration/artifact/SSE/file-backup integration checks running; no final green or deployed candidate claim.",
     "knownFailures": [
-      "879 fullCI rejected an oversize notes test fixture, stale backup registry fixture path and enrollment type mismatches; corrected ca4f15ba pending actual rerun.",
-      "No live provider/device/Site acceptance; paid inference and operational/trading effects disabled.",
-      "Remaining feasible code: normalized reviewed merge, file-inclusive scheduled backup, actual artifact upload/verification, private recovery freeze/target handoff, controlled performance and final packaging."
+      "Latest complete source gate has unresolved deltas awaiting rerun; prior12 Node failures have targeted corrections.",
+      "Three-browser keyboard tests found dialog autofocus bug; touch and latest inspected Today axe scans passed, full journeys remain incomplete.",
+      "Pinned upstream provider runtime/Windows owned-process acceptance unavailable; production executor not_installed. Paid inference and operational/trading effects disabled.",
+      "Workspace command execution remains disconnected; supported Sites source helper cannot run yet. Existing private Site metadata access works and version2 remains live unchanged."
     ],
-    "nextCommand": "Inspect Actions for ca4f15ba; integrate authenticated executor wire, reviewed normalized merge and scheduled file archive; complete isolated freeze, accessibility/performance and exact candidate release gates."
+    "nextCommand": "Inspect f7e6afcf Actions, fix actual artifact/R2/maintenance/native failures; integrate protected file-backup cleanup and full private-continuity replacement assembler; complete exact candidate package/gates and private Sites handoff."
   }
 }
