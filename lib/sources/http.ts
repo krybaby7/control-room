@@ -1,3 +1,4 @@
+import {RecoverabilityCapacityError} from '../recoverability-admission.ts';
 import {z} from 'zod';
 import {readCurrent,type SqlDatabase} from '../workspace-store.ts';
 import {ownerReader,type ModuleRow,type RegisteredOwnerTable} from '../workspace-modules.ts';
@@ -26,7 +27,7 @@ export interface SourceProposalPage {sourceId:string;items:Array<{value:SourcePr
 export interface SourceRunPage {sourceId:string;items:SourceRunHistory[];nextAfter:string|null}
 export class SourceHttpError extends Error {readonly status:number;constructor(message:string,status:number){super(message);this.status=status;}}
 export function sourceHttpResponse(value:unknown,status=200){const text=canonical(value);if(new TextEncoder().encode(text).length>SOURCE_LIMITS.pageBytes)throw new SourceHttpError('Source response exceeds its bound.',503);return new Response(text,{status,headers:{...SOURCE_HTTP_HEADERS,'Content-Type':'application/json'}});}
-export function sourceHttpFailure(error:unknown){const invalid=error instanceof SourceReadError&&error.code==='invalid_content';return sourceHttpResponse({error:error instanceof SourceHttpError?error.message:invalid?'The selected manual source import is invalid.':'Source data is temporarily unavailable.'},error instanceof SourceHttpError?error.status:invalid?400:503);}
+export function sourceHttpFailure(error:unknown){if(error instanceof RecoverabilityCapacityError&&error.paused)return sourceHttpResponse({status:'paused',reason:'storage_capacity'});const invalid=error instanceof SourceReadError&&error.code==='invalid_content';return sourceHttpResponse({error:error instanceof SourceHttpError?error.message:invalid?'The selected manual source import is invalid.':'Source data is temporarily unavailable.'},error instanceof SourceHttpError?error.status:invalid?400:503);}
 function owner(value:string){if(!value||value.length>256)throw new SourceHttpError('Sign in to view sources.',401);}
 async function decode<T>(row:ModuleRow,schema:z.ZodType<T>):Promise<T>{if(row.content_hash!==await contentHash(canonical(JSON.parse(row.payload_json))))throw new Error('Stored source hash differs.');return schema.parse(JSON.parse(row.payload_json));}
 async function selected(db:SqlDatabase,userId:string,id:string){owner(userId);if(!evidenceIdSchema.safeParse(id).success)throw new SourceHttpError('Source is unavailable.',404);const row=await ownerReader(db,userId).get('source_targets',id);if(!row)throw new SourceHttpError('Source is unavailable.',404);const value=await decode(row,sourceTargetSchema);if(value.id!==id)throw new Error('Stored source identity differs.');return {row,value};}

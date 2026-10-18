@@ -1,0 +1,91 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {measureProspectiveRecoverability} from '../lib/recoverability-snapshot.ts';
+import {database} from './helpers/sqlite.ts';
+import {workspaceFixture} from './helpers/workspace.ts';
+import {loadWorkspace} from '../lib/workspace-store.ts';
+import {canonical,contentHash} from '../lib/canonical-json.ts';
+import {exportWorkspaceBundle} from '../lib/workspace-export.ts';
+import {moduleProjection,moduleColumnNames} from '../lib/module-columns.ts';
+import {ownerReader,type RegisteredOwnerTable,type GuardedWrite} from '../lib/workspace-modules.ts';
+import {executeWorkspaceCommand,canonicalJson} from '../lib/workspace-transaction.ts';
+import type {AuditEventDraft,JsonValue} from '../lib/workspace-protocol.ts';
+import {versionRowId} from '../lib/version-identity.ts';
+const now='2026-10-18T12:00:00.000Z',owner='synthetic-owner',hash='a'.repeat(64);
+const byteLength=(value:string)=>new TextEncoder().encode(value).length;
+async function fixture(){const f=database();await loadWorkspace(f.db,owner,workspaceFixture,now);return f;}
+function event(id='event'):AuditEventDraft{return {id,kind:'synthetic.change',entityType:'workspace',entityId:null,changes:[{path:['notes'],before:{exists:false,value:null},after:{exists:true,value:'Unicode العربية 😀, quotes " and backslash \\.'}}],origin:'owner',actorId:owner,occurredAt:now,sourceRef:null,undoOf:null};}
+async function add(f:ReturnType<typeof database>,table:RegisteredOwnerTable,id:string,value:JsonValue,sequence?:number){const projection=await moduleProjection(table,id,value),columns=moduleColumnNames(table);if(sequence!==undefined)projection.stream_sequence=sequence;f.sqlite.prepare(`INSERT INTO ${table}(user_id,id,row_revision,payload_json,content_hash${columns.map(c=>','+c).join('')}) VALUES(?,?,1,?,?${columns.map(()=>',?').join('')})`).run(owner,id,canonical(value),await contentHash(canonical(value)),...columns.map(c=>projection[c]));}
+test('exact composite export, escaped Unicode audit and normalized mirrors match actual compiler/export without measurement writes',async()=>{
+ const f=await fixture();try{
+  const version={id:'evidence',version:1,basis:'owner-statement',scope:'implementation',title:'وثيقة 😀',statement:'Quoted "test" and backslash \\',observedAt:null,recordedAt:now,candidate:null,environment:null,sourceUrl:null,sourceRevision:null,sourceRecordId:null,attachmentIds:[],supersedesVersion:null};
+  const id=await versionRowId('evidence',1),writes:GuardedWrite[]=[{table:'evidence_records',operation:'insert',id:'evidence',expectedRowRevision:null,value:{id:'evidence',currentVersion:1,archivedAt:null}},{table:'evidence_versions',operation:'insert',id,expectedRowRevision:null,value:version}];
+  const events=[event()],changes=f.sqlite.prepare('SELECT total_changes() n').get()!.n;
+  const measured=await measureProspectiveRecoverability(f.db,owner,{now,writes,events});assert.equal(f.sqlite.prepare('SELECT total_changes() n').get()!.n,changes);assert.equal(measured.measurement.allowed,true);assert.equal(measured.boundaryRevision,1);assert.deepEqual(measured.boundaryWatermarks,{sources:0});assert.equal(measured.boundaryRows.length,29);assert.deepEqual(measured.boundaryRows.find(row=>row.table==='evidence_versions')!.rows,[]);assert.equal(canonical(measured.boundaryRows).includes('payload_json'),false);
+  const expanded=[{id,row_revision:1,payload_json:canonical(version),content_hash:await contentHash(canonical(version)),...await moduleProjection('evidence_versions',id,version)}];
+  assert.equal(measured.measurement.measurements.tables.find(t=>t.table==='evidence_versions')!.expandedAfterPayloadBytes,byteLength(canonicalJson(expanded)));
+  const result=await executeWorkspaceCommand(owner,{protocolVersion:1,expectedRevision:1,mutationId:'synthetic_measure_0001',command:{type:'fixture'}},{db:f.db,now:()=>now,handlers:new Map([['fixture',{async prepare(context){return {planningAfter:context.before.workspace,writes,events,jobs:[]};}}]])});assert.equal(result.status,'committed');
+  const actual=await exportWorkspaceBundle(f.db,owner,{now:()=>now});assert.equal(measured.measurement.measurements.bundleBytes,byteLength(JSON.stringify(actual)));assert.equal(JSON.stringify(actual).includes(owner),false);assert.equal((actual.modules.evidence.records[0] as {value:{kind:string}}).value.kind,'head');
+ }finally{f.sqlite.close();}
+});
+test('historical imports measure exact nested compiler wrapping while duplicate IDs are retained only once in prospective export',async()=>{
+ const f=await fixture();try{
+  const source={text:'Original "quotation" \\ العربية 😀'},entry={id:'history-synthetic',source,importHash:hash},historyImports=[entry,entry],events=[event('import-event')];
+  const measured=await measureProspectiveRecoverability(f.db,owner,{now,events,historyImports});
+  const compiled=historyImports.map((item,index)=>({id:item.id,ordinal:events.length+index,payload:canonicalJson({id:item.id,kind:'imported-history',entityType:'historical-claim',entityId:null,changes:[{path:['sourceClaim'],before:{exists:false,value:null},after:{exists:true,value:item.source}}],origin:'owner',actorId:owner,occurredAt:now,sourceRef:item.importHash,undoOf:null})}));
+  assert.equal(measured.measurement.measurements.historicalAudit!.compiledWrappedBytes,byteLength(canonicalJson(compiled)));assert.equal(measured.measurement.measurements.historicalAudit!.preparedBytes,byteLength(canonicalJson(historyImports)));
+  const result=await executeWorkspaceCommand(owner,{protocolVersion:1,expectedRevision:1,mutationId:'synthetic_history_0001',command:{type:'fixture'}},{db:f.db,now:()=>now,handlers:new Map([['fixture',{async prepare(context){return {planningAfter:context.before.workspace,writes:[],events,historyImports,jobs:[]};}}]])});assert.equal(result.status,'committed');
+  const actual=await exportWorkspaceBundle(f.db,owner,{now:()=>now});assert.equal(actual.modules.audit_events.records.length,2);assert.equal(measured.measurement.measurements.bundleBytes,byteLength(JSON.stringify(actual)));
+ }finally{f.sqlite.close();}
+});
+test('nested history JSON argument can exceed 1.8 MB while prospective portable bundle fits D1',async()=>{
+ const f=await fixture();try{const result=await measureProspectiveRecoverability(f.db,owner,{now,historyImports:[{id:'history-large',source:{text:'\\'.repeat(450000)},importHash:hash}]});assert.equal(result.measurement.allowed,false);assert.ok(result.measurement.measurements.bundleBytes!<1800000);assert.ok(result.measurement.measurements.historicalAudit!.compiledWrappedBytes!>1800000);assert.ok(result.measurement.reasons.some(r=>r.scope==='historical-audit:compiled'&&r.code==='sql_argument_bytes'));assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM audit_events').get()!.n,0);}finally{f.sqlite.close();}
+});
+test('full replacement uses physical payload JSON expansion, before hashes and owner-bound current row revisions',async()=>{
+ const f=await fixture();try{
+  await add(f,'evidence_records','legacy',{text:'previous'});const beforeRows=await ownerReader(f.db,owner).list('evidence_records');
+  const records=[{id:'legacy',value:{text:'\\'.repeat(450000)}}];const measured=await measureProspectiveRecoverability(f.db,owner,{now,replacements:[{table:'evidence_records',beforeRows,records}]});
+  assert.equal(measured.measurement.allowed,false);assert.deepEqual(measured.boundaryRows.find(row=>row.table==='evidence_records')!.rows,beforeRows.map(({id,row_revision,content_hash})=>({id,row_revision,content_hash})));assert.ok(measured.measurement.measurements.bundleBytes!<1800000);assert.ok(measured.measurement.reasons.some(r=>r.scope==='table:evidence_records:expanded-after'&&r.code==='sql_argument_bytes'));
+  assert.equal(measured.measurement.measurements.tables.find(t=>t.table==='evidence_records')!.beforeRowsBytes,byteLength(canonicalJson(beforeRows.map(({id,row_revision,content_hash})=>({id,row_revision,content_hash})))));
+  await assert.rejects(measureProspectiveRecoverability(f.db,owner,{now,replacements:[{table:'evidence_records',beforeRows:[{...beforeRows[0],content_hash:hash}],records:[]}]}),/before rows differ/);
+  await assert.rejects(measureProspectiveRecoverability(f.db,owner,{now,writes:[{table:'evidence_records',operation:'update',id:'legacy',value:{text:'new'},expectedRowRevision:2}]}),/precondition/);
+  assert.equal((await ownerReader(f.db,owner).get('evidence_records','legacy'))!.payload_json,canonical({text:'previous'}));
+ }finally{f.sqlite.close();}
+});
+test('operational source snapshot and stream audit use exact adapters and retain editor revision',async()=>{
+ const f=await fixture();try{
+  const projectId=workspaceFixture().projects[0].id;await add(f,'source_connections','connection',{id:'connection',provider:'github',label:'Synthetic',accessMode:'interactive',enabled:true,archivedAt:null});await add(f,'source_targets','source',{id:'source',connectionId:'connection',projectId,kind:'github_repository',providerResourceId:'synthetic/repo',canonicalUrl:'https://github.com/synthetic/repo',selectedPaths:[],staleAfterSeconds:3600,selectionVersion:1,archivedAt:null});
+  const payload={excerpt:'Snapshot "quoted" العربية 😀'},observation={id:'observation',sourceId:'source',externalId:'file',sourceRevision:'sha',sourceUpdatedAt:null,observedAt:now,title:'Immutable source',canonicalUrl:null,contentDigest:await contentHash(canonical(payload)),payload,origin:'provider-read'};
+  const proposal={id:'proposal',sourceId:'source',observationRefs:[{id:observation.id,contentDigest:observation.contentDigest}],evidenceRefs:[],entity:{kind:'project',id:projectId},baseWorkspaceRevision:1,fields:[{field:'name',before:workspaceFixture().projects[0].name,after:'Suggested name'}],rationale:'Inferred suggestion only.',confidence:'direct-source',createdAt:now,state:'pending',dedupKey:hash,decision:null};
+  const opEvent={...event('operational-event'),origin:'connector' as const},options={now,operationalWrites:[{table:'source_observations' as const,value:observation,streamSequence:1},{table:'source_proposals' as const,value:proposal,streamSequence:1}],operationalEvents:[{event:opEvent,streamId:'sources',sequence:1}],operationalWatermarksAfter:{sources:1}};
+  const measured=await measureProspectiveRecoverability(f.db,owner,options);assert.equal(measured.measurement.allowed,true);assert.equal(measured.boundaryRevision,1);
+  await add(f,'source_observations','observation',observation,1);await add(f,'source_proposals','proposal',proposal);f.sqlite.prepare('INSERT INTO operational_stream_heads(user_id,stream_id,last_sequence,revision) VALUES(?,?,1,1)').run(owner,'sources');f.sqlite.prepare('INSERT INTO audit_events(user_id,event_id,workspace_revision,ordinal,stream_id,stream_sequence,kind,entity_type,entity_id,occurred_at,payload_json) VALUES(?,?,NULL,NULL,?,?,?,?,?,?,?)').run(owner,opEvent.id,'sources',1,opEvent.kind,opEvent.entityType,opEvent.entityId,now,canonical(opEvent));
+  const actual=await exportWorkspaceBundle(f.db,owner,{now:()=>now});assert.equal(actual.source.workspaceRevision,1);assert.equal(measured.measurement.measurements.bundleBytes,byteLength(JSON.stringify(actual)));assert.equal(actual.modules.source_observations.records.length,1);
+  await assert.rejects(measureProspectiveRecoverability(f.db,owner,{now,operationalWatermarksAfter:{sources:0}}),/backwards/);
+ }finally{f.sqlite.close();}
+});
+test('corrupt current physical hashes and missing owners fail closed without repairing or creating records',async()=>{
+ const f=await fixture();try{await add(f,'evidence_records','legacy',{text:'unchanged'});f.sqlite.prepare('UPDATE evidence_records SET content_hash=? WHERE user_id=?').run(hash,owner);await assert.rejects(measureProspectiveRecoverability(f.db,owner,{now}),/content hash/);await assert.rejects(measureProspectiveRecoverability(f.db,'foreign-owner',{now}),/could not be loaded/);assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM workspaces').get()!.n,1);}finally{f.sqlite.close();}
+});
+test('ordinary owner audit growth is refused when a future reviewed restore history wrapper would exceed SQL capacity',async()=>{
+ const f=await fixture();try{
+  const large={...event('escaped-ordinary-event'),changes:[{path:['notes'],before:{exists:false,value:null},after:{exists:true,value:'\\'.repeat(450000)}}]};
+  const quote=await measureProspectiveRecoverability(f.db,owner,{now,events:[large]});assert.equal(quote.measurement.allowed,false);assert.ok(quote.measurement.measurements.bundleBytes!<1800000);assert.equal(quote.measurement.measurements.historicalAudit,null);assert.ok(quote.measurement.reasons.some(reason=>reason.code==='sql_argument_bytes'&&reason.scope==='sql:future-restore:history-compiled'));assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM audit_events').get()!.n,0);
+ }finally{f.sqlite.close();}
+});
+test('future local restore SQL projections include prospective row revision increment across digit boundaries',async()=>{
+ const f=await fixture();try{
+  await add(f,'evidence_records','legacy',{text:'retained'});f.sqlite.prepare('UPDATE evidence_records SET row_revision=9 WHERE user_id=?').run(owner);
+  const quote=await measureProspectiveRecoverability(f.db,owner,{now}),row=(await ownerReader(f.db,owner).get('evidence_records','legacy'))!;
+  const expected=canonical([{...row,row_revision:10,...await moduleProjection('evidence_records',row.id,JSON.parse(row.payload_json))}]);
+  assert.equal(quote.measurement.measurements.sqlArguments.find(argument=>argument.name==='future-restore:evidence_records:after')!.bytes,byteLength(expected));
+  assert.equal(quote.measurement.measurements.sqlArguments.find(argument=>argument.name==='future-restore:evidence_records:after')!.bytes,quote.measurement.measurements.tables.find(table=>table.table==='evidence_records')!.expandedAfterPayloadBytes!+1);
+ }finally{f.sqlite.close();}
+});
+test('aggregate normalized reference rows fail closed across individually bounded portable modules',async()=>{
+ const f=await fixture();try{
+  const value={text:'Synthetic retained legacy row'},payload=canonical(value),digest=await contentHash(payload);
+  for(const [table,count]of [['evidence_records',6000],['decisions',5000]]as const){const insert=f.sqlite.prepare(`INSERT INTO ${table}(user_id,id,row_revision,payload_json,content_hash) VALUES(?,?,1,?,?)`);for(let i=0;i<count;i++)insert.run(owner,`synthetic-${String(i).padStart(5,'0')}`,payload,digest);}
+  const quote=await measureProspectiveRecoverability(f.db,owner,{now});assert.equal(quote.measurement.allowed,false);assert.equal(quote.measurement.measurements.counts.find(count=>count.name==='normalized-owner-reference-rows')!.rows,11000);assert.ok(quote.measurement.reasons.some(reason=>reason.code==='row_limit'&&reason.scope==='count:normalized-owner-reference-rows'&&reason.actual===11000&&reason.limit===10000));assert.equal(quote.measurement.measurements.counts.find(count=>count.name==='module:evidence')!.rows,6000);assert.equal(quote.measurement.measurements.counts.find(count=>count.name==='module:decisions')!.rows,5000);
+ }finally{f.sqlite.close();}
+});

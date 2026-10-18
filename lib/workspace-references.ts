@@ -1,3 +1,4 @@
+import {reviewReferenceDescriptors} from './reviews/module.ts';
 import {sourceReferenceDescriptors} from './sources/module.ts';
 import {evidenceReferenceDescriptors} from './evidence-module.ts';
 import {planningReferenceDescriptors} from './planning-module.ts';
@@ -6,7 +7,7 @@ import type {Workspace} from './types.ts';
 import {OWNER_TABLES,ownerTable,type RegisteredOwnerTable,type OwnerScopedReader} from './workspace-modules.ts';
 import {assertPortable,canonical,contentHash} from './workspace-export.ts';
 
-export const REFERENCE_KINDS=['project','milestone','task','capture','evidence','decision','attachment','source-connection','source','source-observation'] as const;
+export const REFERENCE_KINDS=['project','milestone','task','capture','evidence','decision','attachment','source-connection','source','source-observation','review-snapshot','automation-schedule'] as const;
 export type ReferenceKind=typeof REFERENCE_KINDS[number];
 const id=z.string().min(1).max(128).refine(value=>value.trim()===value);
 const referenceSchema=z.object({kind:z.enum(REFERENCE_KINDS),id,path:z.array(z.union([z.string().min(1),z.number().int().nonnegative().safe()])).min(1).max(40)}).strict();
@@ -73,4 +74,4 @@ export function referenceImpact(planning:Workspace,snapshot:ReferenceSnapshot,re
   result.canDelete=result.references.length===0;return result;
 }
 
-for(const descriptor of [...planningReferenceDescriptors,...evidenceReferenceDescriptors,...sourceReferenceDescriptors])referenceRegistry.register(descriptor);
+for(const descriptor of [...planningReferenceDescriptors,...evidenceReferenceDescriptors,...sourceReferenceDescriptors,...reviewReferenceDescriptors])referenceRegistry.register(descriptor);

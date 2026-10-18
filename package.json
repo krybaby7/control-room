@@ -22,7 +22,9 @@
     "test:attachment-recovery-r2": "node --experimental-strip-types scripts/test-attachment-recovery-r2.mjs",
     "test:generation-d1": "node --experimental-strip-types scripts/probe-generation-d1.mjs",
     "test:workspace-d1": "node --experimental-strip-types scripts/test-workspace-d1.mjs",
-    "test:sources-d1": "node --experimental-strip-types scripts/test-sources-d1.mjs"
+    "test:sources-d1": "node --experimental-strip-types scripts/test-sources-d1.mjs",
+    "test:reviews-d1": "node --experimental-strip-types scripts/test-reviews-d1.mjs",
+    "test:reviews-migration-d1": "node --experimental-strip-types scripts/test-reviews-migration-d1.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

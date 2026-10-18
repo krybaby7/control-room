@@ -1,0 +1,7 @@
+import {RequestError} from '../api-guards.ts';
+import {reviewRunSchema} from './http.ts';
+/** Bounded owner action, no session or principal supplied in the body. */
+export async function readReviewRun(request:Request){
+ if(request.headers.get('origin')!==new URL(request.url).origin)throw new RequestError('Use this app to run reviews.',403);if(request.headers.get('content-type')?.split(';')[0].trim().toLowerCase()!=='application/json')throw new RequestError('Use JSON.',415);const reader=request.body?.getReader();if(!reader)throw new RequestError('A review request is required.',400);let timer:ReturnType<typeof setTimeout>|undefined;const chunks:Uint8Array[]=[];let size=0;const deadline=new Promise<never>((_,reject)=>{timer=setTimeout(()=>{reject(new RequestError('Review request timed out.',408));void reader.cancel().catch(()=>{});},15000);});
+ try{for(;;){const part=await Promise.race([reader.read(),deadline]);if(part.done)break;size+=part.value.length;if(size>1024){void reader.cancel().catch(()=>{});throw new RequestError('Review request is too large.',413);}chunks.push(part.value);}const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}try{return reviewRunSchema.parse(JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes)));}catch{throw new RequestError('Invalid review request.',400);}}finally{clearTimeout(timer);reader.releaseLock();}
+}

@@ -1,3 +1,6 @@
+import {reviewSnapshotSchema,reviewAcknowledgementSchema,notificationEventSchema,notificationPreferencesSchema,analysisPolicySchema,reviewAnalysisSchema} from './reviews/validation.ts';
+import {automationScheduleSchema,automationOccurrenceSchema} from './automations/validation.ts';
+import {canonical,contentHash} from './canonical-json.ts';
 import {sourceConnectionSchema,sourceTargetSchema,sourceObservationSchema,sourceRunHistorySchema,sourceProposalSchema,integrationHistorySchema} from './sources/validation.ts';
 import { z } from 'zod';
 import { ownerTable, type RegisteredOwnerTable } from './workspace-modules.ts';
@@ -19,10 +22,11 @@ const columns={
  decision_versions:['decision_id','version','recorded_at','status','review_on','source_capture_id','supersedes_decision_id'],
  attachments:['status','filename','mime_type','expected_bytes','actual_bytes','sha256','storage_key','created_at','expires_at','ready_at','upload_mutation_id','quarantine_reason'],attachment_usage:[],workspace_configuration:[],
  source_connections:['provider','access_mode','enabled','archived_at'],source_targets:['connection_id','project_id','kind','selection_version','archived_at'],source_observations:['source_id','external_id','source_revision','content_digest','observed_at','stream_sequence'],source_sync_runs:['source_id','finished_at','stream_sequence'],source_proposals:['source_id','state','dedup_key','created_at'],integration_history:['source_id','finished_at','stream_sequence'],
+ review_snapshots:['workspace_revision','generated_at','source_watermark','scope_hash','stream_sequence'],review_acknowledgements:['snapshot_id','snapshot_hash','acknowledged_at','scope_hash'],automation_schedules:['kind','enabled','configuration_version','source_id','archived_at'],automation_occurrences:['schedule_id','due_at','finished_at','configuration_hash','stream_sequence'],notification_events:['dedup_key','created_at','kind','severity','source_id','project_id','stream_sequence'],review_settings:['setting_kind'],review_analysis_runs:['snapshot_id','snapshot_hash','started_at','finished_at','status','stream_sequence'],
 } satisfies Record<RegisteredOwnerTable,string[]>;
 for(const names of Object.values(columns))Object.freeze(names);
 Object.freeze(columns);
-export const IMMUTABLE_MODULE_TABLES:ReadonlySet<RegisteredOwnerTable>=new Set(['evidence_versions','decision_versions','acceptance_records','source_observations','source_sync_runs','integration_history']);
+export const IMMUTABLE_MODULE_TABLES:ReadonlySet<RegisteredOwnerTable>=new Set(['evidence_versions','decision_versions','acceptance_records','source_observations','source_sync_runs','integration_history','review_snapshots','review_acknowledgements','automation_occurrences','notification_events','review_analysis_runs']);
 /** Only these server-owned identifiers may be interpolated by the transaction compiler. */
 export function moduleColumnNames(table:RegisteredOwnerTable):readonly string[]{return columns[ownerTable(table)];}
 const attachmentSchema=z.object({
@@ -38,6 +42,14 @@ export async function moduleProjection(table:RegisteredOwnerTable,id:string,valu
  const names=moduleColumnNames(table);evidenceIdSchema.parse(id);
  const empty=()=>Object.fromEntries(names.map(name=>[name,null]));
  switch(table){
+ case 'review_snapshots':{const r=reviewSnapshotSchema.parse(value);matchingId(id,r.id);return {workspace_revision:r.workspaceRevision,generated_at:r.generatedAt,source_watermark:r.sourceWatermark,scope_hash:await contentHash(canonical(r.scope)),stream_sequence:0};}
+ case 'review_acknowledgements':{const r=reviewAcknowledgementSchema.parse(value);matchingId(id,r.id);return {snapshot_id:r.snapshotId,snapshot_hash:r.snapshotHash,acknowledged_at:r.acknowledgedAt,scope_hash:await contentHash(canonical(r.scope))};}
+ case 'automation_schedules':{const r=automationScheduleSchema.parse(value);matchingId(id,r.id);return {kind:r.kind,enabled:r.enabled?1:0,configuration_version:r.configurationVersion,source_id:r.sourceId,archived_at:r.archivedAt};}
+ case 'automation_occurrences':{const r=automationOccurrenceSchema.parse(value);matchingId(id,r.id);return {schedule_id:r.scheduleId,due_at:r.dueAt,finished_at:r.finishedAt,configuration_hash:r.configurationHash,stream_sequence:0};}
+ case 'notification_events':{const r=notificationEventSchema.parse(value);matchingId(id,r.id);return {dedup_key:r.dedupKey,created_at:r.createdAt,kind:r.kind,severity:r.severity,source_id:r.sourceId,project_id:r.projectId,stream_sequence:0};}
+ case 'review_settings':{const r=z.union([notificationPreferencesSchema,analysisPolicySchema]).parse(value);matchingId(id,r.id);return {setting_kind:r.id};}
+ case 'review_analysis_runs':{const r=reviewAnalysisSchema.parse(value);matchingId(id,r.id);return {snapshot_id:r.snapshotId,snapshot_hash:r.snapshotHash,started_at:r.startedAt,finished_at:r.finishedAt,status:r.status,stream_sequence:0};}
+
  case 'source_connections':{const r=sourceConnectionSchema.parse(value);matchingId(id,r.id);return {provider:r.provider,access_mode:r.accessMode,enabled:r.enabled?1:0,archived_at:r.archivedAt};}
  case 'source_targets':{const r=sourceTargetSchema.parse(value);matchingId(id,r.id);return {connection_id:r.connectionId,project_id:r.projectId,kind:r.kind,selection_version:r.selectionVersion,archived_at:r.archivedAt};}
  case 'source_observations':{const r=sourceObservationSchema.parse(value);matchingId(id,r.id);return {source_id:r.sourceId,external_id:r.externalId,source_revision:r.sourceRevision,content_digest:r.contentDigest,observed_at:r.observedAt,stream_sequence:0};}

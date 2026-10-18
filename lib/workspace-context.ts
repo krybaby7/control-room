@@ -1,3 +1,4 @@
+import {canResumeAutomation} from './automations/runtime-access.ts';
 import type {SqlDatabase} from './workspace-store.ts';
 import type {WorkspaceEnvelope} from './types.ts';
 import type {WorkspaceCommand} from './workspace-protocol.ts';
@@ -13,6 +14,7 @@ export type OwnerCommandServices=Pick<PrepareContext,'attachmentAccess'|'verifyA
 export function ownerPrepareContext(db:SqlDatabase,userId:string,before:WorkspaceEnvelope,command:WorkspaceCommand,now:string,services:OwnerCommandServices={},mutationId?:string):PrepareContext{
  if(!userId)throw new Error('An authenticated owner is required.');
  return {mutationId,userId,before,command,now,query:ownerReader(db,userId),attachmentAccess:services.attachmentAccess,verifyAttachment:services.verifyAttachment,
+  automationRuntime:{canResume:schedule=>canResumeAutomation(db,userId,schedule,now)},
   sourceRuntime:{state:sourceId=>readSourceSyncState(db,userId,sourceId),canResume:(connection,target)=>canResumeSource(db,userId,connection,target,now)},
   readImport:id=>readStagedImport(db,userId,id,now),backups:{get:id=>readWorkspaceBackup(db,userId,id),list:()=>listWorkspaceBackups(db,userId)},readAuditGroup:eventId=>readAuditCommandGroup(db,userId,eventId),
   trustedDecisionVersion:async(id,version,hash)=>Boolean(await db.prepare('SELECT decision_id FROM decision_owner_grants WHERE user_id=? AND decision_id=? AND version=? AND content_hash=?').bind(userId,id,version,hash).first()),

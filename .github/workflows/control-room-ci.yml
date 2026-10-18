@@ -24,6 +24,8 @@ jobs:
       - run: npm run test:generation-d1
       - run: npm run test:workspace-d1
       - run: npm run test:sources-d1
+      - run: npm run test:reviews-migration-d1
+      - run: npm run test:reviews-d1
       - run: npm run test:fixture
       - run: npm run test:attachments-r2
       - run: npm run test:attachment-recovery-r2

@@ -112,24 +112,28 @@
     },
     {
       "id": 4,
-      "status": "in_progress",
+      "status": "implemented_external_acceptance_pending",
       "evidence": [
         "Six strict portable source modules, owner configuration/proposal commands, append-only migrations 0017/0018 (19 total), exact source observation citations and frozen operational export watermarks.",
         "Bounded GitHub read adapters and explicit selected conversation/native document manual imports; durable input hash and original receipt replay. No live connector activation.",
         "Private renewable principal/lease/grant/epoch guarded page and terminal transactions, source proposal generator and one-intent runner; editor revision unchanged by routine operational writes.",
         "Optional full source snapshots reuse verified private attachment lifecycle; exact raw digest/length and atomic cleanup-fence guards, native archive restore preserves IDs and pauses authority.",
         "978 Node tests passed, zero failures/skips; typecheck/lint/build pass. Actual Miniflare D1 source claim/renew/max100-page/terminal/resume and 19-migration D1/R2 source recovery pass.",
-        "Sources UI configuration, explicit proposal selected-field review, source-bound contextual evidence, pending input retry and dirty-navigation protection integrated.43 Chromium tests listed; cloud execution pending."
+        "Sources UI configuration, explicit proposal selected-field review, source-bound contextual evidence, pending input retry and dirty-navigation protection integrated.43 Chromium tests listed; cloud execution pending.",
+        "Exactsource36a6b95b6ec968dd9b719977bc32389ceca38c39 CI39153700166/job117752407478 terminalsuccess:cleanNode24lockedinstall,979Node,type/lint/build,all19migrations/actualD1R2/source73bytefullarchive-reviewedrestore,43/43default+3/3R2Chromium,36stagebuiltHTTPallpass."
       ],
       "blockers": [
         "Actual Sites eligibility discovery unavailable; live selected-resource GitHub/document consent and renewable unattended provider proof not configured.",
-        "Real private gateway/service principal, hosted R2/owner session and terminal deployment acceptance remain unverified."
+        "Real private gateway/service principal, hosted R2/owner session and terminal deployment acceptance remain unverified.",
+        "Shared recoverability capacity G48 remains a Phase5/8 release gate; no live activation before applicable safety/acceptance gates."
       ]
     },
     {
       "id": 5,
-      "status": "not_started",
-      "evidence": [],
+      "status": "in_progress",
+      "evidence": [
+        "Working-tree phase-5-verification.md records isolated SQLite/D1/pure checks and1115passing intermediateNode tests; no finalphaseacceptanceclaimed."
+      ],
       "blockers": []
     },
     {
@@ -151,7 +155,7 @@
       "blockers": []
     }
   ],
-  "nextAction": "Finish terminal-page followup Node/type/lint/build gates, publish exacttree and rerun43default+3R2 cloudCI; then rootPhase5 contracts including G48recoverability work.",
+  "nextAction": "Publish validated Phase5core to existingdraftPR branch, run exactsourcecloudCI, then implement remainingPhase5 baseline revisions and scheduledD1backup adapter beforePhase6.",
   "allowedStatuses": [
     "not_started",
     "in_progress",
@@ -178,22 +182,23 @@
     "evidence": "Explicit supported model selection accepted and worker IDs returned."
   },
   "checkpoint": {
-    "publishedCommit": "7217bbbd1fa1b114409a3f3fc863685fc9fdd623",
-    "workingTree": "Phase4 terminal-page UI fix and exact restore-response capture/native assertions under validation; updated gap/checkpoint and readonly Phase5 contract/capacity notes.",
-    "tests": "979/979Node tests pass,zero failures/skips;typecheck/lint/buildpass. RebuiltHTTPfixture single-run all36sanitizedrequeststages pass, including32byteR2reserve/stage/finalize/replay/download/isolation/forgery SHA256ee8061dff83dd68f205b6597c2333557be9e2b07a15c5dab79b35e707fb8104e. PriorCI39151986196 had42/43default+3/3R2pass; newselectlocatorandtransport followuprequirescloudrerun. ActualD1/R2source19migrations/retained73bytearchive+reviewedrestore remainsverified.",
+    "publishedCommit": "36a6b95b6ec968dd9b719977bc32389ceca38c39",
+    "workingTree": "Validated Phase5core ready for sanitizedcommit/publication; see phase-5-verification.md. No Phase5 hosteddeployment. Sharedscope/notification/response/privatefreshness/modelquote/confirmedcapacityUX review findings corrected. Phase5 remainingbaseline/backup followups explicitlynotcomplete.",
+    "tests": "Phase5core1221/1221Node pass,0fail/skip;productionbuildpass;type/lintpass;actual20migrationD1 interactive+authenticatedsynthetic scheduledreview completion/replaypass. Independent review P1/P2 corrections have targeted regressions; exactsourcecloudChromiumCI pending publication.",
     "knownFailures": [
-      "Actual Sources UI rejected valid terminal first pages when both cursors null; nonnull-only loop guard fixed and native empty/one-observation/proposal terminal checks added, rerun pending.",
-      "Planning restore browser response body was evicted; capture actual POST body before browser consumption, no retry or mocked result. Rerun pending.",
-      "Shared recoverability capacity gap G48 confirmed: source row limits do not bound 8MB complete bundles or lower1.8MB D1backup/replacement/provenance ceilings; implement coherent guard/recovery in Phase5/8."
+      "No current Node/build/D1 failures; exactsource ChromiumCI has not yet run forPhase5core.",
+      "G48 newgrowthadmission enforced, but alreadyoversizedownercompatible segmented/objectbackup recovery remainsPhase8 codegap beforefinalrelease; noautoprune/limitraise.",
+      "Source_refresh andbackup schedule execution require separate verified source/storage runtime support; defaultunsupported; livehostrunner/streaming/paidprovider/Windowsdevice unverified."
     ],
     "unfinished": [
-      "Finish Phase4 cloudCI39151986196, validate/publish small UI/source-doc follow-up and rerun required browser gates; then Phase5.",
-      "Phases5\u20138 notstarted; execute in dependencyorder after Phase4 validation.",
-      "Liveprovider/renewableprincipal/privatehostedrelease/ownerphysicaldevice acceptance remains external."
+      "Finish exactscope changes-since-review UI, privateconfiguredschedulecanResume hint, reviewerfindings; finalNode/type/lint/build,D1/R2/browserCI; publishsanitizedcoherentPhase5 checkpoint.",
+      "Phase5 remaining feasible G20 baseline revisions and concrete scheduled D1 metadata backup/source schedule adapter wiring: see phase-5-follow-up-contract-notes.md; do not closePhase5 or startPhase6 implementation early.",
+      "Phases6\u20138 remainnotstarted; execute dependencyorder oncePhase5 gatepasses.",
+      "Liveprovider/renewableprivatehosting/paidconsent/physicalWindowsdevice activation remainexternal; preserveexistingSite/data."
     ],
-    "nextCommand": "Finish terminal-page followup Node/type/lint/build gates, publish exacttree and rerun43default+3R2 cloudCI; then rootPhase5 contracts including G48recoverability work.",
-    "publishedTree": "4cf0536829d4cd1ee679333c6c700b17bd7dc81b",
-    "cloudRun": "CI39152936910/job117750123657 terminalfailureat7217bbbd:979Node,type/lint/build/allactualD1R2/36stageHTTPand3/3R2Chromiumpass;41/43defaultChromium. SourceUIterminalnullcursorbug and planningrestoreCDPresponse-bodyeviction correctedlocally; rerunrequired.",
-    "currentCommit": "7217bbbd1fa1b114409a3f3fc863685fc9fdd623"
+    "nextCommand": "git add targeted source/tests/docs; git commit Phase5core; publish via GitHub tree/commit/ref with expectedparent36a6b95; observe terminalcloudCI; then establish remainingPhase5sharedcontracts.",
+    "publishedTree": "d2f114791ca1b897c23a14f9314dc7be428ac7fc",
+    "cloudRun": "CI39153700166/job117752407478 terminalsuccess at36a6b95b6ec968dd9b719977bc32389ceca38c39.",
+    "currentCommit": "36a6b95b6ec968dd9b719977bc32389ceca38c39"
   }
 }

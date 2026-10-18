@@ -13,7 +13,7 @@ export interface AdapterCapabilities {sourceKinds:SourceKind[];interactiveRead:b
 export interface SourceAdapter {capabilities(mode:AccessMode):Promise<AdapterCapabilities>;readPage(target:SourceTarget,context:{cursor:string|null;etag:string|null;observedAt:string;signal:AbortSignal}):Promise<SourcePage>}
 /** Facet cursors/ETags belong to an exact selected resource and representation. */
 export interface SourceCursor {version:1;selectionHash:string;resourceId:string;facet:string;pinnedRevision:string|null;continuation:string|null;etag:string|null}
-export type SourceFailure='binding_unavailable'|'unsupported'|'request_context_expired'|'reauthentication_required'|'connector_access_disabled'|'rate_limited'|'not_found'|'invalid_content'|'timeout'|'upstream_error'|'configuration_changed'|'revoked';
+export type SourceFailure='binding_unavailable'|'unsupported'|'request_context_expired'|'reauthentication_required'|'connector_access_disabled'|'rate_limited'|'not_found'|'invalid_content'|'timeout'|'upstream_error'|'configuration_changed'|'revoked'|'storage_capacity';
 export class SourceReadError extends Error {readonly code:SourceFailure;readonly retryAfterMs:number|null;constructor(code:SourceFailure,message:string,retryAfterMs:number|null=null){super(message);this.name='SourceReadError';this.code=code;this.retryAfterMs=retryAfterMs;}}
 export interface SourceObservationRef {id:string;contentDigest:string}
 export type ProposalEntityKind='project'|'milestone'|'task'|'capture';

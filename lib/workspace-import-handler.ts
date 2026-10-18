@@ -1,3 +1,4 @@
+import {RECOVERABILITY_SQL_ARGUMENT_BYTES} from './recoverability-measure.ts';
 import {prepareHistoricalAuditRows} from './audit-import.ts';
 import {z} from 'zod';
 import type {CommandHandler,MutationPlan} from './workspace-transaction.ts';
@@ -51,7 +52,7 @@ export function createReviewedImportHandler(registry:ExportRegistry=exportRegist
  }
  if(command.mode==='merge')mergeSnapshot.digest=await contentHash(canonical({coveredModules:mergeSnapshot.coveredModules,rows:mergeSnapshot.rows}));
  const history=bundle.modules.audit_events?.records??[];
- if(history.length>BUNDLE_LIMITS.rows||new TextEncoder().encode(JSON.stringify(history)).byteLength>1_800_000)throw new Error('Imported history exceeds transaction limit.');
+ if(history.length>BUNDLE_LIMITS.rows||new TextEncoder().encode(JSON.stringify(history)).byteLength>RECOVERABILITY_SQL_ARGUMENT_BYTES)throw new Error('Imported history exceeds transaction limit.');
  const historyImports:NonNullable<MutationPlan['historyImports']>=await prepareHistoricalAuditRows(history,bundle.source.auditNamespace??null,stage.hash);
  for(const [index,report] of (provenance?.reports??[]).entries()){
   const source={kind:'import-repair',parentHash:provenance!.parentHash,report:JSON.parse(report)};assertPortable(source);
@@ -63,7 +64,7 @@ export function createReviewedImportHandler(registry:ExportRegistry=exportRegist
   const merge=previewPlanningMerge(context.before.workspace,bundle.planning,command.selection);planningAfter=merge.workspace;
   for(const source of merge.sourceClaims){assertPortable(source);const index=bundle.planning[source.collection].findIndex(row=>row.id===source.id);historyImports.push({id:`import_${stage.hash}_claim_${source.collection}_${index}`,source:source as unknown as JsonValue,importHash:stage.hash});}
  }
- if(historyImports.length>BUNDLE_LIMITS.rows||new TextEncoder().encode(JSON.stringify(historyImports)).byteLength>1_800_000)throw new Error('Imported provenance exceeds transaction limit.');
+ if(historyImports.length>BUNDLE_LIMITS.rows||new TextEncoder().encode(JSON.stringify(historyImports)).byteLength>RECOVERABILITY_SQL_ARGUMENT_BYTES)throw new Error('Imported provenance exceeds transaction limit.');
  return {...(command.mode==='merge'?{preserveModules:true,referenceSnapshot:mergeSnapshot}:{}),importSource:{id:command.importId,hash:stage.hash},planningAfter,writes:[],replacements,historyImports,restoreEpoch:true,backup:{reason:'restore'},jobs:[],events:[{id:crypto.randomUUID(),kind:'workspace.import.commit',entityType:'workspace',entityId:null,changes:[],origin:'owner',actorId:context.userId,occurredAt:context.now,sourceRef:stage.hash,undoOf:null}]};
 }};}
 export const reviewedImportHandler=createReviewedImportHandler();

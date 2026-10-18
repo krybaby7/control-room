@@ -69,6 +69,8 @@ test('near-limit legacy content can migrate, export, restore and shrink', async 
   assert.deepEqual(loaded.workspace,migrated);
   const restored=await storage.mutateWorkspace(db,'owner',7,'near-restore-0001',{type:'workspace.restore',workspace:migrated},at);
   assert.equal(restored?.workspace.tasks.length,1800);
+  const restoreAudit=JSON.parse(sqlite.prepare("SELECT payload_json FROM audit_events WHERE user_id='owner' AND kind='workspace.restore'").get()!.payload_json as string);
+  assert.deepEqual(restoreAudit.changes,[],'property order changes cannot duplicate an unchanged 1800-task plan into audit history');
   const shrunk=await storage.mutateWorkspace(db,'owner',8,'near-shrink-00001',{type:'task.update',id:smaller.tasks[0].id,patch:{notes:''}},at);
   assert.equal(shrunk?.workspace.tasks[0].notes,'');
 });

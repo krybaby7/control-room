@@ -1,3 +1,5 @@
+import {canonical} from './canonical-json.ts';
+import {reviewCommandTypes,reviewCommandHandler} from './reviews/commands.ts';
 import {sourceCommandHandlers} from './sources/commands.ts';
 import {prepareBaselineEvidence} from './evidence-baseline.ts';
 import {getProjectBaseline} from './project-baselines.ts';
@@ -23,7 +25,7 @@ export const workspaceHandlers: CommandHandlerRegistry = new Map(planningCommand
     const changes = (['projects','milestones','tasks','captures'] as const).flatMap(collection => {
       const previous = new Map(context.before.workspace[collection].map(row => [row.id,row]));
       const next = new Map(planningAfter[collection].map(row => [row.id,row]));
-      return [...new Set([...previous.keys(), ...next.keys()])].filter(id => JSON.stringify(previous.get(id)) !== JSON.stringify(next.get(id))).map(id => ({path:[collection,id], before:{exists:previous.has(id),value:(previous.get(id) ?? null) as unknown as JsonValue},after:{exists:next.has(id),value:(next.get(id) ?? null) as unknown as JsonValue}}));
+      return [...new Set([...previous.keys(), ...next.keys()])].filter(id => canonical(previous.get(id)??null) !== canonical(next.get(id)??null)).map(id => ({path:[collection,id], before:{exists:previous.has(id),value:(previous.get(id) ?? null) as unknown as JsonValue},after:{exists:next.has(id),value:(next.get(id) ?? null) as unknown as JsonValue}}));
     });
     const legacy=await prepareLegacyEvidenceSync(context,planningAfter);
     const baseline=type==='baseline.apply'?await prepareBaselineEvidence(context,planningAfter):{writes:[],preconditions:[],events:[]};
@@ -45,7 +47,7 @@ export const workspaceHandlers: CommandHandlerRegistry = new Map(planningCommand
 
 for(const type of ['project.create','project.edit','project.archive','project.restore','milestone.archive','milestone.restore','milestone.reorder','task.move','task.bulk','capture.bulk','capture.bulkConvert']) (workspaceHandlers as Map<string,import('./workspace-transaction.ts').CommandHandler>).set(type,{async prepare(context){
  const result=applyWorkflowCommand(context.before.workspace,context.command,{now:context.now,newId:()=>crypto.randomUUID()});
- const changes=(['projects','milestones','tasks','captures'] as const).flatMap(collection=>{const before=new Map(context.before.workspace[collection].map(row=>[row.id,row])),after=new Map(result.workspace[collection].map(row=>[row.id,row]));return [...new Set([...before.keys(),...after.keys()])].filter(id=>JSON.stringify(before.get(id))!==JSON.stringify(after.get(id))).map(id=>({path:[collection,id],before:{exists:before.has(id),value:(before.get(id)??null) as unknown as JsonValue},after:{exists:after.has(id),value:(after.get(id)??null) as unknown as JsonValue}}));});
+ const changes=(['projects','milestones','tasks','captures'] as const).flatMap(collection=>{const before=new Map(context.before.workspace[collection].map(row=>[row.id,row])),after=new Map(result.workspace[collection].map(row=>[row.id,row]));return [...new Set([...before.keys(),...after.keys()])].filter(id=>canonical(before.get(id)??null)!==canonical(after.get(id)??null)).map(id=>({path:[collection,id],before:{exists:before.has(id),value:(before.get(id)??null) as unknown as JsonValue},after:{exists:after.has(id),value:(after.get(id)??null) as unknown as JsonValue}}));});
  return {planningAfter:result.workspace,writes:type.startsWith('task.')?await syncLegacyWeeklyPins(context,result.workspace):[],jobs:[],events:[{id:crypto.randomUUID(),kind:type,entityType:type.split('.')[0],entityId:typeof context.command.id==='string'?context.command.id:null,changes,origin:'owner',actorId:context.userId,occurredAt:context.now,sourceRef:null,undoOf:null}]};
 }});
 
@@ -63,3 +65,5 @@ for(const [type,handler] of [...evidenceCommandHandlers,...decisionCommandHandle
 (workspaceHandlers as Map<string,import('./workspace-transaction.ts').CommandHandler>).set('history.undo',historyUndoHandler);
 
 for(const [type,handler] of sourceCommandHandlers)(workspaceHandlers as Map<string,import('./workspace-transaction.ts').CommandHandler>).set(type,handler);
+
+for(const type of reviewCommandTypes)(workspaceHandlers as Map<string,import('./workspace-transaction.ts').CommandHandler>).set(type,reviewCommandHandler);

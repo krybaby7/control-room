@@ -1,0 +1,19 @@
+import type {SqlDatabase} from '../workspace-store.ts';
+import {readCurrent} from '../workspace-store.ts';
+import type {AutomationSchedule} from './contracts.ts';
+import {automationScheduleSchema} from './validation.ts';
+import {evidenceDateSchema,evidenceIdSchema} from '../evidence-validation.ts';
+import {canonical,contentHash} from '../canonical-json.ts';
+/** Read-only preparation hint, never a lease, principal authentication or execution
+ * authority. The central command and runner must independently recheck their proofs. */
+export async function canResumeAutomation(db:SqlDatabase,owner:string,input:AutomationSchedule,now:string):Promise<boolean>{
+ if(!owner||owner.length>256||owner.trim()!==owner||/[\u0000-\u001f\u007f]/u.test(owner))throw new Error('An authenticated owner scope is required.');
+ const parsed=automationScheduleSchema.safeParse(input);if(!parsed.success||!evidenceDateSchema.safeParse(now).success)return false;const schedule=parsed.data;if(!['daily_review','weekly_review'].includes(schedule.kind)||!schedule.enabled||schedule.archivedAt!==null)return false;
+ const row=await db.prepare('SELECT row_revision,payload_json,content_hash,kind,enabled,archived_at FROM automation_schedules WHERE user_id=? AND id=?').bind(owner,schedule.id).first<{row_revision:number;payload_json:string;content_hash:string;kind:string;enabled:number;archived_at:string|null}>();if(!row||!Number.isSafeInteger(row.row_revision)||row.row_revision<1||row.kind!==schedule.kind||row.enabled!==1||row.archived_at!==null)return false;
+ const serialized=canonical(schedule),configurationHash=await contentHash(serialized);try{const current=automationScheduleSchema.parse(JSON.parse(row.payload_json));if(canonical(current)!==serialized||row.content_hash!==configurationHash)return false;}catch{return false;}
+ const workspace=await readCurrent(db,owner,now);if(schedule.projectIds.some(id=>!workspace.workspace.projects.some(project=>project.id===id&&!project.archivedAt)))return false;
+ const proof=await db.prepare("SELECT c.principal_ref,c.verified_at,c.expires_at,p.token_hash,p.scope_json,p.renewable_verified_at,p.expires_at principal_expires_at,p.revoked_at FROM automation_capabilities c JOIN automation_schedules s ON s.user_id=c.user_id AND s.id=c.resource_id AND s.kind=c.kind JOIN integration_service_principals p ON p.user_id=c.user_id AND p.id=c.principal_ref WHERE c.user_id=? AND c.kind=? AND c.resource_id=? AND c.proof_kind='live-unattended' AND s.row_revision=? AND s.content_hash=? AND s.payload_json=? AND s.enabled=1 AND s.archived_at IS NULL AND p.revoked_at IS NULL AND EXISTS(SELECT 1 FROM workspaces WHERE user_id=? AND revision=?) LIMIT 2").bind(owner,schedule.kind,schedule.id,row.row_revision,configurationHash,row.payload_json,owner,workspace.revision).all<{principal_ref:string;verified_at:string;expires_at:string;token_hash:string;scope_json:string;renewable_verified_at:string;principal_expires_at:string;revoked_at:string|null}>();if(proof.results.length!==1)return false;const value=proof.results[0];
+ if(!evidenceIdSchema.safeParse(value.principal_ref).success||/[\u0000-\u001f\u007f]/u.test(value.principal_ref)||typeof value.token_hash!=='string'||!/^[a-f0-9]{64}$/.test(value.token_hash)||typeof value.scope_json!=='string'||value.scope_json.length>128||value.revoked_at!==null)return false;
+ for(const stamp of [value.verified_at,value.expires_at,value.renewable_verified_at,value.principal_expires_at])if(!evidenceDateSchema.safeParse(stamp).success)return false;const clock=Date.parse(now);if(Date.parse(value.verified_at)>clock||Date.parse(value.expires_at)<=clock||Date.parse(value.renewable_verified_at)>clock||Date.parse(value.principal_expires_at)<=clock)return false;
+ try{const scope:unknown=JSON.parse(value.scope_json);return Array.isArray(scope)&&scope.length===1&&scope[0]==='automation:run';}catch{return false;}
+}

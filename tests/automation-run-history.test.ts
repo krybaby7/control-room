@@ -1,0 +1,17 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createElement} from 'react';
+import {renderToStaticMarkup} from 'react-dom/server';
+import {build} from 'esbuild';
+import {mkdtemp,rm} from 'node:fs/promises';
+import {join} from 'node:path';
+import {pathToFileURL} from 'node:url';
+import type {AutomationOccurrence} from '../lib/automations/contracts.ts';
+const directory=await mkdtemp(join(process.cwd(),'.run-history-render-'));
+let leaf:typeof import('../components/automation-run-history');
+try{const file=join(directory,'leaf.mjs');await build({entryPoints:['components/automation-run-history.tsx'],outfile:file,bundle:true,platform:'node',format:'esm',packages:'external',jsx:'automatic',logLevel:'silent'});leaf=await import(pathToFileURL(file).href);}finally{await rm(directory,{recursive:true,force:true});}
+const now='2026-10-18T12:00:00.000Z',hash='a'.repeat(64);
+function occurrence():AutomationOccurrence{return {id:'occurrence',scheduleId:'schedule',dueAt:'2026-10-18T10:00:00.000Z',kind:'daily_review',configurationHash:hash,startedAt:'2026-10-18T11:00:00.000Z',finishedAt:now,outcome:'partial',failure:'storage_unavailable',missedPeriods:3,resultRef:{kind:'review',id:'brief',hash}};}
+test('history accepts empty terminal page and rejects wrong schedule, repeated cursor, duplicate records and leaked fields',()=>{const page={scheduleId:'schedule',items:[],nextAfter:null,pending:[]};assert.deepEqual(leaf.parseAutomationRunPage(page,'schedule',null),page);const value={...page,items:[occurrence()],nextAfter:'occurrence'};assert.equal(leaf.parseAutomationRunPage(value,'schedule',null).items.length,1);for(const raw of [{...page,scheduleId:'foreign'},{...page,items:[{...occurrence(),scheduleId:'foreign'}]},{...page,items:[occurrence(),occurrence()]},{...page,token:'private'},{...page,nextAfter:'nonexistent'}])assert.throws(()=>leaf.parseAutomationRunPage(raw,'schedule',null));assert.throws(()=>leaf.parseAutomationRunPage(value,'schedule','occurrence'));});
+test('actual rendering separates due/start/finish clocks, immutable config and terminal partial outcome from live capability',()=>{const html=renderToStaticMarkup(createElement(leaf.AutomationRunRecords,{items:[occurrence()],pending:[{status:'running',startedAt:null,attempt:2,failure:null}],onOpenReview:()=>{}}));assert.match(html,/daily review · partial/);assert.match(html,/Due 2026-10-18T10:00/);assert.match(html,/Started 2026-10-18T11:00/);assert.match(html,/Finished 2026-10-18T12:00/);assert.match(html,/Missed periods: 3/);assert.match(html,/storage_unavailable/);assert.match(html,/Recorded configuration digest/);assert.match(html,/Open exact run review/);assert.match(html,/Not a completed run/);assert.match(html,/does not establish current provider access, backup integrity/);});
+test('no runs is explicit; backup/source results do not create fabricated verification or review actions, and failure text is inert',()=>{const empty=renderToStaticMarkup(createElement(leaf.AutomationRunRecords,{items:[],pending:[]}));assert.match(empty,/No recorded runs/);const value={...occurrence(),resultRef:{kind:'backup' as const,id:'<script>unsafe</script>',hash:null}};const html=renderToStaticMarkup(createElement(leaf.AutomationRunRecords,{items:[value],pending:[],onOpenReview:()=>{}}));assert.match(html,/Digest unavailable/);assert.match(html,/&lt;script&gt;/);assert.doesNotMatch(html,/<script>/);assert.doesNotMatch(html,/Open exact run review/);assert.doesNotMatch(html,/<button/);});

@@ -1,3 +1,5 @@
+import {createHash} from 'node:crypto';
+import {canonical} from '../lib/canonical-json.ts';
 import {moduleProjection,moduleColumnNames} from '../lib/module-columns.ts';
 import type {JsonValue} from '../lib/workspace-protocol.ts';
 import test from 'node:test';
@@ -11,6 +13,7 @@ import { ModuleConflictError, MutationIdReuseError, WorkspaceStorageError } from
 import {versionRowId} from '../lib/version-identity.ts';
 import { workspaceHandlers } from '../lib/workspace-handlers.ts';
 const now='2026-10-18T12:00:00.000Z';
+const fixtureHash=(value:unknown)=>createHash('sha256').update(canonical(value)).digest('hex');
 const id='synthetic-mutation-0001';
 const command={type:'fixture.change'};
 const input=(mutationId=id,expectedRevision=1)=>({protocolVersion:1,expectedRevision,mutationId,command});
@@ -43,14 +46,14 @@ test('lost workspace CAS between preparation and batch leaves no receipt or modu
 });
 
 for(const mismatch of ['row-revision','content-hash','missing-row'] as const)test(`module source precondition ${mismatch} aborts all effects`,async()=>{
-  const {db,sqlite}=await setup();sqlite.prepare('INSERT INTO decisions (user_id,id,row_revision,payload_json,content_hash) VALUES (?,?,?,?,?)').run('a','source',1,'{}','original');
-  const registry:CommandHandlerRegistry=new Map([['fixture.change',{prepare:async context=>({...plan(context),preconditions:[{table:'decisions',id:'source',expectedRowRevision:1,expectedHash:'original'}]})}]]);
+  const {db,sqlite}=await setup();sqlite.prepare('INSERT INTO decisions (user_id,id,row_revision,payload_json,content_hash) VALUES (?,?,?,?,?)').run('a','source',1,'{}',fixtureHash({}));
+  const registry:CommandHandlerRegistry=new Map([['fixture.change',{prepare:async context=>({...plan(context),preconditions:[{table:'decisions',id:'source',expectedRowRevision:1,expectedHash:fixtureHash({})}]})}]]);
   const raced=intercept(db,()=>{if(mismatch==='missing-row')sqlite.prepare('DELETE FROM decisions WHERE user_id=?').run('a');else sqlite.prepare(`UPDATE decisions SET ${mismatch==='row-revision'?'row_revision=2':"content_hash='new'"} WHERE user_id=?`).run('a');});
   await assert.rejects(executeWorkspaceCommand('a',input(),deps(raced,registry)),ModuleConflictError);assertClean(sqlite);
 });
 
 for(const operation of ['insert','update','delete'] as const)test(`module ${operation} lost CAS rolls back receipt and planning`,async()=>{
-  const {db,sqlite}=await setup();if(operation!=='insert')sqlite.prepare('INSERT INTO evidence_records (user_id,id,row_revision,payload_json,content_hash) VALUES (?,?,?,?,?)').run('a','record',1,'{}','old');
+  const {db,sqlite}=await setup();if(operation!=='insert')sqlite.prepare('INSERT INTO evidence_records (user_id,id,row_revision,payload_json,content_hash) VALUES (?,?,?,?,?)').run('a','record',1,'{}',fixtureHash({}));
   const registry:CommandHandlerRegistry=new Map([['fixture.change',{prepare:async context=>({...plan(context),writes:[{table:'evidence_records',id:'record',operation,value:{text:'replacement'},expectedRowRevision:operation==='insert'?null:1}]})}]]);
   const raced=intercept(db,()=>{if(operation==='insert')sqlite.prepare('INSERT INTO evidence_records (user_id,id,row_revision,payload_json,content_hash) VALUES (?,?,?,?,?)').run('a','record',1,'{}','racer');else sqlite.prepare('UPDATE evidence_records SET row_revision=2 WHERE user_id=?').run('a');});
   await assert.rejects(executeWorkspaceCommand('a',input(),deps(raced,registry)),ModuleConflictError);
@@ -67,7 +70,7 @@ for(const [operation,table] of [['INSERT','workspace_command_guards'],['INSERT',
 });
 
 test('owner scoped get, pages, preconditions and row updates never borrow foreign records',async()=>{
-  const {db,sqlite}=await setup();sqlite.prepare('INSERT INTO evidence_records (user_id,id,row_revision,payload_json,content_hash) VALUES (?,?,?,?,?)').run('b','foreign',1,'{}','hash');
+  const {db,sqlite}=await setup();sqlite.prepare('INSERT INTO evidence_records (user_id,id,row_revision,payload_json,content_hash) VALUES (?,?,?,?,?)').run('b','foreign',1,'{}',fixtureHash({}));
   const reader=ownerReader(db,'a');assert.equal(await reader.get('evidence_records','foreign'),null);assert.deepEqual(await reader.list('evidence_records'),[]);
   const registry:CommandHandlerRegistry=new Map([['fixture.change',{prepare:async context=>({...plan(context),writes:[{table:'evidence_records',id:'foreign',operation:'update',value:{text:'forbidden'},expectedRowRevision:1}]})}]]);
   await assert.rejects(executeWorkspaceCommand('a',input(),deps(db,registry)),ModuleConflictError);assertClean(sqlite);assert.equal(count(sqlite,'evidence_records','b'),1);
@@ -98,7 +101,18 @@ for(const sameHash of [false,true])test(`racing receipt with ${sameHash?'same':'
 async function seedRestoreModule(sqlite:ReturnType<typeof database>['sqlite'],table:typeof OWNER_TABLES[number]):Promise<void>{
  const subject={type:'task',id:createSeedWorkspace(now).tasks[0].id};
  const head={id:'preserved',currentVersion:1,archivedAt:null};
- const add=(name:string,value:unknown,columns:string[]=[],values:(string|number|null)[]=[],rowId='preserved')=>sqlite.prepare(`INSERT INTO ${name} (user_id,id,row_revision,payload_json,content_hash${columns.length?','+columns.join(','):''}) VALUES (${Array.from({length:5+columns.length},()=>'?').join(',')})`).run('a',rowId,1,JSON.stringify(value),'hash',...values);
+ const add=(name:string,value:unknown,columns:string[]=[],values:(string|number|null)[]=[],rowId='preserved')=>sqlite.prepare(`INSERT INTO ${name} (user_id,id,row_revision,payload_json,content_hash${columns.length?','+columns.join(','):''}) VALUES (${Array.from({length:5+columns.length},()=>'?').join(',')})`).run('a',rowId,1,JSON.stringify(value),fixtureHash(value),...values);
+ if(['review_snapshots','review_acknowledgements','automation_schedules','automation_occurrences','notification_events','review_settings','review_analysis_runs'].includes(table)){
+  const projectId=createSeedWorkspace(now).projects[0].id;
+  const snapshot={id:table==='review_snapshots'?'preserved':'snapshot-parent',scope:{projectIds:[projectId],filterDigest:'a'.repeat(64)},workspaceRevision:1,operationalWatermarks:{sources:0},sourceWatermark:'a'.repeat(64),sourceSet:[],generatedAt:now,facts:[],unknowns:['Historical fixture: no current assessment claimed.'],decisionVersions:[],planningRecords:[],auditRecords:[],coverage:{complete:true,remainingFacts:0,includedFactIds:[],includedEventIds:[]},modelRunId:null};
+  const snapshotHash=await hashJson(snapshot);
+  const schedule={id:table==='automation_schedules'?'preserved':'schedule-parent',kind:'daily_review',timezone:'Africa/Cairo',enabled:true,configurationVersion:1,recurrence:{frequency:'daily',localTime:'03:00'},sourceId:null,projectIds:[projectId],catchUp:'latest_only',createdAt:now,updatedAt:now,archivedAt:null};
+  const values:Partial<Record<typeof OWNER_TABLES[number],unknown>>={review_snapshots:snapshot,review_acknowledgements:{id:'preserved',snapshotId:snapshot.id,snapshotHash,scope:snapshot.scope,acknowledgedAt:now,coveredFactIds:[],coveredEventIds:[]},automation_schedules:schedule,automation_occurrences:{id:'preserved',scheduleId:schedule.id,dueAt:now,kind:'daily_review',configurationHash:await hashJson(schedule),startedAt:now,finishedAt:now,outcome:'success',failure:null,missedPeriods:0,resultRef:{kind:'review',id:snapshot.id,hash:snapshotHash}},notification_events:{id:'preserved',dedupKey:'a'.repeat(64),kind:'blocker',severity:'warning',projectId,sourceId:null,title:'Retained historical notification',body:'Owner must review current context.',href:'/?view=review',createdAt:now,factIds:[],snapshotRef:{id:snapshot.id,hash:snapshotHash},observationRefs:[],evidenceRefs:[]},review_settings:{id:'analysis',enabled:false,provider:null,model:null,maxCostDollars:null,maxInputBytes:1000,maxOutputTokens:100,timeoutMs:1000},review_analysis_runs:{id:'preserved',snapshotId:snapshot.id,snapshotHash,provider:'synthetic',model:'fixture',inputDigest:'a'.repeat(64),status:'completed',startedAt:now,finishedAt:now,usage:{inputTokens:null,outputTokens:null,costDollars:null},suggestions:[],diagnostic:null}};
+  const insert=async(name:typeof OWNER_TABLES[number])=>{const value=values[name] as {id:string},columns=moduleColumnNames(name),projection=await moduleProjection(name,value.id,value as unknown as JsonValue);add(name,value,[...columns],columns.map(c=>projection[c]),value.id);sqlite.prepare(`UPDATE ${name} SET content_hash=? WHERE user_id='a' AND id=?`).run(await hashJson(value as unknown as JsonValue),value.id);};
+  if(['review_acknowledgements','automation_occurrences','notification_events','review_analysis_runs'].includes(table))await insert('review_snapshots');
+  if(table==='automation_occurrences')await insert('automation_schedules');
+  await insert(table);return;
+ }
  if(table.startsWith('source_')||table==='integration_history'){
   const connection={id:'connection',provider:'github',label:'Retained selected source',accessMode:'interactive',enabled:true,archivedAt:null};
   const target={id:'source',connectionId:'connection',projectId:createSeedWorkspace(now).projects[0].id,kind:'github_repository',providerResourceId:'synthetic/repo',canonicalUrl:null,selectedPaths:[],staleAfterSeconds:3600,selectionVersion:1,archivedAt:null};
@@ -133,7 +147,7 @@ for(const table of OWNER_TABLES)test(`planning restore refuses to omit ${table} 
 });
 
 test('module updates and deletes advance only their owner row revision inside shared command revision',async()=>{
-  const {db,sqlite}=await setup();for(const owner of ['a','b'])sqlite.prepare('INSERT INTO evidence_records (user_id,id,row_revision,payload_json,content_hash) VALUES (?,?,?,?,?)').run(owner,'record',4,'{}','old');
+  const {db,sqlite}=await setup();for(const owner of ['a','b'])sqlite.prepare('INSERT INTO evidence_records (user_id,id,row_revision,payload_json,content_hash) VALUES (?,?,?,?,?)').run(owner,'record',4,'{}',fixtureHash({}));
   const registry=(operation:'update'|'delete',expectedRowRevision:number):CommandHandlerRegistry=>new Map([['fixture.change',{prepare:async context=>({...plan(context),writes:[{table:'evidence_records',id:'record',operation,value:{text:'new'},expectedRowRevision}],events:[],jobs:[]})}]]);
   assert.equal((await executeWorkspaceCommand('a',input(),deps(db,registry('update',4)))).status,'committed');
   const changed=await ownerReader(db,'a').get('evidence_records','record');assert.equal(changed?.row_revision,5);assert.equal(changed?.content_hash,await hashJson({text:'new'}));
@@ -144,12 +158,12 @@ test('module updates and deletes advance only their owner row revision inside sh
 });
 
 for(const field of ['actorId','origin','occurredAt'] as const)test(`untrusted event ${field} cannot obtain owner authority`,async()=>{
-  const {db,sqlite}=await setup();const registry:CommandHandlerRegistry=new Map([['fixture.change',{prepare:async context=>{const prepared=plan(context);Object.assign(prepared.events[0],{[field]:field==='origin'?'connector':'foreign'});return prepared;}}]]);
+  const {db,sqlite}=await setup();const registry:CommandHandlerRegistry=new Map([['fixture.change',{prepare:async context=>{const prepared=plan(context);Object.assign(prepared.events[0],{[field]:field==='origin'?'connector':field==='occurredAt'?'2026-10-18T11:00:00.000Z':'foreign'});return prepared;}}]]);
   await assert.rejects(executeWorkspaceCommand('a',input(),deps(db,registry)),/authority/);assertClean(sqlite);
 });
 
 for(const race of ['insert','update','delete'] as const)test(`complete normalized reference snapshot rejects ${race} race atomically`,async()=>{
- const {db,sqlite}=await setup();const hash='a'.repeat(64);
+ const {db,sqlite}=await setup();const hash=fixtureHash({});
  if(race!=='insert')sqlite.prepare('INSERT INTO decisions (user_id,id,row_revision,payload_json,content_hash) VALUES (?,?,?,?,?)').run('a','decision',1,'{}',hash);
  const snapshot={coveredModules:[...OWNER_TABLES],digest:'synthetic',rows:race==='insert'?[]:[{module:'decisions' as const,id:'decision',rowRevision:1,contentHash:hash,references:[]}]};
  const registry:CommandHandlerRegistry=new Map([['fixture.change',{prepare:async context=>({...plan(context),referenceSnapshot:snapshot})}]]);
