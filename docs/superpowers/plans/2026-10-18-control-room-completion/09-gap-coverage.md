@@ -86,3 +86,7 @@ The coherent Phase3 source checkpoint now passes604 Node tests,typecheck,lint an
 ### Phase3 protected UI checkpoint
 
 Criterion/link/assessment/decision-action and staged private-attachment controls are integrated, with explicit owner confirmation and unchanged task/weekly behavior. Local R2 emulator direct and authenticated HTTP checks pass. Chromium35+separateR2one awaits cloud CI; private hosted R2 and full binary restore/cleanup remain open. Ordinary planning undo is available within its existing allowlist; broader undo families remain open. No gap is closed by a manifest, saved schedule or emulator result alone.
+
+### Phase3 native archive/fencing checkpoint
+
+Source now includes streaming full-file export, fresh-namespace staged import, explicit reviewed restore, physical quota and permanent SQL cleanup/upload fencing. RealSQLite/labelledfakeblob roundtrips and localMiniflare transport checks pass. Full native recovery on actual R2 emulation still awaits browserCI; hosted private binding remains external. Orphan staging cleanup/recovery, global review search/attention/context links and immutable normalized-head undo remain open. Full35defaultChromium at45d008e passes; separateR2fixture/supports and Wranglerrestart diagnostic reruns are pending. No phase markedcomplete or live from these helper results.

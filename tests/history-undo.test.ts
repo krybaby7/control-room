@@ -35,3 +35,30 @@ test('prepared undo synchronizes current pins and emits a new owner event withou
  const workspace=fixture(),task=workspace.tasks[0];task.weekly=false;task.weeklyWeek=null;const source=event(workspace,{changes:[{path:['tasks',task.id,'weekly'],before:{exists:true,value:true},after:{exists:true,value:false}},{path:['tasks',task.id,'weeklyWeek'],before:{exists:true,value:'2026-10-12'},after:{exists:true,value:null}}]});const original=structuredClone(source);const plan=await prepareHistoryUndo(context(workspace),source);assert.equal(plan.planningAfter.tasks[0].weekly,true);assert.equal(plan.writes[0].table,'weekly_plans');assert.equal(plan.events[0].sourceRef,source.id);assert.equal(plan.events[0].undoOf,source.id);assert.equal(plan.events[0].actorId,'synthetic-owner');assert.notEqual(plan.events[0].id,source.id);assert.deepEqual(plan.jobs,[]);assert.deepEqual(source,original);assert.throws(()=>previewPlanningUndo(plan.planningAfter,source,now),/changed after/);
  const fields=topLevelChanges({x:null},{y:null});assert.deepEqual(applyInverse({y:null},fields),{x:null});
 });
+
+function presence(workspace:Workspace,collection:'projects'|'milestones'|'tasks'|'captures',value:JsonValue,created:boolean):AuditEventDraft{
+ const type={projects:'project',milestones:'milestone',tasks:'task',captures:'capture'}[collection];const id=(value as {id:string}).id;
+ return event(workspace,{kind:created?`${type}.create`:'entity.delete',entityType:type,entityId:created?null:id,changes:[{path:[collection,id],before:{exists:!created,value:created?null:value},after:{exists:created,value:created?value:null}}]});
+}
+test('ordinary creation undo requires the exact complete current record including server timestamps',async()=>{
+ const workspace=fixture(),task={...structuredClone(workspace.tasks[0]),id:'synthetic-new-task',dependsOn:[],weekly:false,weeklyWeek:null};workspace.tasks.push(task);const source=presence(workspace,'tasks',task as unknown as JsonValue,true),original=structuredClone(workspace);
+ const preview=previewPlanningUndo(workspace,source,now);assert.equal(preview.planningAfter.tasks.some(row=>row.id===task.id),false);assert.deepEqual(preview.changes,[{path:['tasks',task.id],before:{exists:true,value:task},after:{exists:false,value:null}}]);assert.deepEqual(workspace,original);
+ await assert.rejects(prepareHistoryUndo(context(workspace),source),/complete command-group reference-guarded/);
+ for(const patch of [{title:'later title'},{updatedAt:now},{priority:task.priority==='high'?'low':'high'}]){const changed=structuredClone(workspace);Object.assign(changed.tasks.at(-1)!,patch);assert.throws(()=>previewPlanningUndo(changed,source,now),/whole record changed/);}
+ assert.throws(()=>previewPlanningUndo(workspace,{...source,kind:'task.bulk'},now),/exact ordinary/);
+});
+test('deletion inverse restores a full unchanged tombstone and rejects reused IDs or incomplete tombstones',()=>{
+ const workspace=fixture(),capture={...structuredClone(workspace.captures[0]),id:'synthetic-deleted-capture',convertedTaskId:null};const source=presence(workspace,'captures',capture as unknown as JsonValue,false);
+ assert.throws(()=>previewPlanningUndo(workspace,presence(workspace,'captures',{...capture,credential:'invented'} as unknown as JsonValue,false),now));
+ const restored=previewPlanningUndo(workspace,source,now);assert.deepEqual(restored.planningAfter.captures.at(-1),capture);assert.deepEqual(restored.changes,[{path:['captures',capture.id],before:{exists:false,value:null},after:{exists:true,value:capture}}]);
+ const reused=structuredClone(workspace);reused.tasks[0].id=capture.id;reused.tasks.forEach(task=>task.dependsOn=[]);assert.throws(()=>previewPlanningUndo(reused,source,now),/already in use/);
+ const task={...structuredClone(workspace.tasks[0]),id:'deleted-task',dependsOn:[]};const incomplete={...task} as Partial<typeof task>;delete incomplete.estimateMinutes;
+ assert.throws(()=>previewPlanningUndo(workspace,presence(workspace,'tasks',incomplete as JsonValue,false),now),/complete canonical/);
+});
+test('presence inverses preserve full planning reference and active assignment invariants',()=>{
+ const workspace=fixture(),created={...structuredClone(workspace.tasks[0]),id:'created-prerequisite',dependsOn:[],weekly:false,weeklyWeek:null};workspace.tasks.push(created);workspace.tasks[1].dependsOn=[created.id];
+ assert.throws(()=>previewPlanningUndo(workspace,presence(workspace,'tasks',created as unknown as JsonValue,true),now),/missing|unavailable/i);
+ const deleted={...created,id:'deleted-dependent',dependsOn:['missing-task']};assert.throws(()=>previewPlanningUndo(workspace,presence(workspace,'tasks',deleted as unknown as JsonValue,false),now),/missing|unavailable/i);
+ workspace.projects[0].archivedAt=now;const archived={...created,id:'deleted-active-task',projectId:workspace.projects[0].id,milestoneId:null};assert.throws(()=>previewPlanningUndo(workspace,presence(workspace,'tasks',archived as unknown as JsonValue,false),now),/archived project/);
+ const external=presence(workspace,'tasks',created as unknown as JsonValue,true);assert.throws(()=>previewPlanningUndo(workspace,{...external,kind:'recurrence.materialize'},now),/specialized/);
+});

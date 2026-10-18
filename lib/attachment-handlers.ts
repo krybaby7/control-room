@@ -56,7 +56,7 @@ const handler:CommandHandler={async prepare(ctx){
  for(const backup of await ctx.backups.list())if(backup.status==='ready'&&backupReferences(await ctx.backups.get(backup.id),command.id))refs.push(`backup:${backup.id}`);
  if(refs.length)throw new Error('Attachment is still referenced by immutable evidence, acceptance or a retained backup.');
  // Retirement itself performs no object I/O. The later cleanup job must recheck namespace and references.
- const ownerNamespace=ctx.attachmentAccess!.ownerNamespace;
+ const ownerNamespace=ctx.attachmentAccess!.resolveNamespace?await ctx.attachmentAccess!.resolveNamespace(selected.record):ctx.attachmentAccess!.ownerNamespace;if(!ownerNamespace)throw new Error('Attachment is unavailable for this owner namespace.');
  const retired=prepareAttachmentRetirement(ctx.userId,selected.record,refs,{ownerNamespace,now:ctx.now},command.reason);
  const output=plan(ctx,data.snapshot,selected.record,retired.record,data.usage,{bytes:data.usage.bytes-selected.record.expectedBytes,files:data.usage.files-1},selected.row,data.ledger);
  output.jobs.push({id:crypto.randomUUID(),kind:'attachment.cleanup',dedupeKey:`retire:${command.id}`,payload:json(retired.cleanup),notBefore:ctx.now});return output;

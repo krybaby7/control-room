@@ -14,6 +14,7 @@ type Table=typeof TABLES[number];
 export const EVIDENCE_SNAPSHOT_LIMITS={rows:10000,bytes:8_000_000,attempts:3,pageSize:200} as const;
 export type AttachmentSnapshot=Omit<AttachmentRecord,'storageKey'|'uploadMutationId'>;
 export interface EvidenceSnapshot {
+ physicalAttachmentUsage?:{bytes:number;files:number};
  attachmentStorage?:{configured:boolean;availability:'configured-unverified'|'not-configured'};
  requirementRowRevisions:Record<string,number>;revision:number;asOf:string;evidenceHeads:VersionedRecordHead[];evidenceVersions:EvidenceVersion[];evidenceMappings:LegacyEvidenceMapping[];
  links:EvidenceLink[];requirements:EvidenceRequirement[];acceptances:AcceptanceRecord[];decisionHeads:VersionedRecordHead[];decisionVersions:DecisionVersion[];

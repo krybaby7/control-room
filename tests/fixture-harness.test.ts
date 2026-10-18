@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import {parseFixtureArgs,fixtureConfig,fixtureEnvironment,SYNTHETIC_DB_ID,FIXTURE_ORIGIN} from '../scripts/test-fixtures.mjs';
-import {fixtureProxy,requireFreePort,assertFixtureStatus} from '../scripts/test-worker.mjs';
+import {fixtureProxy,requireFreePort,assertFixtureStatus,fixtureFailure} from '../scripts/test-worker.mjs';
 const source={main:'index.js',assets:{directory:'../client'},compatibility_date:'2026-05-15',d1_databases:[{binding:'DB',database_id:SYNTHETIC_DB_ID}],r2_buckets:[]};
 test('harness accepts only explicit local fixture flags and rejects deployment bindings',()=>{
  assert.deepEqual(parseFixtureArgs(['--target','local-fixture']),{serve:false,withR2:false});assert.equal(parseFixtureArgs(['--target','local-fixture','--serve']).serve,true);
@@ -42,4 +42,11 @@ test('HTTP fixture status failures identify exact step and body without consumin
  assert.equal(await response.text(),'{"error":"This attachment is unavailable."}');
  await assertFixtureStatus(new Response(null,{status:404}),404,'expected not found');
  const large=new Response('x'.repeat(5000),{status:503});await assert.rejects(assertFixtureStatus(large,404,'bounded'),error=>{assert.ok(error instanceof Error);assert.ok(error.message.length<4400);return true;});
+});
+
+test('fixture smoke failure retains exact step and bounded Worker restart diagnostics',()=>{
+ const original=new Error('PUT owner A reserved attachment as owner B: expected HTTP 404, received 503; response body: Your worker restarted mid-request.');
+ const failure=fixtureFailure(original,'discarded prefix '+'.'.repeat(13000)+'[wrangler:debug] bundle update/restart');
+ assert.equal(failure.cause,original);assert.ok(failure.message.startsWith(original.message));assert.match(failure.message,/Synthetic local Worker logs/);assert.match(failure.message,/bundle update\/restart/);assert.ok(!failure.message.includes('discarded prefix'));assert.ok(failure.message.length<original.message.length+12100);
+ assert.match(fixtureFailure(original,'').message,/no Worker output captured/);
 });

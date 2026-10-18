@@ -1,0 +1,48 @@
+'use client';
+import {useContext,useEffect,useRef,useState} from 'react';
+import type {EvidenceSnapshot} from '@/lib/evidence-store';
+import type {EvidenceVersion,DecisionVersion} from '@/lib/evidence-contract';
+import type {HistoryEntry} from '@/lib/history';
+import {resolveReviewTarget,reviewHref,type ReviewTarget} from '@/lib/review-links';
+import {entityHref} from '@/lib/entity-links';
+import {evidenceHeadSchema,evidenceVersionSchema} from '@/lib/evidence-validation';
+import {decisionVersionSchema} from '@/lib/decisions';
+import {boundedRequest} from '@/lib/save-controller';
+import {SessionExpiredError} from '@/lib/workspace-client';
+import {SessionExpiredContext} from './session-state';
+const unavailable='This exact citation is unavailable in the current workspace.';
+const object=(value:unknown):value is Record<string,unknown>=>!!value&&typeof value==='object'&&!Array.isArray(value);
+async function boundedJson(response:Response):Promise<unknown>{
+ if(!response.ok)throw new Error(unavailable);const reader=response.body?.getReader();if(!reader)throw new Error(unavailable);const chunks:Uint8Array[]=[];let bytes=0;
+ try{for(;;){const item=await reader.read();if(item.done)break;bytes+=item.value.byteLength;if(bytes>8_000_000){void reader.cancel().catch(()=>{});throw new Error(unavailable);}chunks.push(item.value);}}finally{reader.releaseLock();}
+ const result=new Uint8Array(bytes);let offset=0;for(const chunk of chunks){result.set(chunk,offset);offset+=chunk.length;}return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(result));
+}
+function decodeSnapshot(value:unknown,revision:number):EvidenceSnapshot{
+ if(!object(value)||value.revision!==revision||!Array.isArray(value.attachments)||!Array.isArray(value.links))throw new Error('The saved revision changed. Refresh the workspace to inspect this citation.');
+ for(const [key,schema]of [['evidenceHeads',evidenceHeadSchema],['decisionHeads',evidenceHeadSchema],['evidenceVersions',evidenceVersionSchema],['decisionVersions',decisionVersionSchema]]as const){if(!Array.isArray(value[key])||value[key].length>10000)throw new Error(unavailable);for(const row of value[key])schema.parse(row);}
+ if(value.attachments.length>10000||value.attachments.some(row=>!object(row)||typeof row.id!=='string'||typeof row.filename!=='string'||!['reserved','ready','quarantined','deleted'].includes(String(row.status))))throw new Error(unavailable);
+ if(value.links.length>10000||value.links.some(row=>!object(row)||typeof row.evidenceId!=='string'||!Number.isSafeInteger(row.evidenceVersion)||!object(row.subject)||!['project','milestone','task','capture'].includes(String(row.subject.type))||typeof row.subject.id!=='string'))throw new Error(unavailable);
+ return value as unknown as EvidenceSnapshot;
+}
+function decodeHistory(value:unknown,id:string):HistoryEntry|null{
+ if(!object(value)||!Object.hasOwn(value,'entry'))throw new Error(unavailable);if(value.entry===null)return null;const entry=value.entry;if(!object(entry)||entry.id!==id||typeof entry.kind!=='string'||typeof entry.entityType!=='string'||typeof entry.occurredAt!=='string'||!Object.hasOwn(entry,'sourcePayload')||!Object.hasOwn(entry,'event'))throw new Error(unavailable);return entry as unknown as HistoryEntry;
+}
+function safeSource(url:string):string|null{try{const parsed=new URL(url);return ['http:','https:'].includes(parsed.protocol)&&!parsed.username&&!parsed.password?parsed.href:null;}catch{return null;}}
+function SafeSource({url}:{url:string|null}){const href=url?safeSource(url):null;return href?<a href={href} target="_blank" rel="noopener noreferrer">{url}</a>:<span>{url?'Unavailable source URL':'Unknown source URL'}</span>;}
+export function ReviewCitation({target,revision}:{target:ReviewTarget;revision:number}){
+ const contextExpired=useContext(SessionExpiredContext),[expired,setExpired]=useState(false),generation=useRef(0);const key=JSON.stringify(target);
+ const [state,setState]=useState<{key:string;revision:number;snapshot:EvidenceSnapshot|null;entry:HistoryEntry|null;error:string}|null>(null);
+ useEffect(()=>{const expire=()=>{generation.current++;setExpired(true);setState(null);};window.addEventListener('control-room-session-expired',expire);return()=>window.removeEventListener('control-room-session-expired',expire);},[]);
+ useEffect(()=>{
+  if(expired||contextExpired)return;const epoch=++generation.current,controller=new AbortController();let remove=()=>{};const citation=JSON.parse(key) as ReviewTarget;
+  const run=async()=>{let snapshot:EvidenceSnapshot|null=null,entry:HistoryEntry|null=null;try{await boundedRequest(citation.kind==='history'?`/api/history/entry?${new URLSearchParams({id:citation.id})}`:'/api/evidence',{credentials:'same-origin',cache:'no-store'},async response=>{const value=await boundedJson(response);if(citation.kind==='history')entry=decodeHistory(value,citation.id);else snapshot=decodeSnapshot(value,revision);},{deadlineMs:15000,fetch:(input,init)=>{const deadline=init?.signal;const abort=()=>controller.abort();deadline?.addEventListener('abort',abort,{once:true});remove=()=>deadline?.removeEventListener('abort',abort);return fetch(input,{...init,signal:controller.signal});}});if(generation.current===epoch&&!controller.signal.aborted)setState({key,revision,snapshot,entry,error:''});}catch(error){if(generation.current!==epoch||controller.signal.aborted)return;if(error instanceof SessionExpiredError){window.dispatchEvent(new Event('control-room-session-expired'));return;}setState({key,revision,snapshot:null,entry:null,error:error instanceof Error&&error.message.startsWith('The saved revision changed.')?error.message:unavailable});}finally{remove();}};
+  void run();return()=>{if(generation.current===epoch)generation.current=epoch+1;controller.abort();remove();};
+ },[key,revision,expired,contextExpired]);
+ if(expired||contextExpired)return <section aria-label="Exact review citation"><p role="alert">Sign in again to inspect private citations.</p></section>;
+ const loaded=state?.key===key&&state.revision===revision?state:null;if(!loaded)return <section aria-label="Exact review citation"><p role="status">Loading the exact owner-scoped citation…</p></section>;
+ const resolved=resolveReviewTarget(target,loaded.snapshot,loaded.entry?[loaded.entry]:[]);if(loaded.error||resolved.status==='unavailable')return <section aria-label="Exact review citation"><p role="status">{loaded.error||unavailable}</p></section>;
+ if(resolved.target.kind==='history'){const entry=resolved.record as HistoryEntry;return <section className="panel data-panel" aria-label="Exact review citation"><h2>Exact immutable history event</h2><p>Event ID: {entry.id} · {entry.kind} · {entry.occurredAt}</p><p>Recorded origin: {entry.origin??'Unknown'}. Recorded claims are not independent verification or current authority.</p><p>This is a read-only citation. The original event remains immutable.</p><pre style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{JSON.stringify(entry,null,2)}</pre></section>;}
+ const value=resolved.record as EvidenceVersion|DecisionVersion;const details=resolved as Extract<typeof resolved,{head:unknown}>;return <section className="panel data-panel" aria-label="Exact review citation"><h2>{resolved.target.kind==='evidence'?'Exact evidence version':'Exact decision version'}</h2><h3>{value.title}</h3><p>Logical ID: {value.id} · Exact version: {value.version} · Current head: {details.head.currentVersion}</p><p>{details.historical?'Historical version':'Current version'} · {details.archived?'Archived record':'Active record'}. This citation never substitutes a newer version.</p>
+ {'statement'in value?<><p style={{whiteSpace:'pre-wrap'}}>{value.statement}</p><p>Observed: {value.observedAt??'Unknown'} · Candidate: {value.candidate??'Unknown'} · Environment: {value.environment??'Unknown'}</p><SafeSource url={value.sourceUrl}/><h4>Exact-version linked subjects</h4><ul>{loaded.snapshot!.links.filter(link=>link.evidenceId===value.id&&link.evidenceVersion===value.version).map(link=><li key={link.id}><a href={entityHref({kind:link.subject.type,id:link.subject.id})}>{link.subject.type} · {link.subject.id}</a> · {link.relation} · Criterion: {link.requirementId??'None'}</li>)}</ul><h4>Attachment metadata</h4><p>Metadata alone does not verify byte availability. Private download requests check current owner access and content.</p><ul>{value.attachmentIds.map(id=>{const file=loaded.snapshot!.attachments.find(row=>row.id===id);return <li key={id}>{file?<>{file.filename} · {file.status} · {id}{file.status==='ready'&&<> · <a href={`/api/attachments/${encodeURIComponent(id)}/content`}>Request verified private download</a></>}</>:<>Unavailable attachment metadata · {id}</>}</li>;})}</ul></>:<><p style={{whiteSpace:'pre-wrap'}}>{value.question}</p><p>Status: {value.status} · Decided at: {value.decidedAt??'Not decided'} · Review on: {value.reviewOn??'Unknown'}</p><p style={{whiteSpace:'pre-wrap'}}>Rationale: {value.rationale||'No rationale recorded'}</p><h4>Linked exact evidence versions</h4><ul>{value.evidenceRefs.map(ref=><li key={`${ref.id}:${ref.version}`}><a href={reviewHref({kind:'evidence',id:ref.id,version:ref.version})}>{ref.id} · Version {ref.version}</a></li>)}</ul><h4>Linked subjects</h4><ul>{value.subjects.map(subject=><li key={`${subject.type}:${subject.id}`}><a href={entityHref({kind:subject.type,id:subject.id})}>{subject.type} · {subject.id}</a></li>)}</ul><SafeSource url={value.sourceUrl}/></>}
+ <details><summary>Full immutable version record</summary><pre style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{JSON.stringify(value,null,2)}</pre></details></section>;
+}

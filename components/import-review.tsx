@@ -12,22 +12,23 @@ import { dateLabel } from './ui';
 const collections: PlanningCollection[] = ['projects', 'milestones', 'tasks', 'captures', 'activity'];
 const emptySelection = (): PlanningMergeSelection => ({ projects: [], milestones: [], tasks: [], captures: [], activity: [] });
 const PAGE_SIZE = 100;
-interface StagedFile { id: string; hash: string; bytes: number; diagnostics: ImportDiagnostic[]; expiresAt: number | string }
+interface ArchiveSummary { id:string;files:number;bytes:number;expiresAt:number|string;sourceManifestHash:string }
+interface StagedFile { archive?:ArchiveSummary; id: string; hash: string; bytes: number; diagnostics: ImportDiagnostic[]; expiresAt: number | string }
 interface Review { repairReports?: PlanningRepairReport[]; lineage?: {parentId:string;parentHash:string;steps:number}; preview: ImportPreview; planningBefore: Workspace; planningIncoming: Workspace | null; mergePreview?: PlanningMergePreview }
-async function request<T>(url: string, init: RequestInit = {}, decode?: (response: Response) => Promise<T>): Promise<T> {
+async function request<T>(url: string, init: RequestInit = {}, decode?: (response: Response) => Promise<T>, deadlineMs=15_000): Promise<T> {
   try {
     return await boundedRequest(url, { credentials: 'same-origin', cache: 'no-store', ...init }, async response => {
       if (!response.ok) throw new Error(response.status === 400 ? 'The review could not be prepared. Check your selection, including linked projects and milestones, then try again.' : 'This import review is unavailable or expired. Your workspace has not changed.');
       return decode ? decode(response) : await response.json() as T;
-    });
+    }, {deadlineMs});
   } catch (error) {
     if (error instanceof SessionExpiredError) window.dispatchEvent(new Event('control-room-session-expired'));
     throw error;
   }
 }
-function downloadOriginal(bytes: ArrayBuffer, id: string) {
+function downloadOriginal(bytes: ArrayBuffer, id: string, metadataOnly=false) {
   const url = URL.createObjectURL(new Blob([bytes], { type: 'application/octet-stream' }));
-  const link = document.createElement('a'); link.href = url; link.download = `control-room-original-${id}.json`; link.click();
+  const link = document.createElement('a'); link.href = url; link.download = `control-room-${metadataOnly?'staged-metadata':'original'}-${id}.json`; link.click();
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 function recordLabel(value: object) {
@@ -52,6 +53,8 @@ function ReviewRecords({ title, records }: { title: string; records: unknown[] }
 
 export function ImportReview({ revision, busy, onImport }: { revision: number; busy: boolean; onImport?: (command: Command) => Promise<void> }) {
   const [stage, setStage] = useState<StagedFile | null>(null);
+  const [archive,setArchive]=useState<ArchiveSummary|null>(null);
+  const [expired,setExpired]=useState(false);
   const [review, setReview] = useState<Review | null>(null);
   const [filename, setFilename] = useState('');
   const [originalId,setOriginalId]=useState<string|null>(null);
@@ -71,8 +74,9 @@ export function ImportReview({ revision, busy, onImport }: { revision: number; b
   const [message, setMessage] = useState('');
   const generation = useRef(0);
   useEffect(() => { const epoch = ++generation.current; return () => { generation.current = epoch + 1; }; }, []);
+  useEffect(()=>{const clear=()=>{generation.current++;setExpired(true);setStage(null);setArchive(null);setReview(null);setOriginalId(null);setFilename('');setSelection(emptySelection());setMergeKey(null);setAccepted(false);setWorking('');setError('');setMessage('');};window.addEventListener('control-room-session-expired',clear);return()=>window.removeEventListener('control-room-session-expired',clear);},[]);
   const endpoint = stage ? `/api/workspace/imports/${encodeURIComponent(stage.id)}` : '';
-  const disabled = busy || !!working;
+  const disabled = expired || busy || !!working;
   const selectionKey = JSON.stringify(selection);
   const selectedCount = collections.reduce((count, key) => count + selection[key].length, 0);
   const stale = !!review && review.preview.targetRevision !== revision;
@@ -86,18 +90,20 @@ export function ImportReview({ revision, busy, onImport }: { revision: number; b
     const epoch = generation.current;
     setWorking('stage'); setError(''); setMessage('');
     try {
-      if (file.size > 8_000_000) throw new Error('Choose a file no larger than 8,000,000 bytes.');
-      // Send the original bytes, including invalid JSON, for diagnostics and retrieval.
-      const staged = await request<StagedFile>('/api/workspace/imports', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: file });
+      const isArchive=/\.zip$/i.test(file.name)||['application/zip','application/x-zip-compressed'].includes(file.type.toLowerCase());
+      if(file.size>(isArchive?220*1024*1024:8_000_000))throw new Error(isArchive?'Choose a ZIP archive no larger than 220 MiB.':'Choose a JSON file no larger than 8,000,000 bytes.');
+      // File bytes are sent directly and never placed in a durable draft.
+      const staged = await request<StagedFile>(isArchive?'/api/workspace/imports/archive':'/api/workspace/imports', { method: 'POST', headers: isArchive?{ 'Content-Type':'application/zip','X-Workspace-Revision':String(revision)}:{'Content-Type':'application/json'}, body: file },undefined,isArchive?120_000:15_000);
+      if(isArchive&&(!staged.archive||typeof staged.archive.id!=='string'||!Number.isSafeInteger(staged.archive.files)||staged.archive.files<0||!Number.isSafeInteger(staged.archive.bytes)||staged.archive.bytes<0||!/^[a-f0-9]{64}$/.test(staged.archive.sourceManifestHash)||!Number.isFinite(new Date(staged.archive.expiresAt).getTime())))throw new Error('Archive staging could not be confirmed. Keep your source ZIP. Any retained stage expires automatically; no workspace import was accepted.');
       if (generation.current !== epoch) return;
-      setStage(staged); setOriginalId(staged.id); setFilename(file.name); setSelection(emptySelection()); setAccepted(false); setMergeKey(null);
+      setStage(staged);setArchive(staged.archive?{id:staged.archive.id,files:staged.archive.files,bytes:staged.archive.bytes,expiresAt:staged.archive.expiresAt,sourceManifestHash:staged.archive.sourceManifestHash}:null);setMode(staged.archive?'replace':'merge'); setOriginalId(staged.id); setFilename(file.name); setSelection(emptySelection()); setAccepted(false); setMergeKey(null);
       const result = await request<Review>(`/api/workspace/imports/${encodeURIComponent(staged.id)}`);
       if (generation.current === epoch) setReview(result);
-    } catch (cause) { if (generation.current === epoch) setError(cause instanceof Error ? cause.message : 'The file could not be staged.'); }
+    } catch (cause) { if (generation.current !== epoch) return;setError(cause instanceof Error ? cause.message : 'The file could not be staged.');if(/\.zip$/i.test(file.name)||['application/zip','application/x-zip-compressed'].includes(file.type.toLowerCase()))setMessage('If the archive response was lost, a private stage may remain until expiry. Keep your source ZIP; this interface cannot identify or discard an unconfirmed stage. No replacement is automatically accepted.'); }
     finally { if (generation.current === epoch) setWorking(''); }
   };
   const preview = async (merge: boolean) => {
-    if (!stage) return;
+    if (!stage || (merge&&archive)) return;
     const epoch = generation.current;
     setWorking('preview'); setError(''); setAccepted(false); setMergeKey(null);
     try {
@@ -114,7 +120,7 @@ export function ImportReview({ revision, busy, onImport }: { revision: number; b
     setWorking('download'); setError('');
     try {
       const bytes = await request(`/api/workspace/imports/${encodeURIComponent(id)}?download=1`, {}, response => response.arrayBuffer());
-      if (generation.current === epoch) downloadOriginal(bytes, id);
+      if (generation.current === epoch) downloadOriginal(bytes, id,!!archive);
     } catch (cause) { if (generation.current === epoch) setError(cause instanceof Error ? cause.message : 'The original file could not be downloaded.'); }
     finally { if (generation.current === epoch) setWorking(''); }
   };
@@ -125,23 +131,23 @@ export function ImportReview({ revision, busy, onImport }: { revision: number; b
     try {
       await request(endpoint, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: '{}' });
       if (generation.current !== epoch) return;
-      setStage(null); setOriginalId(null); setReview(null); setFilename(''); setSelection(emptySelection()); setMergeKey(null); setAccepted(false); setMessage('Staged file discarded. Your workspace has not changed.');
+      setStage(null); setArchive(null); setOriginalId(null); setReview(null); setFilename(''); setSelection(emptySelection()); setMergeKey(null); setAccepted(false); setMessage(archive?'Discard was confirmed for this staged metadata. Unaccepted archive storage is subject to server cleanup and expiry; this interface does not verify physical byte deletion. Your workspace has not changed.':'Staged file discarded. Your workspace has not changed.');
     } catch (cause) { if (generation.current === epoch) setError(cause instanceof Error ? cause.message : 'The staged file could not be discarded.'); }
     finally { if (generation.current === epoch) setWorking(''); }
   };
   const commit = async () => {
-    if (!onImport || !stage || !review || diagnostics.length || stale || !accepted || (mode === 'merge' && (!selectedCount || mergeKey !== selectionKey || !review.mergePreview))) return;
+    if (!onImport || !stage || !review || (archive&&mode!=='replace') || diagnostics.length || stale || !accepted || (mode === 'merge' && (!selectedCount || mergeKey !== selectionKey || !review.mergePreview))) return;
     const epoch = generation.current;
     setWorking('commit'); setError(''); setMessage('');
     try {
       await onImport({ type: 'workspace.import.commit', importId: stage.id, hash: stage.hash, targetRevision: review.preview.targetRevision, mode, ...(mode === 'merge' ? { selection } : {}) });
       if (generation.current !== epoch) return;
-      setStage(null); setReview(null); setAccepted(false); setMessage('The reviewed import was saved.');
+      setStage(null);setArchive(null);setOriginalId(null);setFilename(''); setReview(null); setAccepted(false); setMessage('The reviewed import was saved.');
     } catch (cause) { if (generation.current === epoch) setError(cause instanceof Error ? cause.message : 'Import could not be confirmed. Keep this review open.'); }
     finally { if (generation.current === epoch) setWorking(''); }
   };
   const repair = async () => {
-    if (!stage || disabled) return;
+    if (!stage || disabled || archive) return;
     const epoch=generation.current;
     setWorking('repair');setError('');setMessage('');setAccepted(false);setMergeKey(null);
     try {
@@ -170,11 +176,13 @@ export function ImportReview({ revision, busy, onImport }: { revision: number; b
     setMergeKey(null); setAccepted(false);
   };
 
-  return <section className="panel data-panel" aria-labelledby="import-review-heading"><h2 id="import-review-heading">Review an import</h2><p>Choose Planning JSON or a complete bundle. The original file is held separately for review; choosing it does not change your workspace. No automatic repair, acceptance or completion is performed.</p>
-    <input type="file" accept=".json,application/json" aria-label="Choose file for import review" disabled={disabled || !!stage} onChange={event => { void choose(event.target.files?.[0]); event.target.value = ''; }} />
-    {stage && <div className="restore-section"><h3>{filename}</h3><p>{stage.bytes.toLocaleString()} staged bytes · Review expires {dateLabel(new Date(stage.expiresAt).toISOString(), true)}</p><p className="field-hint" style={{ overflowWrap: 'anywhere' }}>File digest: {stage.hash}</p><div className="data-actions"><button type="button" className="button secondary" disabled={disabled} onClick={() => void original()}>{originalId===stage.id?'Download original file':'Download repaired file'}</button>{originalId && originalId!==stage.id && <button type="button" className="button secondary" disabled={disabled} onClick={() => void original(originalId)}>Download unchanged original</button>}{review?.lineage && review.lineage.parentId!==originalId && <button type="button" className="button secondary" disabled={disabled} onClick={() => void original(review.lineage!.parentId)}>Download previous repair source</button>}<button type="button" className="button secondary" disabled={disabled} onClick={() => void discard()}>Discard staged file</button><button type="button" className="button secondary" disabled={disabled} onClick={() => void preview(false)}>Refresh review</button></div>
-      {diagnostics.length > 0 && <div role="alert"><h3>This file needs attention</h3><p>It remains separate from your workspace. Download the unchanged original for correction.</p><ul>{diagnostics.map((item, index) => <li key={index}>{item.path}: {item.code}</li>)}</ul></div>}
-      <details><summary>Prepare an explicit repair</summary><p>Choose one exact change to the staged bytes. A new file and change report will be created for a fresh review. The original is retained until its expiry. Unknown versions, unsupported fields and invalid references still prevent importing.</p>
+  if(expired)return <p role="alert">Sign in again to review private imports. Staged review details are locked.</p>;
+  return <section className="panel data-panel" aria-labelledby="import-review-heading"><h2 id="import-review-heading">Review an import</h2><p>Choose Planning JSON, a complete JSON bundle or a native ZIP archive. JSON source bytes are held separately for review; choosing it does not change your workspace. No automatic repair, acceptance or completion is performed.</p>
+    <input type="file" accept=".json,application/json,.zip,application/zip,application/x-zip-compressed" aria-label="Choose file for import review" disabled={disabled || !!stage} onChange={event => { void choose(event.target.files?.[0]); event.target.value = ''; }} />
+    {stage && <div className="restore-section"><h3>{filename}</h3><p>{stage.bytes.toLocaleString()} staged bytes · Review expires {dateLabel(new Date(stage.expiresAt).toISOString(), true)}</p><p className="field-hint" style={{ overflowWrap: 'anywhere' }}>File digest: {stage.hash}</p><div className="data-actions"><button type="button" className="button secondary" disabled={disabled} onClick={() => void original()}>{archive?'Download staged metadata JSON (not original ZIP)':originalId===stage.id?'Download original file':'Download repaired file'}</button>{originalId && originalId!==stage.id && <button type="button" className="button secondary" disabled={disabled} onClick={() => void original(originalId)}>Download unchanged original</button>}{review?.lineage && review.lineage.parentId!==originalId && <button type="button" className="button secondary" disabled={disabled} onClick={() => void original(review.lineage!.parentId)}>Download previous repair source</button>}<button type="button" className="button secondary" disabled={disabled} onClick={() => void discard()}>Discard staged file</button><button type="button" className="button secondary" disabled={disabled} onClick={() => void preview(false)}>Refresh review</button></div>
+      {archive&&<div className="restore-preview"><h3>Native archive staged for explicit replacement review</h3><p>{archive.files} files · {archive.bytes.toLocaleString()} declared file bytes · Stage expires {dateLabel(new Date(archive.expiresAt).toISOString(),true)}</p><p style={{overflowWrap:'anywhere'}}>Source manifest digest: {archive.sourceManifestHash}</p><p>Keep the original ZIP in your own storage. The server retains rekeyed metadata and separately staged private bytes, not the original ZIP. The metadata download is not your original source file. Only a full reviewed replacement is available; archive module records cannot be merged.</p><p>Repairing staged archive metadata would lose its verified archive binding. Correct the source and stage a new archive instead. Staging never accepts or replaces the workspace automatically.</p></div>}
+      {diagnostics.length > 0 && <div role="alert"><h3>This file needs attention</h3><p>It remains separate from your workspace. {archive?'Correct your retained source ZIP and stage a new archive.':'Download the unchanged original for correction.'}</p><ul>{diagnostics.map((item, index) => <li key={index}>{item.path}: {item.code}</li>)}</ul></div>}
+      {!archive&&<details><summary>Prepare an explicit repair</summary><p>Choose one exact change to the staged bytes. A new file and change report will be created for a fresh review. The original is retained until its expiry. Unknown versions, unsupported fields and invalid references still prevent importing.</p>
         <form onSubmit={event=>{event.preventDefault();void repair();}}>
           <label className="field"><span className="field-label">Repair operation</span><select aria-label="Repair operation" value={repairType} disabled={disabled} onChange={event=>{const next=event.target.value as PlanningRepairOperation['type'];setRepairType(next);if(next==='map-project'&&!['tasks','milestones','captures'].includes(repairCollection))setRepairCollection('tasks');}}><option value="map-project">Map one record to a project</option><option value="remove-dependency">Remove one task dependency</option><option value="rename-duplicate">Rename an exact duplicate occurrence</option><option value="exclude-record">Exclude one record and retain its content in the report</option><option value="migrate">Migrate a supported planning schema</option></select></label>
           {['map-project','rename-duplicate','exclude-record'].includes(repairType) && <label className="field"><span className="field-label">Repair collection</span><select aria-label="Repair collection" value={repairCollection} disabled={disabled} onChange={event=>setRepairCollection(event.target.value as PlanningCollection)}>{collections.filter(key=>repairType!=='map-project'||['tasks','milestones','captures'].includes(key)).map(key=><option key={key} value={key}>{key}</option>)}</select></label>}
@@ -185,18 +193,18 @@ export function ImportReview({ revision, busy, onImport }: { revision: number; b
           {repairType==='exclude-record' && <p role="alert">The selected record will be absent from the repaired file. Its full content is retained in the repair report. References are preserved and may need another explicit repair.</p>}
           <button type="submit" className="button secondary" disabled={disabled || (review?.repairReports?.length??0)>=8}>{working==='repair'?'Preparing repaired review…':'Create separate repaired review'}</button>
         </form>
-      </details>
+      </details>}
       {!!review?.repairReports?.length && <div className="restore-preview"><h3>Repair history for this file</h3><p>{review.repairReports.length} explicit repair operations. Review the original source claims, changes and any excluded content before importing. These reports do not approve or complete any work.</p><ReviewRecords title="Repair operations and source hashes" records={review.repairReports.map(report=>({sourceHash:report.sourceHash,operation:report.operation,warnings:report.warnings}))} /><ReviewRecords title="Repair changes, before and after" records={review.repairReports.flatMap(report=>report.changes)} /><ReviewRecords title="Excluded records retained for recovery" records={review.repairReports.flatMap(report=>report.excludedRecords)} /></div>}
       {review && diagnostics.length === 0 && review.planningIncoming && <><p>Reviewed against saved revision {review.preview.targetRevision}. Attachment completeness: {review.preview.attachmentCompleteness}.</p><p>Module versions: {Object.entries(review.preview.moduleVersions).map(([name, version]) => `${name} v${version}`).join(', ') || 'Planning only'}. {review.preview.backupAvailable ? 'A previous recovery export is available.' : 'No previous recovery export was reported.'}</p>
         <div style={{ overflowX: 'auto' }}><table><thead><tr><th scope="col">Collection</th><th scope="col">Current</th><th scope="col">Incoming</th><th scope="col">Added</th><th scope="col">Absent from incoming</th><th scope="col">Changed</th></tr></thead><tbody>{Object.entries(review.preview.diff).map(([key, diff]) => <tr key={key}><th scope="row">{key}</th><td>{diff.before}</td><td>{diff.after}</td><td>{diff.added.length}</td><td>{diff.deleted.length}</td><td>{diff.changed.length}</td></tr>)}</tbody></table></div>
-        <label className="field"><span className="field-label">Import mode</span><select aria-label="Import mode" value={mode} disabled={disabled} onChange={event => { setMode(event.target.value as 'merge' | 'replace'); setAccepted(false); }}><option value="merge">Merge selected planning records</option><option value="replace">Replace entire workspace</option></select></label>
+        <label className="field"><span className="field-label">Import mode</span><select aria-label="Import mode" value={mode} disabled={disabled} onChange={event => { setMode(event.target.value as 'merge' | 'replace'); setAccepted(false); }}>{!archive&&<option value="merge">Merge selected planning records</option>}<option value="replace">Replace entire workspace</option></select></label>
         {mode === 'merge' ? <><p>Start with no records selected. Choose each source record and any linked projects, milestones or dependencies it needs. Available module records are not merged by this action. New tasks remain proposals; existing task completion, acceptance and weekly commitments are preserved.</p><p>{collections.map(key => `${key}: ${selection[key].length}/${review.planningIncoming![key].length} selected`).join(' · ')}</p>
           <label className="field"><span className="field-label">Source collection</span><select aria-label="Source collection" value={collection} disabled={disabled} onChange={event => { setCollection(event.target.value as PlanningCollection); setPage(0); }}>{collections.map(key => <option key={key} value={key}>{key} ({review.planningIncoming![key].length})</option>)}</select></label>
           <p>Showing {rows.length ? page * PAGE_SIZE + 1 : 0}–{Math.min((page + 1) * PAGE_SIZE, rows.length)} of {rows.length} source records.</p>
           {pageRows.map(row => <div className="capture-preview" key={row.id}><label><input type="checkbox" disabled={disabled} checked={selection[collection].includes(row.id)} onChange={event => toggle(row.id, event.target.checked)} /> {recordLabel(row)}</label><small> {row.id}</small><details><summary>Review source record</summary><pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{JSON.stringify(row, null, 2)}</pre></details></div>)}
           <div className="data-actions"><button type="button" className="button secondary" disabled={disabled || page === 0} onClick={() => setPage(page - 1)}>Previous 100</button><span>Page {page + 1} of {lastPage + 1}</span><button type="button" className="button secondary" disabled={disabled || page >= lastPage} onClick={() => setPage(page + 1)}>Next 100</button><button type="button" className="button secondary" disabled={disabled || !selectedCount} onClick={() => { setSelection(emptySelection()); setMergeKey(null); setAccepted(false); }}>Clear all selections</button><button type="button" className="button primary" disabled={disabled || !selectedCount} onClick={() => void preview(true)}>Preview selected merge</button></div>
           {mergeKey === selectionKey && review.mergePreview && <div className="restore-preview"><h3>Selected merge review</h3><p>{review.mergePreview.added} added · {review.mergePreview.changed} changed · {review.mergePreview.conflicts.length} existing record collisions · {review.mergePreview.sourceClaims.length} imported lifecycle claims retained as source history.</p><ReviewRecords title="Existing record collisions, before and after" records={review.mergePreview.conflicts} /><ReviewRecords title="Imported source claims" records={review.mergePreview.sourceClaims} /><ReviewRecords title="Resulting selected records" records={collections.flatMap(key => review.mergePreview!.workspace[key].filter(row => selection[key].includes(row.id)).map(record => ({ collection: key, record })))} /></div>}
-        </> : <div className="restore-preview" role="alert"><h3>Replace the entire workspace</h3><p>This replaces planning and the supported replaceable module records shown in the comparison, including records absent from the incoming file. Imported audit history is appended to the retained history ledger. A recovery snapshot must be saved in the same operation. If validation or backup preparation fails, the replacement is rejected.</p><p>Imported completion and acceptance values are source claims from this file. Review every changed lifecycle value before proceeding. Download the original file to inspect the module content listed above.</p><ReviewRecords title="Replacement planning changes, before and after" records={replacementChanges(review)} /><ReviewRecords title="Incoming planning records" records={collections.flatMap(key => review.planningIncoming![key].map(record => ({ collection: key, record })))} /></div>}
+        </> : <div className="restore-preview" role="alert"><h3>Replace the entire workspace</h3><p>This replaces planning and the supported replaceable module records shown in the comparison, including records absent from the incoming file. Imported audit history is appended to the retained history ledger. A recovery snapshot must be saved in the same operation. If validation or backup preparation fails, the replacement is rejected.</p><p>Imported completion and acceptance values are source claims from this file. Review every changed lifecycle value before proceeding. {archive?'Download the staged metadata and retain your original ZIP to inspect source content.':'Download the original file to inspect the module content listed above.'}</p><ReviewRecords title="Replacement planning changes, before and after" records={replacementChanges(review)} /><ReviewRecords title="Incoming planning records" records={collections.flatMap(key => review.planningIncoming![key].map(record => ({ collection: key, record })))} /></div>}
         {stale && <p role="alert">Your workspace changed after this review. Refresh the review and check it again before importing.</p>}
         <label className="check-card"><input type="checkbox" checked={accepted} disabled={disabled || stale || (mode === 'merge' && mergeKey !== selectionKey)} onChange={event => setAccepted(event.target.checked)} /><span>{mode === 'replace' ? 'I reviewed the full replacement and its recovery snapshot requirement.' : 'I reviewed this selected merge and its existing record changes.'}</span></label>
         <button type="button" className="button primary" disabled={disabled || !onImport || stale || !accepted || (mode === 'merge' && (!selectedCount || mergeKey !== selectionKey))} onClick={() => void commit()}>{working === 'commit' ? 'Saving reviewed import…' : mode === 'replace' ? 'Replace entire workspace with reviewed file' : 'Import reviewed selection'}</button>

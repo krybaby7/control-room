@@ -18,7 +18,13 @@ function parseGroup(userId:string,values:readonly AuditEventDraft[]):AuditEventD
 export async function prepareHistoryUndoGroup(context:PrepareContext,values:readonly AuditEventDraft[]):Promise<MutationPlan>{
  if(context.command.type!=='history.undo'||context.command.targetRevision!==undefined&&context.command.targetRevision!==context.before.revision)throw new Error('An explicit current-revision undo command is required.');
  const events=parseGroup(context.userId,values);let planningAfter=structuredClone(context.before.workspace);for(const event of [...events].reverse())planningAfter=previewPlanningUndo(planningAfter,event,context.now).planningAfter;
- const changes:FieldChange[]=[];for(const collection of ['projects','milestones','tasks','captures'] as const){const after=new Map(planningAfter[collection].map(row=>[row.id,row]));for(const before of context.before.workspace[collection]){const next=after.get(before.id);if(!next)throw new Error('Planning create/delete undo requires a specialized recovery workflow.');for(const change of topLevelChanges(before as unknown as Record<string,JsonValue>,next as unknown as Record<string,JsonValue>))changes.push({...change,path:[collection,before.id,...change.path]});}}
+ const changes:FieldChange[]=[];for(const collection of ['projects','milestones','tasks','captures'] as const){
+  const before=new Map(context.before.workspace[collection].map(row=>[row.id,row])),after=new Map(planningAfter[collection].map(row=>[row.id,row]));
+  for(const id of new Set([...before.keys(),...after.keys()])){const previous=before.get(id),next=after.get(id);
+   if(!previous||!next){changes.push({path:[collection,id],before:{exists:!!previous,value:previous?structuredClone(previous) as unknown as JsonValue:null},after:{exists:!!next,value:next?structuredClone(next) as unknown as JsonValue:null}});continue;}
+   for(const change of topLevelChanges(previous as unknown as Record<string,JsonValue>,next as unknown as Record<string,JsonValue>))changes.push({...change,path:[collection,id,...change.path]});
+  }
+ }
  if(!changes.length)throw new Error('Command group contains no effective reversible planning changes.');if(changes.length>2000)throw new Error('Undo command exceeds its bounded audit change limit.');
  const snapshot=await readReferenceSnapshot(context.query,referenceRegistry);const target=planningAfter.projects[0]?.id??'history-undo-validation';if(referenceImpact(planningAfter,snapshot,referenceRegistry,{kind:'project',id:target}).dangling.length)throw new Error('Repair dangling normalized references before undo.');
  const selected=typeof context.command.eventId==='string'?context.command.eventId:events[0].id;if(!events.some(event=>event.id===selected))throw new Error('Requested event is outside its complete command group.');
