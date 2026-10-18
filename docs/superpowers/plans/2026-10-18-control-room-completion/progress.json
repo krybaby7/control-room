@@ -1,0 +1,21 @@
+{
+  "planVersion": 1,
+  "createdDate": "2026-10-18",
+  "timezone": "Africa/Cairo",
+  "baselineCommit": "b50aa5c34783ffc0109c46d91c599923df9cc305",
+  "implementationBranch": null,
+  "status": "planned",
+  "phases": [
+    {"id": 0, "status": "not_started", "evidence": [], "blockers": []},
+    {"id": 1, "status": "not_started", "evidence": [], "blockers": []},
+    {"id": 2, "status": "not_started", "evidence": [], "blockers": []},
+    {"id": 3, "status": "not_started", "evidence": [], "blockers": []},
+    {"id": 4, "status": "not_started", "evidence": [], "blockers": []},
+    {"id": 5, "status": "not_started", "evidence": [], "blockers": []},
+    {"id": 6, "status": "not_started", "evidence": [], "blockers": []},
+    {"id": 7, "status": "not_started", "evidence": [], "blockers": []},
+    {"id": 8, "status": "not_started", "evidence": [], "blockers": []}
+  ],
+  "nextAction": "Follow CLOUD-START.md, establish the cloud baseline and lock shared contracts.",
+  "allowedStatuses": ["not_started", "in_progress", "implemented", "verified_local", "verified_hosted", "complete", "externally_blocked"]
+}

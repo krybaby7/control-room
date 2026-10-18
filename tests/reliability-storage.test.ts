@@ -1,0 +1,86 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import * as storage from '../lib/workspace-store.ts';
+import { database } from './helpers/sqlite.ts';
+import { createSeedWorkspace } from '../lib/seed.ts';
+const at = '2026-10-17T12:00:00.000Z';
+const seed = () => createSeedWorkspace(at);
+const command = { type: 'capture.create', capture: { title:'Captured exactly once',body:'Keep content',projectId:null,kind:'idea',sourceUrl:null } };
+test('durable receipt replays a lost success after reload and revision refresh without duplicates', async () => {
+  const {db} = database();
+  const original = await storage.loadWorkspace(db,'owner',seed,at);
+  const first = await storage.mutateWorkspace(db,'owner',original.revision,'mutation-00000001',command,at);
+  assert.equal(first?.workspace.captures.length,original.workspace.captures.length+1);
+  const replay = await storage.mutateWorkspace(db,'owner',1,'mutation-00000001',command,at);
+  assert.deepEqual(replay,first);
+  const reordered = {capture:{sourceUrl:null,kind:'idea',projectId:null,body:'Keep content',title:'Captured exactly once'},type:'capture.create'};
+  assert.deepEqual(await storage.mutateWorkspace(db,'owner',1,'mutation-00000001',reordered,at),first);
+  const latest = await storage.mutateWorkspace(db,'owner',2,'mutation-00000002',{ type:'project.update',id:original.workspace.projects[0].id,patch:{goal:'Subsequent edit'} },at);
+  const replayAfterEdit = await storage.mutateWorkspace(db,'owner',latest!.revision,'mutation-00000001',command,at);
+  assert.equal(replayAfterEdit?.revision,latest?.revision);
+  assert.equal(replayAfterEdit?.workspace.projects[0].goal,'Subsequent edit');
+  assert.equal(replayAfterEdit?.workspace.captures.length,original.workspace.captures.length+1);
+  await assert.rejects(storage.mutateWorkspace(db,'owner',3,'mutation-00000001',{...command,capture:{...command.capture,title:'Different'}},at), /reused|different/i);
+});
+
+test('stored legacy workspaces migrate from saved timestamp without reseeding or silent persistence', async () => {
+  const {db,sqlite} = database(); const legacy = seed(); legacy.schemaVersion=1; legacy.tasks[0].weekly=true;
+  delete legacy.tasks[0].weeklyWeek; delete legacy.tasks[0].archivedFromStatus;
+  sqlite.prepare('INSERT INTO workspaces VALUES (?, ?, ?, ?)').run('owner',JSON.stringify(legacy),12,at);
+  const loaded = await storage.loadWorkspace(db,'owner',() => { throw new Error('must not reseed'); },'2026-10-20T12:00:00Z');
+  assert.equal(loaded.revision,12); assert.equal(loaded.workspace.schemaVersion,2);
+  assert.equal(loaded.workspace.tasks[0].weeklyWeek,'2026-10-12');
+  assert.equal(JSON.parse(sqlite.prepare('SELECT content FROM workspaces').get()!.content as string).schemaVersion,1);
+  const saved = await storage.mutateWorkspace(db,'owner',12,'migration-0000001',{type:'project.update',id:legacy.projects[0].id,patch:{goal:'Kept'}},at);
+  assert.equal(saved?.workspace.tasks[0].weeklyWeek,'2026-10-12');
+  assert.equal(JSON.parse(sqlite.prepare('SELECT content FROM workspaces').get()!.content as string).schemaVersion,2);
+  sqlite.prepare('UPDATE workspaces SET content = ?').run(JSON.stringify({...legacy,schemaVersion:100}));
+  await assert.rejects(storage.loadWorkspace(db,'owner',seed,at),/version/);
+  assert.equal(JSON.parse(sqlite.prepare('SELECT content FROM workspaces').get()!.content as string).schemaVersion,100);
+});
+
+test('a valid legacy document near its byte limit still loads and exports after migration expansion', async () => {
+  const {db,sqlite} = database(); const legacy = seed(); legacy.schemaVersion=1;
+  const template = {...legacy.tasks[0],title:'Task',notes:''};
+  delete template.weeklyWeek; delete template.archivedFromStatus;
+  legacy.tasks=Array.from({length:1800},(_,i) => ({...template,id:`legacy-${i}`}));
+  const spare=990000-new TextEncoder().encode(JSON.stringify(legacy)).byteLength;
+  assert.ok(spare>0);
+  for(const task of legacy.tasks) task.notes='x'.repeat(Math.floor(spare/legacy.tasks.length));
+  const content=JSON.stringify(legacy);
+  assert.ok(new TextEncoder().encode(content).byteLength<1000000);
+  sqlite.prepare('INSERT INTO workspaces VALUES (?, ?, ?, ?)').run('owner',content,7,at);
+  const loaded=await storage.loadWorkspace(db,'owner',() => {throw new Error('must not reseed');},at);
+  assert.equal(loaded.workspace.tasks.length,1800);
+  assert.ok(new TextEncoder().encode(JSON.stringify(loaded.workspace)).byteLength>1000000);
+  assert.equal(sqlite.prepare('SELECT content FROM workspaces').get()!.content,content);
+  await assert.rejects(storage.mutateWorkspace(db,'owner',7,'overlimit-0000001',{type:'project.update',id:legacy.projects[0].id,patch:{goal:'changed'}},at),/storage limit|1 MB/);
+  assert.equal(sqlite.prepare('SELECT count(*) AS count FROM workspace_mutations').get()!.count,0);
+});
+test('receipts are owner scoped and stale writers do not reserve mutation IDs', async () => {
+  const {db} = database();
+  await storage.loadWorkspace(db,'a',seed,at); await storage.loadWorkspace(db,'b',seed,at);
+  const [a,b] = await Promise.all([storage.mutateWorkspace(db,'a',1,'mutation-00000001',command,at),storage.mutateWorkspace(db,'a',1,'mutation-00000002',command,at)]);
+  assert.equal([a,b].filter(Boolean).length,1);
+  assert.equal((await storage.mutateWorkspace(db,'a',2,'mutation-00000002',command,at))?.revision,3);
+  assert.equal((await storage.mutateWorkspace(db,'b',1,'mutation-00000001',command,at))?.revision,2);
+});
+test('restore protects revision and retains exact previous workspace atomically using real migration SQL', async () => {
+  const {db,sqlite} = database();
+  const original = await storage.loadWorkspace(db,'owner',seed,at);
+  const imported = seed(); imported.projects[0].goal='Restored goal';
+  assert.equal(await storage.mutateWorkspace(db,'owner',2,'restore-00000001',{type:'workspace.restore',workspace:imported},at),null);
+  assert.equal(await storage.loadPreviousWorkspace(db,'owner'),null);
+  sqlite.exec("CREATE TRIGGER fail_restore BEFORE UPDATE ON workspaces BEGIN SELECT RAISE(ABORT, 'simulated failure'); END;");
+  await assert.rejects(storage.mutateWorkspace(db,'owner',1,'restore-00000001',{type:'workspace.restore',workspace:imported},at));
+  assert.equal(await storage.loadPreviousWorkspace(db,'owner'),null);
+  assert.equal(sqlite.prepare('SELECT count(*) AS count FROM workspace_mutations').get()!.count,0);
+  sqlite.exec('DROP TRIGGER fail_restore');
+  const restored = await storage.mutateWorkspace(db,'owner',1,'restore-00000001',{type:'workspace.restore',workspace:imported},at);
+  assert.equal(restored?.workspace.projects[0].goal,'Restored goal');
+  const previous = await storage.loadPreviousWorkspace(db,'owner');
+  assert.deepEqual(previous?.workspace,original.workspace);
+  assert.equal(await storage.loadPreviousWorkspace(db,'another-owner'),null);
+  await storage.mutateWorkspace(db,'owner',1,'restore-00000001',{type:'workspace.restore',workspace:imported},at);
+  assert.deepEqual(await storage.loadPreviousWorkspace(db,'owner'),previous);
+});
