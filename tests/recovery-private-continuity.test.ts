@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {database} from './helpers/sqlite.ts';
-import {loadWorkspace,type SqlDatabase,type SqlStatement} from '../lib/workspace-store.ts';
+import {loadWorkspace,readCurrent,type SqlDatabase,type SqlStatement} from '../lib/workspace-store.ts';
 import {createSeedWorkspace} from '../lib/seed.ts';
 import {canonical,contentHash} from '../lib/canonical-json.ts';
 import {readOperationalWatermarks} from '../lib/operational-watermarks.ts';
@@ -93,9 +93,9 @@ test('imported or forged deletion claims cannot become private owner removal fen
 
 test('unknown agent journals, ordered event receipts, occupied slots and finite reservations are retained as inert private data',async()=>{
  const f=await fixture();try{
-  const task=createSeedWorkspace(NOW).tasks.find(row=>row.status!=='archived')!,deviceId='synthetic-private-device',jobId='synthetic-private-job',attemptId='synthetic-private-attempt',budgetId='synthetic-private-budget',intentId='synthetic-private-intent';
+  const workspace=(await readCurrent(f.db,OWNER,NOW)).workspace,task=workspace.tasks.find(row=>row.status!=='archived'&&workspace.projects.some(project=>project.id===row.projectId&&project.archivedAt===null)&&(!row.milestoneId||workspace.milestones.some(milestone=>milestone.id===row.milestoneId&&milestone.archivedAt===null)))!;assert.ok(task);const deviceId='synthetic-private-device',jobId='synthetic-private-job',attemptId='synthetic-private-attempt',budgetId='synthetic-private-budget',intentId='synthetic-private-intent';
   const cap=agentCapabilitySchema.parse({schemaVersion:1,deviceId,configurationSha256:SHA,provider:'codex',runtime:{version:'synthetic-1',sourceCommit:'b'.repeat(40),packageSha256:SHA,toolPolicy:'synthetic-policy',executableSha256:SHA,executableVersion:'synthetic 1',toolPolicySha256:SHA},operations:['project.inspect'],models:[{id:'synthetic-model',efforts:['medium']}],repositoryKeys:['synthetic-repo'],observedAt:NOW,expiresAt:'2026-10-18T12:05:00.000Z',maxConcurrent:1,availableSlots:1,maxTimeoutSeconds:600,maxOutputBytesLimit:2048,allowedPathsSha256ByRepositoryKey:{'synthetic-repo':SHA},modelIdentityPolicy:'require-observed',subscriptionOnly:true,extraUsageOffAttested:true});
-  const spec=await buildAgentJobSpec({operation:'project.inspect',projectId:task.projectId,taskId:task.id,repositoryKey:'synthetic-repo',baseCommit:'b'.repeat(40),inputArtifactIds:[],requestedModel:'synthetic-model',effort:'medium',timeoutSeconds:120,outputBytesLimit:2048,dependsOnJobIds:[]},{workspace:createSeedWorkspace(NOW),workspaceRevision:1,acceptanceInputs:{}});
+  const spec=await buildAgentJobSpec({operation:'project.inspect',projectId:task.projectId,taskId:task.id,repositoryKey:'synthetic-repo',baseCommit:'b'.repeat(40),inputArtifactIds:[],requestedModel:'synthetic-model',effort:'medium',timeoutSeconds:120,outputBytesLimit:2048,dependsOnJobIds:[]},{workspace,workspaceRevision:1,acceptanceInputs:{}});
   const specHash=await agentJobSpecSha256(spec),binding=await buildAgentExecutionBinding(spec,cap,{artifactRefs:[],budget:{jobs:1,timeoutSeconds:120,outputBytesLimit:2048,inputBytesLimit:32768,payment:'subscription-only',costDollars:null},now:NOW}),bindingHash=await agentExecutionBindingSha256(binding);
   const record={id:jobId,intentId,spec,specSha256:specHash,createdAt:NOW,retryOfJobId:null,historical:false},envelope=await buildAgentApprovalEnvelope(spec,{approval:{id:'synthetic-private-approval',jobId,deviceId,specSha256:specHash,capabilitySha256:await contentHash(canonical(cap)),configurationSha256:SHA,taskSnapshotSha256:spec.taskSnapshotSha256,approvedAt:NOW,expiresAt:'2026-10-19T12:00:00.000Z',revokedAt:null,attempts:1,budget:{jobs:1,timeoutSeconds:120},origin:'native-owner'},executionBinding:binding,reservationId:budgetId,approverId:OWNER},NOW);
   f.sqlite.prepare("INSERT INTO workspace_job_intents(user_id,id,kind,dedupe_key,payload_json,not_before,status,execution_epoch,cancel_requested) VALUES(?,?,'agent.execute',?,?,?,'running',0,0)").run(OWNER,intentId,jobId,canonical({jobId,specSha256:specHash}),NOW);
