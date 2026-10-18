@@ -15,6 +15,10 @@ on:
       - 'lib/workspace-transaction.ts'
       - 'lib/workspace-handlers.ts'
       - '.github/workflows/control-room-agents-d1.yml'
+concurrency:
+  group: control-room-agents-d1-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 jobs:

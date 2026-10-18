@@ -25,6 +25,10 @@ on:
       - 'lib/backup-archive-storage.ts'
       - 'drizzle/**'
       - '.github/workflows/control-room-segmented-recovery.yml'
+concurrency:
+  group: control-room-segmented-recovery-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 jobs:

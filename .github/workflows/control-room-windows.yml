@@ -6,6 +6,10 @@ on:
       - 'bridge/**'
       - 'scripts/test-windows-bridge.mjs'
       - '.github/workflows/control-room-windows.yml'
+concurrency:
+  group: control-room-windows-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 jobs:

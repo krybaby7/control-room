@@ -3,6 +3,10 @@ on:
   push:
     branches: ['feat/**']
     paths: ['lib/agents/**','components/*job*','components/agents-view.tsx','components/evaluation-evidence.tsx','lib/workspace-*.ts','lib/module-columns.ts','lib/recoverability-*.ts','tests/agents*.test.ts','tests/evaluation-import.test.ts','db/schema.ts','drizzle/**','.github/workflows/control-room-agents.yml']
+concurrency:
+  group: control-room-agents-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 jobs:
