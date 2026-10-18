@@ -1,4 +1,7 @@
 import test from 'node:test';
+import {readFile} from 'node:fs/promises';
+import {stripTypeScriptTypes} from 'node:module';
+import {Miniflare} from 'miniflare';
 import assert from 'node:assert/strict';
 import {WorkspaceAdmission,WorkspaceAdmissionOverloadError} from '../lib/workspace-admission.ts';
 import {database} from './helpers/sqlite.ts';
@@ -50,4 +53,34 @@ test('queued abort and real bounded deadline never invoke work; active abort nev
  activeSignal.abort();assert.deepEqual(admission.snapshot(),{owners:1,active:1,waiting:0});
  await assert.rejects(admission.run('owner',async()=>{invoked++;}),error=>error instanceof WorkspaceAdmissionOverloadError&&error.reason==='wait_timeout');
  assert.equal(invoked,0);assert.deepEqual(admission.snapshot(),{owners:1,active:1,waiting:0});hold.release();await active;await Promise.resolve();assert.deepEqual(admission.snapshot(),{owners:0,active:0,waiting:0});
+});
+
+test('actual Miniflare request tickets execute each D1 operation in its originating HTTP request',async()=>{
+ const hold=gate(),entered=gate();let mf:Miniflare|null=null;
+ try{
+  const helper=stripTypeScriptTypes(await readFile(new URL('../lib/workspace-admission.ts',import.meta.url),'utf8'),{mode:'strip'});
+  // Actual workerd HTTP and D1 binding; the labelled synthetic gate only holds
+  // the leader so independent and queued request contexts overlap deterministically.
+  mf=new Miniflare({modules:true,compatibilityDate:'2026-05-15',d1Databases:['DB'],d1Persist:false,cf:false,serviceBindings:{GATE:async()=>{entered.release();await hold.promise;return new Response('released');}},script:helper+`
+const admission=new WorkspaceAdmission();
+export default {async fetch(request,env){
+ const url=new URL(request.url);
+ if(url.pathname==='/stats')return Response.json(admission.snapshot());
+ const owner=url.searchParams.get('owner'),id=Number(url.searchParams.get('id'));
+ return admission.run(owner,async()=>{
+  if(url.searchParams.has('hold'))await env.GATE.fetch('https://synthetic-gate.invalid/');
+  await env.DB.prepare('INSERT INTO observations(owner,sequence) VALUES(?,?)').bind(owner,id).run();
+  return Response.json({owner,sequence:id});
+ });
+}};
+`});
+  const db=await mf.getD1Database('DB');await db.prepare('CREATE TABLE observations(id INTEGER PRIMARY KEY AUTOINCREMENT,owner TEXT NOT NULL,sequence INTEGER NOT NULL)').run();
+  const first=mf.dispatchFetch('https://synthetic.invalid/?owner=a&id=0&hold=1');await entered.promise;
+  const queued=Array.from({length:9},(_,index)=>mf!.dispatchFetch('https://synthetic.invalid/?owner=a&id='+String(index+1)));
+  let waiting=0;for(let attempt=0;attempt<100&&waiting!==9;attempt++){const response=await mf.dispatchFetch('https://synthetic.invalid/stats');waiting=((await response.json()) as {waiting:number}).waiting;}assert.equal(waiting,9);
+  const independent=await mf.dispatchFetch('https://synthetic.invalid/?owner=b&id=0');assert.equal(independent.status,200);assert.deepEqual(await independent.json(),{owner:'b',sequence:0});
+  hold.release();const all=await Promise.all([first,...queued]);for(const response of all){assert.equal(response.status,200);assert.equal(response.headers.get('content-type'),'application/json');assert.equal(((await response.json()) as {owner:string}).owner,'a');}
+  const rows=(await db.prepare("SELECT sequence FROM observations WHERE owner='a' ORDER BY id").all<{sequence:number}>()).results;assert.deepEqual(rows.map(row=>row.sequence).sort((left,right)=>left-right),Array.from({length:10},(_,index)=>index));assert.equal((await db.prepare('SELECT COUNT(*) n FROM observations').first<{n:number}>())!.n,11);
+  const stats=await mf.dispatchFetch('https://synthetic.invalid/stats');assert.deepEqual(await stats.json(),{owners:0,active:0,waiting:0});
+ }finally{hold.release();await mf?.dispose();}
 });

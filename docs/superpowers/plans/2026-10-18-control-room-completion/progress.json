@@ -210,7 +210,7 @@
       ]
     }
   ],
-  "nextAction": "Inspect this branch head's Actions; resolve genuine regressions, integrate reviewed performance improvements, then hold one source revision for every acceptance and package gate.",
+  "nextAction": "Read exact-head focused and full Actions logs; resolve remaining native/performance/recovery failures, then hold a final revision for all gates and candidate packaging.",
   "allowedStatuses": [
     "not_started",
     "in_progress",
@@ -237,18 +237,17 @@
     "evidence": "Explicit supported model selection accepted and worker IDs returned."
   },
   "checkpoint": {
-    "implementationHead": "3b28d890638ff7d007bb893352f404d8ec4ae7db",
+    "implementationHead": "2c5a4c37d7ff0b3a278ddbbb43d14cd20a9ad42b",
     "headMeaning": "Parent of this checkpoint commit; resolve the branch ref for the checkpoint commit itself.",
     "executionMode": "GitHub source APIs and actual GitHub Actions Node 24 cloud runners. Supported workspace execution remains unavailable.",
-    "tests": "18e443: 103 agent tests, native agents D1, runtime D1, maintenance and streaming passed. Chromium, Firefox and WebKit acceptance passed. Mobile readiness and long-task gates passed; concurrent HTTP save p95 4864.82 ms failed the unchanged 2000 ms gate.",
+    "tests": "2c5a: agent tests, global typecheck/lint, runtime/agents D1, maintenance, streaming and three-browser acceptance passed. Mobile readiness/long tasks passed. Near-bound concurrent save p95 SQLite2008.26ms/D111451.22ms exceeded2000ms. HTTP20-session test encountered an empty response; no valid p95 was obtained.",
     "knownFailures": [
-      "Artifact upload: actual D1 expression depth exceeded 100 with 96 bindings. A second materialized authority proof is included; exact rerun pending.",
-      "Concurrent save latency remains above budget. Bounded per-owner admission is included; coherent snapshot and growth-metadata optimizations are under review.",
-      "Five cleanup race tests failed because their injection hook missed the new atomic batch. The hook is corrected without changing security assertions; exact rerun pending.",
-      "Full Node run was superseded before completion. No final complete source/package validation is claimed.",
-      "New 46-table recovery, staged-file proof and paid-history guards require actual regression execution.",
-      "Real provider/runtime/device/hosted acceptance and supported Sites helper execution remain external."
+      "Artifact PUT still exceeded D1 depth100 after dual CTEs. Exact balanced authority predicates are included here; actual rerun pending.",
+      "Queued work is changed to resume in its original request context, with a native Miniflare cross-request regression. Actual HTTP rerun pending.",
+      "Near-bound concurrent save latency remains above2000ms; no threshold was raised. Batched coherent reads are being reviewed.",
+      "Full source suite and 46-table segmented rehearsal remain unfinished; no final package or new deployment is claimed.",
+      "Hosted/provider/runtime/owner-device acceptance and supported Sites helper execution remain external."
     ],
-    "nextCommand": "Inspect this branch head's Actions; resolve genuine regressions, integrate reviewed performance improvements, then hold one source revision for every acceptance and package gate."
+    "nextCommand": "Read exact-head focused and full Actions logs; resolve remaining native/performance/recovery failures, then hold a final revision for all gates and candidate packaging."
   }
 }

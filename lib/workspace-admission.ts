@@ -9,7 +9,7 @@ export class WorkspaceAdmissionOverloadError extends Error {
 }
 export interface WorkspaceAdmissionLimits {maximumOwners:number;maximumWaitersPerOwner:number;maximumWaiters:number;waitMilliseconds:number}
 const defaults:WorkspaceAdmissionLimits={maximumOwners:32,maximumWaitersPerOwner:24,maximumWaiters:256,waitMilliseconds:15000};
-interface Entry {work:()=>Promise<unknown>;resolve:(value:unknown)=>void;reject:(reason:unknown)=>void;signal?:AbortSignal;abort?:()=>void;timer?:ReturnType<typeof setTimeout>;queued:boolean}
+interface Entry {resolve:()=>void;reject:(reason:unknown)=>void;signal?:AbortSignal;abort?:()=>void;timer?:ReturnType<typeof setTimeout>;queued:boolean}
 interface Slot {active:boolean;queue:Entry[]}
 export class WorkspaceAdmission {
  private readonly limits:WorkspaceAdmissionLimits;
@@ -29,24 +29,29 @@ export class WorkspaceAdmission {
   if(!slot){if(this.owners.size>=this.limits.maximumOwners)throw new WorkspaceAdmissionOverloadError('owner_capacity');slot={active:false,queue:[]};this.owners.set(owner,slot);}
   if(slot.active){if(slot.queue.length>=this.limits.maximumWaitersPerOwner)throw new WorkspaceAdmissionOverloadError('owner_waiters');if(this.waiting>=this.limits.maximumWaiters)throw new WorkspaceAdmissionOverloadError('global_waiters');}
   const selected=slot;
-  return new Promise<T>((resolve,reject)=>{
-   const entry:Entry={work,resolve:value=>resolve(value as T),reject,signal:options.signal,queued:selected.active};
-   if(!selected.active){this.start(owner,selected,entry);return;}
+  const ticket=await new Promise<Entry>((resolve,reject)=>{
+   const entry:Entry={resolve:()=>resolve(entry),reject,signal:options.signal,queued:selected.active};
+   if(!selected.active){selected.active=true;entry.resolve();return;}
    selected.queue.push(entry);this.waiting++;
    const cancel=(reason:WorkspaceAdmissionFailure)=>{if(!entry.queued)return;const index=selected.queue.indexOf(entry);if(index<0)return;selected.queue.splice(index,1);this.waiting--;entry.queued=false;this.clear(entry);reject(new WorkspaceAdmissionOverloadError(reason));};
    entry.abort=()=>cancel('aborted');entry.signal?.addEventListener('abort',entry.abort,{once:true});entry.timer=setTimeout(()=>cancel('wait_timeout'),this.limits.waitMilliseconds);
    if(entry.signal?.aborted)entry.abort();
   });
+  this.clear(ticket);
+  // This continuation belongs to the requesting caller. Never execute its work
+  // from the previous request's finally/Promise chain: workerd I/O is scoped to
+  // its originating request. Queue entries carry tickets, never work closures.
+  try{if(options.signal?.aborted)throw new WorkspaceAdmissionOverloadError('aborted');return await work();}
+  finally{this.release(owner,selected);}
+
  }
  /** Counts only: never exposes owner keys, work closures, commands or results. */
  snapshot():Readonly<{owners:number;active:number;waiting:number}>{return {owners:this.owners.size,active:[...this.owners.values()].filter(slot=>slot.active).length,waiting:this.waiting};}
  private clear(entry:Entry){clearTimeout(entry.timer);entry.timer=undefined;if(entry.abort)entry.signal?.removeEventListener('abort',entry.abort);entry.abort=undefined;}
- private start(owner:string,slot:Slot,entry:Entry){
-  this.clear(entry);entry.queued=false;slot.active=true;
-  void Promise.resolve().then(()=>entry.work()).then(entry.resolve,entry.reject).finally(()=>{
-   slot.active=false;const next=slot.queue.shift();
-   if(next){this.waiting--;this.start(owner,slot,next);}else this.owners.delete(owner);
-  });
+ private release(owner:string,slot:Slot){
+  const next=slot.queue.shift();
+  if(next){this.waiting--;next.queued=false;next.resolve();}
+  else{slot.active=false;this.owners.delete(owner);}
  }
 }
 /** Process-local bounded optimization, not distributed execution authority. */

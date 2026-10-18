@@ -32,22 +32,19 @@ To record a real limitation without a success claim:
 
     node --experimental-strip-types scripts/record-release-check.mjs record --candidate control-room-reviewed-candidate --check hosted-private-acceptance --status owner-dependent --reason "Requires owner gateway authentication against the exact published artifact."
 
-## Why G48 remains blocked
+## Bounded private recovery and reviewed cutover
 
-The segmented metadata integrity codec and isolated D1/R2 replacement rehearsal do not define a safe general production installer. Portable modules intentionally exclude private execution and anti-resurrection authority. A general tool cannot infer these from imported history or accept a client JSON assertion that a target is safe.
+The source implements a privileged 46-table continuity profile in addition to ordinary portable modules. This is an operator-only inactive replacement path, not an HTTP restore permission or an automatic production binding switch.
 
-| Continuity domain | Required reviewed treatment before production cutover |
-| --- | --- |
-| Blob fences and generations | Preserve every exact-key permanent fence, purged generation's verified digest/bytes, cleanup ownership and unsettled upload attempt; ensure no old key can become readable/writable again. Verify all advertised file bytes and bind fresh destination keys to the reviewed handoff. |
-| Mutation and import tombstones | Preserve retired epochs and retained replay outcomes or provide a proven replacement namespace barrier. Old requests must never become new effects after rebinding. |
-| Deletion lineage | Preserve private baseline-removal and other owner deletion semantics through a typed reviewed policy. Historical imported entity.delete text is not a current owner command. |
-| Jobs, devices and grants | Fence the old execution epoch, pause every destination runtime, retain terminal/unknown outcomes and cancellation boundaries, invalidate old device/session/window authority, and require new explicit grants/credentials. Never requeue an uncertain old effect. |
-| Source and operational history | Retain exact logical/source identities and frozen dates, but initialize sources stale/paused and preserve monotonic stream/history semantics. Imported enabled flags, last-success text and audit namespaces confer no runtime authority. |
-| Target and cutover | Establish an authenticated fresh D1 plus private R2 target identity and prove all application/private tables and new namespace empty. Stage inactive, compare full coherent inventories, then use an expiring one-use server-held cutover token bound to source header, private continuity package, target identity and verified inventory. The owner explicitly performs the reviewed Sites D1/R2 binding handoff. |
+The source database must be globally frozen through the actual trusted database handle before capture. Unknown populated tables, foreign-owner records, unsettled physical writes, incompatible columns/defaults and unsupported workspace configuration fail closed. No imported JSON can assert that a source or target is safe.
 
-The source must be coherently paused/fenced before capturing the final metadata/private vector. A portable client token is not this server-held authority. The current module registry has no supported exporter/importer for that complete private continuity package, and the Sites binding cutover is not implemented by these scripts. The precise blocking condition is private_continuity_package_unsupported; the 64 MiB metadata profile is an additional bounded-format limit. Keep ordinary v1 byte/row admission guards and unsupported oversized-restore messaging until the matching production path is accepted.
+The profile preserves original native audit and record IDs, replay/retirement boundaries, private owner attribution, drafts, physical fences and retained generations, source/automation/job histories, dated telemetry, raw import chunks, archive stages and unknown paid-analysis charges. Destination runtimes remain paused, devices and sessions lose authority, leases are cleared, and unresolved effects retain their uncertainty and reservations. New explicit credentials and owner approval are required before execution.
 
-The isolated script only operates on disposable synthetic Miniflare state. It never installs to existing D1, changes a hosted binding, resumes an active job, restores credentials, or proves a real Windows installation. Its manual-only handoff marker must not be used as production activation authority.
+Complete current attachments and ready backup chunks require actual byte, length, signature and digest verification. Fresh destination keys receive write-ahead physical accounting; permanent source fences and generations remain preserved. Original staged files are copied to explicitly supplied private operator artifacts with a verified manifest and receipt. Incomplete stages are labelled inspection-only; these artifacts do not silently become portable imports or accepted proposals.
+
+An independent seal compares the actual frozen source and inert target rows. Additional fresh physical rows are allowed only through the exact server-held byte-verification mapping. Reconstructed intent roots are installed before dependent job rows. Ordinary application quota guards remain enabled; this bounded profile does not promise unlimited history or evict originals to fit.
+
+The synthetic segmented D1/R2 rehearsal exercises this path on disposable data. Its result proves only its recorded source version and fixture. A production migration still requires a compatible exact-owner inventory, trusted operator access to the existing and inactive replacement D1/R2, preserved rollback state, and an explicit reviewed Sites binding handoff. These scripts never reset existing owner data, resume jobs, restore credentials or automatically switch hosted bindings. See [recovery maintenance](recovery-maintenance.md) and [private continuity](recovery-private-continuity.md).
 
 ## Explicit hosted/device observation record
 

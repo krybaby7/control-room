@@ -57,7 +57,7 @@ test('twenty real isolated cookie sessions retain same-owner CAS and owner isola
  test.setTimeout(5*60*1000);
  const contexts:BrowserContext[]=[],sessions:{page:import('@playwright/test').Page;owner:'a'|'b';input:{revision:number;mutationId:string;command:{type:string;id:string;patch:{body:string}}}}[]=[];
  const latencies:number[]=[];
- const concurrencyReport:Record<string,unknown>={source:process.env.CONTROL_ROOM_SOURCE_COMMIT??'local-source-not-recorded',scope:'twenty-actual-isolated-cookie-contexts',status:'running',sessions:20,samplesMilliseconds:latencies};
+ const concurrencyReport:Record<string,unknown>={source:process.env.CONTROL_ROOM_SOURCE_COMMIT??'local-source-not-recorded',scope:'twenty-actual-isolated-cookie-contexts',status:'running',sessions:20,responses:[] as unknown[],samplesMilliseconds:latencies};
  try{
   for(let index=0;index<20;index++){
    const context=await browser.newContext({baseURL:fixtureOrigin});contexts.push(context);const page=await context.newPage(),owner=index<10?'a':'b';
@@ -73,7 +73,8 @@ test('twenty real isolated cookie sessions retain same-owner CAS and owner isola
    sessions.push({page,owner,input:{revision:before.revision,mutationId:issued.mutationId,command:{type:'capture.update',id:capture.id,patch:{body:'Synthetic concurrent cookie session '+owner+' '+index}}}});
   }
   const waveStart=performance.now();
-  const results=await Promise.all(sessions.map(async session=>{const start=performance.now();const response=await session.page.request.post('/api/workspace',{headers:{Origin:fixtureOrigin,'Content-Type':'application/json'},data:session.input});const body=await response.json();const elapsed=performance.now()-start;expect(elapsed).toBeGreaterThan(0);latencies.push(elapsed);return {status:response.status(),body};}));
+  const results=await Promise.all(sessions.map(async(session,index)=>{const start=performance.now();const response=await session.page.request.post('/api/workspace',{headers:{Origin:fixtureOrigin,'Content-Type':'application/json'},data:session.input});const text=await response.text(),elapsed=performance.now()-start;expect(elapsed).toBeGreaterThan(0);latencies.push(elapsed);const diagnostic={session:index,status:response.status(),contentType:response.headers()['content-type']??null,responseBytes:new TextEncoder().encode(text).byteLength,elapsedMilliseconds:elapsed};(concurrencyReport.responses as unknown[]).push(diagnostic);console.log(JSON.stringify({event:'controlled_concurrent_response',...diagnostic}));let body:unknown=null,jsonValid=true;try{body=JSON.parse(text);}catch{jsonValid=false;}return {status:response.status(),body,jsonValid};}));
+  expect(results.every(row=>row.jsonValid),'Every concurrent response must contain valid JSON; sanitized per-session diagnostics are attached.').toBe(true);
   Object.assign(concurrencyReport,{httpStatuses:results.map(row=>row.status),p50Milliseconds:percentile(latencies,.5),p95Milliseconds:percentile(latencies,.95)});
   expect(results.filter(row=>row.status===200)).toHaveLength(2);expect(results.filter(row=>row.status===409)).toHaveLength(18);
   for(const owner of ['a','b'] as const){

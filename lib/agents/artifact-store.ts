@@ -13,6 +13,14 @@ import {agentFrozenAdmissionSchema} from './store.ts';
 import {agentArtifactTypeSchema,AGENT_ARTIFACT_LIMITS,type AgentArtifactType} from './artifacts.ts';
 export interface AgentArtifactMaterial {attemptId:string;logicalType:AgentArtifactType;sha256:string;bytes:number;guard:DeviceSqlGuard}
 export class AgentArtifactStoreError extends Error {readonly status:number;readonly code:string;constructor(code:string,status=409){super('Private agent artifact is unavailable.');this.name='AgentArtifactStoreError';this.code=code;this.status=status;}}
+// Preserve the exact predicate and binding order while keeping the trusted
+// authority tree within the actual D1 expression-depth100 profile.
+function balancedAnd(clauses:readonly string[]):string{
+ if(clauses.length===1)return clauses[0];
+ if(!clauses.length)throw new Error('Artifact authority predicates are required.');
+ const middle=Math.floor(clauses.length/2);
+ return '('+balancedAnd(clauses.slice(0,middle))+' AND '+balancedAnd(clauses.slice(middle))+')';
+}
 const leaseSchema=z.object({attemptId:agentIdSchema,leaseToken:z.string().regex(/^[a-f0-9]{64}$/u)}).strict();
 type Row=Record<string,string|number|null>;
 const text=(row:Row,key:string)=>{const value=row[key];if(typeof value!=='string')throw new AgentArtifactStoreError('stored_identity_invalid');return value;};
@@ -46,7 +54,7 @@ export async function authorizeAgentArtifactAttempt(db:SqlDatabase,principal:Dev
   'j.row_revision=?','j.content_hash=?','j.payload_json=?','i.kind=\'agent.execute\'','i.payload_json=?','i.status=\'running\'','i.execution_epoch=a.execution_epoch','i.cancel_requested=0',
   'sl.attempt_id=a.id','sl.released_at IS NULL','sl.reserved_at=?','p.payload_json=?','p.binding_hash=?','p.spec_hash=?','p.consumed_at=?','p.revoked_at IS NULL','p.expires_at=?'
  ];
- const guard:DeviceSqlGuard={sql:'('+auth.sql+') AND EXISTS(SELECT 1 FROM job_attempts a JOIN agent_job_state s ON s.user_id=a.user_id AND s.job_id=a.job_id JOIN agent_jobs j ON j.user_id=a.user_id AND j.id=a.job_id JOIN workspace_job_intents i ON i.user_id=a.user_id AND i.id=j.intent_id JOIN agent_device_slots sl ON sl.user_id=a.user_id AND sl.device_id=a.device_id JOIN job_approvals p ON p.user_id=a.user_id AND p.id=a.approval_id AND p.job_id=a.job_id AND p.device_id=a.device_id WHERE '+clauses.join(' AND ')+')',bindings:[...auth.bindings,principal.ownerId,input.attemptId,principal.deviceId,row.lease_token_hash,positive(row,'operational_revision'),currentEpoch,row.identity_json,row.lease_expires_at,row.deadline_at,now,now,positive(row,'state_revision'),row.state_status,row.state_spec_hash,row.state_task_hash,positive(row,'job_revision'),row.job_hash,row.job_payload,row.intent_payload,row.slot_reserved,row.approval_payload,row.approval_binding_hash,row.approval_spec_hash,row.approval_consumed,row.approval_expires]};
+ const guard:DeviceSqlGuard={sql:'('+auth.sql+') AND EXISTS(SELECT 1 FROM job_attempts a JOIN agent_job_state s ON s.user_id=a.user_id AND s.job_id=a.job_id JOIN agent_jobs j ON j.user_id=a.user_id AND j.id=a.job_id JOIN workspace_job_intents i ON i.user_id=a.user_id AND i.id=j.intent_id JOIN agent_device_slots sl ON sl.user_id=a.user_id AND sl.device_id=a.device_id JOIN job_approvals p ON p.user_id=a.user_id AND p.id=a.approval_id AND p.job_id=a.job_id AND p.device_id=a.device_id WHERE '+balancedAnd(clauses)+')',bindings:[...auth.bindings,principal.ownerId,input.attemptId,principal.deviceId,row.lease_token_hash,positive(row,'operational_revision'),currentEpoch,row.identity_json,row.lease_expires_at,row.deadline_at,now,now,positive(row,'state_revision'),row.state_status,row.state_spec_hash,row.state_task_hash,positive(row,'job_revision'),row.job_hash,row.job_payload,row.intent_payload,row.slot_reserved,row.approval_payload,row.approval_binding_hash,row.approval_spec_hash,row.approval_consumed,row.approval_expires]};
  if(!await db.prepare('SELECT 1 WHERE '+guard.sql).bind(...guard.bindings).first())fail('attempt_changed');
  return {attemptId:input.attemptId,record,binding,guard};
 }

@@ -1,24 +1,21 @@
 # Cloud implementation checkpoint
 
-Parent source commit: 3b28d890638ff7d007bb893352f404d8ec4ae7db. Resolve the branch head for this checkpoint's own commit.
-
-Exact model selection: accepted `gpt-6.1-sol` runtime parameter for the integrator and workers `/root/codec`, `/root/drafts`, `/root/export_registry`, `/root/foundation_review`, `/root/runtime_probe`, and `/root/save_client`. Follow-up tasks retain their selected model.
+Parent source: 2c5a4c37d7ff0b3a278ddbbb43d14cd20a9ad42b. Resolve the branch head for this checkpoint's own commit.
 
 GitHub source APIs and actual GitHub Actions Node 24 cloud runners. Supported workspace execution remains unavailable.
 
-18e443: 103 agent tests, native agents D1, runtime D1, maintenance and streaming passed. Chromium, Firefox and WebKit acceptance passed. Mobile readiness and long-task gates passed; concurrent HTTP save p95 4864.82 ms failed the unchanged 2000 ms gate.
+Accepted runtime model: `gpt-6.1-sol` for the integrator and six worker IDs recorded in progress.json. No model substitution.
 
-## Included changes awaiting validation
+2c5a: agent tests, global typecheck/lint, runtime/agents D1, maintenance, streaming and three-browser acceptance passed. Mobile readiness/long tasks passed. Near-bound concurrent save p95 SQLite2008.26ms/D111451.22ms exceeded2000ms. HTTP20-session test encountered an empty response; no valid p95 was obtained.
 
-46-table original-history recovery, staged-file proof, paid journal guards, bounded per-owner admission, artifact SQL-depth correction, and atomic cleanup-race injection fixtures. Existing private hosting identity and audience remain unchanged. No new deployment, paid inference or operational effects.
+## Known failures and unfinished tasks
 
-## Known failures and unfinished work
+- Artifact PUT still exceeded D1 depth100 after dual CTEs. Exact balanced authority predicates are included here; actual rerun pending.
+- Queued work is changed to resume in its original request context, with a native Miniflare cross-request regression. Actual HTTP rerun pending.
+- Near-bound concurrent save latency remains above2000ms; no threshold was raised. Batched coherent reads are being reviewed.
+- Full source suite and 46-table segmented rehearsal remain unfinished; no final package or new deployment is claimed.
+- Hosted/provider/runtime/owner-device acceptance and supported Sites helper execution remain external.
 
-- Artifact upload: actual D1 expression depth exceeded 100 with 96 bindings. A second materialized authority proof is included; exact rerun pending.
-- Concurrent save latency remains above budget. Bounded per-owner admission is included; coherent snapshot and growth-metadata optimizations are under review.
-- Five cleanup race tests failed because their injection hook missed the new atomic batch. The hook is corrected without changing security assertions; exact rerun pending.
-- Full Node run was superseded before completion. No final complete source/package validation is claimed.
-- New 46-table recovery, staged-file proof and paid-history guards require actual regression execution.
-- Real provider/runtime/device/hosted acceptance and supported Sites helper execution remain external.
+This revision adds request-local admission continuation, a cheap stale-revision check after epoch/replay handling, balanced artifact authority SQL, and focused cloud regression selection. Existing private Site, owner data and access remain unchanged. Paid inference and operational effects remain disabled.
 
-Next command: Inspect this branch head's Actions; resolve genuine regressions, integrate reviewed performance improvements, then hold one source revision for every acceptance and package gate.
+Next command: Read exact-head focused and full Actions logs; resolve remaining native/performance/recovery failures, then hold a final revision for all gates and candidate packaging.

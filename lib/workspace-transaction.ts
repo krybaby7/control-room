@@ -68,6 +68,11 @@ async function executeWorkspaceCommandAdmitted(userId:string,input:{protocolVers
   const epoch=await checkMutationEpoch(db,userId,id);
   if(epoch.status==='retired')throw new RetiredMutationError('This mutation epoch is retired.');
   const replay=await checkReceipt();if(replay)return replay;
+  // Reject stale queued contenders before hydrating a large planning document.
+  // Epoch and receipt replay remain authoritative; equal revisions still take
+  // the complete snapshot and every atomic compare-and-swap below.
+  const revisionHead=await db.prepare('SELECT revision FROM workspaces WHERE user_id=?').bind(userId).first<{revision:number}>();
+  if(revisionHead&&revisionHead.revision!==revision)return {status:'conflict',currentRevision:revisionHead.revision};
   const before=await readCurrent(db,userId,now);if(before.revision!==revision)return {status:'conflict',currentRevision:before.revision};
   if(await receiptCount(db,userId)>=RECEIPT_CAPACITY.hard)throw new WorkspaceCapacityError();
   const handler=deps.handlers.get(command.type);if(!handler)throw new CommandValidationError('Unknown command.');
