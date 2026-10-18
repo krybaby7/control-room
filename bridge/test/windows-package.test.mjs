@@ -50,3 +50,14 @@ test('documentation keeps Windows/device/ingress evidence explicitly unverified'
  assert.match(ingress,/unsupported by default/);assert.match(ingress,/renewal.*unverified/i);
  assert.match(acceptance,/Windows acceptance NOT RUN/);assert.match(acceptance,/not.*live hardware proof/i);
 });
+
+test('installer and launcher invoke the fixed scoped ACL helper before task registration or Node launch',async()=>{
+ for(const [name,later]of [['install-task.ps1','Register-ScheduledTask'],['run-bridge.ps1','Start-Process']]){
+  const text=await read(name),helper=text.indexOf("$null = & $aclHelper -ConfigPath $config -StateDirectory $stateDirectory");
+  assert.ok(helper>0&&text.indexOf(later)>helper);
+  assert.match(text,/Join-Path \$PSScriptRoot 'protect-state\.ps1'/);
+  assert.match(text,/GetDirectoryName\(\$config\)\) '\.control-room-bridge'/);
+  assert.match(text,/\$LASTEXITCODE -ne 0/);
+  assert.doesNotMatch(text,/Set-Acl|icacls|Remove-Item/i);
+ }
+});

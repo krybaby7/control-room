@@ -18,6 +18,10 @@ try {
     $module = Resolve-BridgeFile (Join-Path $packageRoot 'src\cli.mjs')
     $config = Resolve-BridgeFile $ConfigPath
     if ([IO.Path]::GetExtension($config) -ine '.json') { throw 'JSON config required.' }
+    $aclHelper = Resolve-BridgeFile (Join-Path $PSScriptRoot 'protect-state.ps1')
+    $stateDirectory = Join-Path ([IO.Path]::GetDirectoryName($config)) '.control-room-bridge'
+    $null = & $aclHelper -ConfigPath $config -StateDirectory $stateDirectory
+    if ($LASTEXITCODE -ne 0) { throw 'Private config and state permissions could not be verified.' }
     # Every path is a regular file, cannot end in a slash, and contains no quote/CR/LF.
     $arguments = '"' + $module + '" run --config "' + $config + '"'
     $child = Start-Process -FilePath $node -ArgumentList $arguments -WorkingDirectory $packageRoot -WindowStyle Hidden -Wait -PassThru

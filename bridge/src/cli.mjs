@@ -1,3 +1,4 @@
+import {ensurePrivateWindowsState} from './windows-state.mjs';
 #!/usr/bin/env node
 import {isAbsolute,dirname,join} from 'node:path';
 import {randomUUID,createHash} from 'node:crypto';
@@ -114,9 +115,10 @@ export async function main(argv=process.argv.slice(2),dependencies={}){
   if(!configPath||!isAbsolute(configPath))throw new Error('An absolute --config path is required.');
   const print=dependencies.print??(text=>process.stdout.write(text+'\n'));
   if(command==='run'||command==='enroll')requireSupportedNode();
+  const stateDirectory=join(dirname(configPath),'.control-room-bridge');
   const {readConfig}=await import('./config.mjs');let config;
-  try{config=await readConfig(configPath);}catch(error){if(command!=='doctor')throw error;const report=unavailableDoctor(nodeVersionStatus());print(JSON.stringify(report));return report;}
-  const stateDirectory=join(dirname(configPath),'.control-room-bridge'),store=dependencies.credentialStore??createCredentialStore({path:join(stateDirectory,'credentials.dpapi')});
+  try{await ensurePrivateWindowsState({configPath,stateDirectory});config=command==='doctor'?await boundedRead(()=>readConfig(configPath),2200):await readConfig(configPath);}catch(error){if(command!=='doctor')throw error;const report=unavailableDoctor(nodeVersionStatus());print(JSON.stringify(report));return report;}
+  const store=dependencies.credentialStore??createCredentialStore({path:join(stateDirectory,'credentials.dpapi')});
   if(command==='revoke-local'){await store.remove();print('Local protected credential removed. Revoke the device in Control Room to revoke server access.');return;}
   const ingress=dependencies.ingressAdapter??unavailablePrivateIngress;
   if(command==='doctor'){const {samplePcCommandCenter}=await import('./pc-command-center.mjs');const report=await doctorBridge({config,credentialStore:store,ingressAdapter:ingress,sample:dependencies.sample??samplePcCommandCenter,now:dependencies.now});print(JSON.stringify(report));return report;}

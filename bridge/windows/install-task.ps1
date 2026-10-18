@@ -24,6 +24,10 @@ try {
     $powershell = Resolve-BridgeFile (Join-Path ([Environment]::GetFolderPath('System')) 'WindowsPowerShell\v1.0\powershell.exe')
     $config = Resolve-BridgeFile $ConfigPath
     if ([IO.Path]::GetExtension($config) -ine '.json') { throw 'JSON config required.' }
+    $aclHelper = Resolve-BridgeFile (Join-Path $PSScriptRoot 'protect-state.ps1')
+    $stateDirectory = Join-Path ([IO.Path]::GetDirectoryName($config)) '.control-room-bridge'
+    $null = & $aclHelper -ConfigPath $config -StateDirectory $stateDirectory
+    if ($LASTEXITCODE -ne 0) { throw 'Private config and state permissions could not be verified.' }
     if (Get-ScheduledTask -TaskName $taskName -TaskPath $taskPath -ErrorAction SilentlyContinue) { throw 'Task already exists. Inspect and uninstall explicitly before reinstalling.' }
     $arguments = '-NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -File "' + $launcher + '" -NodePath "' + $node + '" -ConfigPath "' + $config + '"'
     $action = New-ScheduledTaskAction -Execute $powershell -Argument $arguments -WorkingDirectory $packageRoot
