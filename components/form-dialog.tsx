@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, cloneElement, isValidElement, useContext, useEffect, useId, useRef, useState, type ReactNode, type ReactElement } from 'react';
+import { createContext, cloneElement, isValidElement, useContext, useEffect, useLayoutEffect, useId, useRef, useState, type ReactNode, type ReactElement } from 'react';
 import { AlertCircle, LoaderCircle, X } from 'lucide-react';
 import { SessionExpiredContext } from './session-state';
 
@@ -9,7 +9,8 @@ export const OriginalSaveContext=createContext<{check?:()=>Promise<string>}>({})
 export function FormDialog({ title, subtitle, dirty, onClose, onSave, submitLabel = 'Save changes', children }: { title: string; subtitle?: string; dirty: boolean; onClose: () => void; onSave: () => Promise<void>; submitLabel?: string; children: ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null);
   const expired = useContext(SessionExpiredContext);
-  const sessionExpired = useRef(expired); sessionExpired.current = expired;
+  const sessionExpired = useRef(expired);
+  useLayoutEffect(() => { sessionExpired.current = expired; }, [expired]);
   const opener = useRef<HTMLElement | null>(typeof document === 'undefined' ? null : document.activeElement instanceof HTMLElement ? document.activeElement : null);
   const originalSave=useContext(OriginalSaveContext);
   const [checking,setChecking]=useState(false);const [outcome,setOutcome]=useState('');

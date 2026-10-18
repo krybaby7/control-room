@@ -2,12 +2,12 @@
 import {readFile,writeFile,rename,mkdir,lstat,realpath} from 'node:fs/promises';
 import {resolve,relative,join} from 'node:path';
 import {execFileSync} from 'node:child_process';
-import {releaseStatusSchema,newReleaseStatus,releaseAcceptance,verifyGitHubArtifact,verifyGitHubCheck,RELEASE_CHECKS,RELEASE_REPOSITORY} from '../lib/release-verification.ts';
-const usage='Usage: node --experimental-strip-types scripts/record-release-check.mjs init --candidate NAME [--run ID --artifact ID] | bind --candidate NAME --run ID --artifact ID | record --candidate NAME --check ID --status STATUS [--run ID --job ID --artifact ID --step NUMBER | --reason TEXT] | verify --candidate NAME';
+import {releaseStatusSchema,newReleaseStatus,releaseAcceptance,verifyGitHubArtifact,verifyGitHubCheck,verifyObservedAttestation,deriveReleasePhases,RELEASE_CHECKS,RELEASE_REPOSITORY} from '../lib/release-verification.ts';
+const usage='Usage: node --experimental-strip-types scripts/record-release-check.mjs init --candidate NAME [--run ID --artifact ID] | bind --candidate NAME --run ID --artifact ID | record --candidate NAME --check ID --status STATUS [--run ID --job ID --artifact ID --step NUMBER | --reason TEXT] | observe --candidate NAME --attestation REPO_RELATIVE_JSON --sha256 EXPECTED_CANONICAL_SHA | verify --candidate NAME';
 function args(argv){
- const [command,...rest]=argv;if(!['init','bind','record','verify'].includes(command)||rest.length%2)throw new Error(usage);
+ const [command,...rest]=argv;if(!['init','bind','record','observe','verify'].includes(command)||rest.length%2)throw new Error(usage);
  const options={};for(let i=0;i<rest.length;i+=2){const key=rest[i];if(!/^--[a-z]+$/.test(key)||Object.hasOwn(options,key))throw new Error('Unknown or duplicate argument.');options[key]=rest[i+1];}
- const allowed=command==='record'?['--candidate','--check','--status','--run','--job','--artifact','--step','--reason']:['init','bind'].includes(command)?['--candidate','--run','--artifact']:['--candidate'];
+ const allowed=command==='observe'?['--candidate','--attestation','--sha256']:command==='record'?['--candidate','--check','--status','--run','--job','--artifact','--step','--reason']:['init','bind'].includes(command)?['--candidate','--run','--artifact']:['--candidate'];
  if(Object.keys(options).some(key=>!allowed.includes(key))||!/^[a-z0-9][a-z0-9-]{0,79}$/.test(options['--candidate']??''))throw new Error(usage);
  return {command,options};
 }
@@ -22,6 +22,13 @@ async function statusPath(candidate){
  }
  try{const entry=await lstat(output);if(!entry.isFile()||entry.isSymbolicLink())throw new Error('Release status must be a regular file.');}catch(error){if(error.code!=='ENOENT')throw error;}
  return output;
+}
+async function observedFile(value){
+ if(typeof value!=='string'||!/^docs\/releases\/[a-z0-9-]+\/observations\/[a-z0-9-]+\.json$/.test(value))throw new Error('Use a reviewed repository observation JSON file.');
+ const path=resolve(root,value);let current=root;
+ for(const part of relative(root,path).split('/')){current=join(current,part);const entry=await lstat(current);if(entry.isSymbolicLink())throw new Error('Observation path must not contain symlinks.');}
+ const stat=await lstat(path);if(!stat.isFile()||stat.size>65536)throw new Error('Observation must be a bounded regular file.');
+ return {path,value:JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(await readFile(path)))};
 }
 async function readStatus(path){const bytes=await readFile(path);if(bytes.length>1000000)throw new Error('Status file exceeds bound.');return releaseStatusSchema.parse(JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes)));}
 async function save(path,value){const text=JSON.stringify(releaseStatusSchema.parse(value),null,2)+'\n',temporary=path+'.'+crypto.randomUUID()+'.tmp';await writeFile(temporary,text,{flag:'wx',mode:0o600});await rename(temporary,path);}
@@ -58,8 +65,20 @@ try{
    status.sourceCommit=source;status.artifact=verified;status.artifactSha256=verified.sha256;await save(path,status);console.log(JSON.stringify({candidate,sourceCommit:source,artifactSha256:verified.sha256,accepted:false}));
   }else if(command==='verify'){
    if(status.artifact){const run=await completedRun(status.artifact.runId),artifact=await github('/actions/artifacts/'+status.artifact.id);const actual=verifyGitHubArtifact({sourceCommit:status.sourceCommit,run,artifact});if(JSON.stringify(actual)!==JSON.stringify(status.artifact))throw new Error('Candidate artifact provenance changed.');}
-   for(const check of status.checks.filter(check=>check.status==='passed')){const proof=check.evidence,run=await completedRun(proof.runId),job=await github('/actions/jobs/'+proof.jobId),artifact=await github('/actions/artifacts/'+proof.artifact.id);const actual=verifyGitHubCheck({checkId:check.id,sourceCommit:status.sourceCommit,run,job,artifact,stepNumber:proof.stepNumber,now:new Date().toISOString(),attemptJobIds:await attemptJobs(run)});const expected={...proof,verifiedAt:actual.evidence.verifiedAt};if(JSON.stringify(actual.evidence)!==JSON.stringify(expected)||actual.observedAt!==check.observedAt)throw new Error('Recorded gate provenance changed.');}
+   for(const check of status.checks.filter(check=>check.status==='passed')){const proof=check.evidence;
+    if(proof.kind==='observed-attestation'){
+     const file=await observedFile(check.evidencePath),actual=await verifyObservedAttestation({record:file.value,recordSha256:proof.recordSha256,candidate,sourceCommit:status.sourceCommit,artifact:status.artifact,now:new Date().toISOString()});
+     if(JSON.stringify(actual.evidence)!==JSON.stringify(proof))throw new Error('Observed record changed.');continue;
+    }
+    const run=await completedRun(proof.runId),job=await github('/actions/jobs/'+proof.jobId),artifact=await github('/actions/artifacts/'+proof.artifact.id);const actual=verifyGitHubCheck({checkId:check.id,sourceCommit:status.sourceCommit,run,job,artifact,stepNumber:proof.stepNumber,now:new Date().toISOString(),attemptJobIds:await attemptJobs(run)});const expected={...proof,verifiedAt:actual.evidence.verifiedAt};if(JSON.stringify(actual.evidence)!==JSON.stringify(expected)||actual.observedAt!==check.observedAt)throw new Error('Recorded gate provenance changed.');}
    const result=releaseAcceptance(status);console.log(JSON.stringify({candidate,...result}));if(!result.accepted)process.exitCode=1;}
+  else if(command==='observe'){
+   if(!status.sourceCommit||!status.artifact||status.sourceCommit!==sourceCommit())throw new Error('Observation requires the exact bound candidate checkout.');
+   const file=await observedFile(options['--attestation']),verified=await verifyObservedAttestation({record:file.value,recordSha256:options['--sha256'],candidate,sourceCommit:status.sourceCommit,artifact:status.artifact,now:new Date().toISOString()});
+   const check=status.checks.find(check=>check.id===verified.evidence.record.checkId);
+   Object.assign(check,{status:'passed',observedAt:verified.observedAt,evidencePath:options['--attestation'],evidence:verified.evidence,limitation:null,disabledScope:null});
+   status.phases=deriveReleasePhases(status);await save(path,status);console.log(JSON.stringify({candidate,check:check.id,status:'passed',kind:'observed-attestation',accepted:releaseAcceptance(status).accepted}));
+  }
   else{
    const id=options['--check'],spec=RELEASE_CHECKS.find(check=>check.id===id);if(!spec)throw new Error('Unknown required release gate.');
    const outcome=options['--status'];if(!['not-run','passed','failed','unavailable','owner-dependent'].includes(outcome))throw new Error('Invalid outcome; required gates cannot be disabled by a recorder.');
@@ -75,10 +94,7 @@ try{
     const reason=options['--reason']?.trim();if(outcome!=='not-run'&&!reason)throw new Error('An explicit limitation is required.');
     Object.assign(check,{status:outcome,observedAt:outcome==='not-run'?null:now,evidencePath:null,evidence:null,limitation:reason??null,disabledScope:null});
    }
-   // Aggregate states are derived conservatively. This CLI never attests hosted/device observations.
-   const local=status.checks.filter(check=>check.environment==='isolated-ci');
-   status.phases.localVerification=local.some(check=>check.status==='failed')?'failed':local.every(check=>check.status==='passed')?'passed':'not-run';
-   status.phases.hostedAcceptance='owner-dependent';
+   status.phases=deriveReleasePhases(status);
    await save(path,status);console.log(JSON.stringify({candidate,check:id,status:outcome,accepted:releaseAcceptance(status).accepted}));
   }
  }

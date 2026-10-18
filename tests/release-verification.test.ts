@@ -1,3 +1,4 @@
+import {canonical,contentHash} from '../lib/canonical-json.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp,readFile,rm} from 'node:fs/promises';
@@ -5,7 +6,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {spawnSync} from 'node:child_process';
-import {newReleaseStatus,releaseStatusSchema,releaseAcceptance,verifyGitHubArtifact,verifyGitHubCheck,RELEASE_CHECKS} from '../lib/release-verification.ts';
+import {newReleaseStatus,releaseStatusSchema,releaseAcceptance,verifyGitHubArtifact,verifyGitHubCheck,RELEASE_CHECKS,verifyObservedAttestation,observedAttestationRecordSchema,deriveReleasePhases} from '../lib/release-verification.ts';
 
 const SOURCE='a'.repeat(40),DIGEST='b'.repeat(64),NOW='2026-10-18T12:00:00.000Z';
 /** Synthetic API-shaped data tests validation; these objects are not release evidence. */
@@ -61,7 +62,7 @@ test('step failure/skipped/wrong command/missing date/future date never becomes 
  }
  assert.throws(()=>verifyGitHubCheck({...fixture(),stepNumber:99}));
  assert.throws(()=>verifyGitHubCheck({...fixture(),checkId:'hosted-private-acceptance'}),/external observed evidence/);
- assert.throws(()=>verifyGitHubCheck({...fixture(),checkId:'oversized-owner-recovery'}),/external observed evidence/);
+ assert.throws(()=>verifyGitHubCheck({...fixture(),checkId:'oversized-owner-recovery'}),/exact workflow and job/);
 });
 test('missing external gates cannot be waived or implied by local verification',()=>{
  const value=newReleaseStatus('synthetic-candidate');
@@ -100,4 +101,59 @@ test('portable runner rejects production targets before starting any fixture com
  const script=fileURLToPath(new URL('../scripts/verify-release.mjs',import.meta.url));
  const result=spawnSync(process.execPath,[script,'--target','production'],{encoding:'utf8',timeout:10000});
  assert.equal(result.status,1);assert.match(result.stderr,/Production identifiers, URLs and arbitrary commands are not accepted/);
+});
+
+function observedFixture(checkId:'hosted-private-acceptance'|'owner-device-acceptance'='owner-device-acceptance'){
+ const spec=RELEASE_CHECKS.find(check=>check.id===checkId)!;
+ return {format:'control-room-observed-release-attestation' as const,version:1 as const,candidate:'synthetic-candidate',sourceCommit:SOURCE,artifact:verifyGitHubArtifact(fixture()),checkId,environment:spec.environment,procedure:spec.procedure,result:'passed' as const,observedAt:NOW,observerRole:'owner' as const,observations:['Synthetic fixture only: typed attestation contract, not an actual device acceptance.']};
+}
+test('observed attestation binds exact gate, candidate, artifact, date and canonical digest without impersonating CI',async()=>{
+ const record=observedFixture(),input={record,recordSha256:await contentHash(canonical(record)),candidate:record.candidate,sourceCommit:SOURCE,artifact:record.artifact,now:NOW},proof=await verifyObservedAttestation(input);
+ assert.equal(proof.evidence.kind,'observed-attestation');
+ for(const altered of [
+  {...input,candidate:'different-candidate'},{...input,sourceCommit:'c'.repeat(40)},{...input,artifact:{...record.artifact,bytes:999}},
+  {...input,recordSha256:'0'.repeat(64)},{...input,now:'2026-10-18T11:59:59.000Z'},
+  {...input,record:{...record,observations:['Changed after review.']}},
+  {...input,record:{...record,environment:'isolated-ci'}},{...input,record:{...record,checkId:'node-tests'}},
+  {...input,record:{...record,procedure:'Trust a scanner screenshot.'}},{...input,record:{...record,unknown:true}},
+ ])await assert.rejects(()=>verifyObservedAttestation(altered));
+ assert.throws(()=>observedAttestationRecordSchema.parse({...record,observations:[]}));
+ const value=newReleaseStatus(record.candidate);value.sourceCommit=SOURCE;value.artifact=record.artifact;value.artifactSha256=DIGEST;
+ const row=value.checks.find(check=>check.id===record.checkId)!;
+ Object.assign(row,{status:'passed',observedAt:proof.observedAt,evidencePath:'docs/releases/synthetic-candidate/observations/device.json',evidence:proof.evidence});
+ assert.equal(releaseStatusSchema.parse(value).checks.find(check=>check.id===record.checkId)!.status,'passed');
+ assert.equal(releaseAcceptance(value).accepted,false);assert.equal(deriveReleasePhases(value).hostedAcceptance,'owner-dependent');
+ const foreign={...value,checks:value.checks.map(check=>check.id===record.checkId?{...check,evidence:{...proof.evidence,record:{...record,candidate:'other'}}}:check)};assert.throws(()=>releaseStatusSchema.parse(foreign));
+});
+test('isolated recovery and performance evidence require exact workflow, job and successful bound step',()=>{
+ for(const [checkId,workflow,jobName,step] of [
+  ['oversized-owner-recovery','Control Room isolated segmented recovery','isolated-replacement','Run node --experimental-strip-types scripts/test-recovery-segments-d1.mjs'],
+  ['performance','Control Room controlled workspace benchmark','benchmark','Run node --experimental-strip-types scripts/benchmark-workspace.mjs'],
+ ] as const){
+  const base=fixture(),input={...base,checkId,run:{...base.run,name:workflow},job:{...base.job,name:jobName,steps:[{...base.job.steps[0],name:step}]}};
+  assert.equal(verifyGitHubCheck(input).evidence.sourceCommit,SOURCE);
+  assert.throws(()=>verifyGitHubCheck({...input,run:{...input.run,name:'arbitrary proof'}}));
+  assert.throws(()=>verifyGitHubCheck({...input,job:{...input.job,name:'other-job'}}));
+  assert.throws(()=>verifyGitHubCheck({...input,job:{...input.job,steps:[{...input.job.steps[0],conclusion:'failure'}]}}));
+ }
+});
+test('aggregate phases preserve genuine observations while any missing gate remains blocked',async()=>{
+ const value=newReleaseStatus('synthetic-candidate');value.sourceCommit=SOURCE;value.artifact=verifyGitHubArtifact(fixture());value.artifactSha256=DIGEST;
+ for(const row of value.checks){
+  if(row.id==='hosted-private-acceptance'||row.id==='owner-device-acceptance'){
+   const record=observedFixture(row.id),proof=await verifyObservedAttestation({record,recordSha256:await contentHash(canonical(record)),candidate:value.candidate,sourceCommit:SOURCE,artifact:value.artifact,now:NOW});
+   Object.assign(row,{status:'passed',observedAt:NOW,evidencePath:'docs/releases/synthetic-candidate/observations/'+row.id+'.json',evidence:proof.evidence});
+  }else{
+   const base=fixture(),spec=RELEASE_CHECKS.find(check=>check.id===row.id)!;
+   const runtime=row.id==='performance'?{name:'Control Room controlled workspace benchmark'}:row.id==='oversized-owner-recovery'?{name:'Control Room isolated segmented recovery'}:{};
+   const jobName=row.id==='performance'?'benchmark':row.id==='oversized-owner-recovery'?'isolated-replacement':'checks';
+   const proof=verifyGitHubCheck({...base,checkId:row.id,run:{...base.run,...runtime},job:{...base.job,name:jobName,steps:[{...base.job.steps[0],name:spec.stepNames[0]}]}});
+   Object.assign(row,{status:'passed',observedAt:NOW,evidencePath:proof.evidence.jobUrl,evidence:proof.evidence});
+  }
+ }
+ value.phases=deriveReleasePhases(value);
+ assert.equal(value.phases.hostedAcceptance,'passed');assert.equal(value.phases.implementation,'in-progress');assert.equal(releaseAcceptance(value).accepted,false);
+ value.phases.implementation='complete';assert.equal(releaseAcceptance(value).accepted,true);
+ Object.assign(value.checks[0],{status:'not-run',observedAt:null,evidencePath:null,evidence:null});value.phases=deriveReleasePhases(value);
+ assert.equal(value.phases.hostedAcceptance,'owner-dependent');assert.equal(value.checks.at(-1)!.status,'passed');assert.equal(releaseAcceptance(value).accepted,false);
 });

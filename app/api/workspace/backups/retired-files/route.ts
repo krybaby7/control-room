@@ -8,7 +8,7 @@ async function handle(request:Request){
  const user=await getChatGPTUser();
  if(!user)return Response.json({error:'Sign in again.',diagnostic:'session_expired'},{status:401,headers:{'Cache-Control':'no-store, private'}});
  if(!env.DB)return Response.json({error:'Storage is unavailable.'},{status:503,headers:{'Cache-Control':'no-store, private'}});
- return handleRetiredBackupHttp(request,{db:env.DB,ownerId:user.userId,bucket:env.BUCKET,now:()=>new Date().toISOString()});
+ return handleRetiredBackupHttp(request,{db:env.DB,ownerId:user.userId,bucket:env.BUCKET,...(env.BUCKET?{fileBackupServices:{bucket:env.BUCKET,attachmentBucket:env.BUCKET}}:{}),now:()=>new Date().toISOString()});
  }catch{return Response.json({error:'Retired archive cleanup is unavailable.',diagnostic:'cleanup_unconfirmed'},{status:503,headers:{'Cache-Control':'no-store, private'}});}finally{if(!request.bodyUsed)await settleUploadBody(request.body);}
 }
 export const GET=handle;

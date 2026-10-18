@@ -26,7 +26,7 @@ Use actual numeric IDs, not these placeholders. Init never overwrites existing e
 
 The workflow "Record release gate evidence (not release acceptance)" accepts explicit real source-run identifiers and records one gate. Its final acceptance step deliberately fails while required gates are missing; uploading a partial ledger never means release acceptance. The current source candidate record remains not-run/null until an actual matching artifact exists. If recording into a new disposable workflow checkout, use a new candidate name because the checked-in initial record must not be overwritten.
 
-No required gate is currently waivable as not-applicable. Unobserved owner/hosted/device checks remain owner-dependent or unavailable with a concrete limitation. The CI recorder cannot mark external procedures passed. A future observer adapter must verify actual external evidence before extending that contract. The independent implementation, localVerification, and hostedAcceptance fields prevent local CI from implying deployment acceptance. The initial candidate document is deliberately blocked, not a fabricated summary of prior historical runs.
+No required gate is currently waivable as not-applicable. Unobserved owner/hosted/device checks remain owner-dependent or unavailable with a concrete limitation. GitHub CI evidence cannot mark hosted/device procedures passed. Those two gates use the separate, explicitly owner/operator-authored observed-attestation record described below; it is a reviewed observation, not automated proof of physical behavior. The independent implementation, localVerification, and hostedAcceptance fields prevent local CI from implying deployment acceptance. The initial candidate document is deliberately blocked, not a fabricated summary of prior historical runs.
 
 To record a real limitation without a success claim:
 
@@ -48,3 +48,38 @@ The segmented metadata integrity codec and isolated D1/R2 replacement rehearsal 
 The source must be coherently paused/fenced before capturing the final metadata/private vector. A portable client token is not this server-held authority. The current module registry has no supported exporter/importer for that complete private continuity package, and the Sites binding cutover is not implemented by these scripts. The precise blocking condition is private_continuity_package_unsupported; the 64 MiB metadata profile is an additional bounded-format limit. Keep ordinary v1 byte/row admission guards and unsupported oversized-restore messaging until the matching production path is accepted.
 
 The isolated script only operates on disposable synthetic Miniflare state. It never installs to existing D1, changes a hosted binding, resumes an active job, restores credentials, or proves a real Windows installation. Its manual-only handoff marker must not be used as production activation authority.
+
+## Explicit hosted/device observation record
+
+Only after a real observation, author a bounded JSON record under
+`docs/releases/CANDIDATE/observations/NAME.json`. The closed format is
+`control-room-observed-release-attestation`, version 1. It contains exact
+`candidate`, `sourceCommit`, the complete bound `artifact` descriptor,
+`checkId` (`hosted-private-acceptance` or `owner-device-acceptance`),
+the gate's exact `environment` and `procedure`, `result: "passed"`,
+actual `observedAt`, `observerRole` (`owner` or `authorized-operator`)
+and 1–32 bounded plain-text `observations`. Copy procedure/environment
+from the closed gate contract; do not invent a shorter substitute.
+Record only sanitized device/browser/procedure results, not credentials,
+private account identifiers, paths or content. Do not create a record merely
+to clear a blocked gate.
+
+Review the record separately and retain its SHA-256 over canonical JSON
+(`lib/canonical-json.ts`). Then explicitly record that reviewed digest:
+
+    node --experimental-strip-types scripts/record-release-check.mjs observe --candidate CANDIDATE --attestation docs/releases/CANDIDATE/observations/NAME.json --sha256 EXPECTED_CANONICAL_SHA
+
+The command requires the exact already-bound candidate checkout. Unknown
+fields, a future observation time, a changed canonical digest, another
+candidate/artifact/gate or a symlinked observation path are rejected.
+`verify` rereads that exact file and digest; a GitHub run cannot impersonate
+this evidence kind. A hash detects later changes; it does not authenticate
+an author's real-world observation or establish a provider effect.
+The owner/operator remains responsible for the truth of the explicit record.
+
+Isolated oversized-recovery and controlled-performance results can instead
+be bound to their exact dedicated GitHub workflow/job/step and source artifact.
+They remain fixture evidence with the scope of the actual report, never
+hosted/device acceptance. Aggregate status is derived without deleting valid
+observations when another gate is recorded; missing or failed gates still
+block acceptance. No command automatically marks implementation complete.
