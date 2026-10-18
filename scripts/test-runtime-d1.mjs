@@ -150,7 +150,9 @@ try{
  const secondResponse=await handleDeviceHttp('enroll',request('enroll',{secret:second.body.result.secret,bridgeVersion}),deps);assert.equal(secondResponse.status,201);const secondCredential=await secondResponse.json();
  assert.equal(await authenticateDevice(request('session',{},credential.deviceCredential),'telemetry:write',db,syntheticIngress,clock),null);assert.ok(await authenticateDevice(request('session',{},secondCredential.deviceCredential),'telemetry:write',db,syntheticIngress,clock));
  const secondBoot=crypto.randomUUID(),newSessionResponse=await handleDeviceHttp('session',request('session',{bootId:secondBoot,bridgeVersion},secondCredential.deviceCredential),deps);assert.equal(newSessionResponse.status,200);const newSession=await newSessionResponse.json();assert.ok(newSession.generation>session.generation);
- const newWindow=await handleDeviceHttp('live-window',request('live-window',{bootId:secondBoot,generation:newSession.generation,sequence:1},secondCredential.deviceCredential),deps);assert.equal(newWindow.status,200);
+ // Device-wide cadence remains enforced across explicit re-enrollment.
+ clock=at(72);
+ const newWindow=await handleDeviceHttp('live-window',request('live-window',{bootId:secondBoot,generation:newSession.generation,sequence:1},secondCredential.deviceCredential),deps);assert.equal(newWindow.status,200,JSON.stringify(await newWindow.clone().json()));
  const disconnected=await readRuntime(db,owner,clock);assert.equal(disconnected.devices[0].lastLiveReceivedAt,null);assert.notEqual(disconnected.devices[0].sources[0].freshness.source,'fresh');
  // Reviewed restoration retains context but cannot resurrect private enrollment,
  // credentials, sessions, windows, latest projections or enabled adapters.

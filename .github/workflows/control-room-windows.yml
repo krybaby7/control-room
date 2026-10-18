@@ -1,0 +1,21 @@
+name: Control Room Windows bridge fixtures
+on:
+  push:
+    branches: ['feat/**']
+    paths:
+      - 'bridge/**'
+      - 'scripts/test-windows-bridge.mjs'
+      - '.github/workflows/control-room-windows.yml'
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node --test --test-timeout=30000 bridge/test/windows-state.test.mjs bridge/test/windows-package.test.mjs bridge/test/credentials.test.mjs
+      - run: node scripts/test-windows-bridge.mjs
