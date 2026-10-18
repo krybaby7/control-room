@@ -14,6 +14,8 @@ let stage='environment',root=null,junction=null,hardlink=null;
 const checks={};
 const fixturePs=String.raw`param([Parameter(Mandatory=$true)][string]$Root,[ValidateSet('Prepare','Own','Check','Unsafe','Restore')][string]$Mode)
 $ErrorActionPreference='Stop'
+$env:PSModulePath=[IO.Path]::Combine($PSHOME,'Modules')
+$PSModuleAutoLoadingPreference='None'
 $fixtureStage='scope';[Console]::Error.WriteLine('{"stage":"scope","progress":true}')
 try {
   $local=[IO.Path]::GetFullPath($env:LOCALAPPDATA).TrimEnd('\')
@@ -23,10 +25,12 @@ try {
   if ([IO.Path]::GetDirectoryName($full) -ine $local -or [IO.Path]::GetFileName($full) -notmatch '^ControlRoomSyntheticBridge-[A-Za-z0-9]+$') {throw 'scope'}
   $fixtureStage='scope-metadata';[Console]::Error.WriteLine('{"stage":"scope-metadata","progress":true}')
   if (([IO.DirectoryInfo]::new($full)).Attributes -band [IO.FileAttributes]::ReparsePoint) {throw 'scope'}
+  $fixtureStage='utility-module';[Console]::Error.WriteLine('{"stage":"utility-module","progress":true}')
+  Import-Module ([IO.Path]::Combine($PSHOME,'Modules','Microsoft.PowerShell.Utility','Microsoft.PowerShell.Utility.psd1')) -ErrorAction Stop
   $fixtureStage='management-module';[Console]::Error.WriteLine('{"stage":"management-module","progress":true}')
-  Import-Module ([IO.Path]::Combine($env:PSModulePath,'Microsoft.PowerShell.Management\Microsoft.PowerShell.Management.psd1')) -ErrorAction Stop
+  Import-Module ([IO.Path]::Combine($PSHOME,'Modules','Microsoft.PowerShell.Management','Microsoft.PowerShell.Management.psd1')) -ErrorAction Stop
   $fixtureStage='security-module';[Console]::Error.WriteLine('{"stage":"security-module","progress":true}')
-  Import-Module ([IO.Path]::Combine($env:PSModulePath,'Microsoft.PowerShell.Security\Microsoft.PowerShell.Security.psd1')) -ErrorAction Stop
+  Import-Module ([IO.Path]::Combine($PSHOME,'Modules','Microsoft.PowerShell.Security','Microsoft.PowerShell.Security.psd1')) -ErrorAction Stop
   $fixtureStage='identity';[Console]::Error.WriteLine('{"stage":"identity","progress":true}')
   $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User
   $system=New-Object Security.Principal.SecurityIdentifier('S-1-5-18')

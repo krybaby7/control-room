@@ -57,3 +57,12 @@ test('fixed script protects only explicitly owned config/state objects and never
  assert.doesNotMatch(text,/Set-Acl|SetNamedSecurityInfo|SetFileSecurity|Remove-Item|Copy-Item|Move-Item|Invoke-Expression|EncodedCommand|Start-Process|icacls\b/i);
  assert.match(text,/\$locks\).*Dispose|\$handle\.Dispose\(\)/);
 });
+
+test('fixed Windows scripts reset module discovery inside PS5 before cmdlets',async()=>{
+ for(const path of ['../windows/protect-state.ps1','../windows/protect-credential.ps1']){
+  const source=await readFile(new URL(path,import.meta.url),'utf8');
+  assert.ok(source.includes("$env:PSModulePath = [IO.Path]::Combine($PSHOME,'Modules')"));
+  assert.ok(source.includes("$PSModuleAutoLoadingPreference = 'None'"));
+  assert.ok(source.includes("Import-Module ([IO.Path]::Combine($PSHOME,'Modules',$name,($name+'.psd1')))"));
+ }
+});

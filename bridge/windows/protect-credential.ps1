@@ -3,6 +3,16 @@
 param([Parameter(Mandatory=$true)][ValidateSet('Protect','Unprotect')][string]$Mode)
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+# Windows PowerShell startup may prepend inherited/user module directories.
+# Pin again INSIDE the fixed PS5 process before any cmdlet discovery.
+$env:PSModulePath = [IO.Path]::Combine($PSHOME,'Modules')
+$PSModuleAutoLoadingPreference = 'None'
+try {
+    foreach ($name in @('Microsoft.PowerShell.Utility','Microsoft.PowerShell.Management','Microsoft.PowerShell.Security')) {
+        Import-Module ([IO.Path]::Combine($PSHOME,'Modules',$name,($name+'.psd1'))) -ErrorAction Stop
+    }
+} catch { [Console]::Error.Write('fixed_windows_modules_unavailable'); exit 1 }
+
 $inputBytes = $null
 $outputBytes = $null
 $entropy = $null
