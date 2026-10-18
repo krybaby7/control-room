@@ -21,6 +21,7 @@ test('fixed hidden System32 PowerShell receives only chosen config and exact ded
  const calls=[],result=await ensurePrivateWindowsState(paths,{platform:'win32',spawnImpl:childSpawner(calls)});
  assert.deepEqual(result,{status:'protected',entries:2});assert.equal(calls.length,1);
  const call=calls[0];assert.match(call.executable,/^[A-Za-z]:\\.*\\System32\\WindowsPowerShell\\v1\.0\\powershell\.exe$/iu);
+ assert.equal(call.options.env.PSModulePath,call.executable.replace(/\\powershell\.exe$/iu,'\\Modules'));assert.equal(Object.keys(call.options.env).filter(k=>k.toLowerCase()==='psmodulepath').length,1);assert.equal(Object.keys(call.options.env).some(k=>k.toLowerCase()==='psexecutionpolicypreference'),false);
  assert.equal(call.options.shell,false);assert.equal(call.options.windowsHide,true);assert.deepEqual(call.options.stdio,['pipe','pipe','pipe']);
  assert.ok(call.args.some(value=>value.endsWith('protect-state.ps1')));assert.deepEqual(call.args.slice(-4),['-ConfigPath',paths.configPath,'-StateDirectory',paths.stateDirectory]);assert.equal(call.stdinBytes,0);
  assert.equal(call.args.includes('-Command'),false);assert.equal(call.args.includes('-EncodedCommand'),false);

@@ -91,10 +91,20 @@ try {
   [Console]::Error.Write(($diagnostic|ConvertTo-Json -Compress));exit 1
 }
 `;
+
+function fixedPowerShellEnvironment(){
+ const keep=new Set(['systemroot','windir','userprofile','localappdata','appdata','temp','tmp','homedrive','homepath','username','userdomain','programdata','programfiles','programfiles(x86)','commonprogramfiles']);
+ const env=Object.fromEntries(Object.entries(process.env).filter(([key])=>keep.has(key.toLowerCase())));
+ const root=process.env.SystemRoot??'C:\\Windows';
+ env.PSModulePath=win32.join(root,'System32','WindowsPowerShell','v1.0','Modules');
+ env.Path=win32.join(root,'System32');
+ return env;
+}
+
 async function fixture(mode){
   const executable=win32.join(process.env.SystemRoot??'C:\\Windows','System32','WindowsPowerShell','v1.0','powershell.exe');
   await new Promise((resolve,reject)=>{
-    const child=spawn(executable,['-NoLogo','-NoProfile','-NonInteractive','-File',join(root,'fixture.ps1'),'-Root',root,'-Mode',mode],{shell:false,windowsHide:true,stdio:['pipe','pipe','pipe']});
+    const child=spawn(executable,['-NoLogo','-NoProfile','-NonInteractive','-File',join(root,'fixture.ps1'),'-Root',root,'-Mode',mode],{env:fixedPowerShellEnvironment(),shell:false,windowsHide:true,stdio:['pipe','pipe','pipe']});
     let output='',diagnostic='',failed=false;
     const timer=setTimeout(()=>{failed=true;child.kill();},10000);
     child.stdin.on('error',()=>{});child.stdout.on('data',b=>{output+=b.toString('utf8');if(output.length>4096){failed=true;child.kill();}});

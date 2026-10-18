@@ -30,7 +30,7 @@ test('only encrypted output reaches disk; secrets travel on fixed anonymous pipe
     assert.equal(await store.load(),null);await store.save(value);const disk=await readFile(path,'utf8');
     assert.equal(disk.includes(value.deviceCredential),false);assert.deepEqual(await store.load(),value);
     assert.equal(calls.length,2);
-    for(const call of calls){assert.match(call.executable,/^[A-Za-z]:\\.*\\System32\\WindowsPowerShell\\v1\.0\\powershell\.exe$/iu);assert.equal(call.options.shell,false);assert.deepEqual(call.options.stdio,['pipe','pipe','pipe']);assert.equal(call.args.includes(value.deviceCredential),false);assert.ok(call.args.some(argument=>argument.endsWith('protect-credential.ps1')));assert.equal(call.args.at(-2),'-Mode');}
+    for(const call of calls){assert.match(call.executable,/^[A-Za-z]:\\.*\\System32\\WindowsPowerShell\\v1\.0\\powershell\.exe$/iu);assert.equal(call.options.env.PSModulePath,call.executable.replace(/\\powershell\.exe$/iu,'\\Modules'));assert.equal(Object.keys(call.options.env).filter(k=>k.toLowerCase()==='psmodulepath').length,1);assert.equal(Object.keys(call.options.env).some(k=>k.toLowerCase()==='psexecutionpolicypreference'),false);assert.equal(call.options.shell,false);assert.deepEqual(call.options.stdio,['pipe','pipe','pipe']);assert.equal(call.args.includes(value.deviceCredential),false);assert.ok(call.args.some(argument=>argument.endsWith('protect-credential.ps1')));assert.equal(call.args.at(-2),'-Mode');}
     await store.remove();assert.equal(await store.load(),null);
   }finally{await rm(directory,{recursive:true,force:true});}
 });

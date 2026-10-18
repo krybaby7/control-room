@@ -4,6 +4,16 @@ import {dirname,win32} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {randomUUID} from 'node:crypto';
 const POWERSHELL=win32.join(process.env.SystemRoot??'C:\\Windows','System32','WindowsPowerShell','v1.0','powershell.exe');
+
+function fixedPowerShellEnvironment(){
+ const keep=new Set(['systemroot','windir','userprofile','localappdata','appdata','temp','tmp','homedrive','homepath','username','userdomain','programdata','programfiles','programfiles(x86)','commonprogramfiles']);
+ const env=Object.fromEntries(Object.entries(process.env).filter(([key])=>keep.has(key.toLowerCase())));
+ const root=process.env.SystemRoot??'C:\\Windows';
+ env.PSModulePath=win32.join(root,'System32','WindowsPowerShell','v1.0','Modules');
+ env.Path=win32.join(root,'System32');
+ return env;
+}
+
 const SCRIPT=fileURLToPath(new URL('../windows/protect-credential.ps1',import.meta.url));
 export class CredentialError extends Error {constructor(code){super(code);this.name='CredentialError';this.code=code;}}
 export function createCredentialStore({path,platform=process.platform,spawnImpl=spawn}){
@@ -12,7 +22,7 @@ export function createCredentialStore({path,platform=process.platform,spawnImpl=
     if(Buffer.byteLength(value)>(mode==='Protect'?16384:65536))throw new CredentialError('credential_size_exceeded');
     return new Promise((resolve,reject)=>{
       let child;
-      try{child=spawnImpl(POWERSHELL,['-NoLogo','-NoProfile','-NonInteractive','-File',SCRIPT,'-Mode',mode],{shell:false,windowsHide:true,stdio:['pipe','pipe','pipe']});}
+      try{child=spawnImpl(POWERSHELL,['-NoLogo','-NoProfile','-NonInteractive','-File',SCRIPT,'-Mode',mode],{env:fixedPowerShellEnvironment(),shell:false,windowsHide:true,stdio:['pipe','pipe','pipe']});}
       catch{reject(new CredentialError('credential_protection_failed'));return;}
       const chunks=[];let size=0,done=false;
       const fail=()=>{if(done)return;done=true;clearTimeout(timer);child.kill();reject(new CredentialError('credential_protection_failed'));};

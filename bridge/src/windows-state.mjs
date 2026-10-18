@@ -1,6 +1,16 @@
 import {spawn} from 'node:child_process';
 import {win32} from 'node:path';
 import {fileURLToPath} from 'node:url';
+
+function fixedPowerShellEnvironment(){
+ const keep=new Set(['systemroot','windir','userprofile','localappdata','appdata','temp','tmp','homedrive','homepath','username','userdomain','programdata','programfiles','programfiles(x86)','commonprogramfiles']);
+ const env=Object.fromEntries(Object.entries(process.env).filter(([key])=>keep.has(key.toLowerCase())));
+ const root=process.env.SystemRoot??'C:\\Windows';
+ env.PSModulePath=win32.join(root,'System32','WindowsPowerShell','v1.0','Modules');
+ env.Path=win32.join(root,'System32');
+ return env;
+}
+
 const SCRIPT=fileURLToPath(new URL('../windows/protect-state.ps1',import.meta.url));
 const POWERSHELL=win32.join(process.env.SystemRoot??'C:\\Windows','System32','WindowsPowerShell','v1.0','powershell.exe');
 export class WindowsStateError extends Error {constructor(code){super(code);this.name='WindowsStateError';this.code=code;}}
@@ -18,7 +28,7 @@ export async function ensurePrivateWindowsState({configPath,stateDirectory},{pla
  if(!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>10000)throw new WindowsStateError('invalid_private_state_deadline');
  return new Promise((resolve,reject)=>{
   let child;
-  try{child=spawnImpl(POWERSHELL,['-NoLogo','-NoProfile','-NonInteractive','-File',SCRIPT,'-ConfigPath',config,'-StateDirectory',state],{shell:false,windowsHide:true,stdio:['pipe','pipe','pipe']});}
+  try{child=spawnImpl(POWERSHELL,['-NoLogo','-NoProfile','-NonInteractive','-File',SCRIPT,'-ConfigPath',config,'-StateDirectory',state],{env:fixedPowerShellEnvironment(),shell:false,windowsHide:true,stdio:['pipe','pipe','pipe']});}
   catch{reject(new WindowsStateError('private_state_unavailable'));return;}
   let done=false,size=0;const chunks=[];
   const fail=()=>{if(done)return;done=true;clearTimeout(timer);child.kill();reject(new WindowsStateError('private_state_unavailable'));};
