@@ -1,3 +1,5 @@
+import {workspacePrivateCapacityGrowth} from './workspace-private-capacity.ts';
+import {requirePrivateCapacity} from './private-capacity.ts';
 import {fileBackupRemovalControlSchema,fileBackupRemovalStatements} from './automations/backup-archive-removal.ts';
 import {validateAgentArtifactPlan} from './agents/artifact-controls.ts';
 import {backupQuotaGuard} from './backup-archive-quota.ts';
@@ -102,10 +104,21 @@ export async function executeWorkspaceCommand(userId:string,input:{protocolVersi
     const current=await readCurrent(db,userId,now);if(current.revision!==revision)return {status:'conflict',currentRevision:current.revision};
     throw error;
   }
+  const privateQuote=await workspacePrivateCapacityGrowth(db,userId,{plan,before,command,mutationId:id,commandHash:hash,now,preparedBackup,agentArtifact});
+  let privateCapacity:Awaited<ReturnType<typeof requirePrivateCapacity>>;
+  try{privateCapacity=await requirePrivateCapacity(db,userId,{growth:privateQuote.growth,firstCancelAttemptIds:privateQuote.firstCancelAttemptIds});}
+  catch(error){
+    if((await checkMutationEpoch(db,userId,id)).status==='retired')throw new RetiredMutationError('This mutation epoch is retired.');
+    const concurrentReplay=await checkReceipt();if(concurrentReplay)return concurrentReplay;
+    const current=await readCurrent(db,userId,now);if(current.revision!==revision)return {status:'conflict',currentRevision:current.revision};
+    throw error;
+  }
   const claim='EXISTS (SELECT 1 FROM workspace_command_guards WHERE user_id = ? AND mutation_id = ? AND claim_token = ?)';
   const token=crypto.randomUUID(),guard=[userId,id,token];
   const statements:SqlStatement[]=[db.prepare(`INSERT INTO workspace_command_guards (user_id,mutation_id,claim_token,valid) SELECT ?,?,?,1 FROM workspaces WHERE user_id = ? AND revision = ? AND NOT EXISTS (SELECT 1 FROM workspace_mutations WHERE user_id = ? AND mutation_id = ?)${epoch.status==='active'?" AND EXISTS (SELECT 1 FROM workspace_mutation_epochs WHERE user_id = ? AND epoch = ? AND status = 'active')":''}`).bind(...guard,userId,revision,userId,id,...(epoch.status==='active'?[userId,epoch.epoch]:[]))];
   const assertion=(condition:string,values:(string|number|null)[])=>statements.push(db.prepare(`INSERT INTO workspace_assertions (user_id,mutation_id,valid) SELECT ?,?,CASE WHEN ${condition} THEN 1 ELSE 0 END WHERE ${claim}`).bind(userId,id,...values,...guard));
+  assertion(privateCapacity.sql,privateCapacity.bindings);
+  for(const proof of privateQuote.guards)assertion(proof.sql,proof.bindings);
   if(agentArtifact)assertion(agentArtifact.material.guard.sql,agentArtifact.material.guard.bindings);
   statements.push(...recoverabilityAssertions(db,userId,id,recovery,claim,guard));
   assertion('(SELECT COUNT(*) FROM workspace_mutations WHERE user_id=?) < ?',[userId,RECEIPT_CAPACITY.hard]);

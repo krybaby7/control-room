@@ -1,3 +1,4 @@
+import {PrivateCapacityError} from '../../../lib/private-capacity';
 import {RecoverabilityCapacityError} from '../../../lib/recoverability-admission';
 import {settleUploadBody} from '../../../lib/upload-body-settlement';
 import {ownerAttachmentServices} from '../../../lib/attachment-services';
@@ -52,6 +53,7 @@ export async function handleWorkspacePOST(request:Request,importId?:string) {
   } catch (error) {
     if (error instanceof RequestError) return failure(error.message,'request_invalid',requestId,error.status);
     if (error instanceof MutationEpochError) return failure(error.message,'request_invalid',requestId,400);
+    if (error instanceof PrivateCapacityError) return failure(error.message,error.code,requestId,429);
     if (error instanceof RecoverabilityCapacityError) return failure(error.message,error.code,requestId,429);
     if (error instanceof WorkspaceCapacityError) return failure(error.message,error.code,requestId,429);
     if (error instanceof RetiredMutationError) return failure(error.message,'mutation_retired',requestId,409);

@@ -20,14 +20,16 @@ test('actual cold-page first usable and normal-navigation main-thread budgets',a
    await cdp.send('Emulation.setCPUThrottlingRate',{rate:profile.cpuSlowdown});
    let bytes=0,requests=0,ownerPosts=0;cdp.on('Network.loadingFinished',event=>{bytes+=event.encodedDataLength;});page.on('request',request=>{requests++;if(request.method()==='POST'&&['/api/workspace','/api/devices/enroll'].includes(new URL(request.url()).pathname))ownerPosts++;});
    await page.addInitScript(()=>{
-    const value={longTasks:[] as {startTime:number;duration:number}[],supported:PerformanceObserver.supportedEntryTypes.includes('longtask')};
+    const value={longTasks:[] as {startTime:number;duration:number}[],supported:PerformanceObserver.supportedEntryTypes.includes('longtask'),firstUsableAt:null as number|null};
     (window as unknown as {controlledPerformance:typeof value}).controlledPerformance=value;
+    const ready=()=>{if(value.firstUsableAt!==null)return;const saved=Array.from(document.querySelectorAll<HTMLElement>('[role="status"]')).some(node=>/^Last saved /.test(node.textContent??'')&&node.getClientRects().length>0),capture=Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(node=>node.textContent?.trim()==='Capture'&&!node.disabled&&node.getClientRects().length>0);if(saved&&capture)value.firstUsableAt=performance.now();};
+    const observer=new MutationObserver(ready);observer.observe(document,{childList:true,subtree:true,attributes:true,characterData:true});document.addEventListener('DOMContentLoaded',ready,{once:true});
     if(value.supported)new PerformanceObserver(list=>{for(const item of list.getEntries())value.longTasks.push({startTime:item.startTime,duration:item.duration});}).observe({type:'longtask',buffered:true});
    });
    await page.goto('/',{waitUntil:'domcontentloaded'});
    await expect(page.getByRole('status').filter({hasText:/^Last saved /})).toBeVisible();
    await expect(page.getByRole('button',{name:'Capture',exact:true})).toBeEnabled();
-   const firstUsable=await page.evaluate(()=>performance.now());expect(firstUsable).toBeGreaterThan(0);usable.push(firstUsable);
+   const firstUsable=await page.evaluate(()=>(window as unknown as {controlledPerformance:{firstUsableAt:number|null}}).controlledPerformance.firstUsableAt);expect(firstUsable).not.toBeNull();expect(firstUsable!).toBeGreaterThan(0);usable.push(firstUsable!);
    const start=await page.evaluate(()=>performance.now()),navigation:Record<string,number>={};
    for(const [button,heading]of [['Agents','Agents'],['Runtime','Runtime'],['Sources','Context you can trace.'],['Today','A clear view of what’s next.']]){
     const began=await page.evaluate(()=>performance.now());
@@ -39,7 +41,7 @@ test('actual cold-page first usable and normal-navigation main-thread budgets',a
    const observed=await page.evaluate(from=>{const value=(window as unknown as {controlledPerformance:{supported:boolean;longTasks:{startTime:number;duration:number}[]}}).controlledPerformance;return {supported:value.supported,tasks:value.longTasks.filter(item=>item.startTime>=from),navigation:performance.getEntriesByType('navigation').map(item=>({duration:item.duration,transferSize:(item as PerformanceNavigationTiming).transferSize,encodedBodySize:(item as PerformanceNavigationTiming).encodedBodySize}))};},start);
    expect(observed.supported).toBe(true);expect(ownerPosts).toBe(0);
    const durations=observed.tasks.map(item=>item.duration);longTasks.push(...durations);
-   report.samples.push({sample:firstUsable>0?sample:null,firstUsableMilliseconds:firstUsable,normalNavigationMilliseconds:navigation,normalNavigationLongTasks:observed.tasks,network:{requests,encodedTransferBytes:bytes,profileApplied:true},navigationTiming:observed.navigation,ownerMutationPosts:ownerPosts});
+   report.samples.push({sample,firstUsableMilliseconds:firstUsable,normalNavigationMilliseconds:navigation,normalNavigationLongTasks:observed.tasks,network:{requests,encodedTransferBytes:bytes,profileApplied:true},navigationTiming:observed.navigation,ownerMutationPosts:ownerPosts});
   }finally{await context?.close();}
  }
  const p50=percentile(usable,.5),p95=percentile(usable,.95),maximum=longTasks.length?Math.max(...longTasks):null;
@@ -60,9 +62,15 @@ test('twenty real isolated cookie sessions retain same-owner CAS and owner isola
   for(let index=0;index<20;index++){
    const context=await browser.newContext({baseURL:fixtureOrigin});contexts.push(context);const page=await context.newPage(),owner=index<10?'a':'b';
    await setFixtureSession(page,owner);
-   const beforeResponse=await page.request.get('/api/workspace');expect(beforeResponse.status()).toBe(200);const before=await beforeResponse.json();
+   let beforeResponse=await page.request.get('/api/workspace');expect(beforeResponse.status()).toBe(200);let before=await beforeResponse.json();
+   if(index===0||index===10){
+    const seedIdResponse=await page.request.post('/api/workspace/mutation-ids',{headers:{Origin:fixtureOrigin,'Content-Type':'application/json'},data:{}});expect(seedIdResponse.status()).toBe(200);const seedId=await seedIdResponse.json();
+    const seedResponse=await page.request.post('/api/workspace',{headers:{Origin:fixtureOrigin,'Content-Type':'application/json'},data:{revision:before.revision,mutationId:seedId.mutationId,command:{type:'capture.create',capture:{title:'Synthetic concurrency fixture '+owner,body:'Explicit setup outside timed wave.',projectId:null,kind:'idea',sourceUrl:null}}}});expect(seedResponse.status()).toBe(200);
+    beforeResponse=await page.request.get('/api/workspace');expect(beforeResponse.status()).toBe(200);before=await beforeResponse.json();
+   }
+   const capture=before.workspace.captures.find((row:{title:string})=>row.title==='Synthetic concurrency fixture '+owner);expect(capture).toBeDefined();
    const idResponse=await page.request.post('/api/workspace/mutation-ids',{headers:{Origin:fixtureOrigin,'Content-Type':'application/json'},data:{}});expect(idResponse.status()).toBe(200);const issued=await idResponse.json();expect(issued.mutationId).toMatch(/^m1_[a-f0-9]{32}_[a-f0-9]{32}$/);
-   sessions.push({page,owner,input:{revision:before.revision,mutationId:issued.mutationId,command:{type:'capture.update',id:before.workspace.captures[0].id,patch:{body:'Synthetic concurrent cookie session '+owner+' '+index}}}});
+   sessions.push({page,owner,input:{revision:before.revision,mutationId:issued.mutationId,command:{type:'capture.update',id:capture.id,patch:{body:'Synthetic concurrent cookie session '+owner+' '+index}}}});
   }
   const waveStart=performance.now();
   const results=await Promise.all(sessions.map(async session=>{const start=performance.now();const response=await session.page.request.post('/api/workspace',{headers:{Origin:fixtureOrigin,'Content-Type':'application/json'},data:session.input});const body=await response.json();const elapsed=performance.now()-start;expect(elapsed).toBeGreaterThan(0);latencies.push(elapsed);return {status:response.status(),body};}));

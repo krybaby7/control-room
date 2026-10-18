@@ -121,3 +121,7 @@ Phase5 final AF source CI39161269563/job117774922683 passed all source gates,48/
 ### Phase7–8 integration checkpoint
 
 Source60d1d38c65ef16c54bced126fec0711465894e32 remains in progress. Actual61da/664 isolated D1 maintenance, artifact/R2/runtime and controlled benchmark gates passed. Explicit retained-generation cleanup and original owner-history preservation are integrated; final native recovery/Node/browser/package checks and reviewed corrections remain pending. Three-browser enrollment keyboard failures have source fixes; no assertion or axe rule was waived. Native artifact sensitive-content handling and job event/detail review are still feasible source work, not provider blockers. Existing private Site remains unchanged at version2. No final release or live model/device execution is claimed.
+
+### Guarded private growth and operational history
+
+This checkpoint adds42-table inert operational history and independent source/target row checks, actual native journal completion beyond1.8MB, and atomic capacity guards preserving terminal/pendingPUT promises. Central and leaf regressions are running. Common staged-original/archive/paid-request preservation and device-revocation funding remain source work. Performance fixture errors are corrected without changing3s/200ms budgets; exact rerun pending. No final package, production provider/device execution or new private Site release is claimed.

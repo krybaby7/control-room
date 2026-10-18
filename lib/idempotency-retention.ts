@@ -1,3 +1,4 @@
+import {requirePrivateCapacity,privateRowGrowth,PrivateCapacityError} from './private-capacity.ts';
 import {validateDraft} from './drafts.ts';
 import type { SqlDatabase } from './workspace-store.ts';
 
@@ -32,8 +33,10 @@ export async function issueMutationId(db:SqlDatabase,userId:string,now:string):P
   let row=await db.prepare("SELECT epoch FROM workspace_mutation_epochs WHERE user_id = ? AND status = 'active' ORDER BY epoch LIMIT 1").bind(userId).first<{epoch:string}>();
   if (!row) {
     const epoch=crypto.randomUUID().replaceAll('-','');
-    await db.prepare("INSERT INTO workspace_mutation_epochs (user_id, epoch, status, created_at, retired_at) VALUES (?, ?, 'active', ?, NULL)").bind(userId,epoch,now).run();
-    row={epoch};
+    const capacity=await requirePrivateCapacity(db,userId,{growth:[privateRowGrowth('workspace_mutation_epochs',null,{epoch,status:'active',created_at:now,retired_at:null})]});
+    await db.prepare("INSERT INTO workspace_mutation_epochs (user_id, epoch, status, created_at, retired_at) SELECT ?, ?, 'active', ?, NULL WHERE "+capacity.sql+" AND NOT EXISTS(SELECT 1 FROM workspace_mutation_epochs WHERE user_id=? AND status='active')").bind(userId,epoch,now,...capacity.bindings,userId).run();
+    row=await db.prepare("SELECT epoch FROM workspace_mutation_epochs WHERE user_id=? AND status='active' ORDER BY epoch LIMIT 1").bind(userId).first<{epoch:string}>();
+    if(!row)throw new PrivateCapacityError();
   }
   return `m1_${row.epoch}_${crypto.randomUUID().replaceAll('-','')}`;
 }
@@ -41,7 +44,14 @@ export async function issueMutationId(db:SqlDatabase,userId:string,now:string):P
 export async function retireEpoch(db:SqlDatabase,userId:string,epoch:string,now:string):Promise<{epoch:string;status:'retired';compactionAllowed:true}> {
   owner(userId); timestamp(now);
   if (!MUTATION_EPOCH_PATTERN.test(epoch)) throw new MutationEpochError('invalid-id','The mutation epoch is invalid.');
-  await db.prepare("INSERT INTO workspace_mutation_epochs (user_id, epoch, status, created_at, retired_at) VALUES (?, ?, 'retired', ?, ?) ON CONFLICT(user_id, epoch) DO UPDATE SET status = 'retired', retired_at = COALESCE(workspace_mutation_epochs.retired_at, excluded.retired_at)").bind(userId,epoch,now,now).run();
+  const previous=await db.prepare('SELECT epoch,status,created_at,retired_at FROM workspace_mutation_epochs WHERE user_id=? AND epoch=?').bind(userId,epoch).first<{epoch:string;status:string;created_at:string;retired_at:string|null}>();
+  if(previous?.status==='retired')return {epoch,status:'retired',compactionAllowed:true};
+  const after={epoch,status:'retired',created_at:previous?.created_at??now,retired_at:previous?.retired_at??now};
+  const capacity=await requirePrivateCapacity(db,userId,{growth:[privateRowGrowth('workspace_mutation_epochs',previous,after)]});
+  const result=previous
+   ?await db.prepare("UPDATE workspace_mutation_epochs SET status='retired',retired_at=COALESCE(retired_at,?) WHERE user_id=? AND epoch=? AND "+capacity.sql).bind(now,userId,epoch,...capacity.bindings).run()
+   :await db.prepare("INSERT INTO workspace_mutation_epochs(user_id,epoch,status,created_at,retired_at) SELECT ?,?,'retired',?,? WHERE "+capacity.sql+" ON CONFLICT(user_id,epoch) DO UPDATE SET status='retired',retired_at=COALESCE(workspace_mutation_epochs.retired_at,excluded.retired_at)").bind(userId,epoch,now,now,...capacity.bindings).run();
+  if(result.meta.changes!==1&&(await db.prepare('SELECT status FROM workspace_mutation_epochs WHERE user_id=? AND epoch=?').bind(userId,epoch).first<{status:string}>())?.status!=='retired')throw new PrivateCapacityError();
   // This is permission to compact detail later, never permission to remove the tombstone.
   return {epoch,status:'retired',compactionAllowed:true};
 }

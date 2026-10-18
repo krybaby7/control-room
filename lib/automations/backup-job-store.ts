@@ -45,5 +45,5 @@ type PrivatePhysicalRow=Record<string,string|number|null>;
 async function privateBackupUpdates(db:SqlDatabase,owner:string,table:PrivateGrowth['table'],where:string,bindings:(string|number|null)[],changes:PrivatePhysicalRow,incrementRevision=false):Promise<PrivateGrowth>{
  const rows=(await db.prepare('SELECT * FROM '+table+' WHERE user_id=? AND '+where+' LIMIT 6').bind(owner,...bindings).all<PrivatePhysicalRow>()).results;
  if(rows.length>5)throw new Error('Private backup growth selection exceeds its bound.');
- return rows.reduce((total,row)=>{const growth=privateRowGrowth(table,null,{...row,...changes,...(incrementRevision?{operational_revision:Number(row.operational_revision)+1}:{})});return {table,bytes:total.bytes+growth.bytes,rows:0};},{table,bytes:0,rows:0});
+ return rows.reduce<PrivateGrowth>((total,row)=>{const growth=privateRowGrowth(table,null,{...row,...changes,...(incrementRevision?{operational_revision:Number(row.operational_revision)+1}:{})});return {table,bytes:total.bytes+growth.bytes,rows:0};},{table,bytes:0,rows:0});
 }

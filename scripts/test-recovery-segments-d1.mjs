@@ -32,7 +32,7 @@ import {writeAttachmentArchive,attachmentArchivePath} from '../lib/attachment-ar
 import {createBackupArchiveStorage,backupArchiveKey} from '../lib/backup-archive-storage.ts';
 import {copyRecoveryBackupArchives} from '../lib/recovery-backups.ts';
 import {readReadyFileBackup} from '../lib/automations/backup-archive-store.ts';
-import {inactiveRecoveryDatabase,installRecoveryPrivateContinuity} from '../lib/recovery-install.ts';
+import {inactiveRecoveryDatabase,installRecoveryPrivateContinuity,installRecoveryIntentRoots} from '../lib/recovery-install.ts';
 import {captureRecoveryPrivateContinuity} from '../lib/recovery-private-continuity.ts';
 import {inspectRecoveryMaintenanceSchema,freezeRecoveryDatabase,bindFrozenPrivateContinuity,assertRecoveryBlobCopyEligible,prepareInactiveRecoveryTarget,recoveryTargetInventorySha256,markRecoveryTargetReady} from '../lib/recovery-maintenance.ts';
 import {previewEntityDeletion} from '../lib/workspace-deletion.ts';
@@ -336,7 +336,7 @@ try{
     const columns=['user_id','id','row_revision','payload_json','content_hash',...names],values=[OWNER,row.id,row.rowRevision,canonical(value),await hash(value),...names.map(name=>projection[name])];
     statements.push(db.prepare('INSERT INTO '+table+'('+columns.join(',')+') VALUES('+columns.map(()=>'?').join(',')+')').bind(...values));
    }
-   await batch(db,statements);writes+=statements.length;if(failAfter!==null&&writes>=failAfter)throw new Error('Synthetic interrupted physical installation');
+   try{await batch(db,statements);}catch(cause){throw new Error('Closed normalized recovery table failed: '+table,{cause});}writes+=statements.length;if(failAfter!==null&&writes>=failAfter)throw new Error('Synthetic interrupted physical installation');
   }
   let auditAfter='';const auditDigest=createHash('sha256');auditDigest.update('[');
   for(;;){
@@ -361,10 +361,12 @@ try{
   assert.equal(auditCount,manifest.modules.find(recoveryModule=>recoveryModule.key==='audit_events').rows);
   assert.equal((await db.prepare('SELECT COUNT(*) n FROM audit_import_identities WHERE user_id=?').bind(OWNER).first()).n,0);
   assert.equal((await db.prepare('PRAGMA foreign_key_check').all()).results.length,0);
-  // Private authority must start empty. New namespaces and verified target object ledger are the only intentional private setup.
-  for(const table of ['workspace_mutations','workspace_job_intents','source_sync_state','automation_runtime']){
+  // Exact inert intent roots satisfy normalized FK children; no runnable authority is installed.
+  for(const table of ['workspace_mutations','source_sync_state','automation_runtime']){
    const exists=await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").bind(table).first();if(exists)assert.equal((await db.prepare('SELECT COUNT(*) n FROM '+table).first()).n,0,table);
   }
+  assert.equal((await db.prepare('SELECT COUNT(*) n FROM workspace_job_intents').first()).n,privateContinuity.tables.workspace_job_intents.length);
+  assert.equal((await db.prepare("SELECT COUNT(*) n FROM workspace_job_intents WHERE status IN('pending','awaiting_approval') OR (status='running' AND (kind<>'agent.execute' OR cancel_requested<>1))").first()).n,0);
   const physical=[];
   for(const table of tableOrder){
    const actual=(await db.prepare('SELECT id,row_revision,payload_json,content_hash FROM '+table+' WHERE user_id=? ORDER BY id').bind(OWNER).all()).results;

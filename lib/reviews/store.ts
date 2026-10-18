@@ -1,3 +1,5 @@
+import {privateInsertGrowth,privateUpdateGrowth,combinePrivateGrowth} from '../private-growth.ts';
+import {requirePrivateCapacity,type PrivateGrowth} from '../private-capacity.ts';
 import {recoverabilityAssertions,RecoverabilityCapacityError} from '../recoverability-admission.ts';
 import {measureProspectiveRecoverability} from '../recoverability-snapshot.ts';
 import {automationScheduleSchema,automationOccurrenceSchema} from '../automations/validation.ts';
@@ -52,6 +54,15 @@ export async function commitReview(db:SqlDatabase,claim:ReviewJobClaim,raw:Revie
  statements.push(db.prepare(`UPDATE workspace_job_intents SET status='completed' WHERE user_id=? AND id=? AND ${gate}`).bind(claim.ownerId,claim.intentId,...binds));
  statements.push(db.prepare(`UPDATE integration_jobs SET operational_revision=operational_revision+1,lease_token=NULL,lease_expires_at=NULL,lease_access_mode=NULL,lease_principal_ref=NULL WHERE user_id=? AND intent_id=? AND ${gate}`).bind(claim.ownerId,claim.intentId,...binds));
  statements.push(db.prepare(`UPDATE integration_job_attempts SET finished_at=?,outcome='success',failure=NULL WHERE user_id=? AND intent_id=? AND attempt=? AND ${gate}`).bind(now,claim.ownerId,claim.intentId,claim.attempt,...binds));
+ const privateGrowth:PrivateGrowth[]=[
+ await privateInsertGrowth(db,'operational_stream_heads',{stream_id:'reviews',revision:Number.MAX_SAFE_INTEGER,last_sequence:sequence}),
+ await privateUpdateGrowth(db,claim.ownerId,'workspace_job_intents','id=?',[claim.intentId],{status:'completed'}),
+ await privateUpdateGrowth(db,claim.ownerId,'integration_jobs','intent_id=?',[claim.intentId],{lease_token:null,lease_expires_at:null,lease_access_mode:null,lease_principal_ref:null},true),
+ await privateUpdateGrowth(db,claim.ownerId,'integration_job_attempts','intent_id=? AND attempt=?',[claim.intentId,claim.attempt],{finished_at:now,outcome:'success',failure:null})];
+ for(const projectId of snapshot.scope.projectIds)privateGrowth.push(await privateInsertGrowth(db,'audit_project_links',{event_id:eventId,project_id:projectId}));
+ if(fresh.length)privateGrowth.push(await privateInsertGrowth(db,'operational_stream_heads',{stream_id:'notifications',revision:Number.MAX_SAFE_INTEGER,last_sequence:Number.MAX_SAFE_INTEGER}));
+ if(claim.scheduleId!==null)privateGrowth.push(await privateInsertGrowth(db,'operational_stream_heads',{stream_id:'automations',revision:Number.MAX_SAFE_INTEGER,last_sequence:Number.MAX_SAFE_INTEGER}),await privateUpdateGrowth(db,claim.ownerId,'automation_runtime','schedule_id=?',[claim.scheduleId],{last_success_at:now,failure:null,retry_at:null},true));
+ const privateCapacity=await requirePrivateCapacity(db,claim.ownerId,{growth:combinePrivateGrowth(...privateGrowth)});statements.splice(1,0,db.prepare('INSERT INTO workspace_assertions(user_id,mutation_id,valid) SELECT ?,?,CASE WHEN '+privateCapacity.sql+' THEN 1 ELSE 0 END WHERE '+gate).bind(claim.ownerId,eventId,...privateCapacity.bindings,...binds));
  statements.push(db.prepare('DELETE FROM workspace_assertions WHERE user_id=? AND mutation_id=?').bind(claim.ownerId,eventId));statements.push(db.prepare('DELETE FROM workspace_command_guards WHERE user_id=? AND mutation_id=? AND claim_token=?').bind(...binds));
  try{const results=await db.batch(statements);return results[0]?.meta.changes===1?{status:'committed',snapshotId:snapshot.id,snapshotHash:actualHash}:await replay()??{status:'conflict'};}catch(error){const receipt=await replay();if(receipt)return receipt;throw error;}
 }

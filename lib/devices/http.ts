@@ -1,4 +1,5 @@
 import {z} from 'zod';
+import {PrivateCapacityError} from '../private-capacity.ts';
 import type {SqlDatabase} from '../workspace-store.ts';
 import {RequestError} from '../api-guards.ts';
 import type {HeartbeatEnvelopeV1,HeartbeatReceipt} from '../runtime/contracts.ts';
@@ -44,7 +45,7 @@ export async function handleDeviceHttp(action:DeviceHttpAction,request:Request,d
   if(action==='rotate'){empty.parse(raw);return Response.json(await rotateDeviceCredential(deps.db,principal!,now),{status:201,headers:deviceHttpHeaders});}
   if(action==='heartbeat'){const value=parseHeartbeatEnvelope(bytes);if(value.heartbeat.deviceId!==principal!.deviceId)return rejected(403);if(!deps.ingest)return rejected(503);const receipt=heartbeatReceiptSchema.parse(await deps.ingest(deps.db,principal!,value,now));if(deps.afterHeartbeat)try{await deps.afterHeartbeat(deps.db,principal!,now);}catch{/* Cleanup is bounded maintenance; its failure cannot change a committed heartbeat receipt. */}return Response.json(receipt,{headers:deviceHttpHeaders});}
   return rejected(400);
- }catch(error){if(error instanceof BodyFailure)return rejected(error.status);if(error instanceof z.ZodError||error instanceof SyntaxError||error instanceof TypeError)return rejected(400);if(error instanceof DeviceStoreError||error instanceof RequestError)return rejected(error.status);return rejected(503);}
+ }catch(error){if(error instanceof BodyFailure)return rejected(error.status);if(error instanceof z.ZodError||error instanceof SyntaxError||error instanceof TypeError)return rejected(400);if(error instanceof DeviceStoreError||error instanceof RequestError||error instanceof PrivateCapacityError)return rejected(error.status);return rejected(503);}
  finally{if(!request.bodyUsed)await cancelWithin(request.body);}
 }
 export function createDeviceHttpHandlers(deps:DeviceHttpDependencies){return {enroll:(request:Request)=>handleDeviceHttp('enroll',request,deps),session:(request:Request)=>handleDeviceHttp('session',request,deps),liveWindow:(request:Request)=>handleDeviceHttp('live-window',request,deps),heartbeat:(request:Request)=>handleDeviceHttp('heartbeat',request,deps),rotate:(request:Request)=>handleDeviceHttp('rotate',request,deps)};}

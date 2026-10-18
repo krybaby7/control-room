@@ -62,8 +62,8 @@ async function chunkedAgentSnapshot(db:SqlDatabase,owner:string,table:string):Pr
  const primary=(await db.prepare('PRAGMA table_info('+table+')').all<{name:string;pk:number}>()).results.filter(column=>column.pk>0&&column.name!=='user_id').sort((a,b)=>a.pk-b.pk).map(column=>column.name);if(!primary.length||primary.some(key=>!/^[a-z_][a-z0-9_]*$/u.test(key)))fail('invalid_server_schema');
  const rows:Row[]=[];let after:Row|null=null,bytes=0;
  for(;;){
-  const where=after?' AND ('+primary.join(',')+')>('+primary.map(()=>'?').join(',')+')':'',values=after?primary.map(key=>after![key]):[];
-  const page=(await db.prepare('SELECT * FROM '+table+' WHERE user_id=?'+where+' ORDER BY '+primary.join(',')+' LIMIT 200').bind(owner,...values).all<Row>()).results;
+  const where:string=after?' AND ('+primary.join(',')+')>('+primary.map(()=>'?').join(',')+')':'',values:Bind[]=after?primary.map(key=>after![key]):[];
+  const page:Row[]=(await db.prepare('SELECT * FROM '+table+' WHERE user_id=?'+where+' ORDER BY '+primary.join(',')+' LIMIT 200').bind(owner,...values).all<Row>()).results;
   for(const row of page){rows.push(row);bytes+=new TextEncoder().encode(canonical(row)).length;if(rows.length>100000||bytes>67108864)fail('agent_snapshot_capacity');after=row;}if(page.length<200)break;
  }
  const result:Snapshot[]=[{sql:'(SELECT COUNT(*) FROM '+table+' WHERE user_id=?)=?',bindings:[owner,rows.length]}];let group:Row[]=[],groupBytes=2;

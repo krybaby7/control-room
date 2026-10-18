@@ -23,6 +23,7 @@ const conclusiveStatuses = {
   request_invalid: [400,403,413,415],
   command_invalid: [400],
   receipt_capacity: [429],
+  private_recovery_capacity: [429],
   revision_conflict: [409],
   module_conflict: [409],
 } as const;

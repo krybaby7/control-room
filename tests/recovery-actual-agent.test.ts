@@ -7,7 +7,7 @@ import {contentHash} from '../lib/canonical-json.ts';
 import {readOperationalWatermarks} from '../lib/operational-watermarks.ts';
 import {renewAgentLease} from '../lib/agents/store.ts';
 import {captureRecoveryPrivateContinuity} from '../lib/recovery-private-continuity.ts';
-import {inactiveRecoveryDatabase,installRecoveryPrivateContinuity} from '../lib/recovery-install.ts';
+import {inactiveRecoveryDatabase,installRecoveryPrivateContinuity,installRecoveryIntentRoots} from '../lib/recovery-install.ts';
 import {inspectRecoveryMaintenanceSchema,freezeRecoveryDatabase,bindFrozenPrivateContinuity,prepareInactiveRecoveryTarget,recoveryTargetInventorySha256,markRecoveryTargetReady} from '../lib/recovery-maintenance.ts';
 function scalar(value:unknown):string|number|null{if(value===null||typeof value==='string'||typeof value==='number')return value;throw new Error('Unexpected synthetic SQL scalar.');}
 test('actual first claim frozen admission and task input survive inert private recovery byte-for-byte',async()=>{
@@ -24,6 +24,8 @@ test('actual first claim frozen admission and task input survive inert private r
   await bindFrozenPrivateContinuity(source.db,receipt,value,value.sha256);
   const targetReceipt=await prepareInactiveRecoveryTarget(target.db,source.db,receipt,{operationId:crypto.randomUUID(),token:'c'.repeat(64),expectedPrivateSha256:value.sha256}),writable=inactiveRecoveryDatabase(target.db,targetReceipt);
   await loadWorkspace(writable,source.owner,()=>current.workspace,artifactNow);
+  assert.equal(await installRecoveryIntentRoots(source.db,receipt,target.db,targetReceipt,value,value.sha256),value.tables.workspace_job_intents.length);
+  await assert.rejects(installRecoveryIntentRoots(source.db,receipt,target.db,targetReceipt,value,value.sha256),/must be empty/);
   // Exact native records from this real synthetic claim; no portable identity
   // remapping or fabricated receipt/result is involved.
   for(const table of ['devices','agent_jobs','audit_events'] as const){

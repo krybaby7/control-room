@@ -67,6 +67,7 @@ export async function runRecoveryMaintenanceFixture(source:SqlDatabase,target:Sq
   target.prepare('INSERT INTO attachment_blob_objects(user_id,storage_key,attachment_id,namespace,bytes,sha256,created_at,verified_at,purged_at) VALUES(?,?,?,?,?,?,?,?,?)').bind(owner,objects[0].storage_key,objects[0].attachment_id,objects[0].namespace,objects[0].bytes,objects[0].sha256,objects[0].created_at,objects[0].verified_at,objects[0].purged_at),
   target.prepare("INSERT INTO workspace_mutation_epochs(user_id,epoch,status,created_at,retired_at) VALUES(?,?,'retired',?,?)").bind(owner,'c'.repeat(32),now,now),
   target.prepare('INSERT INTO workspace_mutations(user_id,mutation_id,command_hash,revision,committed_at) VALUES(?,?,?,?,?)').bind(owner,'retained-legacy-mutation',sha,1,now),
+  target.prepare('INSERT INTO attachment_upload_attempts(user_id,token,attachment_id,storage_key,created_at,settled_at) VALUES(?,?,?,?,?,?)').bind(owner,pending,attachmentId,oldKey,now,now),
  ]);
  assert.deepEqual((await readCurrent(target,owner,now)).workspace,original);
  const sourceNamespace=await source.prepare('SELECT audit_namespace,blob_namespace,cursor_secret FROM workspace_source_namespaces WHERE user_id=?').bind(owner).first<{audit_namespace:string;blob_namespace:string;cursor_secret:string}>();

@@ -1,4 +1,5 @@
 import {z} from 'zod';
+import {requirePrivateCapacity,privateRowGrowth} from '../private-capacity.ts';
 import {canonical,contentHash} from '../canonical-json.ts';
 import {evidenceDateSchema} from '../evidence-validation.ts';
 import {DEVICE_LIMITS} from '../devices/contracts.ts';
@@ -11,8 +12,13 @@ export async function pruneRuntime(db:SqlDatabase,owner:string,now:string,option
  const result:RuntimePruneResult={heartbeats:0,observations:0,aggregates:0,windows:0,rateBuckets:0,floorsAdvanced:0};let budget=limit;
  const rows=(await db.prepare('SELECT device_id,boot_id,sequence,payload_hash,received_at FROM device_heartbeats WHERE user_id=? AND julianday(received_at)<julianday(?) ORDER BY received_at,device_id,boot_id,sequence LIMIT ?').bind(owner,rawCutoff,limit).all<{device_id:string;boot_id:string;sequence:number;payload_hash:string;received_at:string}>()).results;
  for(const row of rows){const count=await db.prepare('SELECT COUNT(*) n FROM runtime_observations WHERE user_id=? AND device_id=? AND boot_id=? AND sequence=?').bind(owner,row.device_id,row.boot_id,row.sequence).first<{n:number}>();const cost=2+(count?.n??0);if(cost>budget)continue;
+ const session=await db.prepare('SELECT * FROM device_sessions WHERE user_id=? AND device_id=? AND boot_id=?').bind(owner,row.device_id,row.boot_id).first<Record<string,string|number|null>>();if(!session||typeof session.compacted_through_sequence!=='number'||!Number.isSafeInteger(session.compacted_through_sequence)||session.compacted_through_sequence<0)throw new Error('Retained device session floor is unavailable.');
+ const growth=privateRowGrowth('device_sessions',session,{...session,compacted_through_sequence:Math.max(session.compacted_through_sequence,row.sequence)});
+ // Only a positive floor extension requires admission. Raw deletions contribute
+ // no speculative credit and never happen without the same atomic floor guard.
+ const capacity=growth.bytes>0?await requirePrivateCapacity(db,owner,{growth:[growth]}):null;
  const token=crypto.randomUUID(),mutation='runtime-prune:'+token,keys=[owner,mutation,token],gate='EXISTS(SELECT 1 FROM workspace_command_guards WHERE user_id=? AND mutation_id=? AND claim_token=? AND valid=1)',where='user_id=? AND device_id=? AND boot_id=? AND sequence=?',identity=[owner,row.device_id,row.boot_id,row.sequence],statements:SqlStatement[]=[
- db.prepare('INSERT INTO workspace_command_guards(user_id,mutation_id,claim_token,valid) SELECT ?,?,?,1 WHERE EXISTS(SELECT 1 FROM device_heartbeats WHERE '+where+' AND payload_hash=? AND received_at=?) AND (SELECT COUNT(*) FROM runtime_observations WHERE '+where+')=?').bind(...keys,...identity,row.payload_hash,row.received_at,...identity,count?.n??0),
+ db.prepare('INSERT INTO workspace_command_guards(user_id,mutation_id,claim_token,valid) SELECT ?,?,?,1 WHERE EXISTS(SELECT 1 FROM device_heartbeats WHERE '+where+' AND payload_hash=? AND received_at=?) AND (SELECT COUNT(*) FROM runtime_observations WHERE '+where+')=? AND ('+(capacity?.sql??'1')+')').bind(...keys,...identity,row.payload_hash,row.received_at,...identity,count?.n??0,...(capacity?.bindings??[])),
  db.prepare('UPDATE device_sessions SET compacted_through_sequence=MAX(compacted_through_sequence,?) WHERE user_id=? AND device_id=? AND boot_id=? AND '+gate).bind(row.sequence,owner,row.device_id,row.boot_id,...keys),
  db.prepare('DELETE FROM runtime_observations WHERE '+where+' AND '+gate).bind(...identity,...keys),
  db.prepare('DELETE FROM device_heartbeats WHERE '+where+' AND '+gate).bind(...identity,...keys),

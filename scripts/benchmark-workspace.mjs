@@ -88,6 +88,7 @@ async function identityReadFixtures(db,model){
  return {connection,target,device,configuration};
 }
 async function concurrentSessions(engine,db){
+ engine.stage='concurrent_fixture';
  // Twenty independently retained command envelopes. Ten deliberately contend on
  // one near-cap owner revision; ten address distinct small synthetic owners.
  const independent=Array.from({length:10},(_,index)=>owner+'-independent-'+index);
@@ -99,6 +100,7 @@ async function concurrentSessions(engine,db){
  }));
  const readTimes=[],saveTimes=[],waves=[];
  for(let wave=0;wave<samples;wave++){
+  engine.stage='concurrent_wave_'+wave;
   const snapshots=await Promise.all(sessions.map(async session=>{const start=performance.now(),value=await readCurrent(db,session.user,now);readTimes.push(performance.now()-start);return value;}));
   const inputs=await Promise.all(sessions.map(async(session,index)=>({protocolVersion:1,expectedRevision:snapshots[index].revision,mutationId:await issueMutationId(db,session.user,now),command:{type:'capture.update',id:session.captureId,patch:{body:session.marker+wave}}})));
   const started=performance.now();
@@ -118,8 +120,9 @@ async function concurrentSessions(engine,db){
    assert.equal(receiptCount,outcomes[index].status==='committed'?1:0);
   }
   // A real replay traverses the central receipt path; it may not append events.
+  engine.stage='concurrent_original_replay_'+wave;
   const winner=sessions[winningIndex],auditBefore=(await db.prepare('SELECT COUNT(*) n FROM audit_events WHERE user_id=?').bind(winner.user).first()).n;
-  const replay=await executeWorkspaceCommand(winner.user,inputs[winningIndex],{db,handlers:workspaceHandlers,now:()=>now});assert.equal(replay.status,'committed');
+  const replay=await executeWorkspaceCommand(winner.user,inputs[winningIndex],{db,handlers:workspaceHandlers,now:()=>now});assert.equal(replay.status,'replayed');
   assert.equal((await db.prepare('SELECT COUNT(*) n FROM audit_events WHERE user_id=?').bind(winner.user).first()).n,auditBefore);
  }
  // Each wave has twenty actual promises in flight; SQLite serializes its
@@ -155,7 +158,7 @@ async function runEngine(name,db,model,migrations){
   await concurrentSessions(engine,db);
   engine.finalRevision=(await readCurrent(db,owner,now)).revision;
   engine.status=engine.measurements.every(row=>row.passed)?'passed':'regression-budget-exceeded';
- }catch(error){engine.status='failed';engine.error=failure(error);throw error;}
+ }catch(error){engine.status='failed';engine.error=failure(error);engine.failureStage=engine.stage??'sequential_measurement';throw error;}
 }
 let mf=null,sqlite=null;
 try{
@@ -167,6 +170,6 @@ try{
 }catch(error){report.errors.push({engine:'setup',...failure(error)});}
 finally{
  sqlite?.sqlite.close();if(mf)await mf.dispose();report.finishedAt=new Date().toISOString();report.environment.endingNodeMemoryBytes=process.memoryUsage();report.status=report.errors.length||failures.length?'failed':'passed';report.regressionFailures=failures;
- await mkdir(new URL('../benchmark-results/',import.meta.url),{recursive:true});await writeFile(output,JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify({source,status:report.status,engines:report.engines.map(engine=>({engine:engine.name,status:engine.status,fixture:engine.fixture,confirmedRestores:engine.confirmedRestores??null})),errors:report.errors,regressionFailures:failures}));
+ await mkdir(new URL('../benchmark-results/',import.meta.url),{recursive:true});await writeFile(output,JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify({source,status:report.status,engines:report.engines.map(engine=>({engine:engine.name,status:engine.status,fixture:engine.fixture,confirmedRestores:engine.confirmedRestores??null,failureStage:engine.failureStage??null,error:engine.error??null})),errors:report.errors,regressionFailures:failures}));
  if(report.status!=='passed')process.exitCode=1;
 }

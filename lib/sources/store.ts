@@ -1,3 +1,5 @@
+import {privateInsertGrowth,privateUpdateGrowth,combinePrivateGrowth} from '../private-growth.ts';
+import {requirePrivateCapacity,type PrivateGrowth} from '../private-capacity.ts';
 import {pauseJobForRecoveryCapacity} from '../background/capacity-pause.ts';
 import {recoverabilityAssertions,RecoverabilityCapacityError} from '../recoverability-admission.ts';
 import {readOperationalWatermarks} from '../operational-watermarks.ts';
@@ -65,6 +67,12 @@ export async function commitSourcePage(db:SqlDatabase,untrustedClaim:Integration
  const target=await db.prepare('SELECT project_id FROM source_targets WHERE user_id=? AND id=?').bind(claim.ownerId,claim.sourceId).first<{project_id:string}>();if(!target)throw new Error('Source target is unavailable.');statements.push(db.prepare(`INSERT INTO audit_project_links(user_id,event_id,project_id) SELECT ?,?,? WHERE ${guard}`).bind(claim.ownerId,pageId,target.project_id,...guardBinds));
  statements.push(db.prepare(`INSERT INTO operational_stream_heads(user_id,stream_id,revision,last_sequence) SELECT ?,'sources',1,? WHERE ${guard} ON CONFLICT(user_id,stream_id) DO UPDATE SET revision=revision+1,last_sequence=excluded.last_sequence`).bind(claim.ownerId,sequence,...guardBinds));
  statements.push(db.prepare(`UPDATE source_sync_state SET operational_revision=operational_revision+1,cursor=?,etag=?,attempted_at=? WHERE user_id=? AND source_id=? AND ${guard}`).bind(page.nextCursor,page.nextEtag,input.now,claim.ownerId,claim.sourceId,...guardBinds));statements.push(db.prepare(`UPDATE integration_jobs SET operational_revision=operational_revision+1 WHERE user_id=? AND intent_id=? AND ${guard}`).bind(claim.ownerId,claim.intentId,...guardBinds));
+ const privateGrowth:PrivateGrowth[]=[
+ await privateInsertGrowth(db,'audit_project_links',{event_id:pageId,project_id:target.project_id}),
+ await privateInsertGrowth(db,'operational_stream_heads',{stream_id:'sources',revision:Number.MAX_SAFE_INTEGER,last_sequence:sequence}),
+ await privateUpdateGrowth(db,claim.ownerId,'source_sync_state','source_id=?',[claim.sourceId],{cursor:page.nextCursor,etag:page.nextEtag,attempted_at:input.now},true),
+ await privateUpdateGrowth(db,claim.ownerId,'integration_jobs','intent_id=?',[claim.intentId],{},true)];
+ const privateCapacity=await requirePrivateCapacity(db,claim.ownerId,{growth:combinePrivateGrowth(...privateGrowth)});statements.splice(1,0,db.prepare('INSERT INTO workspace_assertions(user_id,mutation_id,valid) SELECT ?,?,CASE WHEN '+privateCapacity.sql+' THEN 1 ELSE 0 END WHERE '+guard).bind(claim.ownerId,pageId,...privateCapacity.bindings,...guardBinds));
  statements.push(db.prepare('DELETE FROM workspace_assertions WHERE user_id=? AND mutation_id=?').bind(claim.ownerId,pageId));statements.push(db.prepare('DELETE FROM workspace_command_guards WHERE user_id=? AND mutation_id=? AND claim_token=?').bind(...guardBinds));
  const {measureProspectiveRecoverability}=await import('../recoverability-snapshot.ts');
  const watermarks=await readOperationalWatermarks(db,claim.ownerId);

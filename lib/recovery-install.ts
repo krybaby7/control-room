@@ -71,8 +71,17 @@ export async function installRecoveryPrivateContinuity(
  }
  for(const table of order){
   const rows=value.tables[table as keyof typeof value.tables] as unknown as Record<string,Scalar>[];
-  for(let offset=0;offset<rows.length;offset+=32){
-   const statements=rows.slice(offset,offset+32).map(original=>{
+  const pending:Record<string,Scalar>[]=[];
+  for(const original of rows){
+   if(table==='workspace_job_intents'){
+    const expected=recoveryPrivateTargetRow('workspace_job_intents',original,now),columns=Object.keys(expected);
+    const existing=await target.prepare('SELECT '+columns.join(',')+' FROM workspace_job_intents WHERE user_id=? AND id=?').bind(owner,original.id).first<Record<string,Scalar>>();
+    if(existing){if(canonical(existing)!==canonical(expected))throw new Error('Existing recovery intent root differs.');continue;}
+   }
+   pending.push(original);
+  }
+  for(let offset=0;offset<pending.length;offset+=32){
+   const statements=pending.slice(offset,offset+32).map(original=>{
     const row=recoveryPrivateTargetRow(table as typeof PRIVATE_CONTINUITY_TABLES[number],original,now);
     const columns=Object.keys(row);if(columns.some(name=>!/^[a-z_][a-z0-9_]*$/.test(name)))throw new Error('Invalid closed private column.');
     return db.prepare('INSERT INTO '+table+'(user_id,'+columns.join(',')+') VALUES('+['user_id',...columns].map(()=>'?').join(',')+')')
@@ -92,4 +101,23 @@ export async function installRecoveryPrivateContinuity(
  if(!Number.isSafeInteger(epoch+1))throw new Error('Recovery execution epoch exhausted.');
  await db.prepare('INSERT INTO workspace_execution_state(user_id,epoch,restored_at) VALUES(?,?,?)').bind(owner,epoch+1,now).run();
  return {retainedAttempts:value.tables.job_attempts.length,retainedRemovalFences:value.baselineRemovalFences.length};
+}
+
+/** Root rows must precede normalized agent_jobs' real FK children. They remain
+ * inert and target-fenced; only exact actual-source private proof is accepted. */
+export async function installRecoveryIntentRoots(source:SqlDatabase,sourceReceipt:RecoveryMaintenanceReceipt,target:SqlDatabase,targetReceipt:RecoveryMaintenanceReceipt,raw:RecoveryPrivateContinuity,expectedPrivateSha256:string):Promise<number>{
+ const value=await validateRecoveryPrivateContinuity(raw,{sha256:expectedPrivateSha256,manifestSha256:sourceReceipt.manifestSha256,ownerContextHash:sourceReceipt.ownerContextHash,sourceContext:sourceReceipt.sourceContext,ownerId:sourceReceipt.ownerId});
+ await bindFrozenPrivateContinuity(source,sourceReceipt,value,expectedPrivateSha256);
+ if(targetReceipt.ownerId!==sourceReceipt.ownerId||targetReceipt.manifestSha256!==sourceReceipt.manifestSha256||targetReceipt.ownerContextHash!==sourceReceipt.ownerContextHash||canonical(targetReceipt.sourceContext)!==canonical(sourceReceipt.sourceContext))throw new Error('Source and inactive target recovery identities differ.');
+ const owner=sourceReceipt.ownerId,db=inactiveRecoveryDatabase(target,targetReceipt);
+ if((await target.prepare('SELECT COUNT(*) count FROM workspace_job_intents').first<{count:number}>())?.count!==0)throw new Error('Recovery intent root target must be empty.');
+ const rows=value.tables.workspace_job_intents;
+ for(let offset=0;offset<rows.length;offset+=32){
+  const statements=rows.slice(offset,offset+32).map(original=>{
+   const row=recoveryPrivateTargetRow('workspace_job_intents',original,sourceReceipt.createdAt),columns=Object.keys(row);
+   return db.prepare('INSERT INTO workspace_job_intents(user_id,'+columns.join(',')+') VALUES('+['user_id',...columns].map(()=>'?').join(',')+')').bind(owner,...columns.map(column=>row[column]));
+  });
+  if(statements.length)await db.batch(statements);
+ }
+ return rows.length;
 }
