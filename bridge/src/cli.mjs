@@ -1,5 +1,5 @@
-import {ensurePrivateWindowsState} from './windows-state.mjs';
 #!/usr/bin/env node
+import {ensurePrivateWindowsState} from './windows-state.mjs';
 import {isAbsolute,dirname,join} from 'node:path';
 import {randomUUID,createHash} from 'node:crypto';
 import {pathToFileURL} from 'node:url';

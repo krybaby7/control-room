@@ -5,7 +5,7 @@ const SCRIPT=fileURLToPath(new URL('../windows/protect-state.ps1',import.meta.ur
 const POWERSHELL=win32.join(process.env.SystemRoot??'C:\\Windows','System32','WindowsPowerShell','v1.0','powershell.exe');
 export class WindowsStateError extends Error {constructor(code){super(code);this.name='WindowsStateError';this.code=code;}}
 function localPath(value){
- if(typeof value!=='string'||value.length>1024||!/^[A-Za-z]:[\\/]/u.test(value)||/["\u0000-\u001f\u007f]/u.test(value)||value.slice(2).includes(':')||/(?:^|[\\/])\.{1,2}(?:[\\/]|$)/u.test(value))throw new WindowsStateError('invalid_private_state_path');
+ if(typeof value!=='string'||value.length>1024||!/^[A-Za-z]:[\\/]/u.test(value)||/["\u0000-\u001f\u007f]/u.test(value)||value.slice(2).includes(':')||/(?:^|[\\/])\.{1,2}(?:[\\/]|$)/u.test(value)||/[. ](?:[\\/]|$)/u.test(value))throw new WindowsStateError('invalid_private_state_path');
  return win32.normalize(value).replace(/[\\]+$/u,'');
 }
 /** Fixed Windows ACL operation only. This neither authenticates a remote device

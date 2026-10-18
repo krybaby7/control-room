@@ -24,9 +24,17 @@ namespace ControlRoomAcl {
    public uint Attributes,CreationLow,CreationHigh,AccessLow,AccessHigh,WriteLow,WriteHigh,VolumeSerial,SizeHigh,SizeLow,Links,IndexHigh,IndexLow;
   }
   [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern SafeFileHandle CreateFileW(string name,uint access,uint share,IntPtr security,uint creation,uint flags,IntPtr template);
+  [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern uint QueryDosDeviceW(string name,System.Text.StringBuilder target,int length);
   [DllImport("kernel32.dll",SetLastError=true)] static extern bool GetFileInformationByHandle(SafeFileHandle handle,out Info info);
   [DllImport("advapi32.dll",SetLastError=true)] static extern bool GetKernelObjectSecurity(SafeFileHandle handle,uint requested,byte[] descriptor,uint length,out uint needed);
   [DllImport("advapi32.dll",SetLastError=true)] static extern bool SetKernelObjectSecurity(SafeFileHandle handle,uint requested,byte[] descriptor);
+  public static bool LocalVolume(string drive) {
+   System.Text.StringBuilder target=new System.Text.StringBuilder(32768);
+   if(QueryDosDeviceW(drive,target,target.Capacity)==0)throw new Win32Exception(Marshal.GetLastWin32Error());
+   // Reject SUBST aliases and redirected/network devices whose real ancestors
+   // would otherwise be hidden from the parent-integrity walk.
+   return target.ToString().StartsWith("\\Device\\HarddiskVolume",StringComparison.OrdinalIgnoreCase);
+  }
   public static SafeFileHandle Open(string path,bool writable) {
    // No delete sharing: the inspected object cannot be swapped while held.
    // Remediation also refuses pre-existing data writers; already-private objects
@@ -53,12 +61,15 @@ namespace ControlRoomAcl {
 '@
     }
     function Normalize-LocalPath([string]$Path) {
-        if ($Path.Length -gt 1024 -or $Path -notmatch '^[A-Za-z]:[\\/]' -or $Path -match '["\x00-\x1f\x7f]' -or $Path.Substring(2).Contains(':') -or $Path -match '(?:^|[\\/])\.{1,2}(?:[\\/]|$)') { throw 'Local absolute path required.' }
+        if ($Path.Length -gt 1024 -or $Path -notmatch '^[A-Za-z]:[\\/]' -or $Path -match '["\x00-\x1f\x7f]' -or $Path.Substring(2).Contains(':') -or $Path -match '(?:^|[\\/])\.{1,2}(?:[\\/]|$)' -or $Path -match '[. ](?:[\\/]|$)') { throw 'Local absolute path required.' }
         return [IO.Path]::GetFullPath($Path).TrimEnd('\')
     }
     $config = Normalize-LocalPath $ConfigPath
     $state = Normalize-LocalPath $StateDirectory
     if ([IO.Path]::GetExtension($config) -ine '.json') { throw 'JSON config required.' }
+    if (-not [ControlRoomAcl.Native]::LocalVolume($config.Substring(0,2))) { throw 'Redirected or network drive refused.' }
+    $drive = New-Object IO.DriveInfo([IO.Path]::GetPathRoot($config))
+    if (-not $drive.IsReady -or $drive.DriveType -notin @([IO.DriveType]::Fixed,[IO.DriveType]::Removable) -or $drive.DriveFormat -notin @('NTFS','ReFS')) { throw 'Local ACL-capable physical volume required.' }
     $parent = [IO.Path]::GetDirectoryName($config)
     $expectedState = [IO.Path]::GetFullPath((Join-Path $parent '.control-room-bridge'))
     if (-not [String]::Equals($state,$expectedState,[StringComparison]::OrdinalIgnoreCase) -or [String]::Equals($config,$state,[StringComparison]::OrdinalIgnoreCase)) { throw 'Dedicated sibling state required.' }

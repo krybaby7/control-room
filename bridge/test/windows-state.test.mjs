@@ -34,7 +34,8 @@ test('relative UNC ADS control traversal overlap and unrelated target paths stop
   {...paths,configPath:'C:\\Synthetic\nPrivate\\config.json'},
   {...paths,stateDirectory:paths.configPath},
   {...paths,stateDirectory:'C:\\Synthetic Private\\unrelated'},
-  {...paths,stateDirectory:'C:\\Other\\.control-room-bridge'}
+  {...paths,stateDirectory:'C:\\Other\\.control-room-bridge'},
+  {...paths,configPath:'C:\\Synthetic. \\config.json'}
  ]){
   let called=false;await assert.rejects(ensurePrivateWindowsState(value,{platform:'win32',spawnImpl:()=>{called=true;}}),/invalid_private_state_path/);assert.equal(called,false);
  }
@@ -49,7 +50,7 @@ test('deadline terminates a stalled fixed child and ignores a late success',asyn
 });
 test('fixed script protects only explicitly owned config/state objects and never changes parent ACLs',async()=>{
  const text=await readFile(new URL('../windows/protect-state.ps1',import.meta.url),'utf8');
- for(const fragment of ['WindowsIdentity]::GetCurrent().User','S-1-5-18','S-1-5-32-544','TrustedInstaller','SetAccessRuleProtection($true,$false)','Assert-Owner','Test-PrivateAcl','Assert-SafeParent','InheritOnly','Unsafe parent write or swap permission','State tree exceeds bound.','Current user ownership required.','0x80000004u','0x02200000u','info.Links -ne 1','Private ACL changed.'])assert.ok(text.includes(fragment),fragment);
+ for(const fragment of ['WindowsIdentity]::GetCurrent().User','S-1-5-18','S-1-5-32-544','TrustedInstaller','SetAccessRuleProtection($true,$false)','Assert-Owner','Test-PrivateAcl','Assert-SafeParent','InheritOnly','Unsafe parent write or swap permission','State tree exceeds bound.','Current user ownership required.','0x80000004u','0x02200000u','info.Links -ne 1','Private ACL changed.','LocalVolume','QueryDosDeviceW','DriveType]::Fixed',"'NTFS','ReFS'"])assert.ok(text.includes(fragment),fragment);
  assert.match(text,/\$targets\.Count -ge 256/);assert.match(text,/\$ancestors\.Count -ge 64/);
  assert.match(text,/Protect-Target \$config \$false/);assert.match(text,/Protect-Target \$state \$true/);
  assert.doesNotMatch(text,/Set-Acl|SetNamedSecurityInfo|SetFileSecurity|Remove-Item|Copy-Item|Move-Item|Invoke-Expression|EncodedCommand|Start-Process|icacls\b/i);

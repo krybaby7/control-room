@@ -119,10 +119,10 @@ try{
    const payload=JSON.parse(options.body);
    if(action==='heartbeat'){
     if(payload.delivery==='live'&&failLiveOnce){failLiveOnce=false;throw new Error('Synthetic network loss before delivery.');}
-    if(payload.delivery==='history'){clock=at(41);assert.equal(payload.liveWindowId,null);}
+    if(payload.delivery==='history'){clock=at(61);assert.equal(payload.liveWindowId,null);}
     delivered.push({delivery:payload.delivery,liveWindowId:payload.liveWindowId,heartbeatBytes:canonical(payload.heartbeat)});
    }
-   return handleDeviceHttp(action,new Request(url,options),deps);
+   const response=await handleDeviceHttp(action,new Request(url,options),deps);if(!response.ok){const diagnostic=await response.clone().json().catch(()=>({code:'unreadable-fixture-response'}));assert.fail('Synthetic HTTP '+action+' rejected: '+response.status+' '+JSON.stringify(diagnostic));}return response;
   }});
   const config={deviceId:issued.deviceId,bridgeVersion,pcCommandCenter:{enabled:true,instanceId:'pc-command-center',selectedGpuId:null}};
   const sample=async({instanceId,selectedGpuId,now})=>{assert.equal(instanceId,'pc-command-center');assert.equal(selectedGpuId,null);sampleCount++;return {...observation,observedAt:now(),reportedAgeSeconds:0,metrics:{...observation.metrics,cpuPercent:21+sampleCount}};};
@@ -131,12 +131,12 @@ try{
   assert.equal(outbox.status().records,1);assert.equal(await count('device_heartbeats'),1);
   assert.equal((await readRuntime(db,owner,clock)).devices[0].lastLiveReceivedAt,base);
   const queued=outbox.pending({now:clock,limit:240});assert.equal(queued.length,1);const originalQueuedBytes=queued[0].heartbeatBytes;assert.equal(JSON.parse(originalQueuedBytes).observations[0].observedAt,at(20));assert.ok(queued[0].liveWindowId);
-  clock=at(40);
-  const freshReceipt=await runBridgeOnce({config,session,sequence:3,transport,outbox,sample,now:()=>clock});assert.equal(freshReceipt.classification,'live');assert.equal(freshReceipt.receivedAt,at(40));
+  clock=at(60);
+  const freshReceipt=await runBridgeOnce({config,session,sequence:3,transport,outbox,sample,now:()=>clock});assert.equal(freshReceipt.classification,'live');assert.equal(freshReceipt.receivedAt,at(60));
   assert.equal(outbox.status().records,0);assert.deepEqual(delivered.map(value=>value.delivery),['live','history']);assert.equal(delivered[1].liveWindowId,null);assert.equal(delivered[1].heartbeatBytes,originalQueuedBytes);
   const historicalReceipt=await db.prepare('SELECT payload_hash,payload_json,receipt_json,classification,received_at FROM device_heartbeats WHERE user_id=? AND device_id=? AND boot_id=? AND sequence=2').bind(owner,issued.deviceId,bootId).first();
-  assert.ok(historicalReceipt);assert.equal(historicalReceipt.classification,'history');assert.equal(historicalReceipt.received_at,at(41));assert.equal(historicalReceipt.payload_json,originalQueuedBytes);assert.equal(historicalReceipt.payload_hash,await contentHash(originalQueuedBytes));assert.equal(JSON.parse(historicalReceipt.receipt_json).reason,'history_delivery');
-  const afterReplay=await readRuntime(db,owner,clock);assert.equal(afterReplay.devices[0].lastLiveReceivedAt,at(40));assert.equal(afterReplay.devices[0].sources[0].receivedAt,at(40));assert.equal(afterReplay.devices[0].sources[0].observedAt,at(40));assert.equal(afterReplay.devices[0].sources[0].observation.metrics.cpuPercent,23);
+  assert.ok(historicalReceipt);assert.equal(historicalReceipt.classification,'history');assert.equal(historicalReceipt.received_at,at(61));assert.equal(historicalReceipt.payload_json,originalQueuedBytes);assert.equal(historicalReceipt.payload_hash,await contentHash(originalQueuedBytes));assert.equal(JSON.parse(historicalReceipt.receipt_json).reason,'history_delivery');
+  const afterReplay=await readRuntime(db,owner,clock);assert.equal(afterReplay.devices[0].lastLiveReceivedAt,at(60));assert.equal(afterReplay.devices[0].sources[0].receivedAt,at(60));assert.equal(afterReplay.devices[0].sources[0].observedAt,at(60));assert.equal(afterReplay.devices[0].sources[0].observation.metrics.cpuPercent,23);
   const untouchedWindow=await db.prepare('SELECT consumed_at FROM device_live_windows WHERE user_id=? AND device_id=? AND id=?').bind(owner,issued.deviceId,queued[0].liveWindowId).first();assert.equal(untouchedWindow.consumed_at,null);
   assert.deepEqual((await readCurrent(db,owner,clock)).workspace,planning);assert.deepEqual(JSON.parse((await ownerReader(db,owner).list('runtime_evidence'))[0].payload_json),frozen);
  }finally{outbox?.close();await rm(spoolDirectory,{recursive:true,force:true});}
