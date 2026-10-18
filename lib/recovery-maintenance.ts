@@ -66,7 +66,11 @@ async function assertSingleOwnerRecoverySource(db:SqlDatabase,owner:string){
   if(await db.prepare('SELECT 1 FROM "'+table+'" WHERE user_id IS NULL OR user_id<>? LIMIT 1').bind(owner).first())throw new Error('Single-owner recovery source contains another owner; no database freeze or cutover is permitted.');
 }
 function singleOwnerFreezeGuard():string{
- return 'NOT EXISTS('+RECOVERY_APPLICATION_TABLES.filter(table=>table!=='device_rate_buckets').map(table=>'SELECT 1 FROM "'+table+'" foreign_row CROSS JOIN recovery_owner WHERE foreign_row.user_id IS NULL OR foreign_row.user_id<>recovery_owner.owner').join(' UNION ALL ')+')';
+ const tables=RECOVERY_APPLICATION_TABLES.filter(table=>table!=='device_rate_buckets'),groups:string[]=[];
+ // D1 limits compound SELECT terms more tightly than ordinary SQLite. Keep
+ // each veto group below that bound while checking every closed owner table.
+ for(let offset=0;offset<tables.length;offset+=16)groups.push('NOT EXISTS('+tables.slice(offset,offset+16).map(table=>'SELECT 1 FROM "'+table+'" foreign_row CROSS JOIN recovery_owner WHERE foreign_row.user_id IS NULL OR foreign_row.user_id<>recovery_owner.owner').join(' UNION ALL ')+')');
+ return '('+groups.join(' AND ')+')';
 }
 /** The caller must durably retain operationId/token before invocation; an exact retry
  * recovers the same DB freeze, while package JSON alone is never a receipt. */
