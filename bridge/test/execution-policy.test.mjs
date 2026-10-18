@@ -4,7 +4,7 @@ import {createHash} from 'node:crypto';
 import {mkdtemp,mkdir,writeFile,symlink,rm,realpath} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {parseJobSpec,jobSpecSha256,defaultExecutionPolicy,parseExecutionPolicy,executionPolicySha256,capabilitySha256,parseCapability,validateRelativePath,resolveAllowedPath,validateJobDependencyGraph,checkExecutionAdmission} from '../src/execution-policy.mjs';
+import {EXECUTION_LIMITS,parseJobSpec,jobSpecSha256,defaultExecutionPolicy,parseExecutionPolicy,executionPolicySha256,capabilitySha256,parseCapability,validateRelativePath,resolveAllowedPath,validateJobDependencyGraph,checkExecutionAdmission} from '../src/execution-policy.mjs';
 const NOW='2026-10-18T12:00:00.000Z',hash='a'.repeat(64),base='b'.repeat(40);
 /** All identities and native-context labels are synthetic compatibility inputs.
  * The pure checker issues no authenticated grant and launches no runtime. */
@@ -64,7 +64,7 @@ test('finite budget and exact owner immutable artifact inputs are enforced',()=>
 test('bounded dependency DAG rejects self/cycle/missing/foreign and requires exact successful dependency records',()=>{
  const f=fixture(),owner=f.context.ownerKey,row=(id,dependsOnJobIds=[],status='succeeded')=>({id,ownerKey:owner,dependsOnJobIds,status}),valid=[row('job-fixture',['before'],'queued'),row('before')];
  assert.deepEqual(validateJobDependencyGraph('job-fixture',valid,owner),valid);
- for(const records of [[row('job-fixture',['job-fixture'])],[row('job-fixture',['missing'])],[row('job-fixture',['before']),row('before',['job-fixture'])],[row('job-fixture'),{...row('before'),ownerKey:'foreign'}],[row('job-fixture'),row('job-fixture')],Array.from({length:13},(_,i)=>row(i?'extra-'+i:'job-fixture'))])assert.throws(()=>validateJobDependencyGraph('job-fixture',records,owner));
+ for(const records of [[row('job-fixture',['job-fixture'])],[row('job-fixture',['missing'])],[row('job-fixture',['before']),row('before',['job-fixture'])],[row('job-fixture'),{...row('before'),ownerKey:'foreign'}],[row('job-fixture'),row('job-fixture')],Array.from({length:257},(_,i)=>row(i?'extra-'+i:'job-fixture'))])assert.throws(()=>validateJobDependencyGraph('job-fixture',records,owner));
  const spec={...f.spec,dependsOnJobIds:['before']},input={...f,spec,specSha256:jobSpecSha256(spec),approval:{...f.approval,specSha256:jobSpecSha256(spec)},dependencies:valid};assert.equal(checkExecutionAdmission(input).allowed,true);
  denied({...input,dependencies:[valid[0],{...valid[1],status:'cancelled'}]},'dependency_not_succeeded');denied({...f,dependencies:valid},'dependency_identity_changed');
 });
@@ -101,4 +101,8 @@ test('full executable/tool/provider/allowed-path/identity-policy pins invalidate
  denied({...f,capability:{...f.capability,modelIdentityPolicy:'allow-unverified'}},'subscription_or_identity_policy_changed');
  for(const patch of [{subscriptionOnly:false},{extraUsageOffAttested:false},{allowedPathsSha256ByRepositoryKey:{}},{allowedPathsSha256ByRepositoryKey:{fixture:'f'.repeat(64),other:'f'.repeat(64)}}])assert.throws(()=>parseCapability({...f.capability,...patch}));
  for(const key of ['provider','allowedPathsSha256ByRepositoryKey','modelIdentityPolicy','subscriptionOnly','extraUsageOffAttested']){const raw={...f.capability};delete raw[key];assert.throws(()=>parseCapability(raw));}
+});
+
+test('dependency history graph reaches256 without expanding the twelve-job finite batch limit',()=>{
+ const owner='owner-fixture',rows=Array.from({length:256},(_,i)=>({id:i?'history-'+i:'job-fixture',ownerKey:owner,dependsOnJobIds:i<255?['history-'+(i+1)]:[],status:i?'succeeded':'queued'}));assert.equal(validateJobDependencyGraph('job-fixture',rows,owner).length,256);assert.equal(EXECUTION_LIMITS.jobs,12);assert.equal(EXECUTION_LIMITS.graphNodes,256);assert.throws(()=>validateJobDependencyGraph('job-fixture',[...rows,{id:'history-overflow',ownerKey:owner,dependsOnJobIds:[],status:'succeeded'}],owner));const foreign=structuredClone(rows);foreign[255].ownerKey='foreign';assert.throws(()=>validateJobDependencyGraph('job-fixture',foreign,owner));const cycle=structuredClone(rows);cycle[255].dependsOnJobIds=['job-fixture'];assert.throws(()=>validateJobDependencyGraph('job-fixture',cycle,owner));
 });

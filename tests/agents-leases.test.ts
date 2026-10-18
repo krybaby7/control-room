@@ -9,11 +9,11 @@ import type {DevicePrincipal} from '../lib/devices/contracts.ts';
 import type {AgentCommandContext} from '../lib/agents/command-contracts.ts';
 import {agentCapabilitySchema,agentJobResultSchema,type AgentJobResultV1} from '../lib/agents/contracts.ts';
 import {buildAgentJobSpec,agentJobSpecSha256,buildAgentExecutionBinding,agentExecutionBindingSha256,buildAgentApprovalEnvelope} from '../lib/agents/policy.ts';
-import {claimAgentJob,renewAgentLease,reportAgentEvents,completeAgentAttempt,expireAgentAttempts,reconcileAgentAttempt,reportAgentCapability,type AgentLease,type AgentStoreOptions} from '../lib/agents/store.ts';
+import {claimAgentJob,renewAgentLease,reportAgentEvents,completeAgentAttempt,expireAgentAttempts,reconcileAgentAttempt,reportAgentCapability,agentFrozenAdmissionSchema,type AgentLease,type AgentStoreOptions} from '../lib/agents/store.ts';
 const now='2026-10-18T12:00:00.000Z',later=(seconds:number)=>new Date(Date.parse(now)+seconds*1000).toISOString(),sha='a'.repeat(64),nonce='synthetic_journal_nonce_0000000000000001';
-async function fixture(timeoutSeconds=120,notes=''){
+async function fixture(timeoutSeconds=120,notes='',evidence=''){
  const f=database(),owner='synthetic-owner',deviceId='synthetic-device',jobId='synthetic-job',intentId='synthetic-intent';
- const workspace=workspaceFixture({tasks:[taskFixture('task-1',{notes})]});await loadWorkspace(f.db,owner,()=>workspace,now);
+ const workspace=workspaceFixture({tasks:[taskFixture('task-1',{notes,evidence})]});await loadWorkspace(f.db,owner,()=>workspace,now);
  f.sqlite.prepare('INSERT INTO workspace_execution_state(user_id,epoch,restored_at) VALUES(?,0,?)').run(owner,now);
  const display={id:deviceId,label:'Synthetic lease fixture',createdAt:now,archivedAt:null},scopes=['jobs:poll','jobs:report'];
  f.sqlite.prepare('INSERT INTO devices(user_id,id,row_revision,payload_json,content_hash,created_at) VALUES(?,?,1,?,?,?)').run(owner,deviceId,canonical(display),await contentHash(canonical(display)),now);
@@ -53,7 +53,7 @@ function count(f:ReturnType<typeof database>,table:string){return f.sqlite.prepa
 test('overlapping claims allocate one attempt and slot; same journal retry rotates only that attempt and fixed deadline',async()=>{const f=await fixture();try{
  const outcomes=await Promise.allSettled([claim(f),claim(f)]);assert.equal(outcomes.filter(x=>x.status==='fulfilled').length,1);
  const first=(outcomes.find(x=>x.status==='fulfilled') as PromiseFulfilledResult<AgentLease>).value,retry=await claim(f);
- assert.equal(retry.attemptId,first.attemptId);assert.equal(retry.deadlineAt,first.deadlineAt);assert.notEqual(retry.leaseToken,first.leaseToken);assert.equal(retry.resumed,true);assert.deepEqual(retry.taskInput,first.taskInput);assert.deepEqual(retry.approvalEnvelope,first.approvalEnvelope);assert.equal(retry.serverNow,now);assert.equal(await contentHash(canonical(retry.taskInput)),f.record.spec.taskSnapshotSha256);
+ assert.equal(retry.attemptId,first.attemptId);assert.equal(retry.deadlineAt,first.deadlineAt);assert.notEqual(retry.leaseToken,first.leaseToken);assert.equal(retry.resumed,true);assert.deepEqual(retry.frozenAdmission,first.frozenAdmission);assert.deepEqual(retry.taskInput,first.taskInput);assert.deepEqual(retry.approvalEnvelope,first.approvalEnvelope);assert.equal(retry.serverNow,now);assert.equal(await contentHash(canonical(retry.taskInput)),f.record.spec.taskSnapshotSha256);
  assert.equal(count(f,'job_attempts'),1);assert.equal(count(f,'agent_device_slots'),1);
  assert.notEqual(f.sqlite.prepare('SELECT lease_token_hash FROM job_attempts').get()!.lease_token_hash,retry.leaseToken);
  await assert.rejects(claimAgentJob(f.db,f.principal,{jobId:f.jobId,journalNonce:nonce+'different'},f.options));
@@ -234,11 +234,75 @@ test('frozen task and approval are returned intact on resume/renew, never rebase
  const first=await claim(f);assert.equal(await contentHash(canonical(first.taskInput)),f.record.spec.taskSnapshotSha256);
  f.sqlite.prepare('UPDATE workspaces SET revision=revision+1').run();
  const resumed=await claim(f),renewed=await renewAgentLease(f.db,f.principal,{attemptId:resumed.attemptId,leaseToken:resumed.leaseToken},{...f.options,now:later(15)});
- assert.deepEqual(resumed.taskInput,first.taskInput);assert.deepEqual(renewed.taskInput,first.taskInput);assert.deepEqual(renewed.approvalEnvelope,first.approvalEnvelope);
+ assert.deepEqual(resumed.taskInput,first.taskInput);assert.deepEqual(renewed.taskInput,first.taskInput);assert.deepEqual(renewed.approvalEnvelope,first.approvalEnvelope);assert.deepEqual(renewed.frozenAdmission,first.frozenAdmission);assert.deepEqual(resumed.frozenAdmission,first.frozenAdmission);
  assert.equal(renewed.serverNow,later(15));assert.equal(renewed.deadlineAt,first.deadlineAt);
 }finally{f.sqlite.close();}});
 
-test('UTF8 frozen prompt bytes are bounded without truncating owner text or consuming a lease',async()=>{const f=await fixture(120,'測'.repeat(11000));try{
+test('UTF8 frozen prompt bytes are bounded without truncating owner text or consuming a lease',async()=>{const f=await fixture(120,'測'.repeat(10000),'測'.repeat(1000));try{
  await assert.rejects(claim(f),/frozen_task_input_capacity/);assert.equal(count(f,'job_attempts'),0);assert.equal(count(f,'agent_device_slots'),0);assert.equal(f.sqlite.prepare('SELECT consumed_at FROM job_approvals').get()!.consumed_at,null);assert.equal(f.sqlite.prepare('SELECT status FROM workspace_job_intents').get()!.status,'pending');
- const planning=JSON.parse(f.sqlite.prepare('SELECT content FROM workspaces').get()!.content as string);assert.equal(planning.tasks[0].notes,'測'.repeat(11000));
+ const planning=JSON.parse(f.sqlite.prepare('SELECT content FROM workspaces').get()!.content as string);assert.equal(planning.tasks[0].notes,'測'.repeat(10000));
+}finally{f.sqlite.close();}});
+
+test('first claim freezes actual private admission facts with opaque owner scope and persists them unchanged',async()=>{const f=await fixture();try{
+ const lease=await claim(f),ownerKey=await contentHash(f.owner);
+ assert.deepEqual(lease.frozenAdmission,{ownerContextHash:ownerKey,jobStatusAtClaim:'queued',activeAttemptsBefore:0,approvalConsumedBefore:false,dependencyRows:[{id:f.jobId,ownerKey,dependsOnJobIds:[],status:'queued'}],artifactRefs:f.binding.artifactRefs});
+ assert.equal(JSON.stringify(lease.frozenAdmission).includes(f.owner),false);
+ const stored=JSON.parse(f.sqlite.prepare('SELECT identity_json FROM job_attempts').get()!.identity_json as string);assert.deepEqual(stored.frozenAdmission,lease.frozenAdmission);
+ assert.ok(new TextEncoder().encode(canonical(lease)).length<=524288);
+ await reportAgentEvents(f.db,f.principal,{attemptId:lease.attemptId,leaseToken:lease.leaseToken,events:(await proofEvents(lease)).slice(0,2)},{...f.options,now:later(2)});
+ const renewed=await renewAgentLease(f.db,f.principal,{attemptId:lease.attemptId,leaseToken:lease.leaseToken},{...f.options,now:later(15)});
+ assert.equal(f.sqlite.prepare('SELECT status FROM agent_job_state').get()!.status,'running');assert.deepEqual(renewed.frozenAdmission,lease.frozenAdmission);
+ await assert.rejects(claimAgentJob(f.db,f.principal,{jobId:f.jobId,journalNonce:nonce,frozenAdmission:lease.frozenAdmission},f.options));
+}finally{f.sqlite.close();}});
+async function addDependency(f:Awaited<ReturnType<typeof fixture>>){
+ const id='dependency-1',intentId='dependency-intent',spec={...f.record.spec,dependsOnJobIds:[]},specSha256=await agentJobSpecSha256(spec),record={...f.record,id,intentId,spec,specSha256};
+ f.sqlite.prepare("INSERT INTO workspace_job_intents(user_id,id,kind,dedupe_key,payload_json,not_before,status,execution_epoch,cancel_requested) VALUES(?,?,'agent.execute',?,?,?,'completed',0,0)").run(f.owner,intentId,id,canonical({jobId:id,specSha256}),now);
+ f.sqlite.prepare('INSERT INTO agent_jobs(user_id,id,row_revision,payload_json,content_hash,intent_id,project_id,task_id,spec_hash,created_at) VALUES(?,?,1,?,?,?,?,?,?,?)').run(f.owner,id,canonical(record),await contentHash(canonical(record)),intentId,'p1','task-1',specSha256,now);
+ f.sqlite.prepare("INSERT INTO agent_job_state(user_id,job_id,intent_id,status,operational_revision,spec_hash,task_hash,execution_epoch,updated_at) VALUES(?,?,?,'succeeded',1,?,?,0,?)").run(f.owner,id,intentId,specSha256,spec.taskSnapshotSha256,now);
+ const root={...f.record,spec:{...f.record.spec,dependsOnJobIds:[id]}};root.specSha256=await agentJobSpecSha256(root.spec);
+ f.sqlite.prepare('UPDATE agent_jobs SET payload_json=?,content_hash=?,spec_hash=? WHERE user_id=? AND id=?').run(canonical(root),await contentHash(canonical(root)),root.specSha256,f.owner,f.jobId);
+ f.sqlite.prepare('UPDATE agent_job_state SET spec_hash=? WHERE user_id=? AND job_id=?').run(root.specSha256,f.owner,f.jobId);
+ const envelope=JSON.parse(f.sqlite.prepare('SELECT payload_json FROM job_approvals').get()!.payload_json as string);envelope.approval.specSha256=root.specSha256;
+ f.sqlite.prepare('UPDATE job_approvals SET payload_json=?,spec_hash=? WHERE user_id=?').run(canonical(envelope),root.specSha256,f.owner);
+ f.sqlite.prepare('UPDATE workspace_job_intents SET payload_json=? WHERE user_id=? AND id=?').run(canonical({jobId:f.jobId,specSha256:root.specSha256}),f.owner,f.intentId);
+ f.context.dependencies=async()=>[{id,ownerId:f.owner,dependsOnJobIds:[],status:'succeeded'}];
+ return id;
+}
+test('dependency admission uses actual private owner rows and late graph mutation rolls claim back',async()=>{for(const fault of ['none','forged-status','foreign-owner','late-state']as const){const f=await fixture();try{
+ const id=await addDependency(f);if(fault==='forged-status')f.sqlite.prepare("UPDATE agent_job_state SET status='failed' WHERE job_id=?").run(id);
+ if(fault==='foreign-owner')f.context.dependencies=async()=>[{id,ownerId:'foreign-owner',dependsOnJobIds:[],status:'succeeded'}];
+ const db:SqlDatabase=fault==='late-state'?{prepare:f.db.prepare.bind(f.db),async batch(statements){f.sqlite.prepare("UPDATE agent_job_state SET status='failed',operational_revision=operational_revision+1 WHERE job_id=?").run(id);return f.db.batch(statements);}}:f.db;
+ if(fault==='none'){const lease=await claim(f,db),row=lease.frozenAdmission.dependencyRows.find(r=>r.id===id);assert.ok(row);assert.equal(row.status,'succeeded');assert.equal(row.ownerKey,await contentHash(f.owner));assert.equal(lease.frozenAdmission.dependencyRows.find(r=>r.id===f.jobId)!.status,'queued');}
+ else{await assert.rejects(claim(f,db));assert.equal(count(f,'job_attempts'),0);assert.equal(f.sqlite.prepare('SELECT consumed_at FROM job_approvals').get()!.consumed_at,null);}
+}finally{f.sqlite.close();}}});
+test('missing slot cannot hide an existing unresolved device attempt during admission',async()=>{const f=await fixture();try{
+ f.sqlite.prepare('INSERT INTO job_attempts(user_id,id,job_id,device_id,approval_id,execution_epoch,journal_nonce_hash,lease_token_hash,lease_expires_at,deadline_at,created_at,operational_revision,identity_json) VALUES(?,?,?,?,?,0,?,?,?,?,?,1,?)').run(f.owner,'retained-attempt','detached-old-job',f.principal.deviceId,'old-approval','b'.repeat(64),'c'.repeat(64),later(60),later(120),now,'{}');
+ await assert.rejects(claim(f),/active_attempt_requires_reconciliation/);assert.equal(count(f,'job_attempts'),1);assert.equal(count(f,'agent_device_slots'),0);assert.equal(f.sqlite.prepare('SELECT consumed_at FROM job_approvals').get()!.consumed_at,null);
+}finally{f.sqlite.close();}});
+test('frozen admission is a strict bounded data manifest, not a caller-supplied approval',()=>{
+ const ownerContextHash='a'.repeat(64),value={ownerContextHash,jobStatusAtClaim:'queued',activeAttemptsBefore:0,approvalConsumedBefore:false,dependencyRows:[{id:'job',ownerKey:ownerContextHash,dependsOnJobIds:[],status:'queued'}],artifactRefs:[]};
+ assert.deepEqual(agentFrozenAdmissionSchema.parse(value),value);
+ for(const changed of [{...value,activeAttemptsBefore:1},{...value,approvalConsumedBefore:true},{...value,leaseToken:'private'},{...value,dependencyRows:[{...value.dependencyRows[0],ownerKey:'b'.repeat(64)}]},{...value,dependencyRows:Array.from({length:257},(_,i)=>({...value.dependencyRows[0],id:'job-'+i}))}])assert.throws(()=>agentFrozenAdmissionSchema.parse(changed));
+});
+
+test('valid 256-node graph with maximum IDs and eight edges fits frozen admission without shrinking the prompt limit',async()=>{const f=await fixture();try{
+ const ids=[f.jobId,...Array.from({length:255},(_,i)=>('dependency-'+i+'-').padEnd(128,'x'))];
+ const graph=ids.map((id,i)=>({id,ownerId:f.owner,dependsOnJobIds:ids.slice(i+1,i+9),status:i===0?'queued' as const:'succeeded' as const}));
+ for(let i=1;i<ids.length;i++){
+  const descriptor=graph[i],intentId='dependency-intent-'+i,spec={...f.record.spec,dependsOnJobIds:descriptor.dependsOnJobIds},specSha256=await agentJobSpecSha256(spec),record={...f.record,id:descriptor.id,intentId,spec,specSha256};
+  f.sqlite.prepare("INSERT INTO workspace_job_intents(user_id,id,kind,dedupe_key,payload_json,not_before,status,execution_epoch,cancel_requested) VALUES(?,?,'agent.execute',?,?,?,'completed',0,0)").run(f.owner,intentId,record.id,canonical({jobId:record.id,specSha256}),now);
+  f.sqlite.prepare('INSERT INTO agent_jobs(user_id,id,row_revision,payload_json,content_hash,intent_id,project_id,task_id,spec_hash,created_at) VALUES(?,?,1,?,?,?,?,?,?,?)').run(f.owner,record.id,canonical(record),await contentHash(canonical(record)),intentId,'p1','task-1',specSha256,now);
+  f.sqlite.prepare("INSERT INTO agent_job_state(user_id,job_id,intent_id,status,operational_revision,spec_hash,task_hash,execution_epoch,updated_at) VALUES(?,?,?,'succeeded',1,?,?,0,?)").run(f.owner,record.id,intentId,specSha256,spec.taskSnapshotSha256,now);
+ }
+ const root={...f.record,spec:{...f.record.spec,dependsOnJobIds:graph[0].dependsOnJobIds}};root.specSha256=await agentJobSpecSha256(root.spec);
+ f.sqlite.prepare('UPDATE agent_jobs SET payload_json=?,content_hash=?,spec_hash=? WHERE user_id=? AND id=?').run(canonical(root),await contentHash(canonical(root)),root.specSha256,f.owner,f.jobId);
+ f.sqlite.prepare('UPDATE agent_job_state SET spec_hash=? WHERE user_id=? AND job_id=?').run(root.specSha256,f.owner,f.jobId);
+ const envelope=JSON.parse(f.sqlite.prepare('SELECT payload_json FROM job_approvals').get()!.payload_json as string);envelope.approval.specSha256=root.specSha256;
+ f.sqlite.prepare('UPDATE job_approvals SET payload_json=?,spec_hash=? WHERE user_id=?').run(canonical(envelope),root.specSha256,f.owner);
+ f.sqlite.prepare('UPDATE workspace_job_intents SET payload_json=? WHERE user_id=? AND id=?').run(canonical({jobId:f.jobId,specSha256:root.specSha256}),f.owner,f.intentId);
+ f.context.dependencies=async()=>graph.slice(1);
+ const lease=await claim(f),manifestBytes=new TextEncoder().encode(canonical(lease.frozenAdmission)).length,responseBytes=new TextEncoder().encode(canonical(lease)).length;
+ assert.equal(lease.frozenAdmission.dependencyRows.length,256);assert.ok(manifestBytes>32768);assert.ok(manifestBytes<=393216);assert.ok(responseBytes>65536);assert.ok(responseBytes<=524288);
+ assert.equal(lease.executionBinding.budget.inputBytesLimit,32768);assert.equal(count(f,'job_attempts'),1);
+ const resumed=await claim(f);assert.deepEqual(resumed.frozenAdmission,lease.frozenAdmission);
 }finally{f.sqlite.close();}});

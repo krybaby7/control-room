@@ -7,7 +7,7 @@ import {evidenceDateSchema} from '../evidence-validation.ts';
 import {deviceAuthorityGuard,type DeviceSqlGuard} from '../devices/auth.ts';
 import type {DevicePrincipal} from '../devices/contracts.ts';
 import type {AgentCommandContext} from './command-contracts.ts';
-import {AGENT_LIMITS,agentIdSchema,agentCapabilitySchema,agentApprovalEnvelopeSchema,agentJobEventSchema,agentJobResultSchema,type AgentJobRecordV1,type AgentApprovalEnvelopeV1,type AgentExecutionBindingV1,type AgentJobResultV1,type AgentJobEventV1} from './contracts.ts';
+import {AGENT_LIMITS,agentIdSchema,agentDigestSchema,agentJobStatusSchema,agentArtifactRefSchema,agentCapabilitySchema,agentApprovalEnvelopeSchema,agentJobEventSchema,agentJobResultSchema,type AgentJobRecordV1,type AgentApprovalEnvelopeV1,type AgentExecutionBindingV1,type AgentJobResultV1,type AgentJobEventV1} from './contracts.ts';
 import {validateAgentJobRecord,validateAgentApprovalEnvelope,validateAgentExecutionBinding,agentTaskSemanticProjection,parseAgentEventBatch,validateAgentDependencyGraph,validateAgentResult} from './policy.ts';
 import {measureProspectiveRecoverability} from '../recoverability-snapshot.ts';
 import {recoverabilityAssertions} from '../recoverability-admission.ts';
@@ -18,7 +18,22 @@ import type {JsonValue} from '../workspace-protocol.ts';
 type Bind=string|number|null;
 type Row=Record<string,Bind>;
 export class AgentStoreError extends Error {readonly status:number;constructor(code:string,status=409){super(code);this.name='AgentStoreError';this.status=status;}}
-export interface AgentLease {attemptId:string;jobId:string;executionEpoch:number;leaseToken:string;leaseExpiresAt:string;deadlineAt:string;operationalRevision:number;record:AgentJobRecordV1;executionBinding:AgentExecutionBindingV1;approvalEnvelope:AgentApprovalEnvelopeV1;taskInput:JsonValue;serverNow:string;resumed:boolean}
+
+const frozenDependencySchema=z.object({id:agentIdSchema,ownerKey:agentDigestSchema,dependsOnJobIds:z.array(agentIdSchema).max(AGENT_LIMITS.dependencies).refine(ids=>new Set(ids).size===ids.length),status:agentJobStatusSchema}).strict();
+/** First-claim facts from the authenticated private server. This data does not
+ * replace current device authority, local policy or the single-launch journal. */
+export const agentFrozenAdmissionSchema=z.object({
+ ownerContextHash:agentDigestSchema,jobStatusAtClaim:z.literal('queued'),
+ activeAttemptsBefore:z.literal(0),approvalConsumedBefore:z.literal(false),
+ dependencyRows:z.array(frozenDependencySchema).min(1).max(AGENT_LIMITS.graphNodes),
+ artifactRefs:z.array(agentArtifactRefSchema).max(AGENT_LIMITS.inputArtifacts)
+}).strict().superRefine((value,ctx)=>{
+ if(new Set(value.dependencyRows.map(row=>row.id)).size!==value.dependencyRows.length||value.dependencyRows.some(row=>row.ownerKey!==value.ownerContextHash)||new Set(value.artifactRefs.map(row=>row.id)).size!==value.artifactRefs.length)ctx.addIssue({code:'custom',message:'Frozen admission identity differs.'});
+ if(new TextEncoder().encode(canonical(value)).length>393216)ctx.addIssue({code:'custom',message:'Frozen admission exceeds its byte bound.'});
+});
+export type AgentFrozenAdmission=z.infer<typeof agentFrozenAdmissionSchema>;
+
+export interface AgentLease {attemptId:string;jobId:string;executionEpoch:number;leaseToken:string;leaseExpiresAt:string;deadlineAt:string;operationalRevision:number;record:AgentJobRecordV1;executionBinding:AgentExecutionBindingV1;approvalEnvelope:AgentApprovalEnvelopeV1;taskInput:JsonValue;serverNow:string;frozenAdmission:AgentFrozenAdmission;resumed:boolean}
 export interface AgentEventReceipt {attemptId:string;epoch:number;sequence:number;payloadSha256:string;receivedAt:string}
 export interface AgentStoreOptions {
  now:string;context:AgentCommandContext;
@@ -84,17 +99,27 @@ async function active(db:SqlDatabase,p:DevicePrincipal,jobId:string,options:Agen
  const budget=await one(db,'agent_budgets',p.ownerId,'id',envelope.reservationId);if(!budget||budget.enabled!==1||integer(budget,'reserved_jobs')<1||integer(budget,'reserved_seconds')<record.spec.timeoutSeconds||integer(budget,'reserved_jobs')>integer(budget,'maximum_jobs')||integer(budget,'reserved_seconds')+integer(budget,'charged_seconds')>integer(budget,'maximum_seconds'))fail('finite_budget_unavailable');
  const dependencies=await options.context.dependencies(record),root={id:record.id,ownerId:p.ownerId,dependsOnJobIds:record.spec.dependsOnJobIds,status:'queued' as const};
  for(const entry of dependencies.filter(row=>row.id===record.id))if(entry.ownerId!==p.ownerId||canonical(entry.dependsOnJobIds)!==canonical(root.dependsOnJobIds))fail('dependency_root_identity_differs');
- validateAgentDependencyGraph(record.id,p.ownerId,[...dependencies.filter(row=>row.id!==record.id),root],true);
+ const dependencyGraph=validateAgentDependencyGraph(record.id,p.ownerId,[...dependencies.filter(row=>row.id!==record.id),root],true),graphIndex=new Map(dependencyGraph.map(row=>[row.id,row])),reachable=new Set<string>();
+ const visit=(id:string)=>{if(reachable.has(id))return;reachable.add(id);for(const next of graphIndex.get(id)!.dependsOnJobIds)visit(next);};visit(record.id);if(reachable.size!==dependencyGraph.length)fail('dependency_scope_differs');
+ for(const dependency of dependencyGraph.filter(row=>row.id!==record.id)){
+  const dependencyRow=await one(db,'agent_jobs',p.ownerId,'id',dependency.id),dependencyState=await one(db,'agent_job_state',p.ownerId,'job_id',dependency.id);if(!dependencyRow||!dependencyState)fail('actual_dependency_unavailable');
+  const dependencyRecord=await validateAgentJobRecord(JSON.parse(text(dependencyRow,'payload_json')));
+  if(dependencyRecord.id!==dependency.id||dependencyRecord.historical||await contentHash(canonical(dependencyRecord))!==dependencyRow.content_hash||dependencyState.status!==dependency.status||dependencyRow.spec_hash!==dependencyRecord.specSha256||dependencyState.spec_hash!==dependencyRecord.specSha256||dependencyState.task_hash!==dependencyRecord.spec.taskSnapshotSha256||dependencyState.intent_id!==dependencyRecord.intentId||canonical(dependencyRecord.spec.dependsOnJobIds)!==canonical(dependency.dependsOnJobIds))fail('actual_dependency_identity_differs');
+ }
  const artifacts=await options.context.artifacts(record.spec.inputArtifactIds);if(canonical([...artifacts].sort((a,b)=>a.id.localeCompare(b.id)))!==canonical([...envelope.executionBinding.artifactRefs].sort((a,b)=>a.id.localeCompare(b.id))))fail('input_artifacts_changed');
  if(new TextEncoder().encode(canonical(taskInput)).length+artifacts.reduce((n,row)=>n+row.bytes,0)>envelope.executionBinding.budget.inputBytesLimit)fail('frozen_task_input_capacity');
  const intent=await one(db,'workspace_job_intents',p.ownerId,'id',record.intentId);
  if(!intent||intent.kind!=='agent.execute'||intent.cancel_requested!==0||!['pending','claimed','running'].includes(text(intent,'status'))||intent.execution_epoch!==state.execution_epoch||Date.parse(text(intent,'not_before'))>Date.parse(options.now)||canonical(JSON.parse(text(intent,'payload_json')))!==canonical({jobId:record.id,specSha256:record.specSha256}))fail('job_intent_unavailable');
- return {auth,proofs,record,state,approval,envelope,budget,capability,intent,taskInput};
+ return {auth,proofs,record,state,approval,envelope,budget,capability,intent,taskInput,dependencyGraph};
 }
 async function lease(a:Row,record:AgentJobRecordV1,binding:AgentExecutionBindingV1,leaseToken:string,resumed:boolean,serverNow:string):Promise<AgentLease>{
- const identity=JSON.parse(text(a,'identity_json')) as {approvalEnvelope:unknown;taskInput:JsonValue;budgetId:string},approvalEnvelope=agentApprovalEnvelopeSchema.parse(identity.approvalEnvelope);
+ const identity=JSON.parse(text(a,'identity_json')) as {approvalEnvelope:unknown;taskInput:JsonValue;budgetId:string;frozenAdmission:unknown},approvalEnvelope=agentApprovalEnvelopeSchema.parse(identity.approvalEnvelope),frozenAdmission=agentFrozenAdmissionSchema.parse(identity.frozenAdmission);
  if(identity.taskInput===undefined||await contentHash(canonical(identity.taskInput))!==record.spec.taskSnapshotSha256||new TextEncoder().encode(canonical(identity.taskInput)).length+binding.artifactRefs.reduce((n,row)=>n+row.bytes,0)>binding.budget.inputBytesLimit||canonical(approvalEnvelope.executionBinding)!==canonical(binding)||approvalEnvelope.approval.jobId!==record.id||approvalEnvelope.approval.deviceId!==a.device_id||approvalEnvelope.approval.specSha256!==record.specSha256||approvalEnvelope.reservationId!==identity.budgetId)fail('frozen_lease_input_differs');
- return {attemptId:text(a,'id'),jobId:record.id,executionEpoch:integer(a,'execution_epoch'),leaseToken,leaseExpiresAt:text(a,'lease_expires_at'),deadlineAt:text(a,'deadline_at'),operationalRevision:integer(a,'operational_revision'),record,executionBinding:binding,approvalEnvelope,taskInput:identity.taskInput,serverNow,resumed};
+ const root=frozenAdmission.dependencyRows.find(row=>row.id===record.id);
+ if(frozenAdmission.ownerContextHash!==await contentHash(text(a,'user_id'))||!root||root.status!=='queued'||canonical(root.dependsOnJobIds)!==canonical(record.spec.dependsOnJobIds)||canonical(frozenAdmission.artifactRefs)!==canonical(binding.artifactRefs))fail('frozen_admission_identity_differs');
+ const response:AgentLease={attemptId:text(a,'id'),jobId:record.id,executionEpoch:integer(a,'execution_epoch'),leaseToken,leaseExpiresAt:text(a,'lease_expires_at'),deadlineAt:text(a,'deadline_at'),operationalRevision:integer(a,'operational_revision'),record,executionBinding:binding,approvalEnvelope,taskInput:identity.taskInput,serverNow,frozenAdmission,resumed};
+ if(new TextEncoder().encode(canonical({...response,operationalRevision:Number.MAX_SAFE_INTEGER})).length>524288)fail('agent_lease_response_capacity');
+ return response;
 }
 export async function claimAgentJob(db:SqlDatabase,p:DevicePrincipal,raw:unknown,options:AgentStoreOptions):Promise<AgentLease|null>{
  const input=claimInput.parse(raw),auth=await authority(db,p,options.now),recoveryProofs=await snapshot(db,p.ownerId,['job_attempts','agent_job_state','agent_device_slots','workspace_job_intents']),prior=await one(db,'job_attempts',p.ownerId,'job_id',input.jobId),nonce=await contentHash(input.journalNonce),secret=token(),hash=await contentHash(secret);
@@ -107,9 +132,13 @@ export async function claimAgentJob(db:SqlDatabase,p:DevicePrincipal,raw:unknown
  }
  const c=await active(db,p,input.jobId,options);
  if(c.state.status!=='queued'||c.state.device_id!==p.deviceId||c.approval.consumed_at!==null||c.state.attempt_id!==null||c.state.cancel_requested_at!==null)fail('queued_approval_unavailable');
+ const activeBefore=await db.prepare('SELECT COUNT(*) n FROM job_attempts WHERE user_id=? AND device_id=? AND result_json IS NULL AND reconciled_at IS NULL').bind(p.ownerId,p.deviceId).first<{n:number}>();
+ if(!activeBefore||activeBefore.n!==0)fail('active_attempt_requires_reconciliation');
+ const ownerContextHash=await contentHash(p.ownerId),frozenAdmission=agentFrozenAdmissionSchema.parse({ownerContextHash,jobStatusAtClaim:c.state.status,activeAttemptsBefore:activeBefore.n,approvalConsumedBefore:c.approval.consumed_at!==null,dependencyRows:c.dependencyGraph.map(row=>({id:row.id,ownerKey:ownerContextHash,dependsOnJobIds:row.dependsOnJobIds,status:row.status})),artifactRefs:c.envelope.executionBinding.artifactRefs});
  const slot=await one(db,'agent_device_slots',p.ownerId,'device_id',p.deviceId);if(slot&&slot.released_at===null)fail('device_slot_unavailable');
- const id=crypto.randomUUID(),deadline=new Date(Date.parse(options.now)+c.record.spec.timeoutSeconds*1000).toISOString(),expires=new Date(Math.min(Date.parse(options.now)+AGENT_LIMITS.leaseMs,Date.parse(deadline))).toISOString(),identity=canonical({record:c.record,executionBinding:c.envelope.executionBinding,approvalEnvelope:c.envelope,taskInput:c.taskInput,budgetId:c.envelope.reservationId});
- const row:Row={id,job_id:input.jobId,device_id:p.deviceId,approval_id:c.approval.id,execution_epoch:c.state.execution_epoch,journal_nonce_hash:nonce,lease_token_hash:hash,lease_expires_at:expires,deadline_at:deadline,created_at:options.now,launched_at:null,exited_at:null,cancel_acknowledged_at:null,last_applied_sequence:0,operational_revision:1,identity_json:identity,result_json:null,reconciled_at:null};
+ const id=crypto.randomUUID(),deadline=new Date(Date.parse(options.now)+c.record.spec.timeoutSeconds*1000).toISOString(),expires=new Date(Math.min(Date.parse(options.now)+AGENT_LIMITS.leaseMs,Date.parse(deadline))).toISOString(),identity=canonical({record:c.record,executionBinding:c.envelope.executionBinding,approvalEnvelope:c.envelope,taskInput:c.taskInput,frozenAdmission,budgetId:c.envelope.reservationId});
+ const row:Row={user_id:p.ownerId,id,job_id:input.jobId,device_id:p.deviceId,approval_id:c.approval.id,execution_epoch:c.state.execution_epoch,journal_nonce_hash:nonce,lease_token_hash:hash,lease_expires_at:expires,deadline_at:deadline,created_at:options.now,launched_at:null,exited_at:null,cancel_acknowledged_at:null,last_applied_sequence:0,operational_revision:1,identity_json:identity,result_json:null,reconciled_at:null};
+ const response=await lease(row,c.record,c.envelope.executionBinding,secret,false,options.now);
  const ok=await atomic(db,p,c.auth,c.proofs,(gate,b)=>[
   db.prepare('INSERT INTO job_attempts(user_id,id,job_id,device_id,approval_id,execution_epoch,journal_nonce_hash,lease_token_hash,lease_expires_at,deadline_at,created_at,operational_revision,identity_json) SELECT ?,?,?,?,?,?,?,?,?,?,?,1,? WHERE '+gate).bind(p.ownerId,id,input.jobId,p.deviceId,c.approval.id,c.state.execution_epoch,nonce,hash,expires,deadline,options.now,identity,...b),
   db.prepare('UPDATE job_approvals SET consumed_at=? WHERE user_id=? AND id=? AND '+gate).bind(options.now,p.ownerId,c.approval.id,...b),
@@ -117,7 +146,7 @@ export async function claimAgentJob(db:SqlDatabase,p:DevicePrincipal,raw:unknown
   db.prepare('UPDATE workspace_job_intents SET status=? WHERE user_id=? AND id=? AND '+gate).bind('running',p.ownerId,c.record.intentId,...b),
   db.prepare('INSERT INTO agent_device_slots(user_id,device_id,attempt_id,reserved_at,released_at) SELECT ?,?,?,?,NULL WHERE '+gate+' ON CONFLICT(user_id,device_id) DO UPDATE SET attempt_id=excluded.attempt_id,reserved_at=excluded.reserved_at,released_at=NULL').bind(p.ownerId,p.deviceId,id,options.now,...b)
  ]);
- return ok?lease(row,c.record,c.envelope.executionBinding,secret,false,options.now):null;
+ return ok?response:null;
 }
 async function ownedAttempt(db:SqlDatabase,p:DevicePrincipal,input:{attemptId:string;leaseToken:string},now:string,allowExpired=false){
  const auth=await authority(db,p,now),attempt=await one(db,'job_attempts',p.ownerId,'id',input.attemptId);if(!attempt||attempt.device_id!==p.deviceId||attempt.lease_token_hash!==await contentHash(input.leaseToken))fail('attempt_lease_unavailable',403);

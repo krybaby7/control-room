@@ -47,9 +47,9 @@ test('closed enrollment tuples reject escalation, material forgery and missing s
 });
 test('explicit scope replacement revokes old credentials without combining authority',async()=>{
  const f=await fixture();try{
-  const first=await createOwnerEnrollment(f.db,owner,{revision:(await readCurrent(f.db,owner,now)).revision,mutationId:crypto.randomUUID(),command:command(['telemetry:write'])},now);if(!('result' in first.body))throw new Error('Expected enrollment');
+  const first=await createOwnerEnrollment(f.db,owner,{revision:(await readCurrent(f.db,owner,now)).revision,mutationId:crypto.randomUUID(),command:command(['telemetry:write'])},now);if(!('result' in first.body)||!first.body.result)throw new Error('Expected enrollment');
   const old=await redeemDeviceEnrollment(f.db,{secret:first.body.result.secret,bridgeVersion:'0.1.0'},{now,verifiedIngress:{serviceIdentity:'synthetic-private-ingress'}});
-  const second=await createOwnerEnrollment(f.db,owner,{revision:(await readCurrent(f.db,owner,now)).revision,mutationId:crypto.randomUUID(),command:command(['jobs:poll','jobs:report'],first.body.result.deviceId)},now);if(!('result' in second.body))throw new Error('Expected replacement');
+  const second=await createOwnerEnrollment(f.db,owner,{revision:(await readCurrent(f.db,owner,now)).revision,mutationId:crypto.randomUUID(),command:command(['jobs:poll','jobs:report'],first.body.result.deviceId)},now);if(!('result' in second.body)||!second.body.result)throw new Error('Expected replacement');
   assert.equal(f.sqlite.prepare('SELECT revoked_at FROM device_credentials WHERE id=?').get(old.credentialId)!.revoked_at,now);
   const fresh=await redeemDeviceEnrollment(f.db,{secret:second.body.result.secret,bridgeVersion:'0.1.0'},{now,verifiedIngress:{serviceIdentity:'synthetic-private-ingress'}});
   const request=(token:string)=>new Request('https://synthetic.invalid/api/device',{headers:{'X-Control-Room-Device':token}});
