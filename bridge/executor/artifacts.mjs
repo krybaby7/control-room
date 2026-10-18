@@ -1,3 +1,4 @@
+import {assertExecutionArtifactContent} from './content-policy.mjs';
 import {open,readdir,lstat} from 'node:fs/promises';
 import {constants} from 'node:fs';
 import {join} from 'node:path';
@@ -11,7 +12,7 @@ export async function openExecutionArtifacts({directory,verifyPrivateState}){
  await verifyExecutionDirectory(directory,{create:true,verifyPrivateState});let serial=Promise.resolve();
  async function put({id:artifactId,filename,contentType,data}){
   fileKey(artifactId);fileKey(filename);if(typeof filename!=='string'||!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(filename)||filename.includes('..'))fail('unsafe_artifact_name');choice(contentType,['text/plain','text/markdown','text/x-diff','application/json']);if(!(data instanceof Uint8Array))fail('invalid_artifact_data');integer(data.byteLength,0,LIMIT);
-  const selected=Buffer.from(data),sha256=hash(selected),path=join(directory,artifactId),names=await readdir(directory);if(names.length>100)fail('artifact_capacity');let total=0;
+  assertExecutionArtifactContent(data);const selected=Buffer.from(data),sha256=hash(selected),path=join(directory,artifactId),names=await readdir(directory);if(names.length>100)fail('artifact_capacity');let total=0;
   for(const name of names){fileKey(name);const stat=await lstat(join(directory,name));if(!stat.isFile()||stat.isSymbolicLink())fail('unsafe_artifact_entry');total+=stat.size;if(total>LIMIT)fail('artifact_capacity');}
   const descriptor={id:artifactId,filename,contentType,bytes:selected.length,sha256,relativePath:'artifacts/'+artifactId};
   if(names.includes(artifactId)){const existing=await read(artifactId,sha256,selected.length);if(!existing.equals(selected))fail('artifact_identity_differs');return descriptor;}

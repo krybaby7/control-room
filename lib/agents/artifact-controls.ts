@@ -5,7 +5,7 @@ import type {SqlDatabase} from '../workspace-store.ts';
 import {ownerReader} from '../workspace-modules.ts';
 import {canonical,contentHash} from '../canonical-json.ts';
 import {attachmentRecordSchema,attachmentUsageSchema} from '../evidence-module.ts';
-import {agentArtifactCommandSchema} from './artifact-handlers.ts';
+import {agentArtifactCommandSchema,validateAgentArtifactMetadata} from './artifact-handlers.ts';
 import type {AgentArtifactMaterial} from './artifact-store.ts';
 import type {MutationPlan} from '../workspace-transaction.ts';
 import type {WorkspaceCommand} from '../workspace-protocol.ts';
@@ -38,8 +38,9 @@ export async function validateAgentArtifactPlan(db:SqlDatabase,owner:string,comm
  }else if(existing.some(value=>value.id===record.id)||record.createdAt!==now||record.uploadMutationId!==mutationId)fail();
  if(input.data.type==='jobs.artifact.reserve'){
   const namespaces=await getWorkspaceNamespaces(db,owner);if(!namespaces)fail();
-  const exact=prepareAttachmentReservation(owner,{...input.data.value,uploadMutationId:mutationId},beforeQuota,{ownerNamespace:namespaces.blobNamespace,now,createId:()=>record.id});if(canonical(exact)!==canonical(record))fail();
-  if(input.data.logicalType!==proof.logicalType||input.data.sha256!==proof.sha256||input.data.value.expectedBytes!==proof.bytes||record.filename!==input.data.value.filename||record.mimeType!==input.data.value.mimeType||row.operation!=='insert'||row.expectedRowRevision!==null||record.status!=='reserved'||record.sha256!==null||record.actualBytes!==null||record.readyAt!==null)fail();
+  const normalized=validateAgentArtifactMetadata(input.data.value,input.data.logicalType);
+  const exact=prepareAttachmentReservation(owner,{...normalized,uploadMutationId:mutationId},beforeQuota,{ownerNamespace:namespaces.blobNamespace,now,createId:()=>record.id});if(canonical(exact)!==canonical(record))fail();
+  if(input.data.logicalType!==proof.logicalType||input.data.sha256!==proof.sha256||input.data.value.expectedBytes!==proof.bytes||record.filename!==normalized.filename||record.mimeType!==normalized.mimeType||row.operation!=='insert'||row.expectedRowRevision!==null||record.status!=='reserved'||record.sha256!==null||record.actualBytes!==null||record.readyAt!==null)fail();
  }else if(row.operation!=='update'||input.data.id!==row.id||record.status!=='ready'||record.actualBytes!==proof.bytes||record.sha256!==proof.sha256||record.readyAt===null)fail();
  return {record,material:proof};
 }

@@ -5,14 +5,16 @@ import {validateAttachmentMetadata} from '../attachment-policy.ts';
 import {agentDigestSchema} from './contracts.ts';
 import {agentArtifactTypeSchema,AGENT_ARTIFACT_LIMITS} from './artifacts.ts';
 import {AgentArtifactStoreError} from './artifact-store.ts';
-export const agentArtifactReserveValueSchema=z.object({filename:z.string().min(1).max(240),mimeType:z.enum(['text/plain','application/json']),expectedBytes:z.number().int().nonnegative().max(AGENT_ARTIFACT_LIMITS.packageBytes)}).strict();
+export const agentArtifactReserveValueSchema=z.object({filename:z.string().min(1).max(240),mimeType:z.enum(['text/plain','text/markdown','text/x-diff','application/json']),expectedBytes:z.number().int().nonnegative().max(AGENT_ARTIFACT_LIMITS.packageBytes)}).strict();
 export const agentArtifactCommandSchema=z.discriminatedUnion('type',[
  z.object({type:z.literal('jobs.artifact.reserve'),value:agentArtifactReserveValueSchema,logicalType:agentArtifactTypeSchema,sha256:agentDigestSchema}).strict(),
  z.object({type:z.literal('jobs.artifact.finalize'),id:z.string().uuid()}).strict(),
 ]);
 function material(ctx:PrepareContext){const value=ctx.agentArtifact;if(!value||!value.guard||typeof value.guard.sql!=='string'||!value.guard.sql||!Array.isArray(value.guard.bindings))throw new AgentArtifactStoreError('private_artifact_material_required',403);return value;}
+/** Markdown/diff are downloaded as plain text; original bytes remain exact. */
+export function normalizeAgentArtifactMime(mime:string):string{return mime==='text/markdown'||mime==='text/x-diff'?'text/plain':mime;}
 export function validateAgentArtifactMetadata(value:z.infer<typeof agentArtifactReserveValueSchema>,logicalType:z.infer<typeof agentArtifactTypeSchema>){
- const metadata=validateAttachmentMetadata(value),extension=metadata.filename.slice(metadata.filename.lastIndexOf('.')+1).toLowerCase();if(logicalType==='transcript'&&metadata.expectedBytes>AGENT_ARTIFACT_LIMITS.transcriptBytes||logicalType==='patch'&&(metadata.mimeType!=='text/plain'||extension!=='txt')||logicalType==='transcript'&&(metadata.mimeType!=='text/plain'||!['txt','log'].includes(extension)))throw new AgentArtifactStoreError('artifact_type_or_size_invalid',400);return metadata;
+ const requested=agentArtifactReserveValueSchema.parse(value),originalExtension=requested.filename.slice(requested.filename.lastIndexOf('.')+1).toLowerCase();if(requested.mimeType==='text/markdown'&&originalExtension!=='md'||requested.mimeType==='text/x-diff'&&!['diff','patch','txt'].includes(originalExtension))throw new AgentArtifactStoreError('artifact_type_or_size_invalid',400);const metadata=validateAttachmentMetadata({...requested,mimeType:normalizeAgentArtifactMime(requested.mimeType),filename:requested.mimeType==='text/x-diff'&&originalExtension!=='txt'?requested.filename+'.txt':requested.filename}),extension=metadata.filename.slice(metadata.filename.lastIndexOf('.')+1).toLowerCase();if(logicalType==='transcript'&&metadata.expectedBytes>AGENT_ARTIFACT_LIMITS.transcriptBytes||logicalType==='patch'&&(metadata.mimeType!=='text/plain'||extension!=='txt')||logicalType==='transcript'&&(metadata.mimeType!=='text/plain'||!['txt','log'].includes(extension)))throw new AgentArtifactStoreError('artifact_type_or_size_invalid',400);return metadata;
 }
 const handler:CommandHandler={async prepare(ctx){
  const command=agentArtifactCommandSchema.parse(ctx.command),proof=material(ctx);

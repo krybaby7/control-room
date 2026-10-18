@@ -55,3 +55,27 @@ An uncertain launch is not evidence of exit. An uncertain object PUT retains a n
 Unsupported or missing runtime, private ingress, model identity policy, sandbox or process supervision must remain visibly blocked. There is no custom shell, provider CLI, alternate API, paid inference or automatic evaluation fallback. Test-only injected runtimes cannot be selected through production JSON.
 
 Before any actual finite model trial, complete the independent upstream release review and [Windows acceptance checklist](../verification/windows-bridge-acceptance.md), then obtain the exact explicit owner approval. Record actual device/provider results separately from cloud tests, with private identifiers and paths redacted. Public source and portable metadata must never contain credentials or private provider homes.
+
+## Artifact privacy rejection
+
+Selected local text can be explicitly prepared with
+`prepareExecutionArtifactContent` before reservation: it returns redacted bytes,
+safe rule codes and a visible heuristic limitation. Hash and reserve those exact
+prepared bytes; their digest differs from any changed original. The original
+local data remains owner-controlled. Patch content containing a detected
+credential is rejected rather than silently rewriting patch semantics.
+
+The durable local artifact writer refuses remaining detected credential text.
+The server independently scans bounded UTF-8 bytes before an upload token or R2
+PUT. A detection returns `artifact_sensitive_content` and HTTP 422; metadata
+stays reserved, no object is stored, and no result is accepted. This is rejection
+before storage, **not** a claim that a persisted quarantined record was created.
+There is no automatic upload, secret logging or original-data deletion.
+
+The fixed heuristic checks private-key blocks, supported credential-token
+formats, bearer values and common credential assignments. It cannot recognize
+every secret, proprietary text, encoding or private file path. Absence of a match
+does not establish secret-free content. The owner must review selected reports,
+patches and transcripts before upload; raw transcripts remain explicitly selected.
+
+Agent reservation accepts only text/plain, text/markdown, text/x-diff and application/json. Markdown and diff are stored/downloaded as text/plain; a .diff/.patch filename gains a .txt suffix. Responses show the normalized filename/MIME. The requested metadata remains part of the original immutable command identity; bytes and SHA-256 are unchanged. This never renders Markdown, HTML or a patch as executable content.

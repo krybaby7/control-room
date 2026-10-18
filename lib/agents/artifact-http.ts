@@ -1,3 +1,4 @@
+import {inspectAgentArtifactContent} from './artifact-content-policy.ts';
 import {z} from 'zod';
 import type {SqlDatabase} from '../workspace-store.ts';
 import {readCurrent} from '../workspace-store.ts';
@@ -16,7 +17,7 @@ import {createR2BlobStore,stageAttachmentUpload,attachmentHash,AttachmentReplayM
 import {evidenceDateSchema} from '../evidence-validation.ts';
 import {agentIdSchema,agentDigestSchema} from './contracts.ts';
 import {agentArtifactTypeSchema} from './artifacts.ts';
-import {agentArtifactCommandHandlers,agentArtifactReserveValueSchema,validateAgentArtifactMetadata} from './artifact-handlers.ts';
+import {agentArtifactCommandHandlers,agentArtifactReserveValueSchema,validateAgentArtifactMetadata,normalizeAgentArtifactMime} from './artifact-handlers.ts';
 import {authorizeAgentArtifactAttempt,assertAgentArtifactReservationCapacity,readOwnedAgentArtifact,AgentArtifactStoreError,type AgentArtifactMaterial} from './artifact-store.ts';
 import {RecoverabilityCapacityError} from '../recoverability-admission.ts';
 import {RetiredMutationError,MutationIdReuseError,ModuleConflictError,CommandValidationError} from '../workspace-errors.ts';
@@ -47,10 +48,11 @@ export async function handleAgentArtifactHttp(action:AgentArtifactHttpAction,req
   const path=action==='content'?'/api/bridge/jobs/artifacts/'+encodeURIComponent(z.string().uuid().parse(artifactId))+'/content':'/api/bridge/jobs/artifacts/'+action;if(new URL(request.url).pathname!==path)return rejected(404);
   if(action==='content'){
    const credentials=lease.parse({attemptId:request.headers.get('x-control-room-attempt'),leaseToken:request.headers.get('x-control-room-lease')}),id=z.string().uuid().parse(artifactId),first=await readOwnedAgentArtifact(db,principal,credentials,id,before);
-   if(first.attachment.status!=='reserved')return rejected(409);if(!request.body||request.headers.get('content-type')?.split(';')[0].trim().toLowerCase()!==first.attachment.mimeType)return rejected(415);
+   if(first.attachment.status!=='reserved')return rejected(409);if(!request.body||normalizeAgentArtifactMime(request.headers.get('content-type')?.split(';')[0].trim().toLowerCase()??'')!==first.attachment.mimeType)return rejected(415);
    const length=request.headers.get('content-length');if(length!==null&&(!/^\d{1,12}$/u.test(length)||Number(length)!==first.material.bytes))return rejected(413);
    const store=createR2BlobStore(deps.bucket);if(!store.available)return rejected(503,'agent_artifact_storage_unavailable');
    const bytes=await readAttachmentStream(request.body,{maxBytes:first.material.bytes,deadlineMs:15000});validateAttachmentContent(bytes,first.attachment.mimeType,first.material.bytes);if(await attachmentHash(bytes)!==first.material.sha256)return rejected(422,'artifact_digest_differs');
+   if(!inspectAgentArtifactContent(bytes).allowed)return rejected(422,'artifact_sensitive_content');
    const fresh=evidenceDateSchema.parse(clock());if(Date.parse(fresh)<Date.parse(before))return rejected(401);const current=await readOwnedAgentArtifact(db,principal,credentials,id,fresh);if(current.row.row_revision!==first.row.row_revision||current.row.content_hash!==first.row.content_hash||current.material.sha256!==first.material.sha256)return rejected(409);
    const namespaces=await getWorkspaceNamespaces(db,principal.ownerId);if(!namespaces)return rejected(503,'agent_artifact_storage_unavailable');
    const token=await beginUpload(db,principal.ownerId,{record:current.attachment,rowRevision:current.row.row_revision,ownerNamespace:namespaces.blobNamespace,now:fresh},current.material.guard);if(!token)return rejected(409);
@@ -64,7 +66,7 @@ export async function handleAgentArtifactHttp(action:AgentArtifactHttpAction,req
   const input=action==='reserve'?reserve.parse(raw):finalize.parse(raw),credentials={attemptId:input.attemptId,leaseToken:input.leaseToken};await activeMutation(db,principal.ownerId,input.mutationId);
   let material:AgentArtifactMaterial,command:unknown;
   if(action==='reserve'){
-   const selected=reserve.parse(input),value=validateAgentArtifactMetadata({filename:selected.filename,mimeType:selected.mimeType,expectedBytes:selected.expectedBytes},selected.logicalType),auth=await authorizeAgentArtifactAttempt(db,principal,credentials,fresh);await assertAgentArtifactReservationCapacity(db,principal.ownerId,auth.attemptId,selected.expectedBytes,selected.mutationId);material={attemptId:auth.attemptId,logicalType:selected.logicalType,sha256:selected.sha256,bytes:selected.expectedBytes,guard:auth.guard};command={type:'jobs.artifact.reserve',value,logicalType:selected.logicalType,sha256:selected.sha256};
+   const selected=reserve.parse(input),value=validateAgentArtifactMetadata({filename:selected.filename,mimeType:selected.mimeType,expectedBytes:selected.expectedBytes},selected.logicalType),auth=await authorizeAgentArtifactAttempt(db,principal,credentials,fresh);await assertAgentArtifactReservationCapacity(db,principal.ownerId,auth.attemptId,selected.expectedBytes,selected.mutationId);material={attemptId:auth.attemptId,logicalType:selected.logicalType,sha256:selected.sha256,bytes:selected.expectedBytes,guard:auth.guard};command={type:'jobs.artifact.reserve',value:{filename:selected.filename,mimeType:selected.mimeType,expectedBytes:value.expectedBytes},logicalType:selected.logicalType,sha256:selected.sha256};
   }else{const selected=finalize.parse(input),owned=await readOwnedAgentArtifact(db,principal,credentials,selected.id,fresh);material=owned.material;command={type:'jobs.artifact.finalize',id:selected.id};}
   const access=await ownerAttachmentServices(db,principal.ownerId,fresh,deps.bucket),result=await executeWorkspaceCommand(principal.ownerId,{protocolVersion:1,expectedRevision:input.revision,mutationId:input.mutationId,command},{db,now:()=>fresh,handlers:new Map([...workspaceHandlers,...agentArtifactCommandHandlers]),...access,agentArtifact:material});
   if(result.status==='conflict')return response({status:'conflict',currentRevision:result.currentRevision},409);

@@ -20,6 +20,6 @@ jobs:
           node-version: '24'
       - run: npm run install:ci
       - name: Check artifact SQLite and HTTP boundaries
-        run: node --experimental-strip-types --test tests/agent-artifact-store.test.ts tests/agent-artifact-http.test.ts
+        run: node --experimental-strip-types --test --test-timeout=120000 tests/agent-artifact-store.test.ts tests/agent-artifact-http.test.ts tests/agent-artifact-content.test.ts
       - name: Check actual isolated D1 and R2 lifecycle
         run: node --experimental-strip-types scripts/test-agent-artifacts-r2.mjs
