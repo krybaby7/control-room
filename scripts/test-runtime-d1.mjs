@@ -2,7 +2,12 @@
 // The injected ingress identity is a fixture dependency, not verified deployment,
 // Windows hardware, a live bridge, or provider availability.
 import assert from 'node:assert/strict';
-import {readFile,readdir} from 'node:fs/promises';
+import {readFile,readdir,mkdtemp,rm} from 'node:fs/promises';
+import {join} from 'node:path';
+import {tmpdir} from 'node:os';
+import {runBridgeOnce} from '../bridge/src/cli.mjs';
+import {createBridgeTransport} from '../bridge/src/transport.mjs';
+import {Outbox} from '../bridge/src/outbox.mjs';
 import {Miniflare} from 'miniflare';
 import {createSeedWorkspace} from '../lib/seed.ts';
 import {loadWorkspace,readCurrent} from '../lib/workspace-store.ts';
@@ -52,7 +57,7 @@ try{
  assert.equal(await count('devices'),1);assert.equal(await count('device_enrollments'),1);
  const enrolledRow=await db.prepare('SELECT secret_hash,consumed_at FROM device_enrollments WHERE user_id=? AND id=?').bind(owner,issued.enrollmentId).first();
  assert.equal(enrolledRow.secret_hash,await contentHash(issued.secret));assert.equal(enrolledRow.consumed_at,null);
- const bridgeVersion='0.1.0-d1-fixture';
+ const bridgeVersion='0.1.0';
  function request(action,body,credential,cookie=false){
   return new Request('https://synthetic-device.invalid/api/bridge/'+action,{method:'POST',headers:{'Content-Type':'application/json',...(credential?{'X-Control-Room-Device':credential}:{}),...(cookie?{Cookie:'fixture_browser=not-device-authority'}:{})},body:JSON.stringify(body)});
  }
@@ -70,7 +75,7 @@ try{
  assert.equal((await handleDeviceHttp('session',request('session',{bootId:crypto.randomUUID(),bridgeVersion},credential.deviceCredential,true),deps)).status,403);
  assert.equal((await handleDeviceHttp('session',request('session',{bootId:crypto.randomUUID(),bridgeVersion},credential.deviceCredential),{...deps,ingress:unavailablePrivateIngress})).status,401);
  const manifest={id:'pc-command-center',version:1,enabled:true,capabilities:['read.health','read.summary'],endpointAlias:'pc-command-center'};
- const configured=await execute({type:'runtime.adapter.configure',value:{deviceId:issued.deviceId,projectId,manifest,selectedGpuAlias:'synthetic-gpu'}});
+ const configured=await execute({type:'runtime.adapter.configure',value:{deviceId:issued.deviceId,projectId,manifest,selectedGpuAlias:null}});
  assert.equal(configured.result.status,'committed');const configuration=(await ownerReader(db,owner).list('runtime_adapter_configurations'))[0];assert.ok(configuration);
  const beforeRejected=await readCurrent(db,owner,clock);
  await assert.rejects(execute({type:'runtime.adapter.configure',value:{deviceId:issued.deviceId,projectId,manifest:{...manifest,id:'agent-lab',endpointAlias:'agent-lab'},selectedGpuAlias:null}}));
@@ -102,6 +107,39 @@ try{
  for(const table of ['device_credentials','device_enrollments','device_sessions','device_live_windows','device_runtime','device_heartbeats','runtime_observations','runtime_latest','runtime_minute_aggregates'])assert.equal(bundle.modules[table],undefined);
  const portable=canonical(bundle);assert.equal(portable.includes(issued.secret),false);assert.equal(portable.includes(credential.deviceCredential),false);assert.equal(portable.includes(enrolledRow.secret_hash),false);assert.equal(portable.includes(credentialRow.token_hash),false);
  assert.equal(await count('acceptance_records'),0);
+ // Cross-file regression: the actual CLI persists an uncertain live send,
+ // then its actual transport delivers original queued bytes as null-window history.
+ const spoolDirectory=await mkdtemp(join(tmpdir(),'control-room-runtime-d1-spool-'));
+ let outbox;
+ try{
+  outbox=await Outbox.open({directory:spoolDirectory});
+  let failLiveOnce=true,sampleCount=0;const delivered=[];
+  const transport=createBridgeTransport({baseUrl:'https://synthetic-device.invalid',deviceCredential:credential.deviceCredential,maxAttempts:1,now:()=>Date.parse(clock),ingressAdapter:{async getHeaders(){return {headers:{'X-Synthetic-Fixture-Ingress':'runtime-d1'},expiresAt:at(1000)};}},fetchImpl:async(url,options)=>{
+   const path=new URL(url).pathname,action=path.split('/').at(-1);assert.ok(['live-window','heartbeat'].includes(action));assert.equal(options.credentials,'omit');assert.equal(options.redirect,'error');assert.equal(new Headers(options.headers).has('Cookie'),false);assert.equal(new Headers(options.headers).get('X-Synthetic-Fixture-Ingress'),'runtime-d1');
+   const payload=JSON.parse(options.body);
+   if(action==='heartbeat'){
+    if(payload.delivery==='live'&&failLiveOnce){failLiveOnce=false;throw new Error('Synthetic network loss before delivery.');}
+    if(payload.delivery==='history'){clock=at(41);assert.equal(payload.liveWindowId,null);}
+    delivered.push({delivery:payload.delivery,liveWindowId:payload.liveWindowId,heartbeatBytes:canonical(payload.heartbeat)});
+   }
+   return handleDeviceHttp(action,new Request(url,options),deps);
+  }});
+  const config={deviceId:issued.deviceId,bridgeVersion,pcCommandCenter:{enabled:true,instanceId:'pc-command-center',selectedGpuId:null}};
+  const sample=async({instanceId,selectedGpuId,now})=>{assert.equal(instanceId,'pc-command-center');assert.equal(selectedGpuId,null);sampleCount++;return {...observation,observedAt:now(),reportedAgeSeconds:0,metrics:{...observation.metrics,cpuPercent:21+sampleCount}};};
+  clock=at(20);
+  await assert.rejects(runBridgeOnce({config,session,sequence:2,transport,outbox,sample,now:()=>clock}));
+  assert.equal(outbox.status().records,1);assert.equal(await count('device_heartbeats'),1);
+  assert.equal((await readRuntime(db,owner,clock)).devices[0].lastLiveReceivedAt,base);
+  const queued=outbox.pending({now:clock,limit:240});assert.equal(queued.length,1);const originalQueuedBytes=queued[0].heartbeatBytes;assert.equal(JSON.parse(originalQueuedBytes).observations[0].observedAt,at(20));assert.ok(queued[0].liveWindowId);
+  clock=at(40);
+  const freshReceipt=await runBridgeOnce({config,session,sequence:3,transport,outbox,sample,now:()=>clock});assert.equal(freshReceipt.classification,'live');assert.equal(freshReceipt.receivedAt,at(40));
+  assert.equal(outbox.status().records,0);assert.deepEqual(delivered.map(value=>value.delivery),['live','history']);assert.equal(delivered[1].liveWindowId,null);assert.equal(delivered[1].heartbeatBytes,originalQueuedBytes);
+  const historicalReceipt=await db.prepare('SELECT payload_hash,payload_json,receipt_json,classification,received_at FROM device_heartbeats WHERE user_id=? AND device_id=? AND boot_id=? AND sequence=2').bind(owner,issued.deviceId,bootId).first();
+  assert.ok(historicalReceipt);assert.equal(historicalReceipt.classification,'history');assert.equal(historicalReceipt.received_at,at(41));assert.equal(historicalReceipt.payload_json,originalQueuedBytes);assert.equal(historicalReceipt.payload_hash,await contentHash(originalQueuedBytes));assert.equal(JSON.parse(historicalReceipt.receipt_json).reason,'history_delivery');
+  const afterReplay=await readRuntime(db,owner,clock);assert.equal(afterReplay.devices[0].lastLiveReceivedAt,at(40));assert.equal(afterReplay.devices[0].sources[0].receivedAt,at(40));assert.equal(afterReplay.devices[0].sources[0].observedAt,at(40));assert.equal(afterReplay.devices[0].sources[0].observation.metrics.cpuPercent,23);
+  const untouchedWindow=await db.prepare('SELECT consumed_at FROM device_live_windows WHERE user_id=? AND device_id=? AND id=?').bind(owner,issued.deviceId,queued[0].liveWindowId).first();assert.equal(untouchedWindow.consumed_at,null);
+  assert.deepEqual((await readCurrent(db,owner,clock)).workspace,planning);assert.deepEqual(JSON.parse((await ownerReader(db,owner).list('runtime_evidence'))[0].payload_json),frozen);
+ }finally{outbox?.close();await rm(spoolDirectory,{recursive:true,force:true});}
  const deviceRow=await ownerReader(db,owner).get('devices',issued.deviceId);assert.ok(deviceRow);
  assert.equal((await execute({type:'devices.revoke',id:issued.deviceId,expectedRowRevision:deviceRow.row_revision})).result.status,'committed');
  assert.equal(await authenticateDevice(request('session',{},credential.deviceCredential),'telemetry:write',db,syntheticIngress,clock),null);assert.equal((await readRuntime(db,owner,clock)).devices[0].connectivity,'revoked');
@@ -127,6 +165,6 @@ try{
  assert.equal((await handleDeviceHttp('session',request('session',{bootId:crypto.randomUUID(),bridgeVersion},secondCredential.deviceCredential),deps)).status,401);
  const afterRestore=await readCurrent(db,owner,clock);await assert.rejects(execute(selectedCommand));assert.deepEqual(await readCurrent(db,owner,clock),afterRestore);
  assert.equal((await readRuntime(db,other,clock)).devices.length,0);assert.equal(await count('runtime_evidence',other),0);
- console.log(JSON.stringify({migrations:migrations.length,storage:'actual-miniflare-d1',ingress:'synthetic-fixture-only',enrollment:'one-time-no-secret-replay',heartbeat:'exact-synthetic-sample',heartbeatReplay:'once-original-clocks',selectedEvidence:'immutable-context',reEnrollment:'old-authority-rejected',restore:'disconnected-historical-only',planning:'unchanged-by-device-commands',provider:'not-tested'}));
+ console.log(JSON.stringify({migrations:migrations.length,storage:'actual-miniflare-d1',ingress:'synthetic-fixture-only',enrollment:'one-time-no-secret-replay',heartbeat:'exact-synthetic-sample',heartbeatReplay:'once-original-clocks',cliSpoolReplay:'actual-cli-transport-http-d1-history-null-window',selectedEvidence:'immutable-context',reEnrollment:'old-authority-rejected',restore:'disconnected-historical-only',planning:'unchanged-by-device-commands',provider:'not-tested'}));
  console.log('PASS actual isolated Miniflare D1: shared owner enrollment/configuration/evidence/revocation, synthetic HTTP device protocol, redacted export and reviewed disconnected restore.');
 }finally{await mf.dispose();}

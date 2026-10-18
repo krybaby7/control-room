@@ -14,3 +14,25 @@ test('native runtime enrollment, explicit PC configuration and revocation preser
  page.once('dialog',dialog=>dialog.accept());const revoked=await capturePostResponse(page,'/api/workspace',()=>retained.getByRole('button',{name:'Revoke device',exact:true}).click());expect(revoked.ok,revoked.body.toString()).toBeTruthy();expect((revoked.submitted as {command:unknown}).command).toMatchObject({type:'devices.revoke',id:device!.device.id});await expect(retained).toContainText('Device state: Revoked');expect((await workspace(page)).workspace).toEqual(before.workspace);
  await setFixtureSession(page,'b');const other=await page.request.get('/api/runtime');expect(other.ok()).toBeTruthy();expect((await other.json() as RuntimeRead).devices.some(row=>row.device.id===device!.device.id)).toBe(false);await page.reload();await page.getByRole('button',{name:'Runtime',exact:true}).click();await expect(page.getByRole('article',{name:'Runtime device '+label,exact:true})).toHaveCount(0);
 });
+
+
+test('a lost committed enrollment response reconciles its original ID and requires explicit revocation and replacement',async({page})=>{
+ await openFixture(page,'a');const before:WorkspaceEnvelope=await workspace(page);await page.getByRole('button',{name:'Runtime',exact:true}).click();await expect(page.getByRole('heading',{name:'Runtime',exact:true})).toBeVisible();
+ const label='Synthetic lost enrollment '+crypto.randomUUID();let enrollmentPosts=0,originalId:string|undefined;
+ const matches=(url:URL)=>url.pathname==='/api/devices/enroll';
+ await page.route(matches,async route=>{
+  if(route.request().method()!=='POST'){await route.continue();return;}
+  enrollmentPosts++;if(enrollmentPosts!==1){await route.continue();return;}
+  const submitted=route.request().postDataJSON() as {mutationId:string;command:{type:string;value:{label:string}}};originalId=submitted.mutationId;expect(submitted.command.type).toBe('devices.enrollment.create');expect(submitted.command.value.label).toBe(label);
+  const committed=await route.fetch({maxRedirects:0,maxRetries:0});expect(committed.ok()).toBeTruthy();await committed.dispose();await route.abort('connectionreset');
+ });
+ const form=page.getByRole('form',{name:'Device enrollment',exact:true});await form.getByRole('textbox',{name:'Device label',exact:true}).fill(label);await form.getByRole('button',{name:'Create enrollment',exact:true}).click();
+ await expect(page.getByRole('alert').filter({hasText:'one-time secret cannot be recovered'})).toBeVisible();expect(enrollmentPosts).toBe(1);expect(originalId).toMatch(/^m1_[a-f0-9]{32}_[a-f0-9]{32}$/);await expect(page.getByLabel('Enrollment secret',{exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Retry original enrollment',exact:true})).toHaveCount(0);
+ const outcome=await page.request.get('/api/workspace/mutations/'+encodeURIComponent(originalId!));expect(outcome.ok()).toBeTruthy();expect(await outcome.json()).toMatchObject({status:'committed',receipt:{mutationId:originalId}});
+ const response=await page.request.get('/api/runtime');expect(response.ok()).toBeTruthy();const model=await response.json() as RuntimeRead,devices=model.devices.filter(row=>row.device.label===label);expect(devices).toHaveLength(1);const device=devices[0];expect(device.lastLiveReceivedAt).toBeNull();
+ const card=page.getByRole('article',{name:'Runtime device '+label,exact:true});await expect(card).toBeVisible();await expect(card.getByRole('button',{name:'Revoke device',exact:true})).toBeEnabled();page.once('dialog',dialog=>dialog.accept());
+ const revoked=await capturePostResponse(page,'/api/workspace',()=>card.getByRole('button',{name:'Revoke device',exact:true}).click());expect(revoked.ok,revoked.body.toString()).toBeTruthy();await expect(card).toContainText('Device state: Revoked');expect(enrollmentPosts).toBe(1);
+ await form.getByRole('textbox',{name:'Device label',exact:true}).fill(label);await form.getByRole('combobox',{name:'Enrollment target',exact:true}).selectOption(device.device.id);await form.getByRole('button',{name:'Create enrollment',exact:true}).click();await expect(page.getByLabel('Enrollment secret',{exact:true})).toBeVisible();expect(enrollmentPosts).toBe(2);await page.getByRole('button',{name:'Hide enrollment secret',exact:true}).click();
+ const afterResponse=await page.request.get('/api/runtime');expect(afterResponse.ok()).toBeTruthy();expect((await afterResponse.json() as RuntimeRead).devices.filter(row=>row.device.label===label)).toHaveLength(1);expect((await workspace(page)).workspace).toEqual(before.workspace);
+ await page.unroute(matches);
+});

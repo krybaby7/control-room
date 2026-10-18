@@ -9,8 +9,12 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      CONTROL_ROOM_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -22,6 +26,7 @@ jobs:
       - run: npm run lint
       - id: build
         run: npm run build
+      - run: npm run test:runtime-d1
       - run: npm run test:generation-d1
       - run: npm run test:workspace-d1
       - run: npm run test:sources-d1
@@ -29,7 +34,6 @@ jobs:
       - run: npm run test:reviews-d1
       - run: npm run test:scheduled-backup-d1
       - run: npm run test:scheduled-source-d1
-      - run: npm run test:runtime-d1
       - run: npm run test:fixture
       - run: npm run test:attachments-r2
       - run: npm run test:attachment-recovery-r2
@@ -50,3 +54,10 @@ jobs:
             test-results-r2/
           if-no-files-found: ignore
           retention-days: 3
+      - run: npm run package:bridge
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-bridge-package
+          path: release/bridge/
+          if-no-files-found: error
+          retention-days: 90

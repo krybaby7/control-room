@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {EventEmitter} from 'node:events';
-import {runBridgeOnce,main,readMaskedSecret} from '../src/cli.mjs';
+import {runBridgeOnce,main,readMaskedSecret,doctorBridge,nodeVersionStatus,requireSupportedNode} from '../src/cli.mjs';
 function canonical(v){if(Array.isArray(v))return '['+v.map(canonical).join(',')+']';if(v&&typeof v==='object')return '{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+canonical(v[k])).join(',')+'}';return JSON.stringify(v);}
 const stamp='2026-10-18T12:00:00.000Z',session={deviceId:'device',bootId:'boot',generation:2},config={deviceId:'device',bridgeVersion:'0.1.0',pcCommandCenter:{enabled:true,instanceId:'pc',selectedGpuId:null,selectedGpuAlias:null}};
 function window(){return {windowId:'synthetic-window',bootId:'boot',generation:2,sequence:1,issuedAt:stamp,expiresAt:'2026-10-18T12:00:30.000Z'};}
@@ -105,4 +105,44 @@ test('CLI forwards explicit local GPU selection and uploads only its owner alias
   return {source:'pc-command-center',instanceId:'pc',selectedGpuAlias:selection.selectedGpuAlias,observedAt:null,reportedAgeSeconds:null,state:'unavailable',diagnostic:'source_unreachable',metrics:null};
  },outbox:{async enqueue(){return {id:'new'};},async ack(){},async pending(){return [];}},transport:{async liveWindow(){return window();},async heartbeat(envelope){uploaded=envelope;return receipt(envelope.heartbeat);}}});
  assert.equal(uploaded.heartbeat.observations[0].selectedGpuAlias,'owner-primary');assert.equal(canonical(uploaded).includes('raw-local-gpu-1'),false);
+});
+
+test('doctor checks actual Node and produces a bounded redacted read-only report',async()=>{
+ const {DEFAULT_CONFIG}=await import('../src/config.mjs');
+ const active={...structuredClone(DEFAULT_CONFIG),cloudBaseUrl:'https://private.example',deviceId:'synthetic-device',pcCommandCenter:{enabled:true,instanceId:'pc-command-center',selectedGpuId:'raw-local-gpu',selectedGpuAlias:'owner-primary'}};
+ let sampled=0,credentialReads=0,ingressReads=0;
+ const report=await doctorBridge({config:active,now:()=>stamp,credentialStore:{async load(){credentialReads++;return {deviceId:'synthetic-device',credentialId:'synthetic-credential',deviceCredential:'private-device-secret',expiresAt:'2099-01-01T00:00:00Z'};}},ingressAdapter:{async getHeaders(context){ingressReads++;assert.equal(context.url,'https://private.example/api/bridge/heartbeat');assert.equal(context.method,'POST');assert.equal(context.signal.aborted,false);return {headers:{'x-synthetic-private':'private-ingress-secret'},expiresAt:'2099-01-01T00:00:00Z'};}},sample:async selection=>{
+  sampled++;assert.equal(selection.selectedGpuId,'raw-local-gpu');assert.equal(selection.selectedGpuAlias,'owner-primary');return {source:'pc-command-center',state:'ready',diagnostic:'ok',metrics:{cpuPercent:73.2345},hostname:'private-host',prompt:'private-prompt'};
+ }});
+ assert.equal(report.node.status,'supported');assert.ok(report.node.major>=24);assert.doesNotThrow(()=>requireSupportedNode());assert.equal(nodeVersionStatus('22.1.0').status,'unsupported');assert.equal(nodeVersionStatus('untrusted').status,'unsupported');
+ assert.equal(report.configuration.status,'valid');assert.equal(report.credential.status,'available');assert.deepEqual(report.collector,{status:'available',state:'ready',diagnostic:'ok'});assert.equal(report.privateIngress.status,'available');assert.equal(report.cloudTransport.status,'configured');assert.equal(report.cloudConnectionVerified,false);assert.equal(report.windowsAcceptanceVerified,false);
+ assert.equal(sampled,1);assert.equal(credentialReads,1);assert.equal(ingressReads,1);
+ for(const privateValue of ['private-device-secret','private-ingress-secret','raw-local-gpu','private-host','private-prompt','73.2345'])assert.equal(JSON.stringify(report).includes(privateValue),false);
+});
+test('doctor default ingress never calls cloud transport; invalid config is typed and never reveals file content',async()=>{
+ const {mkdtemp,writeFile,rm}=await import('node:fs/promises'),{tmpdir}=await import('node:os'),{join}=await import('node:path'),{DEFAULT_CONFIG}=await import('../src/config.mjs');
+ const directory=await mkdtemp(join(tmpdir(),'synthetic-doctor-')),path=join(directory,'config.json'),printed=[];let reads=0,cloudCalls=0;
+ try{
+  await writeFile(path,JSON.stringify({...structuredClone(DEFAULT_CONFIG),cloudBaseUrl:'https://private.example'}));
+  const dependencies={print:line=>printed.push(line),credentialStore:{async load(){reads++;return null;}},sample:async()=>{throw new Error('Disabled sample must not run');},transportOptions:{fetchImpl:async()=>{cloudCalls++;throw new Error('No cloud diagnostic mutation allowed');}}};
+  const report=await main(['doctor','--config',path],dependencies);assert.equal(report.credential.reason,'missing');assert.equal(report.privateIngress.reason,'unsupported');assert.equal(report.collector.status,'disabled');assert.equal(cloudCalls,0);assert.equal(reads,1);
+  await writeFile(path,'{"token":"private-invalid-config"');const invalid=await main(['doctor','--config',path],dependencies);assert.equal(invalid.configuration.reason,'invalid_or_unreadable');assert.equal(reads,1);assert.equal(cloudCalls,0);assert.equal(printed.join('').includes('private-invalid-config'),false);assert.equal(printed.join('').includes(directory),false);
+ }finally{await rm(directory,{recursive:true,force:true});}
+});
+test('doctor reports missing, expired, mismatched and unsupported protected credentials without raw errors',async()=>{
+ const {DEFAULT_CONFIG}=await import('../src/config.mjs'),base={...structuredClone(DEFAULT_CONFIG),cloudBaseUrl:'https://private.example',deviceId:'synthetic-device'};
+ const cases=[
+  [async()=>null,'missing'],
+  [async()=>({deviceId:'synthetic-device',credentialId:'synthetic-credential',deviceCredential:'never-print',expiresAt:'2000-01-01T00:00:00Z'}),'expired_or_invalid'],
+  [async()=>({deviceId:'other-device',credentialId:'synthetic-credential',deviceCredential:'never-print',expiresAt:'2099-01-01T00:00:00Z'}),'device_mismatch'],
+  [async()=>{throw Object.assign(new Error('C:/private/never-print'),{code:'windows_current_user_protection_unavailable'});},'protection_unavailable']
+ ];
+ for(const [load,reason] of cases){const report=await doctorBridge({config:base,credentialStore:{load},sample:async()=>{throw new Error();},now:()=>stamp});assert.equal(report.credential.status,'unavailable');assert.equal(report.credential.reason,reason);assert.equal(JSON.stringify(report).includes('never-print'),false);}
+ const invalid=await doctorBridge({config:{...base,pcCommandCenter:{...base.pcCommandCenter,url:'http://127.0.0.1:1'}},credentialStore:{async load(){throw new Error('Should not load');}},sample:async()=>{throw new Error('Should not sample');}});
+ assert.equal(invalid.configuration.status,'unavailable');
+});
+test('doctor private ingress renewal is finite, aborts hung read and cannot claim cloud reachability',async()=>{
+ const {DEFAULT_CONFIG}=await import('../src/config.mjs');let signal;
+ const start=Date.now(),report=await doctorBridge({config:{...structuredClone(DEFAULT_CONFIG),cloudBaseUrl:'https://private.example'},credentialStore:{async load(){return null;}},ingressAdapter:{getHeaders(context){signal=context.signal;return new Promise(()=>{});}},now:()=>stamp});
+ assert.equal(report.privateIngress.status,'unavailable');assert.equal(report.privateIngress.reason,'credentials_unavailable');assert.equal(signal.aborted,true);assert.ok(Date.now()-start<3500);assert.equal(report.cloudConnectionVerified,false);
 });
