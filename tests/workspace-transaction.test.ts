@@ -105,6 +105,17 @@ async function seedRestoreModule(sqlite:ReturnType<typeof database>['sqlite'],ta
  const subject={type:'task',id:currentPlanning.tasks[0].id};
  const head={id:'preserved',currentVersion:1,archivedAt:null};
  const add=(name:string,value:unknown,columns:string[]=[],values:(string|number|null)[]=[],rowId='preserved')=>sqlite.prepare(`INSERT INTO ${name} (user_id,id,row_revision,payload_json,content_hash${columns.length?','+columns.join(','):''}) VALUES (${Array.from({length:5+columns.length},()=>'?').join(',')})`).run('a',rowId,1,JSON.stringify(value),fixtureHash(value),...values);
+ if(['devices','runtime_adapter_configurations','runtime_evidence'].includes(table)){
+  const device={id:table==='devices'?'preserved':'runtime-device',label:'Retained disconnected device',createdAt:now,archivedAt:null};
+  const observation={source:'pc-command-center',instanceId:'retained-pc',observedAt:null,reportedAgeSeconds:null,state:'unavailable',diagnostic:'source_unreachable',metrics:null};
+  const values:Partial<Record<typeof OWNER_TABLES[number],unknown>>={
+   devices:device,
+   runtime_adapter_configurations:{id:'preserved',deviceId:device.id,projectId:currentPlanning.projects[0].id,manifest:{id:'pc-command-center',version:1,enabled:false,capabilities:['read.health','read.summary'],endpointAlias:'retained-pc'},selectedGpuAlias:null},
+   runtime_evidence:{id:'preserved',deviceId:device.id,source:observation.source,instanceId:observation.instanceId,observedAt:null,reportedAgeSeconds:null,receivedAt:now,payloadHash:fixtureHash(observation),observation,heartbeatRef:{bootId:'00000000-0000-4000-8000-000000000001',generation:1,sequence:1,hash:'a'.repeat(64)},origin:'historical-import'}
+  };
+  const insert=async(name:typeof OWNER_TABLES[number])=>{const value=values[name] as {id:string},columns=moduleColumnNames(name),projection=await moduleProjection(name,value.id,value as unknown as JsonValue);add(name,value,[...columns],columns.map(c=>projection[c]),value.id);};
+  if(table!=='devices')await insert('devices');await insert(table);return;
+ }
  if(['review_snapshots','review_acknowledgements','automation_schedules','automation_occurrences','notification_events','review_settings','review_analysis_runs','project_baseline_revisions'].includes(table)){
   const projectId=currentPlanning.projects[0].id;
   const snapshot={id:table==='review_snapshots'?'preserved':'snapshot-parent',scope:{projectIds:[projectId],filterDigest:'a'.repeat(64)},workspaceRevision:1,operationalWatermarks:{sources:0},sourceWatermark:await hashJson([]),sourceSet:[],generatedAt:now,facts:[],unknowns:['Historical fixture: no current assessment claimed.'],decisionVersions:[],planningRecords:[],auditRecords:[],coverage:{complete:true,remainingFacts:0,includedFactIds:[],includedEventIds:[]},modelRunId:null};

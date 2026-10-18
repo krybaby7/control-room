@@ -46,13 +46,16 @@ import { ProjectDetail, ProjectsView } from './projects-view';
 import { InboxView } from './inbox-view';
 import { SourcesView } from './sources-view';
 import {ReviewCenter} from './review-center';
+import {z} from 'zod';
+import {canonical,contentHash} from '@/lib/canonical-json';
+import {RuntimeView,EnrollmentSecretUnavailableError,EnrollmentNotStartedError,type RuntimeEnrollmentInput,type RuntimeEnrollmentResult} from './runtime-view';
 import {BaselineRevisionEditor} from './baseline-revision-editor';
 import type {ReviewSnapshot} from '@/lib/reviews/contracts';
 
-type View = 'today' | 'projects' | 'inbox' | 'sources' | 'reviews' | 'search' | 'attention' | 'weekly' | 'evidence' | 'history';
+type View = 'today' | 'projects' | 'inbox' | 'sources' | 'reviews' | 'search' | 'attention' | 'weekly' | 'evidence' | 'history' | 'runtime';
 type SaveBase = { revision: number; submission?: Submission | null };
 type Editor = {type:'baseline-revision';projectId:string;snapshot:ReviewSnapshot;snapshotHash:string}|{type:'attachment-reserve';snapshot:EvidenceSnapshot}|{type:'attachment-upload';attachment:AttachmentSnapshot;snapshot:EvidenceSnapshot}|{type:'attachment-lifecycle';attachment:AttachmentSnapshot;snapshot:EvidenceSnapshot;action:'finalize'|'retire'}|{type:'evidence';evidence?:EvidenceVersion;snapshot?:EvidenceSnapshot}|{type:'decision';decision?:DecisionVersion;snapshot?:EvidenceSnapshot}|{type:'evidence-link';evidence:EvidenceVersion;snapshot:EvidenceSnapshot;subject?:EvidenceSubject}|{type:'requirement';requirement?:{value:EvidenceRequirement;rowRevision:number};snapshot:EvidenceSnapshot;subject?:EvidenceSubject}|{type:'acceptance';snapshot:EvidenceSnapshot;subject?:EvidenceSubject}|{type:'decision-action';decision:DecisionVersion;snapshot:EvidenceSnapshot;action:'decide'|'supersede'}|{ type: 'task'; task?: Task; projectId: string; milestoneId?:string } | { type: 'milestone'; milestone?: Milestone; project: Project } | { type: 'project'; project?: Project } | { type: 'capture'; capture?: Capture } | { type: 'convert'; capture: Capture } | {type:'recurrence';rule?:{value:RecurrenceRule;rowRevision:number}} | {type:'weekly-review';draft:WeeklyReviewDraft};
-const navItems = [{ id: 'today', label: 'Today', icon: Sun }, { id: 'projects', label: 'Projects', icon: LayoutGrid }, { id: 'inbox', label: 'Inbox', icon: Inbox }, {id:'weekly',label:'Weekly planning',icon:CalendarDays}, { id: 'search', label: 'Search', icon: Search }, { id: 'attention', label: 'Attention', icon: ListChecks }, { id: 'history', label: 'History', icon: FolderOpen }, { id: 'evidence', label: 'Evidence & decisions', icon: ListChecks }, { id: 'sources', label: 'Sources', icon: FolderOpen },{id:'reviews',label:'Briefs & automations',icon:Radio}] as const;
+const navItems = [{ id: 'today', label: 'Today', icon: Sun }, { id: 'projects', label: 'Projects', icon: LayoutGrid }, { id: 'inbox', label: 'Inbox', icon: Inbox }, {id:'weekly',label:'Weekly planning',icon:CalendarDays}, { id: 'search', label: 'Search', icon: Search }, { id: 'attention', label: 'Attention', icon: ListChecks }, { id: 'history', label: 'History', icon: FolderOpen }, { id: 'evidence', label: 'Evidence & decisions', icon: ListChecks }, { id: 'sources', label: 'Sources', icon: FolderOpen },{id:'reviews',label:'Briefs & automations',icon:Radio},{id:'runtime',label:'Runtime',icon:Radio}] as const;
 
 export default function ControlCenter({ userName }: { userName: string }) {
   const [envelope, setEnvelope] = useState<WorkspaceEnvelope | null>(null);
@@ -75,6 +78,7 @@ export default function ControlCenter({ userName }: { userName: string }) {
   const editorDraftController=useRef<DurableDraftController|null>(null);
   const deviceDraftController=useRef<DeviceDraftController|null>(null);
   const [unresolved,setUnresolved]=useState<{submission:Submission;command:Command}[]>([]);
+  const runtimeEnrollment=useRef<{key:string;body:string;mutationId:string;commandHash:string;revision:number;generation:number}|null>(null);
   const directSubmission = useRef<Submission | null>(null);
   const [pendingDirectCommand, setPendingDirectCommand] = useState<Command | null>(null);
   const [view, setView] = useState<View>('today');
@@ -90,7 +94,7 @@ export default function ControlCenter({ userName }: { userName: string }) {
   const editorBaseRef = useRef<SaveBase | null>(null);
   const editorReturnLocation=useRef<string|null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
-  const expireSession = useCallback(() => { polling.current?.setSignedIn(false);sessionGeneration.current.invalidate(); expiredRef.current = true; envelopeRef.current = null; editorBaseRef.current = null; directSubmission.current = null; setEnvelope(null); setEditor(null); setPendingDirectCommand(null); setUnresolved([]); setExpired(true); setNotice(''); setError(''); }, []);
+  const expireSession = useCallback(() => { polling.current?.setSignedIn(false);sessionGeneration.current.invalidate(); expiredRef.current = true; envelopeRef.current = null; editorBaseRef.current = null; directSubmission.current = null; runtimeEnrollment.current=null; setEnvelope(null); setEditor(null); setPendingDirectCommand(null); setUnresolved([]); setExpired(true); setNotice(''); setError(''); }, []);
   useEffect(()=>{window.addEventListener('control-room-session-expired',expireSession);return ()=>window.removeEventListener('control-room-session-expired',expireSession);},[expireSession]);
   const signOut = async () => {
     expireSession();
@@ -153,7 +157,7 @@ export default function ControlCenter({ userName }: { userName: string }) {
           if(cause.diagnostic==='revision_conflict'||cause.diagnostic==='module_conflict'){if(editorBase){await editorDraftController.current?.releaseSubmission();editorBase.submission=null;}else directSubmission.current=null;}
           const latest=await read(true);
           if(editorBase)editorBase.revision=latest.revision;
-          throw new Error('This workspace changed in another session. The latest version is loaded and your draft is still here. Review your changes, then save again.');
+          cause.message='This workspace changed in another session. The latest version is loaded and your draft is still here. Review your changes, then save again.';throw cause;
         }
         if(isConclusiveWorkspaceRejection(cause)){if(editorBase){await editorDraftController.current?.releaseSubmission();editorBase.submission=null;}else directSubmission.current=null;throw cause;}
         let outcome;
@@ -169,6 +173,63 @@ export default function ControlCenter({ userName }: { userName: string }) {
       setUnresolved(items=>items.filter(item=>item.submission.mutationId!==submission.mutationId));
       setNotice('Saved to your workspace');
     } finally { busyRef.current = false;polling.current?.setBusy(false);setBusy(false); }
+  }
+  async function enrollRuntimeDevice(input:RuntimeEnrollmentInput):Promise<RuntimeEnrollmentResult>{
+    if(expiredRef.current)throw new SessionExpiredError();
+    if(!envelopeRef.current)throw new EnrollmentNotStartedError('Load the saved workspace before enrollment.');
+    if(busyRef.current)throw new EnrollmentNotStartedError('Wait for the current owner change before enrollment.');
+    if(directSubmission.current||editorBaseRef.current?.submission)throw new EnrollmentNotStartedError('Resolve the original owner change before enrollment.');
+    const command={type:'devices.enrollment.create',value:{label:input.label,...(input.deviceId?{deviceId:input.deviceId}:{}),scopes:['telemetry:write']}};
+    const key=canonical(command);
+    if(runtimeEnrollment.current&&runtimeEnrollment.current.key!==key)throw new Error('Retry the original enrollment request before starting another.');
+    busyRef.current=true;polling.current?.setBusy(true);setBusy(true);
+    let retained=runtimeEnrollment.current;
+    const receiptSchema=z.object({mutationId:z.string().regex(/^m1_[a-f0-9]{32}_[a-f0-9]{32}$/),commandHash:z.string().regex(/^[a-f0-9]{64}$/),appliedRevision:z.number().int().positive().safe()}).strict();
+    const resultSchema=z.object({deviceId:z.string().min(1).max(128),enrollmentId:z.string().min(1).max(128),secret:z.string().min(16).max(4096),expiresAt:z.string().datetime({offset:true})}).strict();
+    const successSchema=z.object({result:resultSchema,receipt:receiptSchema,envelope:z.unknown()}).strict();
+    const unavailableSchema=z.object({code:z.literal('enrollment-secret-unavailable'),receipt:receiptSchema,envelope:z.unknown()}).strict();
+    try{
+      if(!retained){
+        const generation=sessionGeneration.current.capture();
+        let mutationId:string;
+        try{mutationId=await issueSubmissionId({session:sessionGeneration.current,generation});}
+        catch(cause){if(cause instanceof SessionExpiredError||cause instanceof StaleSessionError)throw cause;throw new EnrollmentNotStartedError();}
+        sessionGeneration.current.assertCurrent(generation);
+        if(expiredRef.current)throw new SessionExpiredError();
+        const revision=envelopeRef.current!.revision,commandHash=await contentHash(canonical({protocolVersion:1,command}));
+        sessionGeneration.current.assertCurrent(generation);
+        retained={key,revision,mutationId,commandHash,generation,body:JSON.stringify({revision,mutationId,command})};runtimeEnrollment.current=retained;
+      }
+      const original=retained;
+      const result=await boundedRequest('/api/devices/enroll',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json'},body:original.body},async response=>{
+        if(response.status!==409&&!response.ok){await readWorkspaceResponse(response);throw new Error('Enrollment was not confirmed.');}
+        const raw:unknown=await response.json();
+        if(!response.ok&&!unavailableSchema.safeParse(raw).success){await readWorkspaceResponse(Response.json(raw,{status:response.status,headers:response.headers}));throw new Error('Enrollment was not confirmed.');}
+        const value=response.ok?successSchema.parse(raw):unavailableSchema.parse(raw);
+        if(value.receipt.mutationId!==original.mutationId||value.receipt.commandHash!==original.commandHash||value.receipt.appliedRevision!==original.revision+1)throw new Error('Enrollment receipt identity differs.');
+        const next=await readWorkspaceResponse(Response.json(value.envelope));
+        if(!Number.isSafeInteger(next.revision)||next.revision<value.receipt.appliedRevision)throw new Error('Enrollment workspace receipt differs.');
+        return {value,next};
+      },{session:sessionGeneration.current,generation:original.generation});
+      if('code'in result.value){
+        const outcome=await reconcileSubmission(original.mutationId,{session:sessionGeneration.current,generation:original.generation});
+        if(outcome.status!=='committed'||outcome.receipt.commandHash!==original.commandHash||outcome.receipt.appliedRevision!==result.value.receipt.appliedRevision)throw new Error('Original enrollment outcome is not confirmed.');
+        acceptEnvelope(result.next);runtimeEnrollment.current=null;throw new EnrollmentSecretUnavailableError(input.label);
+      }
+      acceptEnvelope(result.next);runtimeEnrollment.current=null;
+      return result.value.result;
+    }catch(cause){
+      if(cause instanceof SessionExpiredError){expireSession();throw cause;}
+      if(cause instanceof StaleSessionError||cause instanceof EnrollmentSecretUnavailableError||cause instanceof EnrollmentNotStartedError)throw cause;
+      if(isConclusiveWorkspaceRejection(cause)){runtimeEnrollment.current=null;throw cause;}
+      if(retained){
+        const outcome=await reconcileSubmission(retained.mutationId,{session:sessionGeneration.current,generation:retained.generation});
+        if(outcome.status==='committed'&&outcome.receipt.commandHash===retained.commandHash&&outcome.receipt.appliedRevision===retained.revision+1){
+          await read(true);runtimeEnrollment.current=null;throw new EnrollmentSecretUnavailableError(input.label);
+        }
+      }
+      throw cause;
+    }finally{busyRef.current=false;polling.current?.setBusy(sourcePendingRef.current);setBusy(false);}
   }
   async function loadPreviousBackup() {
     try { return await boundedRequest('/api/workspace?backup=previous', { credentials: 'same-origin', cache: 'no-store' },readWorkspaceResponse,{session:sessionGeneration.current}); }
@@ -239,7 +300,7 @@ export default function ControlCenter({ userName }: { userName: string }) {
   const name = expired ? 'Signed out' : userName?.trim() || 'Your workspace';
   return <SessionExpiredContext.Provider value={expired}><DeviceDraftProvider expired={expired} controllerRef={deviceDraftController}><div className="app-shell">
     <a href="#main-content" className="skip-link">Skip to workspace</a>
-    <aside className="sidebar"><a className="brand" href="#" onClick={event => { event.preventDefault(); navigate('today'); }} aria-label="Control Room home"><span className="brand-mark" aria-hidden="true"><i /><i /><i /><i /></span><span><strong>Control Room</strong><small>Your project workspace</small></span></a><div className="workspace-caption">WORKSPACE</div><nav className="main-nav" aria-label="Main navigation">{navItems.map(({ id, label, icon: Icon }) => <button key={id} className={`nav-item ${view === id ? 'active' : ''} ${id === 'inbox' ? 'nav-secondary-start' : ''}`} aria-current={view === id ? 'page' : undefined} onClick={() => navigate(id)}><Icon size={19} strokeWidth={1.7} /><span>{label}</span>{id === 'inbox' && inboxCount > 0 && <span className="nav-count">{inboxCount}</span>}</button>)}</nav><button className="sidebar-capture" onClick={() => openEditor({ type: 'capture' })} disabled={!workspace}><Plus size={17} />Quick capture</button><div className="sidebar-bottom"><div className="private-label"><span />Private workspace</div>{accountOpen && <a className="signout-link" onClick={event=>{event.preventDefault();void signOut();}} href="/signout-with-chatgpt?return_to=%2F"><LogOut size={15} />Sign out</a>}<button className="account-button" onClick={() => setAccountOpen(!accountOpen)} aria-expanded={accountOpen} aria-label="Account menu"><span className="avatar">{name.slice(0, 1).toUpperCase()}</span><span className="account-copy"><strong>{name}</strong><small>Personal workspace</small></span><ChevronDown size={15} /></button></div></aside>
+    <aside className="sidebar"><a className="brand" href="#" onClick={event => { event.preventDefault(); navigate('today'); }} aria-label="Control Room home"><span className="brand-mark" aria-hidden="true"><i /><i /><i /><i /></span><span><strong>Control Room</strong><small>Your project workspace</small></span></a><div className="workspace-caption">WORKSPACE</div><nav className="main-nav" aria-label="Main navigation">{navItems.map(({ id, label, icon: Icon }) => <button key={id} className={`nav-item ${view === id ? 'active' : ''} ${id === 'inbox' ? 'nav-secondary-start' : ''}`} aria-current={view === id ? 'page' : undefined} onClick={() => navigate(id)}><Icon size={19} strokeWidth={1.7} /><span>{label}</span>{id === 'inbox' && inboxCount > 0 && <span className="nav-count">{inboxCount}</span>}</button>)}</nav><button className="sidebar-capture" onClick={() => {if(mayNavigate())openEditor({ type: 'capture' });}} disabled={!workspace}><Plus size={17} />Quick capture</button><div className="sidebar-bottom"><div className="private-label"><span />Private workspace</div>{accountOpen && <a className="signout-link" onClick={event=>{event.preventDefault();void signOut();}} href="/signout-with-chatgpt?return_to=%2F"><LogOut size={15} />Sign out</a>}<button className="account-button" onClick={() => setAccountOpen(!accountOpen)} aria-expanded={accountOpen} aria-label="Account menu"><span className="avatar">{name.slice(0, 1).toUpperCase()}</span><span className="account-copy"><strong>{name}</strong><small>Personal workspace</small></span><ChevronDown size={15} /></button></div></aside>
     <div className="main-shell"><header className="topbar"><div className="breadcrumb">Workspace<span>/</span><strong>{navItems.find(item => item.id === view)?.label}{project ? ` / ${project.name}` : ''}</strong></div><div className="sync-indicator" role="status">{expired || stale ? <AlertCircle size={13} /> : busy || loading ? <LoaderCircle className="spinning" size={13} /> : envelope ? <Check size={13} /> : <Radio size={13} />}<span>{expired ? 'Session expired' : busy ? 'Saving…' : loading ? 'Loading…' : stale ? 'Refresh failed' : envelope ? 'Saved workspace' : 'Not loaded'}</span></div></header><main id="main-content" tabIndex={-1}>
       {(error || pendingDirectCommand) && !expired && <div className="error-banner" role="alert"><AlertCircle size={18} /><span>{error || 'The last quick action could not be confirmed. You can safely retry the original change.'}</span>{pendingDirectCommand && <button className="text-button" onClick={() => run(pendingDirectCommand)} disabled={busy || loading}>Retry change</button>}<button className="text-button" onClick={() => void refresh()} disabled={busy || loading}><RefreshCw size={14} />Refresh workspace</button><button className="icon-button" aria-label="Dismiss error and retry offer" onClick={() => { setError(''); setPendingDirectCommand(null); }}><X size={16} /></button></div>}
       {unresolved.map(item=><div className="error-banner" key={item.submission.mutationId} role="status"><span>Unconfirmed original change: {item.command.type}. It may still complete.</span><button className="text-button" disabled={busy} onClick={()=>void checkOriginal(item)}>Check original save</button></div>)}
@@ -257,6 +318,7 @@ export default function ControlCenter({ userName }: { userName: string }) {
         {!unavailableTarget && view==='projects' && !milestone && <TaskBulkActions key={`task-bulk:${project?.id??'portfolio'}`} workspace={workspace} revision={envelope!.revision} projectId={project?.id} onTask={openTask} onCommand={(command,revision)=>mutate(command,undefined,revision)} />}
         {view === 'inbox' && <InboxView revision={envelope!.revision} onBulkCommand={(command,revision)=>mutate(command,undefined,revision)} workspace={workspace} busy={busy} onCreate={() => openEditor({ type: 'capture' })} onEdit={capture => openEditor({ type: 'capture', capture })} onConvert={capture => openEditor({ type: 'convert', capture })} onTask={openTask} onCommand={run} />}
         {view === 'reviews' && envelope && <ReviewCenter envelope={envelope} busy={busy||loading} onBaselineRevision={(projectId,snapshot,snapshotHash)=>{if(mayNavigate())openEditor({type:'baseline-revision',projectId,snapshot,snapshotHash});}} onCommand={command=>mutate(command as Command)} onRefreshWorkspace={()=>void refresh()} onDirtyChange={dirty=>{sourceDirtyRef.current=dirty;}} onPendingChange={pending=>{sourcePendingRef.current=pending;polling.current?.setBusy(pending||busyRef.current);}} />}
+        {view === 'runtime' && envelope && <RuntimeView envelope={envelope} busy={busy||loading} onCommand={command=>mutate(command as Command)} onEnroll={enrollRuntimeDevice} onRefreshWorkspace={()=>void refresh()} onDirtyChange={dirty=>{sourceDirtyRef.current=dirty;}} onPendingChange={pending=>{sourcePendingRef.current=pending;polling.current?.setBusy(pending||busyRef.current);}} />}
         {view === 'sources' && envelope && <SourcesView onDirtyChange={dirty=>{sourceDirtyRef.current=dirty;}} onPendingChange={pending=>{sourcePendingRef.current=pending;polling.current?.setBusy(pending||busyRef.current);}} envelope={envelope} busy={busy || loading} onRefresh={() => void refresh()} onRestore={restoreWorkspace} onPreviousBackup={loadPreviousBackup} onBackup={()=>mutate({type:'workspace.backup'})} onImport={command=>mutate(command)} onDelete={command=>mutate(command)} onBackupRemove={command=>mutate(command)} />}
       </>}
     </main><footer className="app-footer"><span>CONTROL ROOM</span><span>A little clarity. A steady next step.</span></footer></div>
