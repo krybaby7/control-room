@@ -16,10 +16,15 @@ jobs:
           node-version: '24'
       - name: Pin browser test dependency without lifecycle scripts
         run: npm install --package-lock-only --ignore-scripts --save-dev --save-exact @playwright/test@1.64.1
+      - name: Retain exact pinned test packages for restricted authoring runners
+        run: |
+          mkdir browser-packages
+          npm pack --ignore-scripts --pack-destination browser-packages @playwright/test@1.64.1 playwright@1.64.1 playwright-core@1.64.1
       - uses: actions/upload-artifact@v4
         with:
           name: browser-dependency-lock
           path: |
             package.json
             package-lock.json
+            browser-packages/*.tgz
           retention-days: 1
