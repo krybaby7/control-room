@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode, type MutableRefObject } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode, type MutableRefObject } from 'react';
 import { DRAFT_TTL_MS, type Draft, type SavedDraft } from '@/lib/drafts';
 import { boundedRequest } from '@/lib/save-controller';
 import { SessionExpiredError } from '@/lib/workspace-client';
@@ -39,7 +39,7 @@ export function useDurableDraft<T extends object>(entityType: string, entityId: 
   const deviceRef = useRef(device);
   useEffect(() => { deviceRef.current = device; }, [device]);
   const [baseline, setBaseline] = useState(initial);
-  const [draft, setDraft] = useState(initial);
+  const [draft, setDraftState] = useState(initial);
   const [recovery, setRecovery] = useState<SavedDraft | null>(null);
   const [ready, setReady] = useState(false);
   const [localRecovery, setLocalRecovery] = useState<Draft[]>([]);
@@ -61,31 +61,47 @@ export function useDurableDraft<T extends object>(entityType: string, entityId: 
   const current = useRef(draft);
   const base = useRef(baseline);
   const recoveryRef = useRef(recovery);
-  const readyRef = useRef(ready);
-  useEffect(() => { current.current = draft; base.current = baseline; recoveryRef.current = recovery; readyRef.current = ready; localRecoveryRef.current = localRecovery; deviceCheckedRef.current = deviceChecked; }, [draft, baseline, recovery, ready, localRecovery, deviceChecked]);
+  const readyRef = useRef(false);
+  const recoveryLoad = useRef<Promise<void> | null>(null);
+  // Save guards and payloads follow the latest event/load synchronously, rather than
+  // waiting for a later passive effect after React has rendered that event.
+  const setDraft = (update: T | ((value: T) => T)) => {
+    const next = typeof update === 'function' ? (update as (value: T) => T)(current.current) : update;
+    current.current = next; setDraftState(next);
+  };
+  const adoptBaseline = useCallback((next: T) => { base.current = next; setBaseline(next); }, []);
+  const chooseRecovery = useCallback((next: SavedDraft | null) => { recoveryRef.current = next; setRecovery(next); }, []);
+  const chooseLocalRecovery = useCallback((next: Draft[]) => { localRecoveryRef.current = next; setLocalRecovery(next); }, []);
   const failure = (error: unknown) => setStatus(error instanceof Error && error.message === 'conflict' ? 'This draft changed elsewhere. Close and reopen to review it.' : 'Draft could not be saved. Keep this editor open and try again.');
 
   useEffect(() => {
     const epoch = ++generation.current;
-    void request<{ drafts: SavedDraft[] }>('/api/workspace/drafts').then(result => {
-      if (generation.current !== epoch) return;
-      const match = result.drafts.find(item => item.entityType === entityType && item.entityId === entityId);
-      if (match) { record.current = match; setHasRecord(true); setRecovery(match); }
-      setReady(true);
-    }).catch(() => { if (generation.current === epoch) setStatus('Draft recovery could not be checked. Close and reopen this editor before saving.'); });
+    readyRef.current = false;
+    const load = request<{ drafts: SavedDraft[] }>('/api/workspace/drafts').then(result => {
+      if (generation.current !== epoch) throw new Error('Reopen this editor before saving.');
+      const match = result.drafts.find(item => item.entityType === entityType && item.entityId === entityId) ?? null;
+      record.current = match; setHasRecord(!!match); chooseRecovery(match);
+      readyRef.current = true; setReady(true);
+    }).catch(error => {
+      if (generation.current === epoch) setStatus('Draft recovery could not be checked. Close and reopen this editor before saving.');
+      throw error;
+    });
+    recoveryLoad.current = load;
+    // The controller awaits this same bounded load when Save is pressed early.
+    void load.catch(() => {});
     return () => { generation.current = epoch + 1; clearTimeout(pendingTimer.current); clearTimeout(localTimer.current); };
-  }, [entityType, entityId]);
+  }, [entityType, entityId, chooseRecovery]);
 
   useEffect(() => {
     let cancelled = false;
     if (!device.enabled) {
-      if (deviceChecked) queueMicrotask(() => { if (!cancelled) { setDeviceChecked(false); setLocalRecovery([]); setLocalStatus('Device drafts are locked.'); } });
+      if (deviceChecked) queueMicrotask(() => { if (!cancelled) { deviceCheckedRef.current = false; setDeviceChecked(false); chooseLocalRecovery([]); setLocalStatus('Device drafts are locked.'); } });
     } else if (!deviceChecked) {
       const candidates = device.items.filter(item => item.draft.entityType === entityType && item.draft.entityId === entityId).map(item => item.draft);
-      queueMicrotask(() => { if (!cancelled) { setLocalRecovery(candidates); setDeviceChecked(true); } });
+      queueMicrotask(() => { if (!cancelled) { chooseLocalRecovery(candidates); deviceCheckedRef.current = true; setDeviceChecked(true); } });
     }
     return () => { cancelled = true; };
-  }, [device.enabled, device.items, deviceChecked, entityType, entityId]);
+  }, [device.enabled, device.items, deviceChecked, entityType, entityId, chooseLocalRecovery]);
 
   useEffect(() => {
     if (!device.enabled || !deviceChecked || recovery || localRecovery.length || JSON.stringify(draft) === JSON.stringify(baseline)) return;
@@ -131,6 +147,10 @@ export function useDurableDraft<T extends object>(entityType: string, entityId: 
     const controller: DurableDraftController = {
       isDirty:()=>JSON.stringify(current.current)!==JSON.stringify(base.current),
       async preserveSubmission(command, mutationId) {
+        const loadGeneration = generation.current;
+        if (!recoveryLoad.current) throw new Error('Draft recovery has not started. Reopen this editor before saving.');
+        await recoveryLoad.current;
+        if (generation.current !== loadGeneration) throw new Error('Reopen this editor before saving.');
         if (!readyRef.current || recoveryRef.current || localRecoveryRef.current.length || (deviceRef.current.enabled && !deviceCheckedRef.current)) throw new Error('Review the saved draft recovery options before saving.');
         const epoch = generation.current;
         clearTimeout(pendingTimer.current); clearTimeout(localTimer.current);
@@ -222,18 +242,18 @@ export function useDurableDraft<T extends object>(entityType: string, entityId: 
   const restore = () => {
     if (!recovery) return;
     identity.current = { id: recovery.id, baseRevision: recovery.baseRevision, createdAt: recovery.createdAt };
-    setBaseline(recovery.baseSnapshot as T);
+    adoptBaseline(recovery.baseSnapshot as T);
     setDraft({ ...recovery.baseSnapshot, ...recovery.changedFields } as T);
     onRecover?.({ baseRevision: recovery.baseRevision, command: recovery.command, mutationId: recovery.mutationId });
-    setLocalRecovery([]); setRecovery(null); setStatus('Recovered draft. Review your changes before saving.');
+    chooseLocalRecovery([]); chooseRecovery(null); setStatus('Recovered draft. Review your changes before saving.');
   };
   const restoreLocal = (candidate: Draft) => {
     identity.current = { id: candidate.id, baseRevision: candidate.baseRevision, createdAt: candidate.createdAt };
     if (record.current?.id !== candidate.id) record.current = null;
     localRecord.current = candidate;
-    setBaseline(candidate.baseSnapshot as T); setDraft({ ...candidate.baseSnapshot, ...candidate.changedFields } as T);
+    adoptBaseline(candidate.baseSnapshot as T); setDraft({ ...candidate.baseSnapshot, ...candidate.changedFields } as T);
     onRecover?.({ baseRevision: candidate.baseRevision, command: candidate.command, mutationId: candidate.mutationId });
-    setLocalRecovery([]); setRecovery(null); setLocalStatus('Recovered device draft. Review it before saving. Recovery did not submit anything.');
+    chooseLocalRecovery([]); chooseRecovery(null); setLocalStatus('Recovered device draft. Review it before saving. Recovery did not submit anything.');
   };
   const discardLocal = async (candidate: Draft) => {
     const epoch = generation.current;
@@ -241,7 +261,7 @@ export function useDurableDraft<T extends object>(entityType: string, entityId: 
       const removed = await deviceRef.current.removeIfUnchanged(candidate);
       if (generation.current !== epoch) return;
       if (!removed) throw new Error('The device draft changed. Close and reopen to review it.');
-      setLocalRecovery(previous => previous.filter(item => item !== candidate)); setLocalStatus('Selected device draft discarded');
+      chooseLocalRecovery(localRecoveryRef.current.filter(item => item !== candidate)); setLocalStatus('Selected device draft discarded');
     } catch { if (generation.current === epoch) setLocalStatus('Device draft could not be discarded. Close and reopen to review it.'); }
   };
   const discard = async () => {
@@ -254,7 +274,7 @@ export function useDurableDraft<T extends object>(entityType: string, entityId: 
       await removeLocal(epoch);
       await remove(epoch);
       if (generation.current !== epoch || JSON.stringify(current.current) !== JSON.stringify(snapshot)) return;
-      setDraft(initial); setBaseline(initial); setRecovery(null); setStatus('Draft discarded');
+      setDraft(initial); adoptBaseline(initial); chooseRecovery(null); setStatus('Draft discarded');
     } catch (error) { if (generation.current === epoch) failure(error); }
   };
   const notice = <div aria-live="polite">{device.enabled && <p className="field-hint">{localStatus || 'Device drafts are unlocked; copies are saved separately.'}</p>}{localRecovery.map(candidate => <div className="capture-preview" key={candidate.id}><p>A device draft is available from {candidate.updatedAt}. It is separate from the workspace draft. Choose one version to review; versions are never merged automatically.</p><button type="button" className="text-button" onClick={() => restoreLocal(candidate)}>{!recovery && localRecovery.length === 1 ? 'Recover draft' : 'Recover device draft'}</button><button type="button" className="text-button" onClick={() => void discardLocal(candidate)}>Discard this device draft</button></div>)}{recovery ? <div className="capture-preview"><p>A saved draft is available. Recover it to review your earlier changes.</p><button type="button" className="text-button" onClick={restore}>{localRecovery.length ? 'Recover workspace draft' : 'Recover draft'}</button><button type="button" className="text-button" onClick={() => void discard()}>Discard saved draft</button></div> : <><p className="field-hint">{status}</p>{hasRecord && <button type="button" className="text-button" onClick={() => void discard()}>Discard draft changes</button>}</>}</div>;

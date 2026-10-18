@@ -76,7 +76,9 @@
         "Save/privacy review corrections: stable entity editor keys,trusted correlated typed rejection whitelist,original submission retained through manual receipt confirmation,in-modal outcome action,poll read failures deferred during save; new native journeys await CI.",
         "Actual isolated built-worker HTTP GET/POST/replay/CSRF fixture smoke passed on the stable414-test integration.",
         "Cloud CI39134562558/job117696330430 at3311f935 passed cleanlockedinstall,414 Node,typecheck,lint,build,actualfixture; Chromium15/19passed. All5 native navigation/focus/proxy408/receiptacknowledgement and foundationrecovery/device journeys pass. Portfolio duplicateDOM revealed duplicate siblingReactkeys; namespace fixprepared. Otherfailures mobilehidden readinesslocator and noncanonicalweeklytaskURL corrected/preparing.",
-        "Follow-up stable source:423 Node tests,zero failures/skips;typecheck,lint,production build andisolatedfixturepass. SearchURL/history,canonicalweeklyattentionwithAllentitydedupandallweekactions,allreadyworkandzero-readyexplanations completed;24native journeys discovered awaitingrerun."
+        "Follow-up stable source:423 Node tests,zero failures/skips;typecheck,lint,production build andisolatedfixturepass. SearchURL/history,canonicalweeklyattentionwithAllentitydedupandallweekactions,allreadyworkandzero-readyexplanations completed;24native journeys discovered awaitingrerun.",
+        "CI39135303830/job117698492413 atce462f21 passed cleaninstall,423Node,type/lint/build/fixture and20/24Chromium. Fullnormalizedrestore,truev2proposalimport,searchURL/history,durableweekly409review,recurrence,allreadywork andall5saveidentity journeys passed. Portfolio tests reach milestonearchive/reorder but regex template incorrectly consumed whitespaceescape; testfixprepared. Two capture recovery failures under trace investigation (saved-draft interference possible,not yetproven).",
+        "Trace investigation proved capture failures were an initialrecovery-ref readinessrace:boundedloadcompleted beforepassive guardrefs caughtup,sofirstsaveblocked beforeworkspacePOST andcreatedlaterautosave;nexttestinheritedthatdraft. Preparedfix awaits boundedloadwithgenerationcheck andupdatesguardrefs synchronously. Twoheld-real-GET native regressions added;no sleeps/discardsweakenrecovery."
       ],
       "blockers": [
         "Rerun expandedChromium after duplicateReactkey/mobilehelper/deeplink corrections.",
@@ -120,7 +122,7 @@
       "blockers": []
     }
   ],
-  "nextAction": "PublishPhase2acceptancefollow-upandobserve24-journeycloudChromium;fixexactfailuresbeforePhase3.",
+  "nextAction": "Publishreadinessfix;complete26nativejourneysbeforePhase3.",
   "allowedStatuses": [
     "not_started",
     "in_progress",
@@ -146,20 +148,21 @@
     "evidence": "Explicit supported model selection accepted and worker IDs returned."
   },
   "checkpoint": {
-    "publishedCommit": "3311f935d71a7161e0137f8fd5bb4b779ba687ca",
-    "workingTree": "StablePhase2acceptancefollow-upreadyforcommit",
-    "tests": "423 Node tests,typecheck,lint,production build andisolatedfixturepass;24Chromiumjourneysdiscovered,rerunpending",
+    "publishedCommit": "ce462f21ecbae66cc439d21931e331e481d01ac0",
+    "workingTree": "Readinessracefix andportfolio regexcorrection readyforreviewablecommit",
+    "tests": "423Node,typecheck,lint,productionbuild andactualisolatedfixturepass;26Chromiumjourneysdiscovered,rerunpending",
     "knownFailures": [
-      "No failing currentNode/type/lint/build check;published3311f935browserfailureshavepreparedsource/testcorrections.",
-      "New24-journeyChromiumacceptancererunnotexecutedyet."
+      "Publishedce462f21portfolio2tests havewhitespace-templateescapeerror;correctionprepared.",
+      "Publishedcapture2failures camefromprovenrecovery-readinessrace,notpreexistingownerdata;boundedawait/synchronousreffixprepared.",
+      "26-journeyrerunnotexecutedyet."
     ],
     "unfinished": [
       "Phase2 browser/acceptance reconciliation",
       "Phases3\u20138",
       "External hosted/provider/device and renewable runner/private object storage acceptance"
     ],
-    "nextCommand": "Publishreviewedfollow-upsourceandobserveterminalcloudCI",
-    "publishedTree": "5b99907a45a0961d2c0a9c012df2a2543879d21a",
-    "cloudRun": "39134562558 terminal failure:all prebrowser checks passed,15/19Chromium passed"
+    "nextCommand": "Publishreviewedreadinessfixandobserveterminal26-journeycloudCI",
+    "publishedTree": "523f068a976552b89659b9e46852cdea7c1fa2ab",
+    "cloudRun": "39135303830 terminalfailure:20/24Chromium,allprebrowserchecks passed"
   }
 }
