@@ -169,7 +169,7 @@ function protocol(events:Map<number,{row:Row;event:AgentJobEventV1}>,record:Agen
 }
 export async function reportAgentEvents(db:SqlDatabase,p:DevicePrincipal,raw:unknown,options:AgentStoreOptions):Promise<{receipts:AgentEventReceipt[];lastAppliedSequence:number}>{
  const proofs=await snapshot(db,p.ownerId,['job_attempts','job_events','agent_job_state','workspace_job_intents']);
- const input=z.object({attemptId:agentIdSchema,leaseToken:z.string().regex(/^[a-f0-9]{64}$/u),events:z.unknown()}).strict().parse(raw),a=await ownedAttempt(db,p,input,options.now),incoming=parseAgentEventBatch(input.events),events=await eventsFor(db,p,a.attempt),identity=JSON.parse(text(a.attempt,'identity_json')) as {record:AgentJobRecordV1;executionBinding:AgentExecutionBindingV1};
+ const input=z.object({attemptId:agentIdSchema,leaseToken:z.string().regex(/^[a-f0-9]{64}$/u),events:z.unknown()}).strict().parse(raw),a=await ownedAttempt(db,p,input,options.now,true),incoming=parseAgentEventBatch(input.events),events=await eventsFor(db,p,a.attempt),identity=JSON.parse(text(a.attempt,'identity_json')) as {record:AgentJobRecordV1;executionBinding:AgentExecutionBindingV1};
  const record=await validateAgentJobRecord(identity.record),state=await one(db,'agent_job_state',p.ownerId,'job_id',record.id);if(!state||state.attempt_id!==a.attempt.id)fail('attempt_state_unavailable');
  const receipts:AgentEventReceipt[]=[],inserts:Row[]=[];
  for(const event of incoming){
@@ -214,10 +214,11 @@ async function finish(db:SqlDatabase,p:DevicePrincipal,a:Row,auth:DeviceSqlGuard
  const identity=JSON.parse(text(a,'identity_json')) as {record:AgentJobRecordV1;executionBinding:AgentExecutionBindingV1;budgetId:string},record=await validateAgentJobRecord(identity.record),state=await one(db,'agent_job_state',p.ownerId,'job_id',record.id);
  if(!state||state.attempt_id!==a.id||result.attemptId!==a.id||result.epoch!==a.execution_epoch)fail('terminal_attempt_identity_differs');
  const hash=await contentHash(canonical(result)),recordId='result:'+text(a,'id');
- if(a.result_json!==null){if(a.result_json!==canonical(result)||state.result_json!==canonical(result))fail('terminal_result_immutable');return {result,recordId};}
+ if(a.result_json!==null){if(a.result_json!==canonical(result)||state.result_json!==canonical(result))fail('terminal_result_immutable');if(!await db.prepare('SELECT 1 WHERE '+auth.sql).bind(...auth.bindings).first())fail('device_authority_unavailable',401);return {result,recordId};}
  const events=await eventsFor(db,p,a),proof=protocol(events,record,identity.executionBinding,a,state);
  if(proof.sequence!==events.size||proof.sequence!==a.last_applied_sequence)fail('terminal_event_gap');
  if(!proof.exited||!result.processExitConfirmed||result.terminationUnconfirmed)fail('terminal_exit_not_proven');
+ if(result.terminalProtocolObserved!==proof.completed)fail('terminal_protocol_claim_differs');
  if(result.observedModel!==proof.observedModel||result.disposition==='succeeded'&&(!proof.completed||proof.exitCode!==0||proof.resultHash!==hash)||result.disposition==='cancelled'&&(!proof.cancelled||!state.cancel_requested_at))fail('terminal_protocol_identity_differs');
  const verified=await options.verifyResult?.({principal:p,record,attemptId:text(a,'id'),result,executionBinding:identity.executionBinding})??{adapterChecksPassed:false};
  validateAgentResult(record.spec,identity.executionBinding,result,{adapterChecksPassed:verified.adapterChecksPassed});
@@ -248,7 +249,8 @@ async function finish(db:SqlDatabase,p:DevicePrincipal,a:Row,auth:DeviceSqlGuard
  if(!committed)fail('terminal_commit_conflict');return {result,recordId};
 }
 export async function completeAgentAttempt(db:SqlDatabase,p:DevicePrincipal,raw:unknown,options:AgentStoreOptions){
- const input=z.object({attemptId:agentIdSchema,leaseToken:z.string().regex(/^[a-f0-9]{64}$/u),result:agentJobResultSchema}).strict().parse(raw),a=await ownedAttempt(db,p,input,options.now);
+ const input=z.object({attemptId:agentIdSchema,leaseToken:z.string().regex(/^[a-f0-9]{64}$/u),result:agentJobResultSchema}).strict().parse(raw),a=await ownedAttempt(db,p,input,options.now,true);
+ if(a.attempt.result_json===null&&(Date.parse(text(a.attempt,'lease_expires_at'))<=Date.parse(options.now)||Date.parse(text(a.attempt,'deadline_at'))<=Date.parse(options.now)))fail('attempt_requires_reconciliation');
  return finish(db,p,a.attempt,a.auth,input.result,options);
 }
 /** Current authenticated device authority can attest retained journal proof, but a

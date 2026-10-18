@@ -1,0 +1,23 @@
+name: Control Room agent contract checks
+on:
+  push:
+    branches: ['feat/**']
+    paths: ['lib/agents/**','components/*job*','components/agents-view.tsx','components/evaluation-evidence.tsx','lib/workspace-*.ts','lib/module-columns.ts','lib/recoverability-*.ts','tests/agents*.test.ts','tests/evaluation-import.test.ts','db/schema.ts','drizzle/**','.github/workflows/control-room-agents.yml']
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm run install:ci
+      - run: node --experimental-strip-types --test tests/agents*.test.ts tests/evaluation-import.test.ts
+      - run: npm run typecheck
+        if: always()
+      - run: npm run lint
+        if: always()
