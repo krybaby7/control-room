@@ -15,7 +15,7 @@ export function FormDialog({ title, subtitle, dirty, onClose, onSave, submitLabe
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const close = () => { if (!saving && (!dirty || window.confirm('Discard your unsaved changes?'))) onClose(); };
-  useEffect(() => { const dialog = ref.current; if (!expired) dialog?.showModal(); return () => dialog?.close(); }, [expired]);
+  useEffect(() => { const dialog = ref.current; if (!expired && dialog) { dialog.showModal(); dialog.querySelector<HTMLElement>('[data-editor-autofocus="true"]')?.focus(); } return () => dialog?.close(); }, [expired]);
   useEffect(() => {
     if (!dirty) return;
     const handler = (event: BeforeUnloadEvent) => { event.preventDefault(); };
@@ -34,6 +34,6 @@ export function FormDialog({ title, subtitle, dirty, onClose, onSave, submitLabe
 
 export function Field({ label, hint, children, className = '' }: { label: string; hint?: string; children: ReactNode; className?: string }) {
   const hintId=useId();
-  const control=isValidElement(children)&&typeof children.type==='string'&&['input','select','textarea'].includes(children.type)?cloneElement(children as ReactElement<Record<string,unknown>>,{'aria-label':(children.props as Record<string,unknown>)['aria-label']??label,...(hint?{'aria-describedby':hintId}:{})}):children;
+  const control=isValidElement(children)&&typeof children.type==='string'&&['input','select','textarea'].includes(children.type)?cloneElement(children as ReactElement<Record<string,unknown>>,{'aria-label':(children.props as Record<string,unknown>)['aria-label']??label,...((children.props as Record<string,unknown>).autoFocus===true?{'data-editor-autofocus':'true'}:{}),...(hint?{'aria-describedby':hintId}:{})}):children;
   return <label className={`field ${className}`}><span className="field-label">{label}</span>{control}{hint && <span id={hintId} className="field-hint">{hint}</span>}</label>;
 }
