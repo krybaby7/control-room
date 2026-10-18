@@ -11,3 +11,14 @@ Use `openExecutorStore` for a dedicated protected execution-journal directory, s
 Recovery is conservative: prelaunch requires owner review, uncertain launch requires reconciliation, confirmed process exit permits upload-only, and an acknowledged result is complete. These leaves do not implement an installed-runtime supervisor or claim a provider process exited. Existing `createTestRuntimeHarness` is explicit dependency injection for tests and cannot be selected from production JSON.
 
 Authored cloud checks: `node --test bridge/test/execution-policy.test.mjs bridge/test/executor-*.test.mjs`. Execution status at authoring: **NOT RUN**, pending parent GitHub Actions integration. Synthetic process identities and Linux temporary Git fixtures do not certify Windows ACLs, hidden windows, process-tree termination, provider authentication, subscription billing, model identity or an actual model run.
+
+## Empty local configuration example
+
+`config.example.json` is a separate disabled execution-policy example, not the bridge telemetry configuration. It contains no repository registration, model, runtime, capability, job allowance or approval. The installer does not enable or schedule this executor. The production entry point still stops at `not_installed`; it does not read this example or turn an opt-in flag into runtime authority.
+
+```sh
+node bridge/executor/cli.mjs --help
+node bridge/executor/cli.mjs run --enable-execution --config <absolute-local-execution-config>
+```
+
+The second command currently returns a blocked result and exit code 2. A later independently reviewed runtime integration must validate the exact policy and authenticated lease before any effects.

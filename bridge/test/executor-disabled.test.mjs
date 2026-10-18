@@ -1,3 +1,5 @@
+import {readFile} from 'node:fs/promises';
+import {defaultExecutionPolicy,parseExecutionPolicy} from '../src/execution-policy.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createLocalExecutor} from '../executor/executor.mjs';
@@ -9,4 +11,8 @@ test('production executor is disabled and never fabricates installation/process/
 test('executor CLI needs a separate explicit opt-in and still fails closed without reading local credentials/config',async()=>{
  for(const args of [[],['run'],['run','--config','/synthetic/missing'],['run','--enable-execution','--config','relative']]){const output=[];assert.equal(await executorMain(args,{write:text=>output.push(text)}),2);assert.equal(JSON.parse(output.join('')).diagnostic,'policy_blocked');}
  const path=process.platform==='win32'?'C:\\synthetic\\never-read.json':'/synthetic/never-read.json',output=[];assert.equal(await executorMain(['run','--enable-execution','--config',path],{write:text=>output.push(text)}),2);assert.equal(JSON.parse(output.join('')).diagnostic,'not_installed');assert.equal(output.join('').includes(path),false);
+});
+
+test('shipped execution example exactly matches the empty disabled policy and grants no jobs',async()=>{
+ const example=JSON.parse(await readFile(new URL('../executor/config.example.json',import.meta.url),'utf8'));assert.deepEqual(parseExecutionPolicy(example),defaultExecutionPolicy());assert.equal(example.enabled,false);assert.equal(example.maxJobs,0);assert.deepEqual(example.repositories,{});assert.equal(example.runtime,null);
 });
