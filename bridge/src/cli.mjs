@@ -4,6 +4,7 @@ import {randomUUID,createHash} from 'node:crypto';
 import {pathToFileURL} from 'node:url';
 import {createBridgeTransport,unavailablePrivateIngress,BridgeTransportError} from './transport.mjs';
 import {createCredentialStore} from './credentials.mjs';
+import {BRIDGE_LIMITS} from './config.mjs';
 function canonical(value){if(Array.isArray(value))return '['+value.map(canonical).join(',')+']';if(value&&typeof value==='object')return '{'+Object.keys(value).sort().map(key=>JSON.stringify(key)+':'+canonical(value[key])).join(',')+'}';return JSON.stringify(value);}
 function identity(value){return typeof value==='string'&&value.length>0&&value.length<=128&&!/[\u0000-\u0020\u007f]/u.test(value);}
 function receiptMatches(receipt,heartbeat){return receipt&&receipt.bootId===heartbeat.bootId&&receipt.generation===heartbeat.generation&&receipt.sequence===heartbeat.sequence&&['live','history'].includes(receipt.classification)&&receipt.heartbeatHash===createHash('sha256').update(canonical(heartbeat)).digest('hex');}
@@ -33,6 +34,11 @@ export async function runBridgeOnce({config,session,sequence,transport,outbox,sa
   if(receipt.classification!=='live')return receipt;
   for(const pending of await outbox.pending({now:now(),limit:240})){
     const original=JSON.parse(pending.heartbeatBytes);
+    // The single globally bounded spool may retain a previous enrollment. Never
+    // send its payload using a different device credential or delete it silently.
+    // pending's limit equals the entire 240-record capacity, so skipping cannot
+    // hide current-device records behind a foreign-device prefix.
+    if(original.deviceId!==config.deviceId)continue;
     const received=await transport.heartbeat({schemaVersion:1,delivery:'history',liveWindowId:pending.liveWindowId,heartbeat:original});
     if(!receiptMatches(received,original))throw new Error('Historical receipt differs.');
     await outbox.ack(pending.id,{classification:received.classification});
@@ -73,8 +79,8 @@ export async function main(argv=process.argv.slice(2),dependencies={}){
   try{
     do{
       try{await runBridgeOnce({config:activeConfig,session,sequence:sequence++,transport,outbox,sample:dependencies.sample??samplePcCommandCenter,now:dependencies.now});}
-      catch(error){if(once||!(error instanceof BridgeTransportError)||!['network_uncertain','server_uncertain','rate_limited'].includes(error.code))throw error;await sleep(Math.max(10000,Math.min(60000,error.retryAfterMs??10000)));continue;}
-      if(!once)await sleep(10000);
+      catch(error){if(once||!(error instanceof BridgeTransportError)||!['network_uncertain','server_uncertain','rate_limited'].includes(error.code))throw error;await sleep(Math.max(BRIDGE_LIMITS.sampleEveryMs,Math.min(60000,error.retryAfterMs??BRIDGE_LIMITS.sampleEveryMs)));continue;}
+      if(!once)await sleep(BRIDGE_LIMITS.sampleEveryMs);
     }while(!once);
   }finally{await outbox.close?.();}
 }

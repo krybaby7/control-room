@@ -51,3 +51,19 @@ test('unknown body fields and invalid retry policy never reach cloud transport',
   await assert.rejects(t.liveWindow({bootId:'boot',generation:1,sequence:1,command:'shell'}),/invalid_request/);assert.equal(calls,0);
   assert.throws(()=>createBridgeTransport({baseUrl:'https://private.example',maxAttempts:100}),/invalid_retry_limit/);
 });
+
+test('stalled private credential acquisition is bounded and its late completion cannot send a request',async context=>{
+  context.mock.timers.enable({apis:['setTimeout']});
+  let resolveHeaders,calls=0;
+  const gate=new Promise(resolve=>{resolveHeaders=resolve;});
+  const t=createBridgeTransport({baseUrl:'https://private.example',deviceCredential:'synthetic',ingressAdapter:{getHeaders:()=>gate},fetchImpl:async()=>{calls++;return Response.json({});}});
+  try{
+    const work=t.session(session);
+    await Promise.resolve();
+    context.mock.timers.tick(10000);
+    await assert.rejects(work,/private_ingress_unavailable/);
+    resolveHeaders({headers:{'x-synthetic':'late'},expiresAt:'2099-01-01T00:00:00Z'});
+    await Promise.resolve();await Promise.resolve();
+    assert.equal(calls,0);
+  }finally{context.mock.timers.reset();}
+});

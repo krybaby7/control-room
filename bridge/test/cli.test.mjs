@@ -85,3 +85,14 @@ test('enrollment secret is received only through prompt dependency and never pri
     assert.equal(saved.length,1);assert.equal(Object.hasOwn(saved[0],'secret'),false);assert.equal(printed.join('').includes('synthetic-one-use'),false);assert.deepEqual(JSON.parse(await readFile(path,'utf8')),config);
   }finally{await rm(directory,{recursive:true,force:true});}
 });
+
+test('cross-device retained history is not sent or deleted and cannot hide current-device history',async()=>{
+  const foreign={schemaVersion:1,deviceId:'previous-device',bootId:'foreign-boot',generation:1,sequence:4,sentAt:stamp,bridgeVersion:'0.1.0',observations:[]};
+  const current={...foreign,deviceId:'device',bootId:'current-old-boot',sequence:8};
+  const delivered=[],acked=[];
+  const foreignRows=Array.from({length:238},(_,i)=>({id:'foreign-'+i,heartbeatBytes:canonical({...foreign,sequence:i+1}),liveWindowId:null}));
+  const transport={async liveWindow(){return window();},async heartbeat(envelope){delivered.push(envelope);return receipt(envelope.heartbeat,envelope.delivery);}};
+  const outbox={async enqueue(){return {id:'new'};},async ack(id){acked.push(id);},async pending({limit}){assert.equal(limit,240);return [...foreignRows,{id:'current-old',heartbeatBytes:canonical(current),liveWindowId:null}];}};
+  await runBridgeOnce({config,session,sequence:1,transport,outbox,now:()=>stamp,sample:async()=>({})});
+  assert.equal(delivered.length,2);assert.equal(delivered[0].delivery,'live');assert.equal(delivered[1].heartbeat.deviceId,'device');assert.equal(delivered[1].heartbeat.bootId,'current-old-boot');assert.deepEqual(acked,['new','current-old']);
+});

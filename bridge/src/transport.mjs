@@ -30,6 +30,13 @@ async function readJson(response){
   }catch(error){if(error instanceof BridgeTransportError)throw error;throw new BridgeTransportError('invalid_response');}
   finally{reader.releaseLock();}
 }
+async function privateHeaders(adapter,context){
+  const controller=new AbortController();
+  let timer;
+  const expired=new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(new BridgeTransportError('private_ingress_unavailable'));},10000);});
+  try{return await Promise.race([Promise.resolve().then(()=>adapter.getHeaders({...context,signal:controller.signal})),expired]);}
+  finally{clearTimeout(timer);}
+}
 export function createBridgeTransport({baseUrl,deviceCredential=null,ingressAdapter=unavailablePrivateIngress,fetchImpl=globalThis.fetch,now=()=>Date.now(),sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms)),random=Math.random,maxAttempts=3}){
   const origin=cloudOrigin(baseUrl);
   if(!Number.isInteger(maxAttempts)||maxAttempts<1||maxAttempts>4)throw new BridgeTransportError('invalid_retry_limit');
@@ -41,7 +48,7 @@ export function createBridgeTransport({baseUrl,deviceCredential=null,ingressAdap
     const attempts=kind==='enroll'?1:maxAttempts;
     for(let attempt=0;attempt<attempts;attempt++){
       let ingress;
-      try{ingress=await ingressAdapter.getHeaders({url:origin+path,method:'POST',path});}catch{throw new BridgeTransportError('private_ingress_unavailable');}
+      try{ingress=await privateHeaders(ingressAdapter,{url:origin+path,method:'POST',path});}catch{throw new BridgeTransportError('private_ingress_unavailable');}
       if(!ingress||!Number.isFinite(Date.parse(ingress.expiresAt))||Date.parse(ingress.expiresAt)<=now())throw new BridgeTransportError('private_ingress_unavailable');
       const headers=new Headers(ingress.headers);
       if([...headers.keys()].length===0)throw new BridgeTransportError('private_ingress_unavailable');
