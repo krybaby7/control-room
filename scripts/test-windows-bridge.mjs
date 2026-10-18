@@ -27,6 +27,7 @@ try {
   function Private([string]$p) {
     $script:fixtureStage='private-read'
     $item=Get-Item -LiteralPath $p -Force
+    $script:fixtureStage='private-acl-read'
     $acl=Get-Acl -LiteralPath $p
     $script:fixtureStage='private-owner'
     $acl.SetOwner($sid)
@@ -80,7 +81,13 @@ try {
   }
   [Console]::Out.Write('{"ok":true}')
 }catch{
-  $diagnostic=@{stage=$fixtureStage;hresult=[int]$_.Exception.HResult;category=[int]$_.CategoryInfo.Category}
+  $kind=$_.Exception.GetType().Name
+  $reason=[string]$_.CategoryInfo.Reason
+  $errorId=[string]$_.FullyQualifiedErrorId
+  if($kind -notmatch '^[A-Za-z0-9_]{1,100}$'){$kind='redacted'}
+  if($reason -notmatch '^[A-Za-z0-9_]{1,100}$'){$reason='redacted'}
+  if($errorId -notmatch '^[A-Za-z0-9_.,-]{1,160}$'){$errorId='redacted'}
+  $diagnostic=@{stage=$fixtureStage;hresult=[int]$_.Exception.HResult;category=[int]$_.CategoryInfo.Category;exceptionType=$kind;reason=$reason;errorId=$errorId}
   [Console]::Error.Write(($diagnostic|ConvertTo-Json -Compress));exit 1
 }
 `;
@@ -95,7 +102,7 @@ async function fixture(mode){
     child.on('error',()=>{clearTimeout(timer);reject(new Error('fixture_process'));});
     child.on('close',code=>{clearTimeout(timer);if(failed||code!==0||output!=='{"ok":true}'){
       const error=new Error('fixture_process');error.fixtureExit=Number.isInteger(code)?code:null;
-      try{const d=JSON.parse(diagnostic);if(/^[a-z-]{1,32}$/u.test(d.stage)&&Number.isInteger(d.hresult)&&Number.isInteger(d.category))error.fixtureDiagnostic=d;}catch{}
+      try{const d=JSON.parse(diagnostic);if(/^[a-z-]{1,32}$/u.test(d.stage)&&Number.isInteger(d.hresult)&&Number.isInteger(d.category))error.fixtureDiagnostic={stage:d.stage,hresult:d.hresult,category:d.category,...Object.fromEntries(['exceptionType','reason','errorId'].filter(k=>typeof d[k]==='string'&&/^[A-Za-z0-9_.,-]{1,160}$/u.test(d[k])).map(k=>[k,d[k]]))};}catch{}
       reject(error);
     }else resolve();});
     child.stdin.end();
