@@ -1,0 +1,40 @@
+name: Control Room controlled workspace benchmark
+on:
+  push:
+    branches: [main, 'feat/**']
+    paths:
+      - '.github/workflows/control-room-benchmark.yml'
+      - 'scripts/benchmark-workspace.mjs'
+      - 'tests/helpers/sqlite.ts'
+      - 'lib/**'
+      - 'drizzle/**'
+      - 'package.json'
+      - 'package-lock.json'
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CONTROL_ROOM_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm run install:ci
+      - run: node --experimental-strip-types scripts/benchmark-workspace.mjs
+        timeout-minutes: 15
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: synthetic-workspace-performance
+          path: benchmark-results/workspace.json
+          if-no-files-found: error
+          retention-days: 14

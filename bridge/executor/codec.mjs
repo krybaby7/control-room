@@ -19,3 +19,5 @@ export function model(value){if(typeof value!=='string'||!/^[A-Za-z0-9][A-Za-z0-
 export const DIAGNOSTICS=Object.freeze(['ok','not_installed','capability_stale','policy_blocked','auth_required','quota_exhausted','model_mismatch','timeout','cancel_requested','exit_unconfirmed','artifact_invalid','transport_unavailable','unknown']);
 
 export function fileKey(value){id(value);if(!/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(value)||/[. ]$/u.test(value)||value.includes('..')||/^(?:CON|PRN|AUX|NUL|CONIN\$|CONOUT\$|CLOCK\$|COM[0-9¹²³]|LPT[0-9¹²³])(?:\..*)?$/iu.test(value))fail('unsafe_file_identity');return value;}
+
+export function freezeJson(value){const stack=[value];while(stack.length){const item=stack.pop();if(item&&typeof item==='object'&&!Object.isFrozen(item)){Object.freeze(item);stack.push(...Object.values(item));}}return value;}

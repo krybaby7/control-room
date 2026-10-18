@@ -1,5 +1,5 @@
 import {parseJobSpec,jobSpecSha256,checkExecutionAdmission,parseCapability,parseExecutionPolicy} from '../src/execution-policy.mjs';
-import {shape,id,digest,integer,choice,stamp,canonical,sha,fail,model,list} from './codec.mjs';
+import {shape,id,digest,integer,choice,stamp,canonical,sha,fail,model,list,freezeJson} from './codec.mjs';
 const runtimeKeys=['version','sourceCommit','packageSha256','toolPolicy','executableSha256','executableVersion','toolPolicySha256'];
 export function parseExecutionBinding(raw){
  shape(raw,['schemaVersion','provider','requestedModel','effort','runtime','capabilitySha256','configurationSha256','allowedPathsSha256','artifactRefs','effects','budget','modelIdentityPolicy']);
@@ -33,7 +33,7 @@ function timing(lease,raw){
 }
 /** This checks authenticated caller material; it does not authenticate JSON or issue a grant.
  * expectedBindingSha256 must come from the owner's independently retained approval, never the lease response. */
-export function admitExecutionLease({lease:raw,envelope,expectedBindingSha256,admission,timing:clock}){
+export function admitExecutionLease({lease:raw,envelope,expectedBindingSha256,admission,timing:clock,serverDeadlineAt=null}){
  const lease=parseLease(raw);shape(envelope,['approval','executionBinding','bindingSha256','reservationId','approverId']);id(envelope.reservationId);id(envelope.approverId);
  const binding=parseExecutionBinding(envelope.executionBinding),bindingHash=sha(binding);
  if(digest(envelope.bindingSha256)!==bindingHash||digest(expectedBindingSha256)!==bindingHash)fail('execution_binding_differs');
@@ -46,11 +46,11 @@ export function admitExecutionLease({lease:raw,envelope,expectedBindingSha256,ad
  if(canonical(binding.effects)!==canonical(expectedEffects)||binding.budget.timeoutSeconds!==spec.timeoutSeconds||binding.budget.outputBytesLimit!==spec.outputBytesLimit)fail('binding_effects_differ');
  if(canonical(binding.artifactRefs.map(value=>value.id))!==canonical(spec.inputArtifactIds)||binding.artifactRefs.some(value=>!admission.context.artifacts.some(item=>item.id===value.id&&item.sha256===value.sha256&&item.bytes===value.bytes)))fail('binding_artifacts_differ');
  const initial=timing(lease,clock);let deadline=initial.deadline,last=initial.received,stop=null;
- const jobDeadline=initial.received+spec.timeoutSeconds*1000;
+ const serverRemaining=serverDeadlineAt===null?spec.timeoutSeconds*1000:Date.parse(stamp(serverDeadlineAt))-Date.parse(clock.serverNow)-(clock.receivedMonotonicMs-clock.sentMonotonicMs);if(serverRemaining<=0||serverRemaining>spec.timeoutSeconds*1000)fail('invalid_server_deadline');const jobDeadline=initial.received+serverRemaining;
  function tick(now){if(!Number.isFinite(now)||now<last){stop='monotonic_clock_invalid';fail(stop);}last=now;if(stop)fail(stop);if(now>=Math.min(deadline,jobDeadline)){stop='lease_expired';fail(stop);}}
  return Object.freeze({
   identity:Object.freeze({jobId:lease.jobId,attemptId:lease.attemptId,deviceId:lease.deviceId,epoch:lease.epoch,specSha256:lease.specSha256}),
-  binding:Object.freeze(binding),spec:Object.freeze(spec),
+  binding:freezeJson(binding),spec:freezeJson(spec),
   assertCurrent:tick,
   remaining(now){tick(now);return Math.min(deadline,jobDeadline)-now;},
   renew(next,clock){tick(clock.receivedMonotonicMs);const parsed=parseLease(next);if(['jobId','attemptId','deviceId','epoch','specSha256','approvalId','leaseToken'].some(key=>parsed[key]!==lease[key])||canonical(parsed.spec)!==canonical(spec))fail('renewal_identity_differs');const measured=timing(parsed,clock);if(measured.received<last)fail('monotonic_clock_invalid');deadline=measured.deadline;last=measured.received;},

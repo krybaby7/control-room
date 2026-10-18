@@ -1,4 +1,5 @@
 import {z} from 'zod';
+import {ownerAgentContext} from './context.ts';
 import type {SqlDatabase} from '../workspace-store.ts';
 import {evidenceDateSchema} from '../evidence-validation.ts';
 import {DEVICE_LIMITS,unavailablePrivateIngress,type DevicePrincipal,type PrivateIngressVerifier} from '../devices/contracts.ts';
@@ -64,8 +65,8 @@ export async function handleAgentHttp(action:AgentHttpAction,request:Request,dep
    const store=await import('./store.ts');
    if(action==='capabilities')result=await store.reportAgentCapability(deps.db,principal,agentCapabilityUploadSchema.parse(value),{now:fresh});
    else{
-    if(!deps.context)return rejected(503,'agent_unavailable');
-    const options={now:fresh,context:deps.context,verifyResult:deps.verifyResult,verifyNoLaunch:deps.verifyNoLaunch};
+    const context=deps.context??ownerAgentContext(deps.db,principal.ownerId,fresh);
+    const options={now:fresh,context,verifyResult:deps.verifyResult,verifyNoLaunch:deps.verifyNoLaunch};
     if(action==='claim')result=await store.claimAgentJob(deps.db,principal,claimSchema.parse(value),options);
     else if(action==='renew')result=await store.renewAgentLease(deps.db,principal,leaseSchema.parse(value),options);
     else if(action==='events')result=await store.reportAgentEvents(deps.db,principal,eventsSchema.parse(value),options);

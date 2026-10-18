@@ -238,9 +238,14 @@ test('frozen task and approval are returned intact on resume/renew, never rebase
  assert.equal(renewed.serverNow,later(15));assert.equal(renewed.deadlineAt,first.deadlineAt);
 }finally{f.sqlite.close();}});
 
-test('UTF8 frozen prompt bytes are bounded without truncating owner text or consuming a lease',async()=>{const f=await fixture(120,'測'.repeat(10000),'測'.repeat(1000));try{
- await assert.rejects(claim(f),/frozen_task_input_capacity/);assert.equal(count(f,'job_attempts'),0);assert.equal(count(f,'agent_device_slots'),0);assert.equal(f.sqlite.prepare('SELECT consumed_at FROM job_approvals').get()!.consumed_at,null);assert.equal(f.sqlite.prepare('SELECT status FROM workspace_job_intents').get()!.status,'pending');
- const planning=JSON.parse(f.sqlite.prepare('SELECT content FROM workspaces').get()!.content as string);assert.equal(planning.tasks[0].notes,'測'.repeat(10000));
+test('UTF8 frozen prompt preflight rejects valid owner text without allocating intent, grant or attempt',async()=>{const f=database();try{
+ const workspace=workspaceFixture({tasks:[taskFixture('task-1',{notes:'測'.repeat(10000),evidence:'測'.repeat(1000)})]}),owner='synthetic-utf8-owner';
+ await loadWorkspace(f.db,owner,()=>workspace,now);
+ const before=f.sqlite.prepare('SELECT content,revision FROM workspaces WHERE user_id=?').get(owner)!;
+ await assert.rejects(buildAgentJobSpec({operation:'project.inspect',projectId:'p1',taskId:'task-1',repositoryKey:'synthetic-repo',baseCommit:'b'.repeat(40),inputArtifactIds:[],requestedModel:'synthetic-exact-model',effort:'medium',timeoutSeconds:120,outputBytesLimit:2048,dependsOnJobIds:[]},{workspace,workspaceRevision:1,acceptanceInputs:{}}),/task_prompt_bytes_exceeded/);
+ for(const table of ['workspace_job_intents','agent_jobs','job_approvals','job_attempts','agent_device_slots'])assert.equal(count(f,table),0);
+ const after=f.sqlite.prepare('SELECT content,revision FROM workspaces WHERE user_id=?').get(owner)!;assert.deepEqual({...after},{...before});
+ assert.equal(JSON.parse(after.content as string).tasks[0].notes,'測'.repeat(10000));assert.equal(JSON.parse(after.content as string).tasks[0].evidence,'測'.repeat(1000));
 }finally{f.sqlite.close();}});
 
 test('first claim freezes actual private admission facts with opaque owner scope and persists them unchanged',async()=>{const f=await fixture();try{

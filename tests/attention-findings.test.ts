@@ -31,12 +31,12 @@ test('owner metadata produces evidence, unknown/stale source, blocked schedule a
  assert.ok(!canonical(result).includes('deviceCredential'));assert.equal(result.readAt.jobs,now);
 });
 test('last success survives failure; future time remains unknown and provider failure details are closed',async()=>{
- const data=input();data.sources.targets[0].state.lastSuccessAt='2026-10-17T12:00:00.000Z';data.sources.targets[0].state.failure='upstream_error';data.sources.targets[0].state.failureCount=1;
+ const data=input();data.sources.targets[0].state!.lastSuccessAt='2026-10-17T12:00:00.000Z';data.sources.targets[0].state!.failure='upstream_error';data.sources.targets[0].state!.failureCount=1;
  const result=await deriveOwnerAttentionFindings(workspace,revision,data),source=result.findings.find(row=>row.entityType==='source')!;
  assert.equal(source.sortAt,'2026-10-17T12:00:00.000Z');assert.match(source.reasons.join(' '),/older/);assert.match(source.reasons.join(' '),/did not complete/);
- data.sources.targets[0].state.lastSuccessAt='2026-10-19T12:00:00.000Z';
+ data.sources.targets[0].state!.lastSuccessAt='2026-10-19T12:00:00.000Z';
  assert.match((await deriveOwnerAttentionFindings(workspace,revision,data)).findings.find(row=>row.entityType==='source')!.reasons.join(' '),/ahead.*unknown/);
- data.sources.targets[0].state.failure='token=synthetic-sensitive /private/path' as never;await assert.rejects(deriveOwnerAttentionFindings(workspace,revision,data));
+ data.sources.targets[0].state!.failure='token=synthetic-sensitive /private/path' as never;await assert.rejects(deriveOwnerAttentionFindings(workspace,revision,data));
 });
 test('owner revision, exact job hashes, safe links and project identities fail closed',async()=>{
  const data=input();
