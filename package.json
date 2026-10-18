@@ -15,7 +15,10 @@
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
     "test:e2e": "playwright test --config playwright.config.ts",
-    "test:fixture": "node scripts/test-worker.mjs --target local-fixture"
+    "test:fixture": "node scripts/test-worker.mjs --target local-fixture",
+    "test:attachments-r2": "node --experimental-strip-types scripts/test-attachments-r2.mjs",
+    "test:attachments-http": "node scripts/test-worker.mjs --target local-fixture --with-r2",
+    "test:e2e:r2": "playwright test --config playwright.r2.config.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

@@ -31,3 +31,17 @@ CI39139870503/job117711897996 at6e31db7e completed with clean locked install,604
 Uncommitted follow-on work also distinguishes current owner-assessment attribution from imported history, adds immutable-record freshness assessments and a bounded read-only owner preview. Additional protected link/criterion/assessment/decision-action UI is in progress. These follow-on changes have not yet been published or accepted by cloud browser tests.
 
 The coherent backend merge fix passes **617 Node tests**, zero failures/skips, typecheck,lint,production build and actual isolated HTTP fixture. Four new SQLite merge regressions retain every normalized row and current owner grant while rejecting direct row-set races. Cloud rerun is pending publication of this patch; protected action UI remains separate work.
+
+Published merge/backend fix: `cf1c2e1b97690030c40c4066d41c97f732594cb5`, exact tree `9404aa4c4bdf1d6361c407a7b34fc839065cc256`. CI39140792141 is running the unchanged31-journey suite. Protected action dialogs are completed leaf files awaiting central integration. An actual isolated Miniflare R2 script passed text/PDF/PNG round trips, conditional-write races and integrity failures; this is emulator evidence, not deployed private R2 access.
+
+CI39140792141/job117714617857 atcf1c2e1b passed617 Node tests and all pre-browser gates, then30/31 Chromium. Every merge journey passed. The remaining Attention paging fixture assumed a global100-review-task count, while the new legacy journey correctly retained another review task. The fixture now creates and selects its own synthetic project; all original assertions remain.
+
+The uncommitted protected action source passes626 Node tests and discovers35 Chromium journeys. A separate opt-in local R2 HTTP fixture passed authenticated reserve/stage/finalize/replay/download plus owner,expiry,origin and signature denials against an actual emulator binding. The downloaded32-byte synthetic body had SHA256ee8061dff83dd68f205b6597c2333557be9e2b07a15c5dab79b35e707fb8104e. This is explicitly local emulator proof, not hosted private R2 verification.
+
+### Protected review and attachment UI checkpoint
+
+Integrated exact-version linking, criterion CAS edits, explicit assessment previews/records, scoped decision actions, attachment reservation/staging/finalization/retirement and ready-metadata evidence selection. File bytes remain memory-only and recovered upload drafts require file reselection and fresh confirmation. Assessment preview now validates the exact superseded assessment, with a real-SQLite no-write regression.
+
+The current source passed 639 Node tests, typecheck, lint and production build (five tests belong to the independent archive-export helper still under development). Local Miniflare R2 and the authenticated HTTP R2 fixture passed after the build. These prove emulator behavior only. The committed UI checkpoint adds four browser action journeys (35 total) and a separate actual-emulator R2 browser journey; cloud execution is pending. The previous cloud run passed30/31; its remaining Attention fixture now filters to its own synthetic project while retaining the original reviewed-merge/search/Arabic/keyboard/mobile assertions.
+
+Native full-file import/restore, persistent SQL cleanup fencing, complete undo families and stable citations remain in progress. No hosted release or live private R2 acceptance is claimed.

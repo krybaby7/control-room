@@ -1,9 +1,15 @@
 'use client';
+import {AttachmentReserveEditor,AttachmentUploadDialog,AttachmentLifecycleDialog} from './attachment-dialogs';
+import {EvidenceLinkEditor} from './evidence-link-editor';
+import {RequirementEditor} from './requirement-editor';
+import {AcceptanceDialog} from './acceptance-dialog';
+import {DecisionActionDialog} from './decision-action-dialog';
+import type {AttachmentSnapshot,EvidenceSnapshot} from '@/lib/evidence-store';
 import {HistoryView} from './history-view';
 import {EvidenceWorkspace} from './evidence-workspace';
 import {EvidenceEditor} from './evidence-editor';
 import {DecisionEditor} from './decision-editor';
-import type {EvidenceVersion,DecisionVersion} from '@/lib/evidence-contract';
+import type {EvidenceVersion,DecisionVersion,EvidenceRequirement,EvidenceSubject} from '@/lib/evidence-contract';
 import {DEFAULT_SEARCH_STATE,encodeSearchState,parseSearchState,type SearchState} from '@/lib/planning-search-state';
 import {weekStartSchema} from '@/lib/weekly-planning';
 import {OriginalSaveContext} from './form-dialog';
@@ -38,7 +44,7 @@ import { SourcesView } from './sources-view';
 
 type View = 'today' | 'projects' | 'inbox' | 'sources' | 'search' | 'attention' | 'weekly' | 'evidence' | 'history';
 type SaveBase = { revision: number; submission?: Submission | null };
-type Editor = {type:'evidence';evidence?:EvidenceVersion}|{type:'decision';decision?:DecisionVersion}|{ type: 'task'; task?: Task; projectId: string; milestoneId?:string } | { type: 'milestone'; milestone?: Milestone; project: Project } | { type: 'project'; project?: Project } | { type: 'capture'; capture?: Capture } | { type: 'convert'; capture: Capture } | {type:'recurrence';rule?:{value:RecurrenceRule;rowRevision:number}} | {type:'weekly-review';draft:WeeklyReviewDraft};
+type Editor = {type:'attachment-reserve';snapshot:EvidenceSnapshot}|{type:'attachment-upload';attachment:AttachmentSnapshot;snapshot:EvidenceSnapshot}|{type:'attachment-lifecycle';attachment:AttachmentSnapshot;snapshot:EvidenceSnapshot;action:'finalize'|'retire'}|{type:'evidence';evidence?:EvidenceVersion;snapshot?:EvidenceSnapshot}|{type:'decision';decision?:DecisionVersion;snapshot?:EvidenceSnapshot}|{type:'evidence-link';evidence:EvidenceVersion;snapshot:EvidenceSnapshot}|{type:'requirement';requirement?:{value:EvidenceRequirement;rowRevision:number};snapshot:EvidenceSnapshot}|{type:'acceptance';snapshot:EvidenceSnapshot;subject?:EvidenceSubject}|{type:'decision-action';decision:DecisionVersion;snapshot:EvidenceSnapshot;action:'decide'|'supersede'}|{ type: 'task'; task?: Task; projectId: string; milestoneId?:string } | { type: 'milestone'; milestone?: Milestone; project: Project } | { type: 'project'; project?: Project } | { type: 'capture'; capture?: Capture } | { type: 'convert'; capture: Capture } | {type:'recurrence';rule?:{value:RecurrenceRule;rowRevision:number}} | {type:'weekly-review';draft:WeeklyReviewDraft};
 const navItems = [{ id: 'today', label: 'Today', icon: Sun }, { id: 'projects', label: 'Projects', icon: LayoutGrid }, { id: 'inbox', label: 'Inbox', icon: Inbox }, {id:'weekly',label:'Weekly planning',icon:CalendarDays}, { id: 'search', label: 'Search', icon: Search }, { id: 'attention', label: 'Attention', icon: ListChecks }, { id: 'history', label: 'History', icon: FolderOpen }, { id: 'evidence', label: 'Evidence & decisions', icon: ListChecks }, { id: 'sources', label: 'Sources', icon: FolderOpen }] as const;
 
 export default function ControlCenter({ userName }: { userName: string }) {
@@ -226,7 +232,7 @@ export default function ControlCenter({ userName }: { userName: string }) {
         {view === 'today' && <TodayView workspace={workspace} onProject={openProject} onTask={openTask} onPin={pinTask} onProjects={() => navigate('projects')} onAttention={()=>navigate('attention')} onCapture={() => openEditor({ type: 'capture' })} busy={busy} />}
         {unavailableTarget && <div className="panel" role="status"><h2>This item is unavailable.</h2><p>It may be missing or unavailable in this workspace.</p><button className="button secondary" onClick={()=>navigate('today')}>Go home</button></div>}
         {!unavailableTarget && view==='history' && <HistoryView revision={envelope!.revision} onCommand={(command,revision)=>mutate(command as Command,undefined,revision)} />}
-        {!unavailableTarget && view==='evidence' && <EvidenceWorkspace workspace={workspace} revision={envelope!.revision} onEvidence={(evidence,revision)=>openEditor({type:'evidence',evidence},revision)} onDecision={(decision,revision)=>openEditor({type:'decision',decision},revision)} onCommand={(command,revision)=>mutate(command as Command,undefined,revision)} />}
+        {!unavailableTarget && view==='evidence' && <EvidenceWorkspace workspace={workspace} revision={envelope!.revision} onEvidence={(evidence,revision,snapshot)=>openEditor({type:'evidence',evidence,snapshot},revision)} onAttachmentReserve={snapshot=>openEditor({type:'attachment-reserve',snapshot},snapshot.revision)} onAttachmentUpload={(attachment,snapshot)=>openEditor({type:'attachment-upload',attachment,snapshot},snapshot.revision)} onAttachmentLifecycle={(attachment,snapshot,action)=>openEditor({type:'attachment-lifecycle',attachment,snapshot,action},snapshot.revision)} onDecision={(decision,revision,snapshot)=>openEditor({type:'decision',decision,snapshot},revision)} onLink={(evidence,snapshot)=>openEditor({type:'evidence-link',evidence,snapshot},snapshot.revision)} onRequirement={(requirement,snapshot)=>openEditor({type:'requirement',requirement,snapshot},snapshot.revision)} onAssessment={(snapshot,subject)=>openEditor({type:'acceptance',snapshot,subject},snapshot.revision)} onDecisionAction={(decision,snapshot,action)=>openEditor({type:'decision-action',decision,snapshot,action},snapshot.revision)} onCommand={(command,revision)=>mutate(command as Command,undefined,revision)} />}
         {!unavailableTarget && view==='weekly' && <WeeklyPlanningView key={weeklyWeek??'current'} initialWeek={weeklyWeek} onReview={(draft,revision)=>openEditor({type:'weekly-review',draft},revision)} workspace={workspace} revision={envelope!.revision} onCommand={(command,revision)=>mutate(command,undefined,revision)} onTask={openTask} onRecurrenceEdit={rule=>openEditor({type:'recurrence',rule})} />}
         {!unavailableTarget && view === 'search' && <SearchView value={searchState} onStateChange={(state,mode)=>{setSearchState(state);const url=encodeSearchState(state);if(mode==='replace'){window.history.replaceState({},'',url);locationKey.current=window.location.search;}else writeLocation(url);}} workspace={workspace} onOpen={openEntity} />}
         {!unavailableTarget && view === 'attention' && <AttentionView revision={envelope!.revision} workspace={workspace} onOpen={openEntity} />}
@@ -246,8 +252,15 @@ export default function ControlCenter({ userName }: { userName: string }) {
     {envelope && editor?.type==='recurrence' && <RecurrenceEditor key={`recurrence:${editor.rule?.value.id??'new'}`} rule={editor.rule} workspace={envelope.workspace} onSave={saveEditor} onClose={closeEditor} />}
     {envelope && editor?.type === 'convert' && <ConvertEditor key={`convert:${editor.capture.id}`} capture={editor.capture} workspace={envelope!.workspace} onSave={saveEditor} onClose={closeEditor} />}
     {envelope && editor?.type==='weekly-review' && <WeeklyReviewEditor key={`weekly-review:${editor.draft.weekStart}:${editor.draft.supersedesId??'new'}`} draft={editor.draft} onSave={saveEditor} onClose={closeEditor} />}
-    {envelope && editor?.type==='evidence' && <EvidenceEditor key={`evidence:${editor.evidence?.id??'new'}`} evidence={editor.evidence} onSave={command=>saveEditor(command as Command)} onClose={closeEditor} />}
-    {envelope && editor?.type==='decision' && <DecisionEditor key={`decision:${editor.decision?.id??'new'}`} decision={editor.decision} onSave={command=>saveEditor(command as Command)} onClose={closeEditor} />}
+    {envelope && editor?.type==='evidence' && <EvidenceEditor key={`evidence:${editor.evidence?.id??'new'}`} evidence={editor.evidence} attachments={editor.snapshot?.attachments} onSave={command=>saveEditor(command as Command)} onClose={closeEditor} />}
+    {envelope && editor?.type==='decision' && <DecisionEditor key={`decision:${editor.decision?.id??'new'}`} decision={editor.decision} workspace={envelope.workspace} snapshot={editor.snapshot} onSave={command=>saveEditor(command as Command)} onClose={closeEditor} />}
+    {envelope && editor?.type==='evidence-link' && <EvidenceLinkEditor key={`evidence-link:${editor.evidence.id}:${editor.evidence.version}`} evidence={editor.evidence} workspace={envelope.workspace} requirements={editor.snapshot.requirements} onSave={command=>saveEditor(command as Command)} onClose={closeEditor} />}
+    {envelope && editor?.type==='requirement' && <RequirementEditor key={`requirement:${editor.requirement?.value.id??'new'}`} requirement={editor.requirement} workspace={envelope.workspace} onSave={command=>saveEditor(command as Command)} onClose={closeEditor} />}
+    {envelope && editor?.type==='acceptance' && <AcceptanceDialog key={`acceptance:${editor.subject?.type??'new'}:${editor.subject?.id??''}`} workspace={envelope.workspace} snapshot={editor.snapshot} subject={editor.subject} onSave={command=>saveEditor(command as Command)} onClose={closeEditor} />}
+    {envelope && editor?.type==='decision-action' && <DecisionActionDialog key={`decision-action:${editor.action}:${editor.decision.id}`} decision={editor.decision} snapshot={editor.snapshot} action={editor.action} onSave={command=>saveEditor(command as Command)} onClose={closeEditor} />}
+    {envelope && editor?.type==='attachment-reserve' && <AttachmentReserveEditor key="attachment-reserve:new" onSave={command=>saveEditor(command as Command)} onClose={closeEditor} />}
+    {envelope && editor?.type==='attachment-upload' && <AttachmentUploadDialog key={`attachment-upload:${editor.attachment.id}`} attachment={editor.attachment} onClose={closeEditor} onStaged={()=>setNotice('Original bytes staged. Finalization is a separate owner action.')} />}
+    {envelope && editor?.type==='attachment-lifecycle' && <AttachmentLifecycleDialog key={`attachment-lifecycle:${editor.action}:${editor.attachment.id}`} attachment={editor.attachment} action={editor.action} onSave={command=>saveEditor(command as Command)} onClose={closeEditor} />}
     </DurableDraftProvider></OriginalSaveContext.Provider>
   </div></DeviceDraftProvider></SessionExpiredContext.Provider>;
 }

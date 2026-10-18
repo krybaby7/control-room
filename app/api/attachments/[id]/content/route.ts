@@ -1,10 +1,10 @@
 import {canonical,contentHash} from '../../../../../lib/canonical-json';
-import {attachmentDownloadHeaders} from '../../../../../lib/attachment-policy';
+import {attachmentDownloadHeaders,AttachmentPolicyError} from '../../../../../lib/attachment-policy';
 import {env} from 'cloudflare:workers';
 import {getChatGPTUser} from '../../../../chatgpt-auth';
 import {ownerReader} from '../../../../../lib/workspace-modules';
 import {attachmentRecordSchema} from '../../../../../lib/evidence-module';
-import {createR2BlobStore,readReadyAttachment,stageAttachmentUpload} from '../../../../../lib/attachments';
+import {createR2BlobStore,readReadyAttachment,stageAttachmentUpload,AttachmentReplayMismatchError} from '../../../../../lib/attachments';
 import {getWorkspaceNamespaces} from '../../../../../lib/workspace-namespaces';
 export const dynamic='force-dynamic';
 export async function GET(request:Request,{params}:{params:Promise<{id:string}>}){
@@ -39,5 +39,5 @@ export async function PUT(request:Request,{params}:{params:Promise<{id:string}>}
   const result=await stageAttachmentUpload(user.userId,record,request.body,createR2BlobStore(env.BUCKET),{ownerNamespace:namespaces.blobNamespace});
   if(result.status==='staged')return Response.json({status:'staged',id,replayed:result.replayed,bytes:result.blob.bytes,sha256:result.blob.sha256,finalized:false},{headers});
   return Response.json({status:result.status,error:result.status==='quarantined'?'Content verification failed. The attachment has not been finalized.':'Private storage verification is unavailable. Keep the original file and retry.',finalized:false},{status:result.status==='quarantined'?422:503,headers});
- }catch{return Response.json({error:'Upload could not be confirmed. Retry the original file before finalizing.'},{status:503,headers});}
+ }catch(error){if(error instanceof AttachmentReplayMismatchError)return Response.json({error:'A different file body already occupies this reservation. Retry the original file.'},{status:409,headers});if(error instanceof AttachmentPolicyError)return Response.json({error:error.message},{status:error.code==='file_too_large'?413:error.code==='upload_timeout'?408:422,headers});return Response.json({error:'Upload could not be confirmed. Retry the original file before finalizing.'},{status:503,headers});}
 }

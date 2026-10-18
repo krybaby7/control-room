@@ -7,7 +7,7 @@ export async function ownerAttachmentServices(db:SqlDatabase,userId:string,now:s
  const namespaces=await getWorkspaceNamespaces(db,userId);if(!namespaces)return {};
  const store=createR2BlobStore(bucket);
  return {attachmentAccess:{ownerNamespace:namespaces.blobNamespace,store},verifyAttachment:async record=>{
-  if(!store.available)return null;const proof=await readReadyAttachment(userId,record,store,{ownerNamespace:namespaces.blobNamespace,now});
-  return {record,verifiedSha256:proof.metadata.sha256,verifiedBytes:proof.bytes.length,signatureVerified:true};
+  if(!store.available)return null;try{const proof=await readReadyAttachment(userId,record,store,{ownerNamespace:namespaces.blobNamespace,now});
+  return {record,verifiedSha256:proof.metadata.sha256,verifiedBytes:proof.bytes.length,signatureVerified:true};}catch{return null;}
  }};
 }

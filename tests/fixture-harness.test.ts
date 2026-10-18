@@ -5,7 +5,7 @@ import {parseFixtureArgs,fixtureConfig,fixtureEnvironment,SYNTHETIC_DB_ID,FIXTUR
 import {fixtureProxy,requireFreePort} from '../scripts/test-worker.mjs';
 const source={main:'index.js',assets:{directory:'../client'},compatibility_date:'2026-05-15',d1_databases:[{binding:'DB',database_id:SYNTHETIC_DB_ID}],r2_buckets:[]};
 test('harness accepts only explicit local fixture flags and rejects deployment bindings',()=>{
- assert.deepEqual(parseFixtureArgs(['--target','local-fixture']),{serve:false});assert.equal(parseFixtureArgs(['--target','local-fixture','--serve']).serve,true);
+ assert.deepEqual(parseFixtureArgs(['--target','local-fixture']),{serve:false,withR2:false});assert.equal(parseFixtureArgs(['--target','local-fixture','--serve']).serve,true);
  for(const args of [[],['--target','production'],['--target','local-fixture','--remote'],['--target','local-fixture','--port','80']])assert.throws(()=>parseFixtureArgs(args));
  for(const unsafe of [{...source,d1_databases:[{database_id:'real-owner-id'}]},{...source,d1_databases:[{database_id:SYNTHETIC_DB_ID,remote:true}]},{...source,r2_buckets:[{binding:'BUCKET'}]},{...source,services:[{}]},{...source,main:'https://foreign.invalid/worker.js'}])assert.throws(()=>fixtureConfig(unsafe));
  const config=fixtureConfig(source);assert.equal(config.d1_databases[0].database_id,SYNTHETIC_DB_ID);assert.equal(config.dev.ip,'127.0.0.1');assert.ok(config.main.startsWith('/'));assert.ok(config.assets.directory.startsWith('/'));assert.equal('r2_buckets' in config,false);const env=fixtureEnvironment('/tmp/synthetic-fixture');assert.equal('CLOUDFLARE_API_TOKEN' in env,false);assert.equal('HOME' in env,false);assert.equal(env.XDG_CONFIG_HOME,'/tmp/synthetic-fixture/config');
@@ -20,4 +20,16 @@ test('proxy supplies only synthetic session headers and preserves foreign origin
   await fetch(`${FIXTURE_ORIGIN}/api/workspace`,{headers:{cookie:'fixture_session=a',origin:FIXTURE_ORIGIN,'oai-authenticated-user-id':'real-owner','oai-authenticated-user-email':'real@example.com'}});assert.equal(seen[0].headers['oai-authenticated-user-id'],'synthetic-a');assert.equal(seen[0].headers.origin,'http://127.0.0.1:4174');
   await fetch(`${FIXTURE_ORIGIN}/api/workspace`,{headers:{cookie:'fixture_session=expired',origin:'https://foreign.invalid','oai-authenticated-user-id':'spoofed'}});assert.equal(seen[1].headers['oai-authenticated-user-id'],undefined);assert.equal(seen[1].headers.origin,'https://foreign.invalid');
  }finally{proxy.closeAllConnections();upstream.closeAllConnections();await Promise.all([new Promise<void>(resolve=>proxy.close(()=>resolve())),new Promise<void>(resolve=>upstream.close(()=>resolve()))]);}
+});
+
+test('R2 option is explicit and only adds an isolated synthetic local binding',()=>{
+ assert.deepEqual(parseFixtureArgs(['--target','local-fixture','--with-r2']),{serve:false,withR2:true});
+ assert.deepEqual(parseFixtureArgs(['--target','local-fixture','--serve','--with-r2']),{serve:true,withR2:true});
+ for(const args of [['--with-r2'],['--target','production','--with-r2'],['--target','local-fixture','--with-r2','--with-r2'],['--target','local-fixture','--with-r2','--remote']])assert.throws(()=>parseFixtureArgs(args));
+ const plain=fixtureConfig(source),enabled=fixtureConfig(source,{withR2:true});
+ assert.deepEqual(enabled.r2_buckets,[{binding:'BUCKET',bucket_name:'control-room-synthetic-local-attachments',remote:false}]);
+ const {r2_buckets,...rest}=enabled;void r2_buckets;assert.deepEqual(rest,plain);assert.equal(source.r2_buckets.length,0);
+ assert.throws(()=>fixtureConfig({...source,r2_buckets:[{binding:'BUCKET',bucket_name:'production'}]},{withR2:true}));
+ // @ts-expect-error runtime rejects untyped CLI/config callers too
+ assert.throws(()=>fixtureConfig(source,{withR2:'yes'}));
 });

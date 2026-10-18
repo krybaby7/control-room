@@ -97,7 +97,8 @@
         "Coherent Phase3 source checkpoint:604 Node tests passed,zero failures/skips; typecheck,lint,production build pass;31 Chromium journeys discovered including5new evidence/history tests, execution pending cloud CI. Protected evidence/decision editors and history/whole-command undo review integrated; attachment manifests explicitly exclude ready-file bytes and report missing files.",
         "Actual isolated built-worker HTTP GET/POST/replay/CSRF fixture passed on the coherent604-test source. Private Site identity unchanged; rejected inspection commit excluded from implementation ancestry.",
         "CI39139870503/job117711897996 at6e31db7e passed cleanlockedinstall,604Node,typecheck,lint,build,actualHTTPfixture and27/31Chromium. All5new evidence/decision journeys passed. Four existingreviewedmerge journeys exposed one real overbroadnormalizedrestoreguard; narrowedfix +4actualSQLite preservation/race regressions prepared,rerunpending.",
-        "Merge-fix working source passes617 Node tests,zero failures/skips,typecheck,lint,productionbuild andactualisolatedHTTPfixture;4newSQLite regressions retainall16modules andcurrentownergrants while rejecting complete-set races. Owner assessment freshness/read-only preview and server-only attribution are implemented; currentprotectedactionUI is not yet integrated."
+        "Merge-fix working source passes617 Node tests,zero failures/skips,typecheck,lint,productionbuild andactualisolatedHTTPfixture;4newSQLite regressions retainall16modules andcurrentownergrants while rejecting complete-set races. Owner assessment freshness/read-only preview and server-only attribution are implemented; currentprotectedactionUI is not yet integrated.",
+        "CI39140792141/job117714617857 atcf1c2e1b passed617Node/allprebrowsergates and30/31Chromium,includingallmergejourneys. Soleattentionglobalcountfixture assumption correctedwithoutproductweakening. Uncommitted626Nodepass;35browserjourneysdiscovered. ActualisolatedMiniflareR2direct andauthenticatedHTTPreserve/stage/finalize/replay/download/ownerB404/session401/origin403/invalidsignature422 fixtures pass;notliveprivateR2proof."
       ],
       "blockers": [
         "Private R2 provisioning and actual hosted upload/download/restore acceptance remain unverified; optional BUCKET availability must be established through supported Sites release workflow.",
@@ -136,7 +137,7 @@
       "blockers": []
     }
   ],
-  "nextAction": "Finish Phase3 integrated attachment/undo handlers and protected UI; run full Node/type/lint/build/fixture gates, then Chromium evidence/history journeys before source acceptance. Continue Phases4\u20138 in order.",
+  "nextAction": "Run cloud CI on this protected UI checkpoint; inspect actual Chromium results. Continue exact-version citations, native archive staged restore and persistent SQL blob fences before Phase3 acceptance, then Phases4\u20138.",
   "allowedStatuses": [
     "not_started",
     "in_progress",
@@ -163,20 +164,20 @@
     "evidence": "Explicit supported model selection accepted and worker IDs returned."
   },
   "checkpoint": {
-    "publishedCommit": "6e31db7e33e5d0d0876f949958ee25f20536fe73",
-    "workingTree": "Uncommitted guarded merge fix, owner assessment freshness/private attribution and read-only preview; protected link/requirement/assessment/decision UI leaf work also underway. Preserve all files.",
-    "tests": "Published6e31db7e CI:604Node/allbuildfixturepass,27/31Chromiuminclall5newjourneys;4mergefailures. Newmergefixbackend workingtree:617Node/type/lint/build/HTTPfixturepass;rerunpending.",
+    "publishedCommit": "cf1c2e1b97690030c40c4066d41c97f732594cb5",
+    "workingTree": "Integrated protected criterion/link/assessment/decision-action/attachment UI and isolated R2 fixture checkpoint. Native archive export/import helpers remain independent uncommitted work.",
+    "tests": "Integrated source:639 Node pass (includes5 independently developing archive-export tests); typecheck/lint/build pass. Local Miniflare R2 direct and authenticated HTTP fixtures pass; download32bytes SHA256 ee8061dff83dd68f205b6597c2333557be9e2b07a15c5dab79b35e707fb8104e. Default35 Chromium and separate1 R2 Chromium discovered, execution pending cloud CI.",
     "knownFailures": [
-      "Published6e31db7e rejects reviewedplanning merges whennormalizedmodulespopulated;rootfixuncommitted narrows module-preservation authority toreviewedmerge andassertsall16currentrowsets. FouractualSQLite regressionspass;original4browsermergejourneysunchanged,rerunpending."
+      "Publishedcf1c2e1bCIhas1of31browserfailure:attentionfixtureglobal100reviewtaskassumption now101afternewlegacyjourney. Uncommittedfixtureisolationfixpreservesalloriginalmerge/search/Arabic/keyboard/mobileassertions;rerunpending."
     ],
     "unfinished": [
       "Phase3 coherent integration, guarded attachment lifecycle, protected UI and real-browser evidence/history regression; explicit private blob gate",
       "Phases4\u20138",
       "External hosted/provider/device/renewable runner/private blob acceptance"
     ],
-    "nextCommand": "Complete current merge-fix full source gates andfixture, publish coherent backendfix toexistingdraftbranch, rerun31Chromium; integrate protected remainingPhase3UI andlocalR2fixture whileCIruns.",
-    "publishedTree": "0d45a996a9e4c9daf9842bcede90a613de5bc554",
-    "cloudRun": "39139870503/job117711897996 at6e31db7e terminalfailure: cleaninstall604Node/type/lint/build/HTTPfixturepass;Chromium27/31 inclall5newevidencejourneys. All4failures reviewedplanningmerge withpopulatednormalizedtables.",
-    "currentCommit": "6e31db7e33e5d0d0876f949958ee25f20536fe73"
+    "nextCommand": "Run cloud CI on this protected UI checkpoint; inspect actual Chromium results. Continue exact-version citations, native archive staged restore and persistent SQL blob fences before Phase3 acceptance, then Phases4\u20138.",
+    "publishedTree": "9404aa4c4bdf1d6361c407a7b34fc839065cc256",
+    "cloudRun": "39140792141/job117714617857 atcf1c2e1b terminalfailure:617Node/allprebrowsergatespass,30/31Chromium. Allmergejourneysnowpass;soleattentionpaginationfixtureglobalreviewcountassumption correctedlocallywithownsyntheticproject.",
+    "currentCommit": "cf1c2e1b97690030c40c4066d41c97f732594cb5"
   }
 }

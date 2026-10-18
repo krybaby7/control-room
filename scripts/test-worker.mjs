@@ -1,4 +1,6 @@
 import http from 'node:http';
+import assert from 'node:assert/strict';
+import {createHash,randomUUID} from 'node:crypto';
 import net from 'node:net';
 import {spawn} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
@@ -33,15 +35,50 @@ export async function smokeFixture(){
  const denied=await fetch(`${FIXTURE_ORIGIN}/api/workspace`,{method:'POST',headers:{...headers,origin:'https://foreign.invalid'},body:JSON.stringify(body)});if(denied.status!==403)throw new Error('Fixture proxy weakened the origin check.');
  console.log('Synthetic fixture HTTP GET/POST/replay/CSRF smoke passed.');
 }
+export async function smokeAttachments(){
+ const headers={cookie:'fixture_session=a',origin:FIXTURE_ORIGIN,'Content-Type':'application/json'};
+ const request=(url,options={})=>fetch(`${FIXTURE_ORIGIN}${url}`,{...options,headers:{...headers,...options.headers}});
+ const json=async url=>{const response=await request(url);assert.equal(response.status,200,await response.clone().text());return response.json();};
+ const command=async value=>{const current=await json('/api/workspace');return {revision:current.revision,mutationId:randomUUID(),command:value};};
+ const post=body=>request('/api/workspace',{method:'POST',body:JSON.stringify(body)});
+ const reserve=async(filename,mimeType,bytes)=>{
+  const response=await post(await command({type:'attachment.reserve',value:{filename,mimeType,expectedBytes:bytes.length}}));assert.equal(response.status,200,await response.clone().text());
+  const snapshot=await json('/api/evidence');const matches=snapshot.attachments.filter(row=>row.filename===filename);assert.equal(matches.length,1);assert.match(matches[0].id,/^[a-f0-9-]{36}$/);return matches[0];
+ };
+ const filename=`fixture-${randomUUID()}.txt`,bytes=Buffer.from('Synthetic HTTP R2 fixture body.\n');
+ const record=await reserve(filename,'text/plain',bytes),url=`/api/attachments/${record.id}/content`;
+ const put=(data,extra={})=>request(url,{method:'PUT',headers:{'Content-Type':'text/plain',...extra},body:data});
+ let response=await put(bytes);assert.equal(response.status,200,await response.clone().text());const staged=await response.json();assert.equal(staged.status,'staged');assert.equal(staged.finalized,false);
+ assert.equal((await request(url)).status,404);
+ assert.equal((await json('/api/evidence')).attachments.find(row=>row.id===record.id).status,'reserved');
+ response=await put(bytes);assert.equal(response.status,200);assert.equal((await response.json()).replayed,true);
+ assert.equal((await put(Buffer.from('Synthetic HTTP R2 fixture body.!'))).status,409);
+ assert.equal((await put(bytes,{origin:'https://foreign.invalid'})).status,403);
+ assert.equal((await put(bytes,{cookie:'fixture_session=b'})).status,404);
+ assert.equal((await put(bytes,{cookie:'fixture_session=expired'})).status,401);
+ const finalize=await command({type:'attachment.finalize',id:record.id});
+ for(let i=0;i<2;i++){response=await post(finalize);assert.equal(response.status,200,await response.clone().text());}
+ assert.equal((await json('/api/workspace')).revision,finalize.revision+1);
+ response=await request(url);assert.equal(response.status,200);const downloaded=Buffer.from(await response.arrayBuffer());assert.deepEqual(downloaded,bytes);
+ const sha256=createHash('sha256').update(downloaded).digest('hex');assert.equal(sha256,staged.sha256);
+ assert.equal(response.headers.get('content-type'),'text/plain');assert.equal(response.headers.get('x-content-type-options'),'nosniff');assert.match(response.headers.get('cache-control')??'',/no-store/);assert.match(response.headers.get('content-disposition')??'',/^attachment;/);assert.ok(response.headers.get('content-disposition').includes(filename));
+ assert.equal((await request(url,{headers:{cookie:'fixture_session=b'}})).status,404);
+ assert.equal((await request(url,{headers:{cookie:'fixture_session=expired'}})).status,401);
+ const forgedBytes=Buffer.from('This is a forged PNG body.');const forged=await reserve(`forged-${randomUUID()}.png`,'image/png',forgedBytes);const forgedUrl=`/api/attachments/${forged.id}/content`;
+ response=await request(forgedUrl,{method:'PUT',headers:{'Content-Type':'image/png'},body:forgedBytes});assert.equal(response.status,422);assert.equal((await response.json()).finalized,false);
+ response=await post(await command({type:'attachment.finalize',id:forged.id}));assert.ok(!response.ok,'A forged PNG cannot finalize');
+ assert.equal((await request(forgedUrl)).status,404);assert.equal((await json('/api/evidence')).attachments.find(row=>row.id===forged.id).status,'reserved');
+ console.log(`Synthetic fixture HTTP R2 reserve/stage/finalize/replay/download/isolation/forgery smoke passed. bytes=${downloaded.length} sha256=${sha256}`);
+}
 export async function startFixture(args){
- const {serve}=parseFixtureArgs(args);await requireFreePort(4173);await requireFreePort(4174);const fixture=await prepareFixtures();let child;let proxy;let cleaning;
+ const {serve,withR2}=parseFixtureArgs(args);await requireFreePort(4173);await requireFreePort(4174);const fixture=await prepareFixtures({withR2});let child;let proxy;let cleaning;
  const cleanup=()=>cleaning??=(async()=>{if(proxy){proxy.closeAllConnections();await new Promise(resolve=>proxy.close(resolve));}if(child&&child.exitCode===null){child.kill('SIGTERM');await Promise.race([new Promise(resolve=>child.once('exit',resolve)),pause(3000)]);if(child.exitCode===null){child.kill('SIGKILL');await new Promise(resolve=>child.once('exit',resolve));}}await fixture.cleanup();})();
  const onSignal=()=>{void cleanup().then(()=>process.exit(0));};process.once('SIGTERM',onSignal);process.once('SIGINT',onSignal);
  try{
   child=spawn(process.execPath,[fixture.wrangler,'dev','--local','--config',fixture.configPath,'--persist-to',fixture.statePath,'--ip','127.0.0.1','--port','4174','--inspector-port','0'],{shell:false,cwd:ROOT,env:fixture.environment,stdio:['ignore','pipe','pipe']});let logs='';for(const stream of [child.stdout,child.stderr])stream.on('data',data=>{logs=(logs+data.toString()).slice(-12000);});child.on('error',error=>{logs+=error.message;});
   try{await waitReady(child);}catch(error){throw new Error(`${error.message}\n${logs}`);}
   proxy=fixtureProxy();await new Promise((resolve,reject)=>{proxy.once('error',reject);proxy.listen(4173,'127.0.0.1',resolve);});
-  if(!serve){await smokeFixture();await cleanup();}else{console.log(`Synthetic local fixture ready at ${FIXTURE_ORIGIN}`);await new Promise((resolve,reject)=>{child.once('exit',code=>{if(!cleaning)reject(new Error(`Fixture worker exited ${code}`));else resolve();});});}
+  if(!serve){await smokeFixture();if(withR2)await smokeAttachments();await cleanup();}else{console.log(`Synthetic local fixture ready at ${FIXTURE_ORIGIN}`);await new Promise((resolve,reject)=>{child.once('exit',code=>{if(!cleaning)reject(new Error(`Fixture worker exited ${code}`));else resolve();});});}
  }finally{await cleanup();process.removeListener('SIGTERM',onSignal);process.removeListener('SIGINT',onSignal);}
 }
 if(process.argv[1]===fileURLToPath(import.meta.url))startFixture(process.argv.slice(2)).catch(error=>{console.error(error.message);process.exitCode=1;});
