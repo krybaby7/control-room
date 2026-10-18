@@ -8,7 +8,7 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -26,6 +26,8 @@ jobs:
       - run: npm run test:sources-d1
       - run: npm run test:reviews-migration-d1
       - run: npm run test:reviews-d1
+      - run: npm run test:scheduled-backup-d1
+      - run: npm run test:scheduled-source-d1
       - run: npm run test:fixture
       - run: npm run test:attachments-r2
       - run: npm run test:attachment-recovery-r2
@@ -38,7 +40,7 @@ jobs:
       - if: ${{ !cancelled() && steps.build.conclusion == 'success' }}
         run: npm run test:attachments-http
       - uses: actions/upload-artifact@v4
-        if: failure()
+        if: failure() || cancelled()
         with:
           name: browser-failure-evidence
           path: |

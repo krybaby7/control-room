@@ -12,7 +12,7 @@ import {commitSourcePage} from '../sources/store.ts';
 import {finishSourceRun} from '../sources/run-store.ts';
 import {runSourceSync} from '../sources/sync.ts';
 export interface IntegrationRunnerOptions {
- authority:SourceJobAuthority;now:()=>string;signal?:AbortSignal;
+ authority:SourceJobAuthority;now:()=>string;signal?:AbortSignal;automationPrincipal?:{ownerId:string;principalId:string};
  /** Server-owned adapter registry. Never accept an adapter/transport/credential from an HTTP body. */
  resolveAdapter?:(connection:SourceConnection,target:SourceTarget,authority:SourceJobAuthority)=>Promise<SourceAdapter|null>;
 }
@@ -29,7 +29,7 @@ export async function runIntegrationJob(db:SqlDatabase,owner:string,intentId:str
  if(options.signal?.aborted)return {status:'blocked',reason:'unavailable'};
  const adapter=options.resolveAdapter?await options.resolveAdapter(connection,target,options.authority):null;if(!adapter)return {status:'blocked',reason:'unsupported'};
  const currentIntent=await db.prepare('SELECT payload_json FROM workspace_job_intents WHERE user_id=? AND id=?').bind(owner,intentId).first<{payload_json:string}>();if(currentIntent?.payload_json!==row.intent_json)return {status:'blocked',reason:'authority_changed'};
- const claim=await claimIntegrationJob(db,owner,intentId,{authority:options.authority,now:startedAt});if(!claim||claim.sourceId!==target.id||claim.configurationHash!==row.configuration_hash)return {status:'blocked',reason:'authority_changed'};
+ const claim=await claimIntegrationJob(db,owner,intentId,{authority:options.authority,now:startedAt,...(options.automationPrincipal?{automationPrincipal:options.automationPrincipal}:{})});if(!claim||claim.sourceId!==target.id||claim.configurationHash!==row.configuration_hash)return {status:'blocked',reason:'authority_changed'};
  return runSourceSync({claim,target,startedAt},{adapter,now:options.now,signal:options.signal,isCurrent:(current,now)=>isIntegrationJobClaimCurrent(db,current,now),buildProposals:async(page,current)=>{
   const envelope=await readCurrent(db,current.ownerId,options.now()),bindings:SourceSuggestionBinding[]=[];
   for(const incoming of page.observations){

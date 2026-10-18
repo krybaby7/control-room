@@ -41,3 +41,7 @@
 .baseline-status{gap:6px}.baseline-source>div{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.baseline-source h4{font-size:13px;color:#4c5870;margin:8px 0 5px}.baseline-source>p{margin-bottom:6px}.baseline-milestone{display:block}.baseline-proposals details{margin-top:6px}.baseline-proposals details summary{cursor:pointer;font-size:12px;line-height:1.8;padding:7px 0;color:#655294}.baseline-proposals details>p{margin:5px 0 10px}.baseline-sources summary>svg{vertical-align:middle;margin-right:7px}.baseline-sources summary>.count{margin-left:5px}
 /* Every workspace section remains reachable when new review sections are present. */
 @media(max-width:700px){.main-nav{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;width:100%}.nav-item{min-width:0;flex:none;padding:8px 4px;overflow-wrap:anywhere}.nav-item>span{min-width:0}.nav-item svg{flex-shrink:0}.capture-tags>span{min-width:0;overflow-wrap:anywhere}}
+
+/* Fixed desktop navigation must retain access to capture and account controls as
+   navigation grows or the viewport becomes shorter. */
+@media(min-width:701px){.sidebar{min-height:0;max-height:100dvh;overflow-y:auto;overflow-x:hidden;overscroll-behavior-y:contain}.sidebar>*{flex-shrink:0}}

@@ -1,3 +1,4 @@
+import {previewBaselineRevision} from './baselines/preview.ts';
 import {canResumeAutomation} from './automations/runtime-access.ts';
 import type {SqlDatabase} from './workspace-store.ts';
 import type {WorkspaceEnvelope} from './types.ts';
@@ -14,6 +15,7 @@ export type OwnerCommandServices=Pick<PrepareContext,'attachmentAccess'|'verifyA
 export function ownerPrepareContext(db:SqlDatabase,userId:string,before:WorkspaceEnvelope,command:WorkspaceCommand,now:string,services:OwnerCommandServices={},mutationId?:string):PrepareContext{
  if(!userId)throw new Error('An authenticated owner is required.');
  return {mutationId,userId,before,command,now,query:ownerReader(db,userId),attachmentAccess:services.attachmentAccess,verifyAttachment:services.verifyAttachment,
+  baselineRuntime:{preview:input=>previewBaselineRevision(db,userId,input,now)},
   automationRuntime:{canResume:schedule=>canResumeAutomation(db,userId,schedule,now)},
   sourceRuntime:{state:sourceId=>readSourceSyncState(db,userId,sourceId),canResume:(connection,target)=>canResumeSource(db,userId,connection,target,now)},
   readImport:id=>readStagedImport(db,userId,id,now),backups:{get:id=>readWorkspaceBackup(db,userId,id),list:()=>listWorkspaceBackups(db,userId)},readAuditGroup:eventId=>readAuditCommandGroup(db,userId,eventId),

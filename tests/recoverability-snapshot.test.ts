@@ -7,7 +7,7 @@ import {loadWorkspace} from '../lib/workspace-store.ts';
 import {canonical,contentHash} from '../lib/canonical-json.ts';
 import {exportWorkspaceBundle} from '../lib/workspace-export.ts';
 import {moduleProjection,moduleColumnNames} from '../lib/module-columns.ts';
-import {ownerReader,type RegisteredOwnerTable,type GuardedWrite} from '../lib/workspace-modules.ts';
+import {OWNER_TABLES,ownerReader,type RegisteredOwnerTable,type GuardedWrite} from '../lib/workspace-modules.ts';
 import {executeWorkspaceCommand,canonicalJson} from '../lib/workspace-transaction.ts';
 import type {AuditEventDraft,JsonValue} from '../lib/workspace-protocol.ts';
 import {versionRowId} from '../lib/version-identity.ts';
@@ -21,7 +21,7 @@ test('exact composite export, escaped Unicode audit and normalized mirrors match
   const version={id:'evidence',version:1,basis:'owner-statement',scope:'implementation',title:'وثيقة 😀',statement:'Quoted "test" and backslash \\',observedAt:null,recordedAt:now,candidate:null,environment:null,sourceUrl:null,sourceRevision:null,sourceRecordId:null,attachmentIds:[],supersedesVersion:null};
   const id=await versionRowId('evidence',1),writes:GuardedWrite[]=[{table:'evidence_records',operation:'insert',id:'evidence',expectedRowRevision:null,value:{id:'evidence',currentVersion:1,archivedAt:null}},{table:'evidence_versions',operation:'insert',id,expectedRowRevision:null,value:version}];
   const events=[event()],changes=f.sqlite.prepare('SELECT total_changes() n').get()!.n;
-  const measured=await measureProspectiveRecoverability(f.db,owner,{now,writes,events});assert.equal(f.sqlite.prepare('SELECT total_changes() n').get()!.n,changes);assert.equal(measured.measurement.allowed,true);assert.equal(measured.boundaryRevision,1);assert.deepEqual(measured.boundaryWatermarks,{sources:0});assert.equal(measured.boundaryRows.length,29);assert.deepEqual(measured.boundaryRows.find(row=>row.table==='evidence_versions')!.rows,[]);assert.equal(canonical(measured.boundaryRows).includes('payload_json'),false);
+  const measured=await measureProspectiveRecoverability(f.db,owner,{now,writes,events});assert.equal(f.sqlite.prepare('SELECT total_changes() n').get()!.n,changes);assert.equal(measured.measurement.allowed,true);assert.equal(measured.boundaryRevision,1);assert.deepEqual(measured.boundaryWatermarks,{sources:0});assert.deepEqual(measured.boundaryRows.map(row=>row.table),[...OWNER_TABLES]);assert.deepEqual(measured.boundaryRows.find(row=>row.table==='evidence_versions')!.rows,[]);assert.equal(canonical(measured.boundaryRows).includes('payload_json'),false);
   const expanded=[{id,row_revision:1,payload_json:canonical(version),content_hash:await contentHash(canonical(version)),...await moduleProjection('evidence_versions',id,version)}];
   assert.equal(measured.measurement.measurements.tables.find(t=>t.table==='evidence_versions')!.expandedAfterPayloadBytes,byteLength(canonicalJson(expanded)));
   const result=await executeWorkspaceCommand(owner,{protocolVersion:1,expectedRevision:1,mutationId:'synthetic_measure_0001',command:{type:'fixture'}},{db:f.db,now:()=>now,handlers:new Map([['fixture',{async prepare(context){return {planningAfter:context.before.workspace,writes,events,jobs:[]};}}]])});assert.equal(result.status,'committed');

@@ -7,3 +7,5 @@ export interface AutomationRuntime {scheduleId:string;configurationHash:string;o
 /** Terminal portable history, never a queue or executable intent. */
 export interface AutomationOccurrence {id:string;scheduleId:string;dueAt:string;kind:AutomationKind;configurationHash:string;startedAt:string;finishedAt:string;outcome:'success'|'failed'|'cancelled'|'partial';failure:AutomationFailure|null;missedPeriods:number;resultRef:{kind:'source-run'|'review'|'backup';id:string;hash:string|null}|null}
 export const AUTOMATION_LIMITS=Object.freeze({schedules:100,duePerWakeup:10,missedPeriods:100000,leaseMs:30000,runMs:20000});
+/** Private lease over an existing foundation metadata-backup intent. */
+export interface ScheduledBackupClaim {ownerId:string;intentId:string;backupId:string;configurationHash:string;jobRevision:number;executionEpoch:number;attempt:number;token:string;expiresAt:string;startedAt:string;accessMode:'unattended';principalRef:string;scheduleId:string;scheduleConfigurationHash:string;occurrenceDueAt:string}

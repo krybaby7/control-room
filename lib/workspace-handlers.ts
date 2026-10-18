@@ -1,3 +1,4 @@
+import {baselineCommandHandler} from './baselines/commands.ts';
 import {canonical} from './canonical-json.ts';
 import {reviewCommandTypes,reviewCommandHandler} from './reviews/commands.ts';
 import {sourceCommandHandlers} from './sources/commands.ts';
@@ -67,3 +68,5 @@ for(const [type,handler] of [...evidenceCommandHandlers,...decisionCommandHandle
 for(const [type,handler] of sourceCommandHandlers)(workspaceHandlers as Map<string,import('./workspace-transaction.ts').CommandHandler>).set(type,handler);
 
 for(const type of reviewCommandTypes)(workspaceHandlers as Map<string,import('./workspace-transaction.ts').CommandHandler>).set(type,reviewCommandHandler);
+
+(workspaceHandlers as Map<string,import('./workspace-transaction.ts').CommandHandler>).set('baseline.revision.record',baselineCommandHandler);

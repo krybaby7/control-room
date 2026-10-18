@@ -24,7 +24,9 @@
     "test:workspace-d1": "node --experimental-strip-types scripts/test-workspace-d1.mjs",
     "test:sources-d1": "node --experimental-strip-types scripts/test-sources-d1.mjs",
     "test:reviews-d1": "node --experimental-strip-types scripts/test-reviews-d1.mjs",
-    "test:reviews-migration-d1": "node --experimental-strip-types scripts/test-reviews-migration-d1.mjs"
+    "test:scheduled-backup-d1": "node --experimental-strip-types scripts/test-scheduled-backup-d1.mjs",
+    "test:reviews-migration-d1": "node --experimental-strip-types scripts/test-reviews-migration-d1.mjs",
+    "test:scheduled-source-d1": "node --experimental-strip-types scripts/test-scheduled-source-d1.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

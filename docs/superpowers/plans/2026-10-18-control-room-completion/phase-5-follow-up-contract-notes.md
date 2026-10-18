@@ -25,3 +25,7 @@ Source-refresh schedule execution additionally needs its separate source-read gr
 G48 growth guards are implemented for current portable writers. Existing already-oversized owners still require a compatible segmented/chunked and/or object-backed recovery path in Phase 8. Do not describe the guard as repairing those owners, raise limits without matching restore, prune records automatically or reset data.
 
 Real renewable private-host ingress/wakeup, live provider consent/read/write access, full-file scheduled storage, optional exact paid provider/budget consent, physical Windows and selected-device acceptance remain separate gates. None is proven by the synthetic service-token fixtures or passing build.
+
+## Implementation checkpoint
+
+The baseline and metadata-backup contracts above are now implemented, including strict export/references, durable owner UI and actual21-migration D1 checks. Source schedule admission/lease/page/terminal code now reuses the source queue with two separate identities and a server-only resolver; production resolver remains unavailable. Actual synthetic D1 proves retry/cursor/replay/revocation/epoch/rollback/capacity semantics, not live provider access. See phase-5-verification.md and progress.json for current exact gates. Phase6 implementation still waits for the owning Phase5 source acceptance boundary.

@@ -8,7 +8,7 @@ import {evidenceDateSchema,evidenceIdSchema} from '../evidence-validation.ts';
 import {assertProposalFieldsAllowed} from './proposals.ts';
 import {canonical,contentHash} from '../canonical-json.ts';
 const positive=z.number().int().positive().safe();
-const claimSchema=z.object({ownerId:z.string().min(1).max(256),intentId:evidenceIdSchema,sourceId:evidenceIdSchema,configurationHash:z.string().regex(/^[a-f0-9]{64}$/),executionEpoch:z.number().int().nonnegative().safe(),operationalRevision:positive,jobRevision:positive,connectionId:evidenceIdSchema,accessMode:z.enum(['manual','interactive','unattended']),principalRef:z.string().min(1).max(256),token:z.string().uuid(),expiresAt:evidenceDateSchema,attempt:positive,cursor:z.string().max(SOURCE_LIMITS.cursorBytes).nullable(),etag:z.string().max(2000).nullable()}).strict();
+const claimSchema=z.object({ownerId:z.string().min(1).max(256),intentId:evidenceIdSchema,sourceId:evidenceIdSchema,configurationHash:z.string().regex(/^[a-f0-9]{64}$/),executionEpoch:z.number().int().nonnegative().safe(),operationalRevision:positive,jobRevision:positive,connectionId:evidenceIdSchema,accessMode:z.enum(['manual','interactive','unattended']),principalRef:z.string().min(1).max(256),scheduleId:evidenceIdSchema.nullable().optional(),scheduleConfigurationHash:z.string().regex(/^[a-f0-9]{64}$/).nullable().optional(),occurrenceDueAt:evidenceDateSchema.nullable().optional(),automationPrincipalRef:evidenceIdSchema.nullable().optional(),token:z.string().uuid(),expiresAt:evidenceDateSchema,attempt:positive,cursor:z.string().max(SOURCE_LIMITS.cursorBytes).nullable(),etag:z.string().max(2000).nullable()}).strict().superRefine((value,ctx)=>{const fields=[value.scheduleId,value.scheduleConfigurationHash,value.occurrenceDueAt,value.automationPrincipalRef],present=fields.filter(field=>field!==null&&field!==undefined).length;if(present!==0&&present!==4)ctx.addIssue({code:'custom',message:'Scheduled source claim metadata must be complete.'});});
 export interface SourceSyncInput {claim:IntegrationJobClaim;target:SourceTarget;startedAt:string}
 export interface SourceSyncDependencies {
  adapter:SourceAdapter;
@@ -63,7 +63,7 @@ export async function runSourceSync(input:SourceSyncInput,deps:SourceSyncDepende
   if(externalCancelled){reason='cancelled';return await finish('cancelled');}
   if(deadlineExpired||elapsed()>=SOURCE_LIMITS.runProviderMs){reason='time_budget';return await finish('partial');}
   if(claim.accessMode!=='manual'){
-   try{const mode=claim.accessMode,caps=await interrupted(()=>deps.adapter.capabilities(mode));if(!caps.sourceKinds.includes(target.kind)||caps.blockedReason!==null||!caps.verifiedAt||!evidenceDateSchema.safeParse(caps.verifiedAt).success||!(mode==='interactive'?caps.interactiveRead:caps.unattendedRead))throw new SourceReadError('unsupported','The selected source mode has no verified provider read.');}
+   try{const mode=claim.accessMode,caps=await interrupted(()=>deps.adapter.capabilities(mode));if(!caps.sourceKinds.includes(target.kind)||caps.blockedReason!==null||!caps.verifiedAt||!evidenceDateSchema.safeParse(caps.verifiedAt).success||Date.parse(caps.verifiedAt)>Date.parse(wall())||!(mode==='interactive'?caps.interactiveRead:caps.unattendedRead))throw new SourceReadError('unsupported','The selected source mode has no verified provider read.');}
    catch(error){return await fail(error);}
   }
   for(;;){
