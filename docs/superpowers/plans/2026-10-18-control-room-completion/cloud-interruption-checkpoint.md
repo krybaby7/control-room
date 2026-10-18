@@ -1,11 +1,13 @@
-# Cloud implementation checkpoint
+# Cloud checkpoint
 
-Implementation source: `51dc1b4fda3b3cd4f7ccf05d3ad06b7f2085ca1a` on `feat/control-room-completion-cloud`; draft PR #1 remains unmerged.
+Implementation head before this checkpoint: `bf34cb43aed4dcd2f5e4a061d362fe2838b54d45`. Branch `feat/control-room-completion-cloud`; draft PR #1 remains open/unmerged. Exact `gpt-6.1-sol` supported model selections remain accepted for the integrator and six existing workers. No replacement model or original Windows checkout is used.
 
-Exact `gpt-6.1-sol` selections were accepted by supported worker controls. Existing six bounded workers continue; no model substitution. The workspace command runner is unavailable; supported GitHub source APIs and GitHub Actions provide cloud implementation and actual Node24/D1/Chromium execution.
+Workspace command execution/filesystem access remains unavailable. GitHub source APIs plus actual Linux and Windows Actions runners are the supported cloud continuation. Local AF checkout/WIP must be compared with remote source before any reset or merge when execution recovers.
 
-Phase5 AF gate:1301Node,48defaultChromium,3R2Chromium and all build/D1/HTTP checks passed. Phase6 migration0021 was generated in successful cloud run39162797902. Source0f1b20 ran1343Node tests:1326passed,17old registry fixtures failed. Those17 corrections are included in51dc; full CI39163449560 is pending. New device/runtime ingestion/retention tests passed at0f1b20, including real eight-source D1 transaction and rollback.
+Phase5 AF fully passed1301Node/48default/3R2 plusallD1/HTTP/build gates. Phase6 c3b9 quickD1 run39165557223/job117787643096 passed23migrations and the actual ownercommands/CLI/SQLiteOutbox/transport/HTTP/D1 live-history-reenrollment-export-reviewedrestore journey. Fixture retryclocks were corrected to respect unchanged serverwindows/cadence. No synthetic ingress is enabled in production.
 
-Phase6 owner/runtime/bridge integration is implemented but not yet fully accepted. Native fixture endpoint alias alignment and full D1 acceptance fixture are in progress. Real Windows, private service ingress renewal, provider and physical device acceptance remain external. No new Site deployment or live execution is claimed; paid inference and operational/trading effects remain disabled.
+94b4 fullgate passed1370Node/39bridge/type/lint/build/priorD1/HTTP and48/49default+3/3R2. Subsequent review-list stable-ID/SHA selection, lostsecret-alert persistence and R2 body-capture fixes are integrated; latestbf34 fullCI39165625546 remainspending. Package generation is gated after validated checks, embeds exactcheckoutsource/hash/inventory and creates a dependency-free Windows npm tarball. No coherent release has yet been declared.
 
-Next action: inspect CI39163449560, fix source-specific failures, integrate complete runtime D1 acceptance fixture, finishPhase6 gates, then Phase7/8. G48 oversized-owner recovery is still an implementation gap. Local AF checkout/WIP must be compared with remote source before any merge/reset when command execution returns.
+Actual cloudWindows selectedunit/structuralchecks passed run39165557212; the synthetic ACL/DPAPI fixture failed preparation atsynthetic-ownership. The next change adds bounded stage/numeric diagnostics without relaxing production ACLs. OwnerWindows/device/collector, TaskScheduler and supported privateingress acquisition/renewal remainnot-run or unavailable.
+
+Next: inspect39165625546 and the newWindows diagnostic run; fix exactfailures and finishPhase6. Then implementPhase7 coordinator/disabledexecutor with sharedqueue/approval/lease/reconciliation, followedbyPhase8 isolated segmented recovery and release gates. Pure prep orphanSHAs are recorded inprogress.json; they are not integrated/tested acceptance. G48 is still open. Paid inference and operational/trading effects remain disabled. No new Site deployment or realprovider/model/device execution is claimed.

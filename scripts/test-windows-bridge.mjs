@@ -14,17 +14,21 @@ let stage='environment',root=null,junction=null,hardlink=null;
 const checks={};
 const fixturePs=String.raw`param([Parameter(Mandatory=$true)][string]$Root,[ValidateSet('Prepare','Own','Check','Unsafe','Restore')][string]$Mode)
 $ErrorActionPreference='Stop'
+$fixtureStage='scope'
 try {
   $local=[IO.Path]::GetFullPath([Environment]::GetFolderPath('LocalApplicationData')).TrimEnd('\')
   $full=[IO.Path]::GetFullPath($Root).TrimEnd('\')
   if ([IO.Path]::GetDirectoryName($full) -ine $local -or [IO.Path]::GetFileName($full) -notmatch '^ControlRoomSyntheticBridge-[A-Za-z0-9]+$') {throw 'scope'}
   if ((Get-Item -LiteralPath $full -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) {throw 'scope'}
+  $fixtureStage='identity'
   $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User
   $system=New-Object Security.Principal.SecurityIdentifier('S-1-5-18')
   $users=New-Object Security.Principal.SecurityIdentifier('S-1-5-32-545')
   function Private([string]$p) {
+    $script:fixtureStage='private-read'
     $item=Get-Item -LiteralPath $p -Force
     $acl=Get-Acl -LiteralPath $p
+    $script:fixtureStage='private-owner'
     $acl.SetOwner($sid)
     $acl.SetAccessRuleProtection($true,$false)
     foreach($r in @($acl.Access)) {[void]$acl.RemoveAccessRuleSpecific($r)}
@@ -34,12 +38,14 @@ try {
       $r=New-Object Security.AccessControl.FileSystemAccessRule($who,[Security.AccessControl.FileSystemRights]::FullControl,$flags,[Security.AccessControl.PropagationFlags]::None,[Security.AccessControl.AccessControlType]::Allow)
       [void]$acl.AddAccessRule($r)
     }
+    $script:fixtureStage='private-write'
     Set-Acl -LiteralPath $p -AclObject $acl
   }
   $config=Join-Path $full 'config.json'
   $state=Join-Path $full '.control-room-bridge'
   if($Mode -eq 'Prepare' -or $Mode -eq 'Restore'){Private $full}
   if($Mode -eq 'Prepare' -or $Mode -eq 'Own' -or $Mode -eq 'Check'){
+    $fixtureStage='enumerate'
     $items=@(Get-Item -LiteralPath $config -Force;Get-Item -LiteralPath $state -Force;Get-ChildItem -LiteralPath $state -Force -Recurse)
     if($items.Count -gt 256){throw 'bound'}
     foreach($item in $items){
@@ -48,6 +54,7 @@ try {
         # Only freshly-created synthetic targets: elevated runners may otherwise
         # default to Administrators ownership. Production never takes ownership.
         $acl=Get-Acl -LiteralPath $item.FullName
+        $fixtureStage='target-owner'
         $acl.SetOwner($sid);Set-Acl -LiteralPath $item.FullName -AclObject $acl
       }else{
         $acl=Get-Acl -LiteralPath $item.FullName
@@ -61,6 +68,7 @@ try {
     }
   }
   if($Mode -eq 'Prepare'){
+    $fixtureStage='read-ace'
     $acl=Get-Acl -LiteralPath $config
     [void]$acl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($users,[Security.AccessControl.FileSystemRights]::Read,[Security.AccessControl.AccessControlType]::Allow)))
     Set-Acl -LiteralPath $config -AclObject $acl
@@ -71,18 +79,25 @@ try {
     Set-Acl -LiteralPath $full -AclObject $acl
   }
   [Console]::Out.Write('{"ok":true}')
-}catch{[Console]::Error.Write('synthetic_fixture_failed');exit 1}
+}catch{
+  $diagnostic=@{stage=$fixtureStage;hresult=[int]$_.Exception.HResult;category=[int]$_.CategoryInfo.Category}
+  [Console]::Error.Write(($diagnostic|ConvertTo-Json -Compress));exit 1
+}
 `;
 async function fixture(mode){
   const executable=win32.join(process.env.SystemRoot??'C:\\Windows','System32','WindowsPowerShell','v1.0','powershell.exe');
   await new Promise((resolve,reject)=>{
     const child=spawn(executable,['-NoLogo','-NoProfile','-NonInteractive','-File',join(root,'fixture.ps1'),'-Root',root,'-Mode',mode],{shell:false,windowsHide:true,stdio:['pipe','pipe','pipe']});
-    let output='',failed=false;
+    let output='',diagnostic='',failed=false;
     const timer=setTimeout(()=>{failed=true;child.kill();},10000);
     child.stdin.on('error',()=>{});child.stdout.on('data',b=>{output+=b.toString('utf8');if(output.length>4096){failed=true;child.kill();}});
-    child.stderr.on('data',()=>{});
+    child.stderr.on('data',b=>{if(diagnostic.length<4096)diagnostic+=b.toString('utf8').slice(0,4096-diagnostic.length);});
     child.on('error',()=>{clearTimeout(timer);reject(new Error('fixture_process'));});
-    child.on('close',code=>{clearTimeout(timer);if(failed||code!==0||output!=='{"ok":true}')reject(new Error('fixture_process'));else resolve();});
+    child.on('close',code=>{clearTimeout(timer);if(failed||code!==0||output!=='{"ok":true}'){
+      const error=new Error('fixture_process');error.fixtureExit=Number.isInteger(code)?code:null;
+      try{const d=JSON.parse(diagnostic);if(/^[a-z-]{1,32}$/u.test(d.stage)&&Number.isInteger(d.hresult)&&Number.isInteger(d.category))error.fixtureDiagnostic=d;}catch{}
+      reject(error);
+    }else resolve();});
     child.stdin.end();
   });
 }
@@ -129,8 +144,8 @@ try{
   await protect();await fixture('Check');
   checks.scheduler='not-run';checks.ownerDevice='not-run';
   console.log(JSON.stringify({environment:'github-actions-windows-synthetic',status:checks.junction==='passed'?'passed':'partial',checks}));
-}catch{
-  console.error(JSON.stringify({environment:'github-actions-windows-synthetic',status:'failed',stage,category:'bounded-fixture-failure'}));process.exitCode=1;
+}catch(error){
+  console.error(JSON.stringify({environment:'github-actions-windows-synthetic',status:'failed',stage,category:'bounded-fixture-failure',...(Number.isInteger(error.fixtureExit)?{exitCode:error.fixtureExit}:{}),...(error.fixtureDiagnostic?{diagnostic:error.fixtureDiagnostic}:{})}));process.exitCode=1;
 }finally{
   if(root){
     if(junction)await unlink(junction).catch(()=>{});
