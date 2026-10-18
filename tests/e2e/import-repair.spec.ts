@@ -1,0 +1,34 @@
+import {test,expect,type Page} from '@playwright/test';
+import {openFixture,workspace,fixtureOrigin} from './helpers';
+import type {Workspace} from '../../lib/types';
+
+async function issueMutationId(page:Page){const response=await page.request.post('/api/workspace/mutation-ids',{headers:{Origin:fixtureOrigin},data:{}});expect(response.ok()).toBeTruthy();const {mutationId}=await response.json();expect(mutationId).toMatch(/^m1_[a-f0-9]{32}_[a-f0-9]{32}$/);return mutationId as string;}
+async function explicitRepair(page:Page,operation:string,fields:Record<string,string>){
+ const panel=page.getByRole('region',{name:'Review an import'});const button=panel.getByRole('button',{name:'Create separate repaired review',exact:true});
+ await expect(button).toBeEnabled();await panel.getByLabel('Repair operation',{exact:true}).selectOption(operation);
+ for(const [label,value]of Object.entries(fields)){const field=panel.getByLabel(label,{exact:true});if(label==='Repair collection')await field.selectOption(value);else await field.fill(value);}
+ const responsePromise=page.waitForResponse(response=>response.request().method()==='POST'&&new URL(response.url()).pathname.endsWith('/repair'));
+ await button.click();const response=await responsePromise;expect(response.ok()).toBeTruthy();const child=await response.json();await expect(button).toBeEnabled();await expect(panel.getByRole('heading',{name:'Repair history for this file'})).toBeVisible();return child;
+}
+
+test('explicit quarantine repairs retain originals and reports before a reviewed proposal merge',async({page})=>{
+ await openFixture(page);const before=await workspace(page);const incoming:Workspace=structuredClone(before.workspace);const unique=crypto.randomUUID();const taskId=`synthetic-import-task-${unique}`;const captureId=`synthetic-excluded-${unique}`;const excludedText=`Synthetic recovery content ${unique}`;const now=new Date().toISOString();
+ incoming.tasks.push({...incoming.tasks[0],id:taskId,title:`Synthetic repaired task ${unique}`,projectId:'synthetic-missing-project',milestoneId:null,status:'done',weekly:true,weeklyWeek:'2026-10-12',completedAt:now,archivedFromStatus:null,dependsOn:['synthetic-missing-dependency'],blocker:'',createdAt:now,updatedAt:now});
+ incoming.captures.push({id:captureId,title:'Synthetic excluded source',body:excludedText,projectId:null,kind:'idea',sourceUrl:null,status:'inbox',createdAt:now,convertedTaskId:null});
+ const original=Buffer.from(JSON.stringify(incoming));await page.getByRole('button',{name:'Sources',exact:true}).click();const panel=page.getByRole('region',{name:'Review an import'});
+ const stagedResponse=page.waitForResponse(response=>response.request().method()==='POST'&&new URL(response.url()).pathname==='/api/workspace/imports');
+ await panel.getByLabel('Choose file for import review').setInputFiles({name:'synthetic-invalid-planning.json',mimeType:'application/json',buffer:original});const staged=await (await stagedResponse).json();
+ await expect(panel.getByRole('heading',{name:'This file needs attention'})).toBeVisible();expect((await workspace(page)).revision).toBe(before.revision);await expect(panel.getByRole('button',{name:'Import reviewed selection',exact:true})).not.toBeVisible();
+ await panel.getByText('Prepare an explicit repair',{exact:true}).click();
+ const mapped=await explicitRepair(page,'map-project',{'Repair collection':'tasks','Exact source record ID':taskId,'Target project ID':incoming.projects[0].id});expect(mapped.id).not.toBe(staged.id);expect(mapped.diagnostics.length).toBeGreaterThan(0);
+ const unlinked=await explicitRepair(page,'remove-dependency',{'Exact source record ID':taskId,'Dependency ID to remove':'synthetic-missing-dependency'});expect(unlinked.diagnostics).toHaveLength(0);
+ const excluded=await explicitRepair(page,'exclude-record',{'Repair collection':'captures','Exact source record ID':captureId});expect(excluded.repairReports).toHaveLength(3);expect((await workspace(page)).revision).toBe(before.revision);
+ await panel.getByText('Excluded records retained for recovery (1)',{exact:true}).click();await expect(panel.locator('details').filter({has:page.getByText('Excluded records retained for recovery (1)',{exact:true})}).locator('pre')).toContainText(excludedText);
+ const originalResponse=await page.request.get(`/api/workspace/imports/${staged.id}?download=1`);expect(originalResponse.ok()).toBeTruthy();expect(await originalResponse.body()).toEqual(original);await expect(panel.getByRole('button',{name:'Download unchanged original',exact:true})).toBeVisible();
+ const previewResponse=await page.request.get(`/api/workspace/imports/${excluded.id}`);expect(previewResponse.ok()).toBeTruthy();const preview=await previewResponse.json();expect(preview.repairReports).toHaveLength(3);expect(preview.lineage.parentId).toBe(unlinked.id);expect(JSON.stringify(preview)).not.toContain('synthetic-a');
+ await panel.getByLabel('Source collection',{exact:true}).selectOption('tasks');const sourceRow=panel.locator('.capture-preview').filter({hasText:`Synthetic repaired task ${unique}`});await sourceRow.getByRole('checkbox').check();await panel.getByRole('button',{name:'Preview selected merge',exact:true}).click();await expect(panel.getByRole('heading',{name:'Selected merge review'})).toBeVisible();
+ const idBefore=await issueMutationId(page);await panel.getByRole('checkbox',{name:'I reviewed this selected merge and its existing record changes.'}).check();expect((await workspace(page)).revision).toBe(before.revision);
+ const commitResponse=page.waitForResponse(response=>response.request().method()==='POST'&&new URL(response.url()).pathname===`/api/workspace/imports/${excluded.id}/commit`);
+ await panel.getByRole('button',{name:'Import reviewed selection',exact:true}).click();const committed=await commitResponse;expect(committed.ok()).toBeTruthy();const after=await workspace(page);expect(after.revision).toBe(before.revision+1);const task=after.workspace.tasks.find((row:{id:string})=>row.id===taskId);expect(task.status).toBe('proposed');expect(task.weekly).toBe(false);expect(task.completedAt).toBeNull();expect(after.workspace.captures.some((row:{id:string})=>row.id===captureId)).toBe(false);
+ const idAfter=await issueMutationId(page);expect(idAfter.split('_')[1]).not.toBe(idBefore.split('_')[1]);const retired=await page.request.get(`/api/workspace/mutations/${idBefore}`);expect(retired.ok()).toBeTruthy();expect(await retired.json()).toMatchObject({status:'retired',retryAllowed:false});expect((await page.request.get(`/api/workspace/imports/${staged.id}?download=1`)).ok()).toBeTruthy();
+});

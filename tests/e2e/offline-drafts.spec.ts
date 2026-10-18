@@ -83,3 +83,31 @@ test('explicit forget clears a prior locked device copy without unlocking it int
   await expect(page.getByRole('button', { name: 'Recover draft', exact: true })).toHaveCount(0);
   await expect(page.getByLabel('Title', { exact: true })).toHaveValue('');
 });
+
+
+test('draft retention uses the same timestamp for device and server saves', async ({ page }) => {
+  // A separate clock read advances, deterministically exposing expiry > updatedAt + TTL.
+  // Sampling one timestamp for both fields remains valid even across this boundary.
+  await page.addInitScript(() => {
+    const systemNow = Date.now;
+    Date.now = () => systemNow() + 5;
+  });
+  const retentionIntervals: number[] = [];
+  await page.route('**/api/workspace/drafts', async route => {
+    if (route.request().method() === 'POST') {
+      const { draft } = route.request().postDataJSON();
+      retentionIntervals.push(Date.parse(draft.expiresAt) - Date.parse(draft.updatedAt));
+    }
+    await route.continue();
+  });
+  await openFixture(page); await unlock(page);
+  await page.getByRole('button', { name: 'Quick capture', exact: true }).click();
+  await page.getByLabel('Title', { exact: true }).fill(`Synthetic clock boundary ${crypto.randomUUID()}`);
+  await expect(page.getByText('Draft saved on this device', { exact: true })).toBeVisible();
+  await expect(page.getByText('Draft saved separately', { exact: true })).toBeVisible();
+  expect(retentionIntervals.length).toBeGreaterThan(0);
+  expect(retentionIntervals.every(interval => interval === 30 * 24 * 60 * 60 * 1000)).toBe(true);
+  await page.getByRole('button', { name: 'Discard draft changes', exact: true }).click();
+  await expect(page.getByText('Draft discarded', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+});

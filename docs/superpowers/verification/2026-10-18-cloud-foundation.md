@@ -48,3 +48,9 @@ Device storage stays unopened by default. Explicit unlock verifies current owner
 Receipt usage is read-only; compaction is internal, explicit, retired-epoch-only and atomically blocked by unexpired draft references or schema/rowset changes. No automatic retirement or pruning occurs. Backup policy exposes disabled/unavailable defaults with exact provisioning requirements; a persisted active policy or live scheduled execution is not claimed.
 
 Next: run cloud CI for this source and resolve any native device recovery failures. Then integrate Phase2 schema/workflows after foundation gates; feature-specific module merge/reference schemas remain with their owning phases. No deployment occurred.
+
+## Native browser failure and correction
+
+Published foundation adbff55da1c99b2e07a9e9d4aaca30ae8127d27c (tree a251a761bd0ea0e2bba94c5b4368f9de2623eba9) and independent selectors897a5415a6a22c3f3a54c0e26a957480a88defe1 (tree ba0fe80f48264d0e8260035dd76c83440027b046). CI39130469730/job117684416418 passed install,305 tests,typecheck,lint,build and HTTP fixture; Chromium passed4/6. Failures were initial local/server draft autosaves, not a claimed passing gate. Synthetic trace artifact SHA256 fa69885e435306c608ea27a5308bcb9e0078be568f73231ecafc1c696d5f526c matched downloaded evidence.
+
+Root cause: separate updatedAt and expiry clock samples could differ by milliseconds, exceeding the strict30-day bound. All three payload builders now derive expiry from the same timestamp. A deterministic clock-offset native regression checks both device and server saves; no timeout or retention guard was weakened. Expanded import repair browser journey also awaits execution. Next command: `npm test`, `npm run typecheck`, `npm run lint`, `npm run build`, then publish this correction to the existing draft PR and observe terminal cloud CI.

@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode, type MutableRefObject } from 'react';
-import type { Draft, SavedDraft } from '@/lib/drafts';
+import { DRAFT_TTL_MS, type Draft, type SavedDraft } from '@/lib/drafts';
 import { boundedRequest } from '@/lib/save-controller';
 import { SessionExpiredError } from '@/lib/workspace-client';
 import { SessionExpiredContext } from './session-state';
@@ -95,7 +95,7 @@ export function useDurableDraft<T extends object>(entityType: string, entityId: 
         if (generation.current !== epoch || !deviceRef.current.enabled) return;
         const previous = localRecord.current ?? record.current;
         const now = new Date().toISOString();
-        const payload: Draft = { ...identity.current, ...(previous ? { id: previous.id, baseRevision: previous.baseRevision, createdAt: previous.createdAt } : {}), entityType, ...(entityId ? { entityId } : {}), baseSnapshot: baseline as Record<string, unknown>, changedFields: Object.fromEntries(Object.entries(draft).filter(([key, value]) => JSON.stringify(value) !== JSON.stringify((baseline as Record<string, unknown>)[key]))), ...(previous?.command ? { command: previous.command } : {}), ...(previous?.mutationId ? { mutationId: previous.mutationId } : {}), updatedAt: now, expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() };
+        const payload: Draft = { ...identity.current, ...(previous ? { id: previous.id, baseRevision: previous.baseRevision, createdAt: previous.createdAt } : {}), entityType, ...(entityId ? { entityId } : {}), baseSnapshot: baseline as Record<string, unknown>, changedFields: Object.fromEntries(Object.entries(draft).filter(([key, value]) => JSON.stringify(value) !== JSON.stringify((baseline as Record<string, unknown>)[key]))), ...(previous?.command ? { command: previous.command } : {}), ...(previous?.mutationId ? { mutationId: previous.mutationId } : {}), updatedAt: now, expiresAt: new Date(Date.parse(now) + DRAFT_TTL_MS).toISOString() };
         localRecord.current = payload;
         await deviceRef.current.put(payload);
         if (generation.current === epoch) { localRecord.current = payload; setLocalStatus('Draft saved on this device'); }
@@ -115,7 +115,7 @@ export function useDurableDraft<T extends object>(entityType: string, entityId: 
         const previous = record.current;
         const now = new Date().toISOString();
         const changedFields = Object.fromEntries(Object.entries(draft).filter(([key, value]) => JSON.stringify(value) !== JSON.stringify((baseline as Record<string, unknown>)[key])));
-        const payload = { ...identity.current, ...(previous ? { id: previous.id, baseRevision: previous.baseRevision, createdAt: previous.createdAt } : {}), entityType, ...(entityId ? { entityId } : {}), baseSnapshot: baseline, changedFields, ...(previous?.command ? { command: previous.command } : {}), ...(previous?.mutationId ? { mutationId: previous.mutationId } : {}), updatedAt: now, expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() };
+        const payload = { ...identity.current, ...(previous ? { id: previous.id, baseRevision: previous.baseRevision, createdAt: previous.createdAt } : {}), entityType, ...(entityId ? { entityId } : {}), baseSnapshot: baseline, changedFields, ...(previous?.command ? { command: previous.command } : {}), ...(previous?.mutationId ? { mutationId: previous.mutationId } : {}), updatedAt: now, expiresAt: new Date(Date.parse(now) + DRAFT_TTL_MS).toISOString() };
         const result = await request<{ status: 'saved'; draft: SavedDraft }>('/api/workspace/drafts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ expectedRevision: previous?.draftRevision ?? 0, draft: payload }) });
         if (generation.current !== epoch) return;
         record.current = result.draft;
@@ -142,7 +142,7 @@ export function useDurableDraft<T extends object>(entityType: string, entityId: 
           attemptedMutation.current = mutationId;
           const now = new Date().toISOString();
           const changedFields = Object.fromEntries(Object.entries(snapshot).filter(([key, value]) => JSON.stringify(value) !== JSON.stringify((base.current as Record<string, unknown>)[key])));
-          const payload = { ...identity.current, ...(previous ? { id: previous.id, baseRevision: previous.baseRevision, createdAt: previous.createdAt } : {}), entityType, ...(entityId ? { entityId } : {}), baseSnapshot: base.current, changedFields, command, mutationId, updatedAt: now, expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() };
+          const payload = { ...identity.current, ...(previous ? { id: previous.id, baseRevision: previous.baseRevision, createdAt: previous.createdAt } : {}), entityType, ...(entityId ? { entityId } : {}), baseSnapshot: base.current, changedFields, command, mutationId, updatedAt: now, expiresAt: new Date(Date.parse(now) + DRAFT_TTL_MS).toISOString() };
           if (deviceRef.current.enabled) {
             await localChain.current;
             await deviceRef.current.put(payload as Draft);
