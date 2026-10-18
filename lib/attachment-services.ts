@@ -8,7 +8,7 @@ import {createR2BlobStore,readReadyAttachment,type AttachmentBucket} from './att
 export async function ownerAttachmentServices(db:SqlDatabase,userId:string,now:string,bucket?:AttachmentBucket):Promise<OwnerCommandServices>{
  const namespaces=await getWorkspaceNamespaces(db,userId);if(!namespaces)return {};
  const store=createR2BlobStore(bucket);
- return {attachmentAccess:{ownerNamespace:namespaces.blobNamespace,store,resolveNamespace:record=>resolveAttachmentNamespace(db,userId,record),hasPhysicalIdentity:async record=>!!await db.prepare('SELECT 1 FROM attachment_blob_objects WHERE user_id=? AND attachment_id=? LIMIT 1').bind(userId,record.id).first()},verifyAttachment:async record=>{
+ return {...(bucket?{fileBackupServices:{bucket,attachmentBucket:bucket}}:{}),attachmentAccess:{ownerNamespace:namespaces.blobNamespace,store,resolveNamespace:record=>resolveAttachmentNamespace(db,userId,record),hasPhysicalIdentity:async record=>!!await db.prepare('SELECT 1 FROM attachment_blob_objects WHERE user_id=? AND attachment_id=? LIMIT 1').bind(userId,record.id).first()},verifyAttachment:async record=>{
   const ownerNamespace=await resolveAttachmentNamespace(db,userId,record);if(!ownerNamespace)return null;
   if(!store.available||await isBlobFenced(db,userId,{attachmentId:record.id,storageKey:record.storageKey}))return null;try{const proof=await readReadyAttachment(userId,record,store,{ownerNamespace,now});
   return {record,verifiedSha256:proof.metadata.sha256,verifiedBytes:proof.bytes.length,signatureVerified:true};}catch{return null;}

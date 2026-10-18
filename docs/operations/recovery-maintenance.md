@@ -2,7 +2,7 @@
 
 The maintenance helper is privileged offline tooling, not an app route. It changes no hosted Site in the test suite and does not infer authority from a recovery JSON file. Every operation receives an authenticated operator's injected SqlDatabase binding and independently trusted manifest/context/schema identities. Keep its token in a controlled private operator journal before invoking freeze; never put it in portable data, logs or release evidence.
 
-The fixed profile covers 95 actual application tables from the reviewed 25-migration source, including global/private records and both backup archive tables. Unknown/missing tables, changed SQL schema, altered/missing maintenance triggers and changed control columns fail explicitly. The optional platform bookkeeping names are only _cf_KV, d1_migrations and __drizzle_migrations; they are not application recovery data.
+The fixed profile covers 96 actual application tables from the reviewed 25-migration source, including global/private records and both backup archive tables. Unknown/missing tables, changed SQL schema, altered/missing maintenance triggers and changed control columns fail explicitly. The optional platform bookkeeping names are only _cf_KV, d1_migrations and __drizzle_migrations; they are not application recovery data.
 
 prepareRecoveryMaintenance creates an operator control table and one BEFORE INSERT/UPDATE/DELETE guard on every closed application table. The scope is deliberately DB-wide. An owner-only predicate is insufficient: SQLite REPLACE can otherwise delete another owner's globally unique row without firing the expected DELETE trigger. No application credential is permitted to mutate the operator control table; access to the underlying privileged D1/SQL binding remains the operator trust boundary.
 
@@ -36,3 +36,41 @@ The SQLite and Miniflare fixtures use only synthetic disposable databases. Run:
     node --experimental-strip-types scripts/test-recovery-maintenance-d1.mjs
 
 They exercise actual trigger DDL, global REPLACE refusal, pending-write freeze refusal, trusted DB receipt, private-root binding, inactive target batches, rollback, final CAS, retained old fences/receipts, epoch retirement and manual-only marker. These protocol tests do not install all source modules or prove hosted/physical access. The separately integrated segmented rehearsal must exercise the full verified metadata/reference/R2 assembler before G48 can claim a supported bounded replacement path.
+
+
+The reusable operator boundaries are `inactiveRecoveryDatabase` and
+`installRecoveryPrivateContinuity` in `lib/recovery-install.ts`, plus
+`copyRecoveryBackupArchives` in `lib/recovery-backups.ts`. They require actual
+source and target maintenance receipts and independently recapture the frozen
+private root. Prepared SQL is constructed by trusted local installer code; no
+HTTP body or archive-supplied SQL is accepted. Native database results and atomic
+rollback are preserved through the fenced wrapper.
+
+The continuity installer preserves previous planning bytes/revision/time,
+legacy receipt tombstones, permanently retired epochs, native baseline removal
+fences, process journal and event receipt identities, occupied unknown slots and
+finite budget reservations. It cancels pending intents, changes uncertain
+attempt state to reconcile_required, revokes approval history, and disables
+budgets. Original source records remain in the sealed continuity artifact.
+Credentials, capabilities, grants and schedule dispatch authority are absent.
+
+The backup adapter preserves logical backup IDs, original metadata serialization,
+source timestamps and namespace-free index hashes. Ready archives undergo full
+native ZIP validation from the actual frozen source, then each chunk is copied
+to a new server namespace using a durable pending token before PUT. Definitive
+PUT settlement and a verifying GET precede readiness. A rejected or ambiguous
+PUT leaves the destination inactive and its token unresolved. Retired, failed
+and preparing history stays inert, with its old physical charge/cleanup ledger;
+it is never advertised as a ready archive. Permanent old cleanup keys remain
+excluded from ready copies, and their delayed DELETE cannot name new keys.
+
+The oversized D1/R2 rehearsal composes the complete closed registry metadata
+adapters with these boundaries. It exercises an actual native baseline removal,
+an uncertain synthetic agent attempt, legacy receipts, old-epoch retirement,
+ready and retired file backups, and fresh R2 namespaces. This remains an isolated
+synthetic rehearsal. The reusable helpers do not constitute a deployed hosted
+cutover endpoint or authorize a source database from a JSON package. A complete
+operator must use the reviewed metadata/reference/projection installer and
+verify every segment before installing any application row, retain the sealed
+private artifact and old-to-new namespace mapping, and perform a separately
+reviewed manual binding/unfence handoff only after all verification succeeds.

@@ -5,11 +5,25 @@ on:
     paths:
       - 'scripts/test-recovery-segments-d1.mjs'
       - 'lib/recovery-segments.ts'
+      - 'lib/recovery-maintenance.ts'
+      - 'lib/recovery-private-continuity.ts'
+      - 'lib/recovery-install.ts'
+      - 'lib/recovery-backups.ts'
+      - 'lib/automations/backup-archive-store.ts'
+      - 'lib/backup-archive-storage.ts'
+      - 'drizzle/**'
       - '.github/workflows/control-room-segmented-recovery.yml'
   pull_request:
     paths:
       - 'scripts/test-recovery-segments-d1.mjs'
       - 'lib/recovery-segments.ts'
+      - 'lib/recovery-maintenance.ts'
+      - 'lib/recovery-private-continuity.ts'
+      - 'lib/recovery-install.ts'
+      - 'lib/recovery-backups.ts'
+      - 'lib/automations/backup-archive-store.ts'
+      - 'lib/backup-archive-storage.ts'
+      - 'drizzle/**'
       - '.github/workflows/control-room-segmented-recovery.yml'
 permissions:
   contents: read

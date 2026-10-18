@@ -26,3 +26,17 @@ test('stale, malformed, foreign owner, missing and changed independently verifie
  const originalGet=base.backups.get;await assert.rejects(prepareBackupRemovalCommand({...base,backups:{...base.backups,async get(id){const result=await originalGet(id);return result?{...result,manifest:{...result.manifest,ownerScope:'b'}}:null;}}}),/available/);
  await assert.rejects(prepareBackupRemovalCommand({...base,backups:{...base.backups,async get(id){const result=await originalGet(id);return result&&id==='second'?{...result,manifest:{...result.manifest,sha256:'c'.repeat(64)}}:result;}}}),/changed/);
 });
+
+test('file snapshot candidates require a newer file point and server physical proof; manifests alone confer no removal authority',async()=>{
+ const archive={status:'ready' as const,bytes:123,files:1,sha256:'c'.repeat(64)},selected={...first,fileArchive:archive,missingAttachments:['file-in-metadata-only-json']},newer={...second,fileArchive:{...archive,sha256:'d'.repeat(64)},missingAttachments:['file-in-metadata-only-json']};
+ assert.throws(()=>prepareBackupRemoval([selected,second],selected.id,selected.sha256),/newer/);
+ const ctx=context([selected,newer]);await assert.rejects(prepareBackupRemovalCommand(ctx),/private file-backup removal is unavailable/);
+ let received:unknown;const proposed={selected:{logical:{id:selected.id,sha256:selected.sha256}},newer:{logical:{id:newer.id,sha256:newer.sha256}}} as unknown as import('../lib/automations/backup-archive-removal.ts').FileBackupRemovalControl;
+ // Dry-run handler seam only: the central compiler independently validates the actual private rows.
+ const plan=await prepareBackupRemovalCommand({...ctx,backups:{...ctx.backups,prepareFileRemoval:async input=>{received=input;return proposed;}}});
+ assert.deepEqual(received,plan.backupRemoval);assert.equal(plan.fileBackupRemoval,proposed);assert.deepEqual(plan.writes,[]);assert.deepEqual(plan.jobs,[]);assert.equal(plan.planningAfter,ctx.before.workspace);assert.deepEqual(plan.events[0].changes,[]);assert.equal((await ctx.backups.list()).length,2);
+ await assert.rejects(prepareBackupRemovalCommand({...ctx,backups:{...ctx.backups,prepareFileRemoval:async()=>({...proposed,newer:{...proposed.newer,logical:{...proposed.newer.logical,id:'different-point'}}})}}),/changed/);
+});
+test('plain metadata removal retains its existing path and never requests file storage authority',async()=>{
+ const ctx=context();const plan=await prepareBackupRemovalCommand({...ctx,backups:{...ctx.backups,prepareFileRemoval:async()=>{throw new Error('Metadata removal must not request file proof');}}});assert.equal(plan.fileBackupRemoval,undefined);assert.deepEqual(plan.backupRemoval,{id:first.id,sha256:first.sha256,newerId:second.id,newerSha256:second.sha256});
+});

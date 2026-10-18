@@ -14,7 +14,7 @@ import {ownerReader,OWNER_TABLES,type RegisteredOwnerTable} from '../lib/workspa
 import {moduleColumnNames,moduleProjection} from '../lib/module-columns.ts';
 import {versionRowId} from '../lib/version-identity.ts';
 import {criteriaHash} from '../lib/evidence-requirements.ts';
-import type {AttachmentRecord} from '../lib/evidence-contract.ts';
+import type {AttachmentRecord,EvidenceRequirement} from '../lib/evidence-contract.ts';
 import type {JsonValue} from '../lib/workspace-protocol.ts';
 const now='2026-10-18T12:00:00.000Z',owner='merge-owner',source='merge-source',foreign='merge-foreign',taskId='task-current',evidenceId='incoming-evidence',attachmentId='11111111-1111-4111-8111-111111111111';
 const none={projects:[],milestones:[],tasks:[],captures:[],activity:[]};
@@ -37,7 +37,7 @@ async function fixture(collision=false){
  await put(source,'attachment_usage','quota',{bytes:3,files:1});
  await put(source,'evidence_records',evidenceId,{id:evidenceId,currentVersion:1,archivedAt:null});
  await put(source,'evidence_versions',await versionRowId(evidenceId,1),{...version,id:evidenceId,title:'Imported version',statement:'Historical imported source body.',basis:'documented-result',attachmentIds:[attachmentId],sourceObservationRef:{id:'incoming-observation',contentDigest}});
- const requirement={id:'incoming-requirement',subject:{type:'task' as const,id:taskId},label:'Imported criterion remains inactive',scope:'implementation',required:true,maxAgeDays:null,candidate:null,requireAttachment:false,archivedAt:null};
+ const requirement:EvidenceRequirement={id:'incoming-requirement',subject:{type:'task' as const,id:taskId},label:'Imported criterion remains inactive',scope:'implementation',required:true,maxAgeDays:null,candidate:null,requireAttachment:false,archivedAt:null};
  await put(source,'evidence_requirements',requirement.id,requirement);
  await put(source,'evidence_links','incoming-link',{id:'incoming-link',evidenceId,evidenceVersion:1,subject:requirement.subject,requirementId:requirement.id,relation:'supports'});
  await put(source,'acceptance_records','incoming-assessment',{...assessment,id:'incoming-assessment',statement:'Source acceptance is not an owner grant.',criteriaHash:await criteriaHash(requirement.subject,[requirement]),evidenceRefs:[{id:evidenceId,version:1,requirementId:requirement.id,relation:'supports',historical:false}]});

@@ -1,6 +1,6 @@
 import {WORKSPACE_STREAM_LIMITS,parseWorkspaceStreamNotice,parseWorkspaceStreamCursor,workspaceStreamCursor,type WorkspaceStreamNotice} from './workspace-stream-codec.ts';
 export type WorkspaceStreamStatus='polling-unverified'|'connecting'|'streaming'|'polling-fallback'|'paused'|'expired';
-type StreamEvent={type:'ready'|'workspace';notice:WorkspaceStreamNotice;cursor:string}|{type:'unavailable'|'session-expired'};
+type StreamEvent={type:'ready'|'workspace';notice:WorkspaceStreamNotice;cursor:string}|{type:'unavailable'}|{type:'session-expired'};
 function error():never{throw new Error('Workspace stream unavailable.');}
 /** Strict bounded protocol reader; notices carry no planning/editor content. */
 export async function consumeWorkspaceStream(response:Response,signal:AbortSignal,onEvent:(event:StreamEvent)=>void):Promise<void>{

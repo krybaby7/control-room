@@ -22,13 +22,13 @@ test('same-origin, closed cursor and protocol checks reject before owner metadat
 });
 test('actual SQLite owner boundaries stream only revision and operational digest, then terminate at20seconds',async()=>{
  const f=database(),clock=new Clock();try{for(const owner of ['a','b'])await loadWorkspace(f.db,owner,()=>workspaceFixture(),now);
- f.sqlite.prepare('INSERT INTO operational_stream_heads(user_id,stream_id,last_sequence) VALUES(?,?,?)').run('b','sources',99);
+ f.sqlite.prepare('INSERT INTO operational_stream_heads(user_id,stream_id,last_sequence,revision) VALUES(?,?,?,1)').run('b','sources',99);
  const notice=await readOwnerWorkspaceStreamNotice(f.db,'a');assert.equal(notice.workspaceRevision,1);assert.notEqual(notice.operationalWatermarksHash,(await readOwnerWorkspaceStreamNotice(f.db,'b')).operationalWatermarksHash);
  const response=await handleWorkspaceStream(request({'Last-Event-ID':workspaceStreamCursor(await readOwnerWorkspaceStreamNotice(f.db,'b'))}),{capability,authorize:async()=>true,read:()=>readOwnerWorkspaceStreamNotice(f.db,'a'),now:()=>clock.now,setTimer:clock.set,clearTimer:clock.clear});assert.equal(response.status,200);assert.match(response.headers.get('content-type')!,/text\/event-stream/);
  const reader=response.body!.getReader(),initial=new TextDecoder().decode((await reader.read()).value);assert.match(initial,/event: ready/);assert.ok(initial.includes(workspaceStreamCursor(notice)));assert.ok(!initial.includes('owner')&&!initial.includes('projects')&&!initial.includes('credential'));
  f.sqlite.prepare('UPDATE workspaces SET revision=revision+1 WHERE user_id=?').run('b');clock.advance(2000);await flush();
  f.sqlite.prepare('UPDATE workspaces SET revision=revision+1 WHERE user_id=?').run('a');clock.advance(2000);await flush();const changed=new TextDecoder().decode((await reader.read()).value);assert.match(changed,/event: workspace/);assert.match(changed,/"workspaceRevision":2/);
- f.sqlite.prepare('INSERT INTO operational_stream_heads(user_id,stream_id,last_sequence) VALUES(?,?,?)').run('a','sources',1);clock.advance(2000);await flush();const operational=new TextDecoder().decode((await reader.read()).value);assert.match(operational,/"workspaceRevision":2/);assert.notEqual(operational,changed);
+ f.sqlite.prepare('INSERT INTO operational_stream_heads(user_id,stream_id,last_sequence,revision) VALUES(?,?,?,1)').run('a','sources',1);clock.advance(2000);await flush();const operational=new TextDecoder().decode((await reader.read()).value);assert.match(operational,/"workspaceRevision":2/);assert.notEqual(operational,changed);
  clock.advance(14000);await flush();assert.equal((await reader.read()).done,true);assert.equal(clock.timers.size,0);reader.releaseLock();
  }finally{f.sqlite.close();}
 });

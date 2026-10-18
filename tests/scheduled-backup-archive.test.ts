@@ -10,6 +10,8 @@ import {createR2BlobStore,type AttachmentBucket} from '../lib/attachments.ts';
 import {moduleProjection,moduleColumnNames} from '../lib/module-columns.ts';
 import type {RegisteredOwnerTable} from '../lib/workspace-modules.ts';
 import type {JsonValue} from '../lib/workspace-protocol.ts';
+import {prepareFileBackupRemoval,fileBackupRemovalStatements,type FileBackupRemovalControl} from '../lib/automations/backup-archive-removal.ts';
+import {cleanupRetiredFileBackup,listRetiredFileBackups,type BackupArchiveCleanupBucket} from '../lib/automations/backup-archive-cleanup.ts';
 import {runScheduledBackup} from '../lib/automations/backup-store.ts';
 import {readReadyFileBackup,type FileBackupServices} from '../lib/automations/backup-archive-store.ts';
 import {readBackupQuotaUsage,backupQuotaGuard} from '../lib/backup-archive-quota.ts';
@@ -118,5 +120,83 @@ test('a missing object with unknown pending PUT is not blindly retried after lea
 test('lost terminal response reconciles the same verified archive without another PUT or duplicate history',async()=>{
  const f=await fixture({fileBytes:1024});try{const job=await f.admit();let lost=false;f.hooks.afterBatch=async sqls=>{if(!lost&&sqls.some(sql=>sql.includes('INSERT INTO workspace_backups'))){lost=true;throw new Error('synthetic lost terminal response');}};
  assert.deepEqual(await runScheduledBackup(f.db,principal,job.intentId,{now:()=>now,files:f.services}),{status:'replayed'});assert.equal(await f.count('workspace_backups'),1);assert.equal(await f.count('automation_occurrences'),1);assert.equal((await readWorkspaceBackup(f.db,principal.ownerId,job.backupId))!.manifest.fileArchive!.status,'ready');
+ }finally{await f.mf.dispose();}
+});
+
+const removalNow='2026-10-18T12:02:00.000Z';
+async function pair(f:Awaited<ReturnType<typeof fixture>>){
+ const selected=await f.admit();assert.equal((await runScheduledBackup(f.db,principal,selected.intentId,{now:()=>now,files:f.services})).status,'completed');
+ const newer=await f.admit();assert.equal((await runScheduledBackup(f.db,principal,newer.intentId,{now:()=> '2026-10-18T12:00:01.000Z',files:f.services})).status,'completed');
+ const old=await readWorkspaceBackup(f.db,principal.ownerId,selected.backupId),next=await readWorkspaceBackup(f.db,principal.ownerId,newer.backupId);assert.ok(old&&next);
+ return {selected,newer,input:{id:selected.backupId,sha256:old.manifest.sha256,newerId:newer.backupId,newerSha256:next.manifest.sha256}};
+}
+async function compileRemoval(f:Awaited<ReturnType<typeof fixture>>,proof:FileBackupRemovalControl){
+ const mutationId='synthetic-file-removal-'+crypto.randomUUID(),token=crypto.randomUUID(),binds=[principal.ownerId,mutationId,token],gate='EXISTS(SELECT 1 FROM workspace_command_guards WHERE user_id=? AND mutation_id=? AND claim_token=? AND valid=1)';
+ await f.db.batch([
+ f.db.prepare('INSERT INTO workspace_command_guards(user_id,mutation_id,claim_token,valid) VALUES(?,?,?,1)').bind(...binds),
+ ...fileBackupRemovalStatements(f.db,principal.ownerId,proof,removalNow,gate,binds,mutationId),
+ f.db.prepare('DELETE FROM workspace_backups WHERE user_id=? AND id=? AND sha256=? AND '+gate).bind(principal.ownerId,proof.selected.logical.id,proof.selected.logical.sha256,...binds),
+ f.db.prepare('DELETE FROM workspace_assertions WHERE user_id=? AND mutation_id=?').bind(principal.ownerId,mutationId),
+ f.db.prepare('DELETE FROM workspace_command_guards WHERE user_id=? AND mutation_id=? AND claim_token=?').bind(...binds)
+ ]);
+}
+test('explicit pinned file-point removal requires actual newer full archive and atomically retains permanent physical identities',async()=>{
+ const f=await fixture({fileBytes:1024});try{const points=await pair(f);
+ await assert.rejects(prepareFileBackupRemoval(f.db,principal.ownerId,{...points.input,newerId:points.selected.backupId,newerSha256:points.input.sha256},f.services,removalNow));
+ await assert.rejects(prepareFileBackupRemoval(f.db,'synthetic-other-owner',points.input,f.services,removalNow));
+ await f.run('UPDATE workspace_backups SET pinned=1 WHERE id=?',points.selected.backupId);const before=await readCurrent(f.db,principal.ownerId,now),proof=await prepareFileBackupRemoval(f.db,principal.ownerId,points.input,f.services,removalNow);
+ assert.equal(proof.selected.logical.pinned,1);await compileRemoval(f,proof);
+ assert.deepEqual(await readCurrent(f.db,principal.ownerId,now),before);assert.equal(await readWorkspaceBackup(f.db,principal.ownerId,points.selected.backupId),null);assert.ok(await readReadyFileBackup(f.db,principal.ownerId,points.newer.backupId,f.services));
+ const row=await f.db.prepare('SELECT status,metadata_content,metadata_bytes,index_sha256 FROM backup_archives WHERE id=?').bind(points.selected.backupId).first<{status:string;metadata_content:string|null;metadata_bytes:number;index_sha256:string}>();
+ assert.deepEqual(row,{status:'retired',metadata_content:null,metadata_bytes:0,index_sha256:proof.selected.archive.index_sha256});
+ const listed=await listRetiredFileBackups(f.db,principal.ownerId,{limit:1});assert.equal(listed.items[0].id,points.selected.backupId);assert.ok(listed.items[0].chargedBytes>0);assert.ok(!canonical(listed).includes(proof.selected.archive.namespace));assert.ok(!canonical(listed).includes(principal.ownerId));assert.equal((await listRetiredFileBackups(f.db,'synthetic-other-owner')).items.length,0);
+ let deletes=0;const bucket:BackupArchiveCleanupBucket={get:key=>f.services.bucket.get(key),put:(key,bytes,options)=>f.services.bucket.put(key,bytes,options),async delete(key){deletes++;await f.bucket.delete(key);}};
+ await assert.rejects(cleanupRetiredFileBackup(f.db,principal.ownerId,{id:points.newer.backupId,indexHash:proof.newer.archive.index_sha256},{now:()=>now,bucket}));assert.equal(deletes,0,'a ready point cannot become a cleanup target');
+ const quota=await readBackupQuotaUsage(f.db,principal.ownerId),cleaned=await cleanupRetiredFileBackup(f.db,principal.ownerId,{id:points.selected.backupId,indexHash:proof.selected.archive.index_sha256},{now:()=>now,bucket});
+ assert.equal(cleaned.status,'completed');assert.equal(cleaned.retainedBytes,0);assert.equal(cleaned.physicalDeletion,true);assert.equal(deletes,proof.selected.objects.length);assert.equal((await readBackupQuotaUsage(f.db,principal.ownerId)).bytes,quota.bytes-proof.selected.archive.zip_bytes);
+ assert.equal(await f.count('backup_archive_cleanup_claims'),proof.selected.objects.length);assert.equal(await f.count('backup_archive_objects'),proof.selected.objects.length+proof.newer.objects.length,'physical identities are never deleted/reused');
+ assert.ok(await readReadyFileBackup(f.db,principal.ownerId,points.newer.backupId,f.services));
+ }finally{await f.mf.dispose();}
+});
+test('changed newer physical ledger or corrupted newer bytes cannot retire the selected point',async()=>{
+ const f=await fixture({fileBytes:1024});try{const points=await pair(f),proof=await prepareFileBackupRemoval(f.db,principal.ownerId,points.input,f.services,removalNow);let raced=false;
+ f.hooks.beforeBatch=async sqls=>{if(!raced&&sqls.some(sql=>sql.includes("UPDATE backup_archives SET status='retired'"))){raced=true;await f.run('UPDATE backup_archive_objects SET verified_at=NULL WHERE archive_id=?',points.newer.backupId);}};
+ await assert.rejects(compileRemoval(f,proof));f.hooks.beforeBatch=undefined;assert.equal((await f.db.prepare('SELECT status FROM backup_archives WHERE id=?').bind(points.selected.backupId).first<{status:string}>())!.status,'ready');assert.equal(await f.count('workspace_backups'),2);
+ await f.run('UPDATE backup_archive_objects SET verified_at=? WHERE archive_id=?',now,points.newer.backupId);
+ const object=proof.newer.objects[0];await f.bucket.put(object.storage_key,new Uint8Array(object.bytes).fill(66),{httpMetadata:{contentType:'application/octet-stream'},customMetadata:{sha256:object.sha256}});
+ await assert.rejects(prepareFileBackupRemoval(f.db,principal.ownerId,points.input,f.services,removalNow));assert.equal(await f.count('workspace_backups'),2);assert.equal(await f.count('backup_archive_cleanup_claims'),0);
+ }finally{await f.mf.dispose();}
+});
+test('unknown DELETE preserves its fence and charge; explicit absence reconciliation never targets a fresh namespace',async()=>{
+ const f=await fixture({fileBytes:1024});try{const points=await pair(f),proof=await prepareFileBackupRemoval(f.db,principal.ownerId,points.input,f.services,removalNow);await compileRemoval(f,proof);
+ let deletes=0;const bucket:BackupArchiveCleanupBucket={get:key=>f.services.bucket.get(key),put:(key,bytes,options)=>f.services.bucket.put(key,bytes,options),async delete(key){deletes++;await f.bucket.delete(key);throw new Error('synthetic response lost after actual DELETE');}};
+ const initial=await readBackupQuotaUsage(f.db,principal.ownerId),unknown=await cleanupRetiredFileBackup(f.db,principal.ownerId,{id:points.selected.backupId,indexHash:proof.selected.archive.index_sha256},{now:()=>now,bucket});assert.equal(unknown.status,'uncertain');assert.equal(unknown.physicalDeletion,false);assert.equal((await readBackupQuotaUsage(f.db,principal.ownerId)).bytes,initial.bytes);
+ const fresh=await f.admit();assert.equal((await runScheduledBackup(f.db,principal,fresh.intentId,{now:()=> '2026-10-18T12:00:02.000Z',files:f.services})).status,'completed');
+ const recovered=await cleanupRetiredFileBackup(f.db,principal.ownerId,{id:points.selected.backupId,indexHash:proof.selected.archive.index_sha256},{now:()=>now,bucket});assert.equal(recovered.status,'completed');assert.equal(recovered.retainedBytes,0);assert.equal(deletes,1,'actual missing object reconciles without a second DELETE');
+ await f.bucket.delete(proof.selected.objects[0].storage_key);assert.ok(await readReadyFileBackup(f.db,principal.ownerId,fresh.backupId,f.services));assert.ok(await readReadyFileBackup(f.db,principal.ownerId,points.newer.backupId,f.services));
+ const freshNamespace=(await f.db.prepare('SELECT namespace FROM backup_archives WHERE id=?').bind(fresh.backupId).first<{namespace:string}>())!.namespace;assert.notEqual(freshNamespace,proof.selected.archive.namespace);assert.equal(await f.count('backup_archive_cleanup_claims'),1);
+ }finally{await f.mf.dispose();}
+});
+
+test('hung DELETE is bounded and fenced; an existing unknown operation never starts a second DELETE',async()=>{
+ const f=await fixture({fileBytes:1024});try{const points=await pair(f),proof=await prepareFileBackupRemoval(f.db,principal.ownerId,points.input,f.services,removalNow);await compileRemoval(f,proof);
+ let deletes=0;const operation:{finish?:()=>Promise<void>}={};const bucket:BackupArchiveCleanupBucket={get:key=>f.services.bucket.get(key),put:(key,bytes,options)=>f.services.bucket.put(key,bytes,options),delete(key){deletes++;return new Promise<void>(resolve=>{operation.finish=async()=>{await f.bucket.delete(key);resolve();};});}};
+ const command={id:points.selected.backupId,indexHash:proof.selected.archive.index_sha256},initial=await readBackupQuotaUsage(f.db,principal.ownerId);
+ const hung=await cleanupRetiredFileBackup(f.db,principal.ownerId,command,{now:()=>removalNow,bucket,deleteDeadlineMs:5});assert.equal(hung.status,'uncertain');assert.equal(hung.physicalDeletion,false);assert.equal(deletes,1);assert.deepEqual(await readBackupQuotaUsage(f.db,principal.ownerId),initial);
+ const repeat=await cleanupRetiredFileBackup(f.db,principal.ownerId,command,{now:()=>removalNow,bucket,deleteDeadlineMs:5});assert.equal(repeat.status,'uncertain');assert.equal(deletes,1);
+ assert.ok(operation.finish);await operation.finish();
+ const reconciled=await cleanupRetiredFileBackup(f.db,principal.ownerId,command,{now:()=>removalNow,bucket,deleteDeadlineMs:5});assert.equal(reconciled.status,'completed');assert.equal(reconciled.retainedBytes,0);assert.equal(deletes,1);assert.ok(await readReadyFileBackup(f.db,principal.ownerId,points.newer.backupId,f.services));
+ }finally{await f.mf.dispose();}
+});
+
+test('historical retired continuity is not current DELETE authority after an execution epoch advance',async()=>{
+ const f=await fixture({fileBytes:1024});try{const points=await pair(f);await f.run('INSERT INTO workspace_execution_state(user_id,epoch,restored_at) VALUES(?,1,?)',principal.ownerId,removalNow);
+ const proof=await prepareFileBackupRemoval(f.db,principal.ownerId,points.input,f.services,removalNow);assert.equal(proof.executionEpoch,1);await compileRemoval(f,proof);
+ assert.equal((await f.db.prepare('SELECT execution_epoch FROM backup_archives WHERE id=?').bind(points.selected.backupId).first<{execution_epoch:number}>())!.execution_epoch,1,'only this fresh protected owner action grants retirement authority at current epoch');
+ await f.run('UPDATE workspace_execution_state SET epoch=2 WHERE user_id=?',principal.ownerId);
+ let deletes=0;const bucket:BackupArchiveCleanupBucket={get:key=>f.services.bucket.get(key),put:(key,bytes,options)=>f.services.bucket.put(key,bytes,options),async delete(key){deletes++;await f.bucket.delete(key);}};
+ const before=await readBackupQuotaUsage(f.db,principal.ownerId),cleaned=await cleanupRetiredFileBackup(f.db,principal.ownerId,{id:points.selected.backupId,indexHash:proof.selected.archive.index_sha256},{now:()=>removalNow,bucket});
+ assert.equal(cleaned.status,'blocked');assert.equal(cleaned.reason,'authorization_stale');assert.equal(cleaned.physicalDeletion,false);assert.equal(deletes,0);assert.equal(await f.count('backup_archive_cleanup_claims'),0);assert.deepEqual(await readBackupQuotaUsage(f.db,principal.ownerId),before);
+ assert.equal((await listRetiredFileBackups(f.db,principal.ownerId)).items[0].cleanupAuthorized,false);
  }finally{await f.mf.dispose();}
 });

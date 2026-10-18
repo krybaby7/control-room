@@ -132,12 +132,12 @@ export async function recoveryTargetInventorySha256(db:SqlDatabase,value:Recover
  const results=[];let rows=0,bytes=0;
  for(const table of RECOVERY_APPLICATION_TABLES){
   const columns=(await db.prepare('PRAGMA table_info("'+table+'")').all<{name:string;pk:number}>()).results,primary=columns.filter(column=>column.pk>0).sort((a,b)=>a.pk-b.pk).map(column=>column.name);
-  if(columns.some(column=>!/^[a-z_]+$/.test(column.name)))throw new Error('Unsupported recovery column identity.');
+  if(columns.some(column=>!/^[a-z_][a-z0-9_]*$/.test(column.name)))throw new Error('Unsupported recovery column identity.');
   let after:Record<string,string|number|null>|null=null,count=0,chain=await contentHash('private-recovery-inventory-v1:'+table);
   if(!primary.length){if((await db.prepare('SELECT COUNT(*) n FROM "'+table+'"').first<{n:number}>())!.n!==0)throw new Error('Transient unkeyed recovery state must be empty.');}
   else for(;;){
-   const where=after?' WHERE ('+primary.join(',')+')>('+primary.map(()=>'?').join(',')+')':'',bindings=after?primary.map(key=>after![key]):[];
-   const page=(await db.prepare('SELECT '+columns.map(column=>column.name).join(',')+' FROM "'+table+'"'+where+' ORDER BY '+primary.join(',')+' LIMIT 8').bind(...bindings).all<Record<string,string|number|null>>()).results;
+   const where:string=after?' WHERE ('+primary.join(',')+')>('+primary.map(()=>'?').join(',')+')':'',bindings:(string|number|null)[]=after?primary.map(key=>after![key]):[];
+   const page:Record<string,string|number|null>[]=(await db.prepare('SELECT '+columns.map(column=>column.name).join(',')+' FROM "'+table+'"'+where+' ORDER BY '+primary.join(',')+' LIMIT 8').bind(...bindings).all<Record<string,string|number|null>>()).results;
    for(const row of page){for(const item of Object.values(row))if(item!==null&&typeof item!=='string'&&(typeof item!=='number'||!Number.isSafeInteger(item)))throw new Error('Unsupported recovery scalar.');if(primary.some(key=>row[key]===null))throw new Error('Nullable recovery primary identity.');count++;rows++;bytes+=new TextEncoder().encode(canonical(row)).length;if(rows>200000||bytes>128*1024*1024)throw new Error('Target inventory exceeds supported profile.');after=row;}
    if(page.length)chain=await contentHash(chain+canonical(page));if(page.length<8)break;
   }
@@ -157,6 +157,7 @@ export async function markRecoveryTargetReady(target:SqlDatabase,source:SqlDatab
  if(await target.prepare('SELECT 1 FROM job_approvals WHERE revoked_at IS NULL LIMIT 1').first())throw new Error('Approval history must be irrevocably revoked.');
  if(await target.prepare("SELECT 1 FROM workspace_job_intents j WHERE status IN('pending','awaiting_approval') OR (status='running' AND (cancel_requested<>1 OR kind<>'agent.execute' OR NOT EXISTS(SELECT 1 FROM agent_job_state s WHERE s.user_id=j.user_id AND s.intent_id=j.id AND s.status='reconcile_required' AND s.attempt_id IS NOT NULL))) LIMIT 1").first())throw new Error('Target pending work must be cancelled; uncertainty must remain fenced.');
  for(const [table,where]of [['agent_budgets','enabled<>0'],['automation_runtime','paused<>1'],['source_sync_state','paused<>1']] as const)if(await target.prepare('SELECT 1 FROM '+table+' WHERE '+where+' LIMIT 1').first())throw new Error('Target private execution must remain paused.');
+ if(await target.prepare('SELECT 1 FROM attachment_upload_attempts WHERE settled_at IS NULL LIMIT 1').first()||await target.prepare('SELECT 1 FROM backup_archive_objects WHERE pending_token IS NOT NULL AND settled_at IS NULL LIMIT 1').first())throw new Error('Target upload settlement is incomplete.');
  const epoch=await target.prepare('SELECT epoch FROM workspace_execution_state WHERE user_id=?').bind(value.ownerId).first<{epoch:number}>();if(epoch?.epoch!==value.sourceContext.executionEpoch+1)throw new Error('Target must fence the old execution epoch.');
  if((await target.prepare('PRAGMA foreign_key_check').all()).results.length)throw new Error('Target foreign references differ.');
  const sealed=await target.prepare('UPDATE '+CONTROL+" SET state='target-ready',inventory_hash=? WHERE singleton=1 AND state='target-inactive' AND operation_id=? AND token_hash=? AND write_revision=?").bind(expected.inventorySha256,value.operationId,await contentHash(value.token),targetRow.write_revision).run();if(sealed.meta.changes!==1)throw new Error('Target changed during verification.');
