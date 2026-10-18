@@ -130,21 +130,31 @@
     },
     {
       "id": 5,
-      "status": "in_progress",
+      "status": "implemented_external_acceptance_pending",
       "evidence": [
         "Frozen reviews/scoped acknowledgement/notifications/Cairo schedule core1221 Node and actualD1 pass; published062de9b3 nonbrowser CI gates pass, browser failed/timedout.",
         "Follow-up baseline parent/hash/citation/privatehead/vector CAS, scheduled D1 backup and dual-principal source schedule code implemented; intermediate1299 Node/type/lint/build pass.",
         "Actual21-migrationD1 baseline context-only command/replay and synthetic authenticated scheduledreview/backup/source completion/restart/revocation/rollback/capacity checks pass.",
         "Native baseline/sidebar journeys and review assertions prepared; exact follow-up Chromium gate pending.",
-        "Exact09feCI39160069765 allnonbrowsergatespass,46/48defaultChromium (baseline/reviews/alllegacydrafts pass) and3/3R2Chromiumpass;2newsidebarfixture failures correctly blocked by retainedsyntheticdraft, test-only nativeexplicitdiscard correction prepared."
+        "Exact09feCI39160069765 allnonbrowsergatespass,46/48defaultChromium (baseline/reviews/alllegacydrafts pass) and3/3R2Chromiumpass;2newsidebarfixture failures correctly blocked by retainedsyntheticdraft, test-only nativeexplicitdiscard correction prepared.",
+        "Exact AF af221ccf6f74d47233e0d99b989d80f8f204856e CI39161269563/job117774922683 terminalsuccess: all Node/type/lint/build/D1/R2/HTTP and48default+3R2Chromium pass."
       ],
-      "blockers": []
+      "blockers": [
+        "Live renewable hosted ingress/wakeup, selected provider access, optional paid provider/model/budget and hosted SSE remain unverified; no real schedules activated."
+      ]
     },
     {
       "id": 6,
-      "status": "not_started",
-      "evidence": [],
-      "blockers": []
+      "status": "in_progress",
+      "evidence": [
+        "Initial shared contracts/schema and pure validation/freshness reconstructed through supported GitHub source API after workspace command-runner outage; actual cloud checks run through existing GitHub Actions Node24 workflows.",
+        "Pureleaf historical13 tests/type/lint passed before outage; reconstructed source requires fresh Actions checks.",
+        "Bounded workers retain accepted exact gpt-6.1-sol model; root integrates orphan leaf blobs, workers never update branch refs."
+      ],
+      "blockers": [
+        "Workspace command runner unavailable. GitHub source APIs and actual Actions cloud execution remain functional; implementation continues there, no local runtime/model substitution.",
+        "Private service ingress/default bridge connection remains unavailable until supported acquisition/renewal verified."
+      ]
     },
     {
       "id": 7,
@@ -159,7 +169,7 @@
       "blockers": []
     }
   ],
-  "nextAction": "Publish sidebar fixture correction/checkpoint; observe sourceCI terminal result, then establish Phase6 shared contracts/schema and delegate bounded workers. Continue Phase7 andPhase8 including compatible segmented recovery. No liveeffects or private deployment beforevalidation.",
+  "nextAction": "Run cloud schema generation probe; inspect generated additive migration metadata before integration. Complete Phase6 device/runtime/bridge/UI through bounded GitHub leaf blobs and actual Actions checks, then Phases7–8.",
   "allowedStatuses": [
     "not_started",
     "in_progress",
@@ -186,25 +196,25 @@
     "evidence": "Explicit supported model selection accepted and worker IDs returned."
   },
   "checkpoint": {
-    "publishedCommit": "e4d90bb8e37adb00f97f117fc9e6e59cdefb3dbb",
-    "workingTree": "Test-only sidebar fixture correction explicitly discards known unsubmitted synthetic recovered draft via native UI; lint/typepass. Product recovery guard preserved. Updated checkpoint andPhase6 protocol design only; noPhase6implementation/deployment.",
-    "tests": "Final follow-up1300/1300 Node pass, zero failures/skips; typecheck/lint/productionbuild pass. Actual21-migrationD1 baseline command/replay/history, authenticated scheduledreview/backup/source pipelines pass. Source D1 covers partialcursor/restart/expiredlease/bothrevocations/archive/epoch/terminalrollback/capacitybothpaused. Native follow-up Chromium pending publication.",
+    "publishedCommit": "af221ccf6f74d47233e0d99b989d80f8f204856e",
+    "publishedTree": "f2b7a5615e5e635116669e5b12da36b03bb2a65b",
+    "currentCommit": "af221ccf6f74d47233e0d99b989d80f8f204856e",
+    "executionMode": "Supported GitHub source API plus existing GitHub Actions Node24 cloud execution, after global workspace command-runner outage. Same accepted exact gpt-6.1-sol workers; no local/runtime/model fallback.",
+    "workingTree": "Last accessible local HEAD AF has unpublished Phase6 WIP. Do not reset/merge it blindly after command-runner recovery; compare against later cloud-source commits. Integrator now owns remote ref updates and uses fresh cloud CI.",
+    "tests": "AF CI39161269563/job117774922683 terminalsuccess: Node/type/lint/build,all21migrationD1/R2/HTTP,48/48defaultChromium+3/3R2Chromium. New Phase6 bootstrap/pure code needs fresh source-specific CI.",
     "knownFailures": [
-      "Two newsidebar native fixtures encountered the intentionally retained synthetic serverdraft from recovery.spec; app correctly requires review/discard. Trace proves sidebar viewport/click/dialog passed. Test-only explicitdiscard correction prepared; exactCI rerun pending.",
-      "G48 oversized-owner compatible recovery remains Phase8 codework; no pruning/reset/limitraise.",
-      "Private renewable ingress/wakeup, live selected-provider consent/adapters, exact paid provider/model/budget, Windows/device acceptance and deployment unverified."
+      "Workspace exec-server transport disconnected and read-only/file operations stall. GitHub API/Actions workaround positively verified.",
+      "Phase6 integration incomplete; new migration generation pending actualcloudprobe; no device/Windows acceptance.",
+      "G48 existing oversized recovery remainsPhase8 codegap; no prune/reset/limitraise.",
+      "No new hosted deployment or live private ingress/wakeup/provider/paidmodel/Windows/device execution claimed."
     ],
     "unfinished": [
-      "Publish test-only sidebar syntheticdraft fixture correction and observe exact-sourceCI; existing46functionalnative+3R2 journeys verified.",
-      "Observe/fix exact Phase5 native Chromium gate; baseline/sidebar native journeys included, no local browser run.",
-      "Phase6 cloud devices/runtime/Windows installablebridge implementation and tests; design only prepared in phase-6-contract-notes.md.",
-      "Phase7 exact provider/model/approval/budget/agent coordination implementation; disabled defaults.",
-      "Phase8 compatible segmented recovery for oversized owners, full release/fixtures/migrations/package and source/deployment identity reconciliation.",
-      "External real renewable private ingress/wakeup/provider consent, optional paid provider/model/budget, Windows/device acceptance and coherent private deployment remain unverified."
+      "Generate/review/integrate additive Phase6migration and metadata through closed cloudprobe.",
+      "Integrate/test devices auth/session/windows, heartbeat/retention, portable modules/commands/routes/ownerUI, bridge/Windows package.",
+      "Execute Phase7 exact-provider/model/budget/approval coordination with effects disabled.",
+      "Execute Phase8 compatible segmented recovery, full source/package/release verification and private Sites deployment only if validation/access permit."
     ],
-    "nextCommand": "Publish sidebar fixture correction/checkpoint; observe sourceCI terminal result, then establish Phase6 shared contracts/schema and delegate bounded workers. Continue Phase7 andPhase8 including compatible segmented recovery. No liveeffects or private deployment beforevalidation.",
-    "publishedTree": "56c56acb0a6817e302448c312526c9a7ca7e4ae3",
-    "cloudRun": "09feCI39160069765/job117771325724 terminalfailure:1300Node/type/lint/build/all21migrationD1/R2/HTTPpass;46/48defaultChromiumpass inclbaseline/reviews/legacydrafts,3/3R2Chromiumpass. Only2newsidebar fixtures blocked by retained synthetic recoverydraft; native traces proveviewport/click/dialogwork. E4dCI39160670750/job117773112651 running; samefixturefix notyetincluded.",
-    "currentCommit": "e4d90bb8e37adb00f97f117fc9e6e59cdefb3dbb"
+    "nextCommand": "GitHub Actions: node scripts/probe-schema-cloud.mjs",
+    "cloudRun": "AF39161269563 terminalsuccess. Bootstrap will trigger existing checks and additive-schema generation probe."
   }
 }

@@ -1,0 +1,19 @@
+name: Control Room schema generation probe
+on:
+  push:
+    branches: ['feat/**']
+    paths: ['db/schema.ts', 'scripts/probe-schema-cloud.mjs', '.github/workflows/control-room-schema-probe.yml']
+permissions:
+  contents: read
+jobs:
+  schema:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm run install:ci
+      - run: node scripts/probe-schema-cloud.mjs

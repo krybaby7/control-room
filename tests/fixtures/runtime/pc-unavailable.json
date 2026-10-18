@@ -1,0 +1,6 @@
+{
+  "fixture": "synthetic; no physical device queried",
+  "health": null,
+  "summary": null,
+  "diagnostic": "source_unreachable"
+}

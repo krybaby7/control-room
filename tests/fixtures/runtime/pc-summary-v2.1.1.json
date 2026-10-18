@@ -1,0 +1,40 @@
+{
+  "fixture": "synthetic; no physical device queried",
+  "health": {
+    "app": "pc-command-center",
+    "version": "2.1.1",
+    "ready": true,
+    "status": "ok",
+    "last_sample_at": "2026-10-18T12:00:00Z",
+    "sample_age_seconds": 1,
+    "collector_state": "running",
+    "worker_alive": true
+  },
+  "summary": {
+    "schema_version": 1,
+    "timestamp": "2026-10-18T12:00:00Z",
+    "cpu": {
+      "percent": 12.5
+    },
+    "memory": {
+      "percent": 32
+    },
+    "gpus": [
+      {
+        "id": "nvidia-0",
+        "utilization_percent": 6,
+        "memory_used_bytes": 2000000000,
+        "memory_total_bytes": 17179869184,
+        "temperature_c": 42
+      }
+    ],
+    "disk_io": {
+      "read_bytes_per_sec": 1000,
+      "write_bytes_per_sec": 2000
+    },
+    "network": {
+      "sent_bytes_per_sec": 1000,
+      "received_bytes_per_sec": 3000
+    }
+  }
+}
