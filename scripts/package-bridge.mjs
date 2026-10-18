@@ -14,10 +14,10 @@ const packed=spawnSync('npm',['pack','./bridge','--ignore-scripts','--json','--p
 if(packed.status!==0)throw new Error('Bridge packaging failed.');
 const result=JSON.parse(packed.stdout);if(!Array.isArray(result)||result.length!==1)throw new Error('Unexpected package result.');
 const item=result[0];if(!/^control-room-windows-bridge-[0-9.]+\.tgz$/.test(item.filename)||!Array.isArray(item.files)||item.files.length<10||item.files.length>100)throw new Error('Invalid package inventory.');
-const allowed=/^(?:package\.json|README\.md|config\.example\.json|src\/[a-z0-9-]+\.mjs|windows\/[a-z0-9-]+\.ps1)$/;
+const allowed=/^(?:package\.json|README\.md|config\.example\.json|src\/[a-z0-9-]+\.mjs|windows\/[a-z0-9-]+\.ps1|executor\/[a-z0-9-]+\.mjs|executor\/README\.md|executor\/config\.example\.json)$/;
 for(const file of item.files)if(!allowed.test(file.path))throw new Error('Unexpected package file.');
 const files=[];for(const file of [...item.files].sort((a,b)=>a.path<b.path?-1:a.path>b.path?1:0)){const bytes=await readFile(join(root,'bridge',file.path));files.push({path:file.path,bytes:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex')});}
-for(const required of ['src/cli.mjs','src/credentials.mjs','src/transport.mjs','windows/protect-credential.ps1','windows/run-bridge.ps1','windows/install-task.ps1','windows/uninstall-task.ps1','config.example.json'])if(!files.some(file=>file.path===required))throw new Error('Required bridge file missing.');
+for(const required of ['src/cli.mjs','src/credentials.mjs','src/transport.mjs','windows/protect-credential.ps1','windows/run-bridge.ps1','windows/install-task.ps1','windows/uninstall-task.ps1','config.example.json','executor/cli.mjs','executor/runtime.mjs','executor/journal.mjs','executor/config.example.json'])if(!files.some(file=>file.path===required))throw new Error('Required bridge file missing.');
 const bytes=await readFile(join(output,item.filename));
 const manifest={format:'control-room-bridge-package',version:1,sourceCommit,filename:item.filename,bytes:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex'),files,acceptance:{automated:'See source-specific CI checks.',windows:'not-run',privateIngress:'unavailable',execution:'disabled'}};
 await writeFile(join(output,'manifest.json'),JSON.stringify(manifest,null,2)+'\n',{flag:'w'});

@@ -63,7 +63,7 @@ export const agentCapabilitySchema=z.object({schemaVersion:z.literal(1),deviceId
 export type AgentCapabilityV1=z.infer<typeof agentCapabilitySchema>;
 
 /** Portable historical result claims are never executable or owner acceptance grants. */
-export const agentResultRecordSchema=z.object({id:agentIdSchema,jobId:agentIdSchema,attemptId:agentIdSchema,recordedAt:evidenceDateSchema,result:agentJobResultSchema,resultSha256:agentDigestSchema,historical:z.boolean()}).strict().refine(value=>value.attemptId===value.result.attemptId,'Result attempt identity differs.').refine(value=>new TextEncoder().encode(JSON.stringify(value)).byteLength<=16_384,'Portable result metadata exceeds its reserved bound.');
+export const agentResultRecordSchema=z.object({id:agentIdSchema,jobId:agentIdSchema,attemptId:agentIdSchema,recordedAt:evidenceDateSchema,frozenJob:agentJobRecordSchema,result:agentJobResultSchema,resultSha256:agentDigestSchema,historical:z.boolean()}).strict().refine(value=>value.attemptId===value.result.attemptId&&value.jobId===value.frozenJob.id,'Result attempt or frozen proposal identity differs.').refine(value=>new TextEncoder().encode(JSON.stringify(value)).byteLength<=24_576,'Portable result metadata exceeds its reserved bound.');
 export const portableAgentResultRecordSchema=agentResultRecordSchema;
 export type AgentResultRecordV1=z.infer<typeof agentResultRecordSchema>;
 export type PortableAgentResultRecordV1=AgentResultRecordV1;

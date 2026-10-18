@@ -44,7 +44,7 @@ async function rowValue(raw:unknown):Promise<RecoveryRow>{
  return {id:identity,rowRevision:revision as number,contentHash:digest as string,value};
 }
 async function moduleDigest(segments:RecoverySegmentDescriptor[]):Promise<string>{return contentHash(canonical(segments));}
-function segmentString(contextHash:string,module:RecoveryModuleSpec,index:number,rows:RecoveryRow[]):string{return canonical({format:'control-room-recovery-segment',version:2,contextHash,module:module.key,schemaVersion:module.schemaVersion,index,rows});}
+function segmentString(contextHash:string,recoveryModule:RecoveryModuleSpec,index:number,rows:RecoveryRow[]):string{return canonical({format:'control-room-recovery-segment',version:2,contextHash,module:recoveryModule.key,schemaVersion:recoveryModule.schemaVersion,index,rows});}
 
 /** Stream bounded immutable segments to caller-owned staging. This is not a usable
  * backup, domain/reference validation, storage authorization, or destination activation. */
@@ -92,16 +92,16 @@ export async function validateRecoveryManifest(raw:unknown,expectedContext:Recov
  const expectedSpecs=specs(expectedModules);if(!Array.isArray(m.modules)||m.modules.length!==expectedSpecs.length)return fail('modules');
  let count=0,total=0,segments=0;
  for(let ordinal=0;ordinal<m.modules.length;ordinal++){
-  const module=exact(m.modules[ordinal],['key','schemaVersion','rows','bytes','sha256','segments']),spec=expectedSpecs[ordinal];
-  if(module.key!==spec.key||module.schemaVersion!==spec.schemaVersion||!hash(module.sha256)||!integer(module.rows)||!integer(module.bytes)||!Array.isArray(module.segments))return fail('modules');
+  const recoveryModule=exact(m.modules[ordinal],['key','schemaVersion','rows','bytes','sha256','segments']),spec=expectedSpecs[ordinal];
+  if(recoveryModule.key!==spec.key||recoveryModule.schemaVersion!==spec.schemaVersion||!hash(recoveryModule.sha256)||!integer(recoveryModule.rows)||!integer(recoveryModule.bytes)||!Array.isArray(recoveryModule.segments))return fail('modules');
   let rows=0,size=0,previous='';
-  for(const [index,item]of module.segments.entries()){
+  for(const [index,item]of recoveryModule.segments.entries()){
    const segment=exact(item,['index','bytes','sha256','rows','firstId','lastId']);
    if(segment.index!==index||!integer(segment.bytes,1)||(segment.bytes as number)>RECOVERY_SEGMENT_LIMITS.segmentBytes||!hash(segment.sha256)||!integer(segment.rows,1)||(segment.rows as number)>RECOVERY_SEGMENT_LIMITS.rowsPerSegment||!id(segment.firstId)||!id(segment.lastId)||compareIds(segment.firstId,previous)<=0||compareIds(segment.lastId,segment.firstId)<0)return fail('segment-order');
    previous=segment.lastId;rows+=segment.rows as number;size+=segment.bytes as number;
    if(++segments>RECOVERY_SEGMENT_LIMITS.segments)return fail('limit');
   }
-  if(rows!==module.rows||size!==module.bytes||await moduleDigest(module.segments as RecoverySegmentDescriptor[])!==module.sha256)return fail('module-hash');
+  if(rows!==recoveryModule.rows||size!==recoveryModule.bytes||await moduleDigest(recoveryModule.segments as RecoverySegmentDescriptor[])!==recoveryModule.sha256)return fail('module-hash');
   count+=rows;total+=size;
  }
  if(!integer(m.totalRows)||!integer(m.totalBytes)||count!==m.totalRows||total!==m.totalBytes)return fail('counts');
@@ -109,12 +109,12 @@ export async function validateRecoveryManifest(raw:unknown,expectedContext:Recov
  const {sha256,...body}=m;if(await contentHash(canonical(body))!==sha256)return fail('manifest-hash');
  return frozen as RecoveryManifest;
 }
-async function readVerified(manifest:RecoveryManifest,ordinal:number,index:number,read:(module:string,index:number)=>Promise<string|Uint8Array>):Promise<RecoveryRow[]>{
- const module=manifest.modules[ordinal],descriptor=module.segments[index];
- let content:string;try{content=text(await read(module.key,index),RECOVERY_SEGMENT_LIMITS.segmentBytes);}catch(error){if(error instanceof RecoverySegmentError)throw error;return fail('segment-missing');}
+async function readVerified(manifest:RecoveryManifest,ordinal:number,index:number,read:(recoveryModule:string,index:number)=>Promise<string|Uint8Array>):Promise<RecoveryRow[]>{
+ const recoveryModule=manifest.modules[ordinal],descriptor=recoveryModule.segments[index];
+ let content:string;try{content=text(await read(recoveryModule.key,index),RECOVERY_SEGMENT_LIMITS.segmentBytes);}catch(error){if(error instanceof RecoverySegmentError)throw error;return fail('segment-missing');}
  if(bytes(content)!==descriptor.bytes||await contentHash(content)!==descriptor.sha256)return fail('segment-hash');
  let parsed:Record<string,unknown>;try{parsed=exact(JSON.parse(content),['format','version','contextHash','module','schemaVersion','index','rows']);}catch{return fail('segment-shape');}
- if(parsed.format!=='control-room-recovery-segment'||parsed.version!==2||parsed.contextHash!==manifest.contextHash||parsed.module!==module.key||parsed.schemaVersion!==module.schemaVersion||parsed.index!==index||!Array.isArray(parsed.rows)||parsed.rows.length!==descriptor.rows||canonical(parsed)!==content)return fail('segment-shape');
+ if(parsed.format!=='control-room-recovery-segment'||parsed.version!==2||parsed.contextHash!==manifest.contextHash||parsed.module!==recoveryModule.key||parsed.schemaVersion!==recoveryModule.schemaVersion||parsed.index!==index||!Array.isArray(parsed.rows)||parsed.rows.length!==descriptor.rows||canonical(parsed)!==content)return fail('segment-shape');
  const rows:RecoveryRow[]=[];let previous='';
  for(const raw of parsed.rows){const row=await rowValue(raw);if(compareIds(row.id,previous)<=0)return fail('row-order');previous=row.id;rows.push(row);}
  if(rows[0].id!==descriptor.firstId||rows[rows.length-1].id!==descriptor.lastId)return fail('segment-order');
@@ -132,7 +132,7 @@ function checkedCursor(raw:unknown,manifest:RecoveryManifest):RecoveryCursor{
  * as it reads. Destination rows remain quarantined until the complete marker and
  * independent domain/reference checks. A digest cursor is not destination proof:
  * resume requires equality with a server-owned durable trustedCheckpoint. */
-export async function* decodeRecoverySegments(raw:unknown,options:{expectedContext:RecoveryContext;expectedModules:readonly RecoveryModuleSpec[];readSegment:(module:string,index:number)=>Promise<string|Uint8Array>;resume?:{cursor:RecoveryCursor;trustedCheckpoint:RecoveryCursor}}):AsyncGenerator<RecoveryDecodeItem>{
+export async function* decodeRecoverySegments(raw:unknown,options:{expectedContext:RecoveryContext;expectedModules:readonly RecoveryModuleSpec[];readSegment:(recoveryModule:string,index:number)=>Promise<string|Uint8Array>;resume?:{cursor:RecoveryCursor;trustedCheckpoint:RecoveryCursor}}):AsyncGenerator<RecoveryDecodeItem>{
  const manifest=await validateRecoveryManifest(raw,options.expectedContext,options.expectedModules);
  let resume:RecoveryCursor|null=null;
  if(options.resume){resume=checkedCursor(options.resume.cursor,manifest);const trusted=checkedCursor(options.resume.trustedCheckpoint,manifest);if(canonical(resume)!==canonical(trusted))return fail('cursor-checkpoint');}

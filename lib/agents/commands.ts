@@ -4,7 +4,7 @@ import {parseAuditEvent} from '../audit-events.ts';
 import type {CommandHandler,PrepareContext,MutationPlan} from '../workspace-transaction.ts';
 import type {JsonValue} from '../workspace-protocol.ts';
 import {agentIdSchema,agentDigestSchema,agentJobRequestSchema,agentJobRecordSchema,AGENT_LIMITS} from './contracts.ts';
-import {buildAgentJobSpec,agentJobSpecSha256,validateAgentJobRecord,agentTaskSnapshotSha256,buildAgentApprovalEnvelope,validateAgentDependencyGraph} from './policy.ts';
+import {buildAgentJobSpec,agentTaskInputBytes,agentJobSpecSha256,validateAgentJobRecord,agentTaskSnapshotSha256,buildAgentApprovalEnvelope,validateAgentDependencyGraph} from './policy.ts';
 const positive=z.number().int().positive().safe();
 export const createAgentCommandSchema=z.object({type:z.literal('jobs.create'),value:agentJobRequestSchema,retryOfJobId:agentIdSchema.optional()}).strict();
 const target={id:agentIdSchema,expectedOperationalRevision:positive};
@@ -19,8 +19,9 @@ async function currentTask(c:PrepareContext,taskId:string){const task=c.before.w
 function audit(c:PrepareContext,p:MutationPlan,id:string,after:JsonValue){p.events.push(parseAuditEvent({id:crypto.randomUUID(),kind:c.command.type,entityType:'agent-job',entityId:id,changes:[{path:['agent-job',id],before:{exists:false,value:null},after:{exists:true,value:after}}],origin:'owner',actorId:c.userId,occurredAt:c.now,sourceRef:null,undoOf:null}));}
 const create:CommandHandler={async prepare(c){
  const input=createAgentCommandSchema.parse(c.command),p=empty(c),services=runtime(c),id=crypto.randomUUID(),intentId=crypto.randomUUID();
- const spec=await buildAgentJobSpec(input.value,{workspace:c.before.workspace,workspaceRevision:c.before.revision,acceptanceInputs:await services.taskInputs(input.value.taskId)});
- const artifacts=await services.artifacts(spec.inputArtifactIds);if(artifacts.length!==spec.inputArtifactIds.length||artifacts.reduce((n,a)=>n+a.bytes,0)>AGENT_LIMITS.inputBytes)throw new Error('Immutable input artifacts exceed the finite prompt bound.');
+ const acceptanceInputs=await services.taskInputs(input.value.taskId),spec=await buildAgentJobSpec(input.value,{workspace:c.before.workspace,workspaceRevision:c.before.revision,acceptanceInputs});
+ const task=c.before.workspace.tasks.find(row=>row.id===spec.taskId)!;
+ const artifacts=await services.artifacts(spec.inputArtifactIds);if(artifacts.length!==spec.inputArtifactIds.length||agentTaskInputBytes(task,acceptanceInputs)+artifacts.reduce((n,a)=>n+a.bytes,0)>AGENT_LIMITS.inputBytes)throw new Error('Immutable input artifacts exceed the finite prompt bound.');
  if(input.retryOfJobId){const previous=await record(c,input.retryOfJobId,p),state=await services.state(previous.id);if(!state||!['succeeded','failed','cancelled','blocked','rejected'].includes(state.status))throw new Error('A retry requires confirmed reconciliation of the previous job.');}
  const value=agentJobRecordSchema.parse({id,intentId,spec,specSha256:await agentJobSpecSha256(spec),createdAt:c.now,retryOfJobId:input.retryOfJobId??null,historical:false});
  const dependencies=await services.dependencies(value);validateAgentDependencyGraph(id,c.userId,[{id,ownerId:c.userId,dependsOnJobIds:spec.dependsOnJobIds,status:'awaiting_approval'},...dependencies]);
@@ -31,7 +32,7 @@ const approve:CommandHandler={async prepare(c){
  if(!state||state.status!=='awaiting_approval'||state.operationalRevision!==input.expectedOperationalRevision||await currentTask(c,value.spec.taskId)!==value.spec.taskSnapshotSha256)throw new Error('The exact job or task changed. Create a fresh reviewed proposal.');
  const candidate=await services.candidate(value,input.deviceId,input.budgetId);if(!candidate||candidate.capabilityHash!==input.expectedCapabilityHash||candidate.bindingHash!==input.expectedBindingHash)throw new Error('The installed runtime, capability or finite budget is unavailable or changed.');
  const envelope=await buildAgentApprovalEnvelope(value.spec,{approval:{id:crypto.randomUUID(),jobId:value.id,deviceId:candidate.deviceId,specSha256:value.specSha256,capabilitySha256:candidate.capabilityHash,configurationSha256:candidate.binding.configurationSha256,taskSnapshotSha256:value.spec.taskSnapshotSha256,approvedAt:c.now,expiresAt:new Date(Date.parse(c.now)+AGENT_LIMITS.approvalMs).toISOString(),revokedAt:null,attempts:1,budget:{jobs:1,timeoutSeconds:value.spec.timeoutSeconds},origin:'native-owner'},executionBinding:candidate.binding,reservationId:candidate.budgetId,approverId:c.userId},c.now);
- p.agentControls={action:'approve',jobId:value.id,expectedOperationalRevision:state.operationalRevision,candidate,envelope};audit(c,p,value.id,{id:value.id,approvalId:envelope.approval.id,bindingHash:candidate.bindingHash,status:'queued'});return p;
+ p.agentControls={action:'approve',jobId:value.id,expectedOperationalRevision:state.operationalRevision,candidate,envelope};audit(c,p,value.id,{id:value.id,bindingHash:candidate.bindingHash,status:'queued'});return p;
 }};
 const cancel:CommandHandler={async prepare(c){
  const input=cancelSchema.parse(c.command),p=empty(c),value=await record(c,input.id,p),state=await runtime(c).state(value.id);

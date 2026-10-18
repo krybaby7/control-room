@@ -108,7 +108,7 @@ try{
  const attachmentManifest=deriveAttachmentManifest(smallModules);validateAttachmentManifest(attachmentManifest,smallModules,{allowLegacyEmpty:false});assert.equal(attachmentManifest.length,1);
  // The side header is trusted operator input, not authority recovered from untrusted segment JSON.
  const header={format:'control-room-isolated-replacement',version:1,exportedAt:NOW,sourceAuditNamespace:sourceNamespaces.auditNamespace,sourceHashes,attachmentManifest,manifestHash:manifest.sha256};
- const headerHash=await hash(header),readSegment=async(module,index)=>{const row=await stage.prepare('SELECT content FROM segments WHERE module=? AND idx=?').bind(module,index).first();if(!row)throw new Error('Missing segment');return row.content;};
+ const headerHash=await hash(header),readSegment=async(recoveryModule,index)=>{const row=await stage.prepare('SELECT content FROM segments WHERE module=? AND idx=?').bind(recoveryModule,index).first();if(!row)throw new Error('Missing segment');return row.content;};
  await validateRecoveryManifest(manifest,context,specs);
  async function initInstall(id){await stage.prepare("INSERT INTO installs(id,manifest_hash,status) VALUES(?,?,'staging')").bind(id,manifest.sha256).run();}
  async function state(id){return stage.prepare('SELECT * FROM installs WHERE id=?').bind(id).first();}
@@ -132,7 +132,7 @@ try{
   assert.equal(complete,true);
   await stage.prepare("UPDATE installs SET status='verified' WHERE id=? AND status='staging'").bind(id).run();
  }
- const lastModule=manifest.modules.findLast(module=>module.segments.length),last=lastModule.segments.at(-1),originalLast=await readSegment(lastModule.key,last.index);
+ const lastModule=manifest.modules.findLast(recoveryModule=>recoveryModule.segments.length),last=lastModule.segments.at(-1),originalLast=await readSegment(lastModule.key,last.index);
  await initInstall('corrupt');
  await assert.rejects(()=>decodeInto('corrupt',{reader:async(key,index)=>key===lastModule.key&&index===last.index?originalLast.replace(/.$/,'!'):readSegment(key,index)}));
  assert.equal(await stagedCount('corrupt'),0);assert.equal((await state('corrupt')).status,'staging');
@@ -145,14 +145,14 @@ try{
  await assert.rejects(()=>decodeInto('interrupted',{resume:{cursor:forged,trustedCheckpoint:checkpoint}}));assert.equal(await stagedCount('interrupted'),17);
  await decodeInto('interrupted',{resume:{cursor:checkpoint,trustedCheckpoint:checkpoint}});
  assert.equal(await stagedCount('interrupted'),manifest.totalRows);
- async function rows(module){
-  return (await stage.prepare('SELECT row_json FROM staged_rows WHERE install_id=? AND module=? ORDER BY id').bind('interrupted',module).all()).results.map(row=>JSON.parse(row.row_json));
+ async function rows(recoveryModule){
+  return (await stage.prepare('SELECT row_json FROM staged_rows WHERE install_id=? AND module=? ORDER BY id').bind('interrupted',recoveryModule).all()).results.map(row=>JSON.parse(row.row_json));
  }
  const planningRows=await rows('planning');assert.equal(planningRows.length,1);assert.equal(planningRows[0].contentHash,sourceHashes.planning);
  const planning=parsePlanningImport(planningRows[0].value,NOW),modules={};
  for(const adapter of adapters){
   if(adapter.key==='audit_events'){modules[adapter.key]={schemaVersion:adapter.schemaVersion,records:[]};continue;}
-  const stored=await rows(adapter.key);assert.equal(stored.length,manifest.modules.find(module=>module.key===adapter.key).rows);
+  const stored=await rows(adapter.key);assert.equal(stored.length,manifest.modules.find(recoveryModule=>recoveryModule.key===adapter.key).rows);
   const records=adapter.parseAndMigrate({schemaVersion:adapter.schemaVersion,records:stored});
   // Logical hashes use the actual export order, which may differ from BINARY segment order.
   const original=smallModules[adapter.key].records,byId=new Map(records.map(row=>[row.id,row]));
@@ -189,15 +189,15 @@ try{
  }
  async function verifyStageInventory(){
   assert.equal(await stagedCount('interrupted'),manifest.totalRows,'Staged row count differs');
-  for(const module of manifest.modules){
+  for(const recoveryModule of manifest.modules){
    const expected=createHash('sha256'),actual=createHash('sha256');expected.update('[');actual.update('[');let first=true,count=0;
-   for(const descriptor of module.segments)for(const row of JSON.parse(await readSegment(module.key,descriptor.index)).rows){if(!first)expected.update(',');first=false;expected.update(canonical(row));}
+   for(const descriptor of recoveryModule.segments)for(const row of JSON.parse(await readSegment(recoveryModule.key,descriptor.index)).rows){if(!first)expected.update(',');first=false;expected.update(canonical(row));}
    let after='';first=true;
    for(;;){
-    const page=(await stage.prepare("SELECT id,row_json FROM staged_rows WHERE install_id='interrupted' AND module=? AND id>? ORDER BY id LIMIT 200").bind(module.key,after).all()).results;if(!page.length)break;
+    const page=(await stage.prepare("SELECT id,row_json FROM staged_rows WHERE install_id='interrupted' AND module=? AND id>? ORDER BY id LIMIT 200").bind(recoveryModule.key,after).all()).results;if(!page.length)break;
     for(const row of page){if(!first)actual.update(',');first=false;actual.update(canonical(JSON.parse(row.row_json)));count++;after=row.id;}
    }
-   expected.update(']');actual.update(']');assert.equal(count,module.rows);assert.equal(actual.digest('hex'),expected.digest('hex'),'Staged module contents differ: '+module.key);
+   expected.update(']');actual.update(']');assert.equal(count,recoveryModule.rows);assert.equal(actual.digest('hex'),expected.digest('hex'),'Staged module contents differ: '+recoveryModule.key);
   }
  }
  async function install(db,{failAfter=null}={}){
@@ -241,7 +241,7 @@ try{
   auditDigest.update(']');assert.equal(auditDigest.digest('hex'),sourceHashes.audit_events);
   assert.deepEqual((await readCurrent(db,OWNER,NOW)).workspace,planning);
   const auditCount=(await db.prepare('SELECT COUNT(*) n FROM audit_events WHERE user_id=?').bind(OWNER).first()).n;
-  assert.equal(auditCount,manifest.modules.find(module=>module.key==='audit_events').rows);
+  assert.equal(auditCount,manifest.modules.find(recoveryModule=>recoveryModule.key==='audit_events').rows);
   assert.equal((await db.prepare('SELECT COUNT(*) n FROM audit_import_identities WHERE user_id=?').bind(OWNER).first()).n,auditCount);
   assert.equal((await db.prepare('PRAGMA foreign_key_check').all()).results.length,0);
   // Private authority must start empty. New namespaces and verified target object ledger are the only intentional private setup.
@@ -273,6 +273,6 @@ try{
  assert.equal((await state('interrupted')).handoff_hash,installed.hash);
  assert.deepEqual(await readCurrent(source,OWNER,NOW),frozen);assert.deepEqual(await readOperationalWatermarks(source,OWNER),vector);
  assert.deepEqual((await readReadyAttachment(OWNER,attachmentRecordSchema.parse(JSON.parse((await ownerReader(target,OWNER).get('attachments',ready.id)).payload_json)),targetStore,{ownerNamespace:(await getWorkspaceNamespaces(target,OWNER)).blobNamespace,now:NOW})).bytes,fileBytes);
- console.log(JSON.stringify({profile:'isolated-replacement-rehearsal',migrations:migrationNames.length,modules:specs.length,segments:manifest.modules.reduce((sum,module)=>sum+module.segments.length,0),rows:manifest.totalRows,bytes:manifest.totalBytes,handoff:installed.handoff,sourceUntouched:true,v1BoundsUnchanged:true,hostedBindingChanged:false,limitations:['64MiB metadata profile only','No hosted cutover or live provider/device verification','Private authority is not imported','Recovery of private tombstones and operational state requires a separately reviewed operator policy']}));
+ console.log(JSON.stringify({profile:'isolated-replacement-rehearsal',migrations:migrationNames.length,modules:specs.length,segments:manifest.modules.reduce((sum,recoveryModule)=>sum+recoveryModule.segments.length,0),rows:manifest.totalRows,bytes:manifest.totalBytes,handoff:installed.handoff,sourceUntouched:true,v1BoundsUnchanged:true,hostedBindingChanged:false,limitations:['64MiB metadata profile only','No hosted cutover or live provider/device verification','Private authority is not imported','Recovery of private tombstones and operational state requires a separately reviewed operator policy']}));
  console.log('PASS actual isolated D1/R2 segmented replacement: all-segment preverification, corruption rejection, checkpoint CAS, interrupted-target refusal, typed reference/FK validation, stable historical identities, verified fresh-namespace attachment, manual-only handoff.');
 }finally{await mf.dispose();}

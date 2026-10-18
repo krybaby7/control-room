@@ -131,12 +131,12 @@ test('terminal history row ceiling reserves the last slot before admission and p
   const result=agentJobResultSchema.parse({attemptId:'history-attempt',epoch:0,disposition:'blocked',requestedModel:job.spec.requestedModel,observedModel:null,modelVerified:false,terminalProtocolObserved:false,processExitConfirmed:true,terminationUnconfirmed:false,artifactIds:[],usage:null,diagnostic:'policy_blocked'});
   // Historical rows have no current queue, lease, result acceptance or grant.
   for(let index=0;index<499;index++){
-   const id='historical-result-'+index,attemptId='historical-attempt-'+index,current={...result,attemptId},value={id,jobId:job.id,attemptId,recordedAt:now,result:current,resultSha256:await contentHash(canonical(current)),historical:true};
+   const id='historical-result-'+index,attemptId='historical-attempt-'+index,current={...result,attemptId},value={id,jobId:job.id,attemptId,recordedAt:now,frozenJob:{...job,historical:true},result:current,resultSha256:await contentHash(canonical(current)),historical:true};
    f.sqlite.prepare('INSERT INTO agent_results(user_id,id,row_revision,payload_json,content_hash,job_id,attempt_id,recorded_at,stream_sequence) VALUES(?,?,1,?,?,?,?,?,0)').run(owner,id,canonical(value),await contentHash(canonical(value)),job.id,attemptId,now);
   }
   const quote=await measureProspectiveRecoverability(f.db,owner,{now});assert.equal(quote.measurement.allowed,true,JSON.stringify(quote.measurement.reasons));
   const extra=await measureProspectiveRecoverability(f.db,owner,{now,agentTerminalReserveDelta:1});assert.ok(extra.measurement.reasons.some(reason=>reason.scope==='agent-terminal-history-headroom'&&reason.actual===501));
-  const finalResult={...result,attemptId:'last-historical-attempt'},value={id:'last-historical-result',jobId:job.id,attemptId:finalResult.attemptId,recordedAt:now,result:finalResult,resultSha256:await contentHash(canonical(finalResult)),historical:false};
+  const finalResult={...result,attemptId:'last-historical-attempt'},value={id:'last-historical-result',jobId:job.id,attemptId:finalResult.attemptId,recordedAt:now,frozenJob:{...job,historical:true},result:finalResult,resultSha256:await contentHash(canonical(finalResult)),historical:false};
   const finalQuote=await measureProspectiveRecoverability(f.db,owner,{now,agentTerminalReserveDelta:-1,operationalWrites:[{table:'agent_results',value,streamSequence:1}],operationalWatermarksAfter:{...quote.boundaryWatermarks,agents:1}});
   assert.equal(finalQuote.measurement.allowed,true,JSON.stringify(finalQuote.measurement.reasons));
   assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM agent_results').get()!.n,499,'measurement is read-only and does not insert a claimed terminal result');

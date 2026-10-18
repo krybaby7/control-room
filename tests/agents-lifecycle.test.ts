@@ -10,6 +10,7 @@ import {canonical,contentHash} from '../lib/canonical-json.ts';
 import {ownerAgentContext,readAgentState} from '../lib/agents/context.ts';
 import {agentControlStatements} from '../lib/agents/transaction-controls.ts';
 import {agentCapabilitySchema,type AgentJobRecordV1} from '../lib/agents/contracts.ts';
+import {agentTaskSemanticProjection} from '../lib/agents/policy.ts';
 const now='2026-10-18T12:00:00.000Z',owner='agent-owner',foreign='agent-foreign',sha='a'.repeat(64),deviceId='synthetic-executor',budgetId='synthetic-budget';
 async function fixture(){
  const f=database();await loadWorkspace(f.db,owner,()=>createSeedWorkspace(now),now);await loadWorkspace(f.db,foreign,()=>createSeedWorkspace(now),now);
@@ -106,5 +107,19 @@ test('accepting a verified result records owner acceptance while leaving task st
   await f.send({type:'jobs.accept-result',id:job.id,expectedOperationalRevision:1,expectedResultHash:await contentHash(canonical(result)),expectedTaskSnapshotSha256:job.spec.taskSnapshotSha256});
   assert.ok((await readAgentState(f.db,owner,job.id))!.acceptedAt);
   assert.equal(canonical((await readCurrent(f.db,owner,now)).workspace),planning);
+ }finally{f.sqlite.close();}
+});
+
+test('owner approval candidate includes actual task instructions in its input budget and rejects changed task SHA',async()=>{
+ const f=await fixture();try{
+  await f.budget();await f.capability();const job=await f.create(),context=ownerAgentContext(f.db,owner,now),candidate=await context.candidate(job,deviceId,budgetId);assert.ok(candidate);
+  const task=(await readCurrent(f.db,owner,now)).workspace.tasks.find(row=>row.id===job.spec.taskId)!;
+  const projection=agentTaskSemanticProjection(task,await context.taskInputs(task.id)),bytes=new TextEncoder().encode(canonical(projection)).byteLength;
+  assert.equal(await contentHash(canonical(projection)),job.spec.taskSnapshotSha256);
+  assert.equal(candidate.binding.budget.inputBytesLimit,bytes);
+  assert.ok(bytes>0);assert.equal(candidate.binding.artifactRefs.length,0);
+  await f.send({type:'task.update',id:task.id,patch:{notes:task.notes+' Changed exact owner instructions.'}});
+  assert.equal(await ownerAgentContext(f.db,owner,now).candidate(job,deviceId,budgetId),null);
+  assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM job_approvals').get()!.n,0);
  }finally{f.sqlite.close();}
 });

@@ -17,6 +17,7 @@ export function agentTaskSemanticProjection(task:Task,acceptanceInputs:JsonValue
  boundedJson(task);boundedJson(acceptanceInputs);if(!Array.isArray(task.dependsOn)||new Set(task.dependsOn).size!==task.dependsOn.length)throw new AgentPolicyError('duplicate_task_dependency');
  return {id:task.id,projectId:task.projectId,milestoneId:task.milestoneId,title:task.title,notes:task.notes,status:task.status,horizon:task.horizon,priority:task.priority,dueDate:task.dueDate,weekly:task.weekly,weeklyWeek:task.weeklyWeek??null,estimateMinutes:task.estimateMinutes??null,dependsOn:[...task.dependsOn].sort(),blocker:task.blocker,sourceUrl:task.sourceUrl,evidence:task.evidence,completedAt:task.completedAt,archivedFromStatus:task.archivedFromStatus??null,acceptanceInputs};
 }
+export function agentTaskInputBytes(task:Task,acceptanceInputs:JsonValue):number{const bytes=new TextEncoder().encode(canonical(agentTaskSemanticProjection(task,acceptanceInputs))).byteLength;if(bytes>AGENT_LIMITS.inputBytes)throw new AgentPolicyError('task_prompt_bytes_exceeded');return bytes;}
 export async function agentTaskSnapshotSha256(task:Task,acceptanceInputs:JsonValue):Promise<string>{return contentHash(canonical(agentTaskSemanticProjection(task,acceptanceInputs)));}
 export async function agentJobSpecSha256(raw:unknown):Promise<string>{return contentHash(canonical(agentJobSpecSchema.parse(raw)));}
 /** Capture a request into immutable DATA only; no provider, approval, lease or process is admitted. */
@@ -25,6 +26,7 @@ export async function buildAgentJobSpec(raw:unknown,context:{workspace:Workspace
  const project=context.workspace.projects.find(row=>row.id===request.projectId),task=context.workspace.tasks.find(row=>row.id===request.taskId);
  if(!project||project.archivedAt||!task||task.projectId!==project.id||task.status==='archived')throw new AgentPolicyError('active_owner_task_unavailable');
  if(task.milestoneId&&!context.workspace.milestones.some(row=>row.id===task.milestoneId&&row.projectId===project.id&&!row.archivedAt))throw new AgentPolicyError('active_owner_milestone_unavailable');
+ agentTaskInputBytes(task,context.acceptanceInputs);
  return agentJobSpecSchema.parse({...request,schemaVersion:1,baseWorkspaceRevision:context.workspaceRevision,taskSnapshotSha256:await agentTaskSnapshotSha256(task,context.acceptanceInputs)});
 }
 export async function validateAgentJobRecord(raw:unknown):Promise<AgentJobRecordV1>{
@@ -76,9 +78,15 @@ export function defaultAgentExecution(){return Object.freeze({enabled:false as c
 
 /** Capability is attested data, not authentication; its exact native owner/device
  * registration and current private approval must be checked by the eventual store. */
-export async function buildAgentExecutionBinding(specRaw:unknown,capabilityRaw:unknown,input:{artifactRefs:unknown;budget:unknown;now:string}):Promise<AgentExecutionBindingV1>{
+export async function buildAgentExecutionBinding(specRaw:unknown,capabilityRaw:unknown,input:{artifactRefs:unknown;budget:unknown;now:string;taskInput?:JsonValue}):Promise<AgentExecutionBindingV1>{
  const spec=agentJobSpecSchema.parse(specRaw),capability=agentCapabilitySchema.parse(capabilityRaw);evidenceDateSchema.parse(input.now);const now=Date.parse(input.now),model=capability.models.find(row=>row.id===spec.requestedModel);
  if(Date.parse(capability.observedAt)>now||Date.parse(capability.expiresAt)<=now||now-Date.parse(capability.observedAt)>AGENT_LIMITS.capabilityMs)throw new AgentPolicyError('capability_stale');
  if(capability.availableSlots!==1||!capability.operations.includes(spec.operation)||!capability.repositoryKeys.includes(spec.repositoryKey)||!model||!model.efforts.includes(spec.effort)||spec.timeoutSeconds>capability.maxTimeoutSeconds||spec.outputBytesLimit>capability.maxOutputBytesLimit)throw new AgentPolicyError('exact_capability_unavailable');
- return validateAgentExecutionBinding(spec,{schemaVersion:1,provider:capability.provider,requestedModel:spec.requestedModel,effort:spec.effort,runtime:capability.runtime,capabilitySha256:await contentHash(canonical(capability)),configurationSha256:capability.configurationSha256,allowedPathsSha256:capability.allowedPathsSha256ByRepositoryKey[spec.repositoryKey],artifactRefs:input.artifactRefs,effects:[...effects[spec.operation]],budget:input.budget,modelIdentityPolicy:capability.modelIdentityPolicy});
+ const binding=validateAgentExecutionBinding(spec,{schemaVersion:1,provider:capability.provider,requestedModel:spec.requestedModel,effort:spec.effort,runtime:capability.runtime,capabilitySha256:await contentHash(canonical(capability)),configurationSha256:capability.configurationSha256,allowedPathsSha256:capability.allowedPathsSha256ByRepositoryKey[spec.repositoryKey],artifactRefs:input.artifactRefs,effects:[...effects[spec.operation]],budget:input.budget,modelIdentityPolicy:capability.modelIdentityPolicy});
+ if(input.taskInput!==undefined){
+  const taskInput=boundedJson(input.taskInput),serialized=canonical(taskInput),taskBytes=new TextEncoder().encode(serialized).byteLength,total=taskBytes+binding.artifactRefs.reduce((sum,row)=>sum+row.bytes,0);
+  if(await contentHash(serialized)!==spec.taskSnapshotSha256)throw new AgentPolicyError('task_prompt_identity_differs');
+  if(total>AGENT_LIMITS.inputBytes||binding.budget.inputBytesLimit!==total)throw new AgentPolicyError('combined_prompt_bytes_differ');
+ }
+ return binding;
 }

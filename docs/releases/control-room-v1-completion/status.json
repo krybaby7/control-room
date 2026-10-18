@@ -1,0 +1,158 @@
+{
+  "format": "control-room-release-status",
+  "version": 1,
+  "candidate": "control-room-v1-completion",
+  "sourceCommit": null,
+  "artifactSha256": null,
+  "artifact": null,
+  "phases": {
+    "implementation": "in-progress",
+    "localVerification": "not-run",
+    "hostedAcceptance": "owner-dependent"
+  },
+  "checks": [
+    {
+      "id": "node-tests",
+      "status": "not-run",
+      "environment": "isolated-ci",
+      "observedAt": null,
+      "commandOrProcedure": "npm test",
+      "evidencePath": null,
+      "limitation": null,
+      "disabledScope": null,
+      "evidence": null
+    },
+    {
+      "id": "bridge-tests",
+      "status": "not-run",
+      "environment": "isolated-ci",
+      "observedAt": null,
+      "commandOrProcedure": "npm run test:bridge",
+      "evidencePath": null,
+      "limitation": null,
+      "disabledScope": null,
+      "evidence": null
+    },
+    {
+      "id": "typecheck",
+      "status": "not-run",
+      "environment": "isolated-ci",
+      "observedAt": null,
+      "commandOrProcedure": "npm run typecheck",
+      "evidencePath": null,
+      "limitation": null,
+      "disabledScope": null,
+      "evidence": null
+    },
+    {
+      "id": "lint",
+      "status": "not-run",
+      "environment": "isolated-ci",
+      "observedAt": null,
+      "commandOrProcedure": "npm run lint",
+      "evidencePath": null,
+      "limitation": null,
+      "disabledScope": null,
+      "evidence": null
+    },
+    {
+      "id": "build",
+      "status": "not-run",
+      "environment": "isolated-ci",
+      "observedAt": null,
+      "commandOrProcedure": "npm run build",
+      "evidencePath": null,
+      "limitation": null,
+      "disabledScope": null,
+      "evidence": null
+    },
+    {
+      "id": "d1-recovery",
+      "status": "not-run",
+      "environment": "isolated-ci",
+      "observedAt": null,
+      "commandOrProcedure": "npm run test:workspace-d1",
+      "evidencePath": null,
+      "limitation": null,
+      "disabledScope": null,
+      "evidence": null
+    },
+    {
+      "id": "r2-recovery",
+      "status": "not-run",
+      "environment": "isolated-ci",
+      "observedAt": null,
+      "commandOrProcedure": "npm run test:attachment-recovery-r2",
+      "evidencePath": null,
+      "limitation": null,
+      "disabledScope": null,
+      "evidence": null
+    },
+    {
+      "id": "chromium",
+      "status": "not-run",
+      "environment": "isolated-ci",
+      "observedAt": null,
+      "commandOrProcedure": "npm run test:e2e",
+      "evidencePath": null,
+      "limitation": null,
+      "disabledScope": null,
+      "evidence": null
+    },
+    {
+      "id": "r2-chromium",
+      "status": "not-run",
+      "environment": "isolated-ci",
+      "observedAt": null,
+      "commandOrProcedure": "npm run test:e2e:r2",
+      "evidencePath": null,
+      "limitation": null,
+      "disabledScope": null,
+      "evidence": null
+    },
+    {
+      "id": "oversized-owner-recovery",
+      "status": "not-run",
+      "environment": "isolated-replacement",
+      "observedAt": null,
+      "commandOrProcedure": "Restore an exact owner-size supported recovery package into an isolated replacement, including reviewed private continuity and actual attachment bytes.",
+      "evidencePath": null,
+      "limitation": null,
+      "disabledScope": null,
+      "evidence": null
+    },
+    {
+      "id": "performance",
+      "status": "not-run",
+      "environment": "controlled-staging",
+      "observedAt": null,
+      "commandOrProcedure": "Measure documented capacity fixtures, concurrency and p50/p95 budgets against the exact candidate.",
+      "evidencePath": null,
+      "limitation": null,
+      "disabledScope": null,
+      "evidence": null
+    },
+    {
+      "id": "hosted-private-acceptance",
+      "status": "not-run",
+      "environment": "private-staging",
+      "observedAt": null,
+      "commandOrProcedure": "Observe the exact private published artifact, bindings, migrations, gateway authentication and owner session.",
+      "evidencePath": null,
+      "limitation": null,
+      "disabledScope": null,
+      "evidence": null
+    },
+    {
+      "id": "owner-device-acceptance",
+      "status": "not-run",
+      "environment": "owner-device",
+      "observedAt": null,
+      "commandOrProcedure": "Owner observes the enabled physical-device workflows on their actual devices.",
+      "evidencePath": null,
+      "limitation": null,
+      "disabledScope": null,
+      "evidence": null
+    }
+  ]
+}

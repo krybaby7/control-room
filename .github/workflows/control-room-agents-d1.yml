@@ -1,0 +1,31 @@
+name: Control Room isolated agents D1
+on:
+  push:
+    branches: ['feat/**']
+    paths:
+      - 'scripts/test-agents-d1.mjs'
+      - 'lib/agents/**'
+      - 'lib/workspace-transaction.ts'
+      - 'lib/workspace-handlers.ts'
+      - '.github/workflows/control-room-agents-d1.yml'
+  pull_request:
+    paths:
+      - 'scripts/test-agents-d1.mjs'
+      - 'lib/agents/**'
+      - 'lib/workspace-transaction.ts'
+      - 'lib/workspace-handlers.ts'
+      - '.github/workflows/control-room-agents-d1.yml'
+permissions:
+  contents: read
+jobs:
+  agents-d1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm run install:ci
+      - run: node --experimental-strip-types scripts/test-agents-d1.mjs

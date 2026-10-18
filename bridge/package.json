@@ -1,6 +1,6 @@
 {
   "name": "control-room-windows-bridge",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -10,7 +10,10 @@
     "src/*.mjs",
     "windows/*.ps1",
     "README.md",
-    "config.example.json"
+    "config.example.json",
+    "executor/*.mjs",
+    "executor/README.md",
+    "executor/config.example.json"
   ],
   "scripts": {
     "test": "node --test --test-timeout=30000 test/*.test.mjs"

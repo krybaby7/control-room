@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {database} from './helpers/sqlite.ts';
 import {workspaceFixture,taskFixture} from './helpers/workspace.ts';
+import {encodePlanning} from '../lib/workspace-codec.ts';
 import {loadWorkspace,type SqlDatabase} from '../lib/workspace-store.ts';
 import {canonical,contentHash} from '../lib/canonical-json.ts';
 import type {DevicePrincipal} from '../lib/devices/contracts.ts';
@@ -52,7 +53,7 @@ function count(f:ReturnType<typeof database>,table:string){return f.sqlite.prepa
 test('overlapping claims allocate one attempt and slot; same journal retry rotates only that attempt and fixed deadline',async()=>{const f=await fixture();try{
  const outcomes=await Promise.allSettled([claim(f),claim(f)]);assert.equal(outcomes.filter(x=>x.status==='fulfilled').length,1);
  const first=(outcomes.find(x=>x.status==='fulfilled') as PromiseFulfilledResult<AgentLease>).value,retry=await claim(f);
- assert.equal(retry.attemptId,first.attemptId);assert.equal(retry.deadlineAt,first.deadlineAt);assert.notEqual(retry.leaseToken,first.leaseToken);assert.equal(retry.resumed,true);
+ assert.equal(retry.attemptId,first.attemptId);assert.equal(retry.deadlineAt,first.deadlineAt);assert.notEqual(retry.leaseToken,first.leaseToken);assert.equal(retry.resumed,true);assert.deepEqual(retry.taskInput,first.taskInput);assert.deepEqual(retry.approvalEnvelope,first.approvalEnvelope);assert.equal(retry.serverNow,now);assert.equal(await contentHash(canonical(retry.taskInput)),f.record.spec.taskSnapshotSha256);
  assert.equal(count(f,'job_attempts'),1);assert.equal(count(f,'agent_device_slots'),1);
  assert.notEqual(f.sqlite.prepare('SELECT lease_token_hash FROM job_attempts').get()!.lease_token_hash,retry.leaseToken);
  await assert.rejects(claimAgentJob(f.db,f.principal,{jobId:f.jobId,journalNonce:nonce+'different'},f.options));
@@ -99,10 +100,10 @@ test('out of order events retain gaps, contiguous replay applies once, changed d
  const duplicate=await send([events[1]]);assert.deepEqual(duplicate.receipts,gap.receipts);assert.equal(count(f,'job_events'),2);
  await assert.rejects(send([{...events[1],diagnostic:'unknown'}]),error=>(error as {status?:number}).status===409);
 }finally{f.sqlite.close();}});
-test('started runtime/model mismatch and terminal result without actual ordered exit proof never succeed',async()=>{const f=await fixture();try{
+test('honest started model mismatch is retained without allowing success or inventing exit proof',async()=>{const f=await fixture();try{
  const lease=await claim(f),events=await proofEvents(lease),send=(values:unknown)=>reportAgentEvents(f.db,f.principal,{attemptId:lease.attemptId,leaseToken:lease.leaseToken,events:values},{...f.options,now:later(2)});
- await assert.rejects(send([events[0],{...events[1],details:{...events[1].details,observedModel:'different-exact-model'}}]));
- assert.equal(count(f,'job_events'),0);
+ await send([events[0],{...events[1],details:{...events[1].details,observedModel:'different-exact-model'}}]);
+ assert.equal(count(f,'job_events'),2);assert.equal(f.sqlite.prepare('SELECT status FROM agent_job_state').get()!.status,'reconcile_required');
  await assert.rejects(completeAgentAttempt(f.db,f.principal,{attemptId:lease.attemptId,leaseToken:lease.leaseToken,result:result(lease)},{...f.options,now:later(3),verifyResult:async()=>({adapterChecksPassed:true})}));
  assert.equal(count(f,'agent_results'),0);assert.equal(f.sqlite.prepare('SELECT released_at FROM agent_device_slots').get()!.released_at,null);
 }finally{f.sqlite.close();}});
@@ -175,3 +176,64 @@ test('actual Miniflare D1 atomically claims, renews, commits 50 ordered events a
   assert.equal((await db.prepare('SELECT revision FROM workspaces WHERE user_id=?').bind(f.owner).first<{revision:number}>())!.revision,1);
  }finally{await mf.dispose();f.sqlite.close();}
 });
+
+test('terminal SQL fault rolls portable result, stream, slot, queue and budget back together',async()=>{const f=await fixture();try{
+ const lease=await claim(f),value=result(lease),events=await proofEvents(lease,value);
+ await reportAgentEvents(f.db,f.principal,{attemptId:lease.attemptId,leaseToken:lease.leaseToken,events},{...f.options,now:later(3)});
+ f.sqlite.exec("CREATE TRIGGER synthetic_terminal_fault BEFORE UPDATE OF result_json ON job_attempts BEGIN SELECT RAISE(ABORT,'synthetic terminal fault'); END");
+ await assert.rejects(completeAgentAttempt(f.db,f.principal,{attemptId:lease.attemptId,leaseToken:lease.leaseToken,result:value},{...f.options,now:later(4),verifyResult:async()=>({adapterChecksPassed:true})}));
+ assert.equal(count(f,'agent_results'),0);assert.equal(f.sqlite.prepare("SELECT COUNT(*) n FROM audit_events WHERE stream_id='agents'").get()!.n,0);assert.equal(count(f,'operational_stream_heads'),0);
+ assert.equal(f.sqlite.prepare('SELECT released_at FROM agent_device_slots').get()!.released_at,null);assert.equal(f.sqlite.prepare('SELECT result_json FROM job_attempts').get()!.result_json,null);
+ assert.equal(f.sqlite.prepare('SELECT reserved_seconds FROM agent_budgets').get()!.reserved_seconds,120);assert.equal(f.sqlite.prepare('SELECT charged_seconds FROM agent_budgets').get()!.charged_seconds,0);assert.equal(f.sqlite.prepare('SELECT status FROM workspace_job_intents').get()!.status,'running');
+ assert.equal(count(f,'job_events'),4);assert.equal(count(f,'agent_protocol_claims'),0);
+}finally{f.sqlite.close();}});
+test('device revocation during trusted result preparation blocks terminal writes and retains unknown resources',async()=>{const f=await fixture();try{
+ const lease=await claim(f),value=result(lease),events=await proofEvents(lease,value);
+ await reportAgentEvents(f.db,f.principal,{attemptId:lease.attemptId,leaseToken:lease.leaseToken,events},{...f.options,now:later(3)});
+ await assert.rejects(completeAgentAttempt(f.db,f.principal,{attemptId:lease.attemptId,leaseToken:lease.leaseToken,result:value},{...f.options,now:later(4),verifyResult:async()=>{f.sqlite.prepare('UPDATE device_credentials SET revoked_at=?').run(later(4));return {adapterChecksPassed:true};}}));
+ assert.equal(count(f,'agent_results'),0);assert.equal(f.sqlite.prepare('SELECT released_at FROM agent_device_slots').get()!.released_at,null);assert.equal(f.sqlite.prepare('SELECT reserved_seconds FROM agent_budgets').get()!.reserved_seconds,120);
+}finally{f.sqlite.close();}});
+
+test('restore omitting original job/task retains unknown attempt then persists standalone historical exit without recreating planning',async()=>{const f=await fixture();try{
+ const lease=await claim(f),value={...result(lease),artifactIds:['purged-original-artifact']},proof=await proofEvents(lease,value);
+ const events=[proof[0],proof[1],proof[2],{schemaVersion:1,attemptId:lease.attemptId,epoch:lease.executionEpoch,sequence:4,observedAt:later(2),diagnostic:'ok',kind:'artifact_ready',details:{artifactId:'purged-original-artifact',sha256:sha,bytes:12,type:'text/markdown'}},{...proof[3],sequence:5}];
+ // Synthetic explicit restore+fresh credential authority: private old process
+ // identity/reservation survives, portable job and old task deliberately do not.
+ f.sqlite.prepare('DELETE FROM agent_jobs WHERE user_id=?').run(f.owner);
+ f.sqlite.prepare('UPDATE workspaces SET content=?,revision=2,updated_at=? WHERE user_id=?').run(encodePlanning(workspaceFixture()),later(30),f.owner);
+ f.sqlite.prepare('UPDATE workspace_execution_state SET epoch=1,restored_at=? WHERE user_id=?').run(later(30),f.owner);
+ f.sqlite.prepare('UPDATE device_credentials SET execution_epoch=1 WHERE user_id=?').run(f.owner);
+ f.sqlite.prepare('UPDATE device_runtime SET execution_epoch=1 WHERE user_id=?').run(f.owner);
+ f.sqlite.prepare("UPDATE workspace_job_intents SET status='cancelled',cancel_requested=1 WHERE user_id=?").run(f.owner);
+ assert.equal(await expireAgentAttempts(f.db,f.owner,later(31)),1);
+ assert.equal(f.sqlite.prepare('SELECT released_at FROM agent_device_slots').get()!.released_at,null);
+ const terminal=await reconcileAgentAttempt(f.db,f.principal,{attemptId:lease.attemptId,journalNonce:nonce,proof:'exited',events,result:value},{...f.options,now:later(32)});
+ assert.equal(terminal.result?.disposition,'succeeded');
+ const stored=JSON.parse(f.sqlite.prepare('SELECT payload_json FROM agent_results').get()!.payload_json as string);
+ assert.equal(stored.historical,true);assert.deepEqual(stored.result,value);assert.equal(stored.result.artifactIds[0],'purged-original-artifact');assert.equal(count(f,'attachments'),0);assert.equal(f.sqlite.prepare('SELECT status FROM agent_job_state').get()!.status,'blocked');assert.equal(f.sqlite.prepare('SELECT accepted_at FROM agent_job_state').get()!.accepted_at,null);assert.equal(stored.frozenJob.historical,true);assert.equal(stored.frozenJob.specSha256,f.record.specSha256);
+ assert.equal(count(f,'agent_jobs'),0);assert.equal(f.sqlite.prepare('SELECT revision FROM workspaces').get()!.revision,2);
+ assert.equal(JSON.parse(f.sqlite.prepare('SELECT content FROM workspaces').get()!.content as string).tasks.length,0);
+ assert.equal(f.sqlite.prepare('SELECT execution_epoch FROM job_attempts').get()!.execution_epoch,0);assert.equal(count(f,'job_attempts'),1);
+ assert.notEqual(f.sqlite.prepare('SELECT released_at FROM agent_device_slots').get()!.released_at,null);assert.equal(f.sqlite.prepare('SELECT reserved_seconds FROM agent_budgets').get()!.reserved_seconds,0);
+}finally{f.sqlite.close();}});
+
+test('observed runtime/tool/model mismatch is honest failure data, never success authority',async()=>{
+ for(const fault of ['runtime','tool','model','requested']as const)for(const dishonestSuccess of [false,true]){
+  const f=await fixture();try{
+   const lease=await claim(f),value={...result(lease),disposition:dishonestSuccess?'succeeded' as const:'failed' as const,observedModel:fault==='model'?'different-exact-model':lease.record.spec.requestedModel,modelVerified:fault!=='model',diagnostic:fault==='model'?'model_mismatch' as const:'policy_blocked' as const},events=await proofEvents(lease,value);
+   const started={...events[1],details:{...events[1].details,...(fault==='runtime'?{runtimePackageSha256:'c'.repeat(64)}:{}),...(fault==='tool'?{toolPolicySha256:'d'.repeat(64)}:{}),...(fault==='model'?{observedModel:'different-exact-model'}:{}),...(fault==='requested'?{requestedModel:'different-request'}:{})}};
+   await reportAgentEvents(f.db,f.principal,{attemptId:lease.attemptId,leaseToken:lease.leaseToken,events:[events[0],started,events[2],events[3]]},{...f.options,now:later(3)});
+   assert.equal(f.sqlite.prepare('SELECT status FROM agent_job_state').get()!.status,'reconcile_required');assert.equal(count(f,'job_events'),4);
+   const complete=()=>completeAgentAttempt(f.db,f.principal,{attemptId:lease.attemptId,leaseToken:lease.leaseToken,result:value},{...f.options,now:later(4),verifyResult:async()=>({adapterChecksPassed:true})});
+   if(dishonestSuccess){await assert.rejects(complete());assert.equal(count(f,'agent_results'),0);assert.equal(f.sqlite.prepare('SELECT released_at FROM agent_device_slots').get()!.released_at,null);}
+   else{await complete();assert.equal(f.sqlite.prepare('SELECT status FROM agent_job_state').get()!.status,'failed');assert.equal(count(f,'agent_results'),1);assert.notEqual(f.sqlite.prepare('SELECT released_at FROM agent_device_slots').get()!.released_at,null);}
+  }finally{f.sqlite.close();}
+ }
+});
+test('frozen task and approval are returned intact on resume/renew, never rebased after owner text changes',async()=>{const f=await fixture();try{
+ const first=await claim(f);assert.equal(await contentHash(canonical(first.taskInput)),f.record.spec.taskSnapshotSha256);
+ f.sqlite.prepare('UPDATE workspaces SET revision=revision+1').run();
+ const resumed=await claim(f),renewed=await renewAgentLease(f.db,f.principal,{attemptId:resumed.attemptId,leaseToken:resumed.leaseToken},{...f.options,now:later(15)});
+ assert.deepEqual(resumed.taskInput,first.taskInput);assert.deepEqual(renewed.taskInput,first.taskInput);assert.deepEqual(renewed.approvalEnvelope,first.approvalEnvelope);
+ assert.equal(renewed.serverNow,later(15));assert.equal(renewed.deadlineAt,first.deadlineAt);
+}finally{f.sqlite.close();}});

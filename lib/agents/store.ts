@@ -7,8 +7,8 @@ import {evidenceDateSchema} from '../evidence-validation.ts';
 import {deviceAuthorityGuard,type DeviceSqlGuard} from '../devices/auth.ts';
 import type {DevicePrincipal} from '../devices/contracts.ts';
 import type {AgentCommandContext} from './command-contracts.ts';
-import {AGENT_LIMITS,agentIdSchema,agentCapabilitySchema,agentJobEventSchema,agentJobResultSchema,type AgentJobRecordV1,type AgentExecutionBindingV1,type AgentJobResultV1,type AgentJobEventV1} from './contracts.ts';
-import {validateAgentJobRecord,validateAgentApprovalEnvelope,agentTaskSnapshotSha256,parseAgentEventBatch,validateAgentDependencyGraph,validateAgentResult} from './policy.ts';
+import {AGENT_LIMITS,agentIdSchema,agentCapabilitySchema,agentApprovalEnvelopeSchema,agentJobEventSchema,agentJobResultSchema,type AgentJobRecordV1,type AgentApprovalEnvelopeV1,type AgentExecutionBindingV1,type AgentJobResultV1,type AgentJobEventV1} from './contracts.ts';
+import {validateAgentJobRecord,validateAgentApprovalEnvelope,validateAgentExecutionBinding,agentTaskSemanticProjection,parseAgentEventBatch,validateAgentDependencyGraph,validateAgentResult} from './policy.ts';
 import {measureProspectiveRecoverability} from '../recoverability-snapshot.ts';
 import {recoverabilityAssertions} from '../recoverability-admission.ts';
 import {readOperationalWatermarks} from '../operational-watermarks.ts';
@@ -18,7 +18,7 @@ import type {JsonValue} from '../workspace-protocol.ts';
 type Bind=string|number|null;
 type Row=Record<string,Bind>;
 export class AgentStoreError extends Error {readonly status:number;constructor(code:string,status=409){super(code);this.name='AgentStoreError';this.status=status;}}
-export interface AgentLease {attemptId:string;jobId:string;executionEpoch:number;leaseToken:string;leaseExpiresAt:string;deadlineAt:string;operationalRevision:number;record:AgentJobRecordV1;executionBinding:AgentExecutionBindingV1;resumed:boolean}
+export interface AgentLease {attemptId:string;jobId:string;executionEpoch:number;leaseToken:string;leaseExpiresAt:string;deadlineAt:string;operationalRevision:number;record:AgentJobRecordV1;executionBinding:AgentExecutionBindingV1;approvalEnvelope:AgentApprovalEnvelopeV1;taskInput:JsonValue;serverNow:string;resumed:boolean}
 export interface AgentEventReceipt {attemptId:string;epoch:number;sequence:number;payloadSha256:string;receivedAt:string}
 export interface AgentStoreOptions {
  now:string;context:AgentCommandContext;
@@ -70,7 +70,9 @@ async function active(db:SqlDatabase,p:DevicePrincipal,jobId:string,options:Agen
  const workspace=await db.prepare('SELECT content,revision,updated_at FROM workspaces WHERE user_id=?').bind(p.ownerId).first<Row>();if(!workspace)fail('owner_workspace_unavailable');
  proofs.push({sql:'EXISTS(SELECT 1 FROM workspaces WHERE user_id=? AND content=? AND revision=? AND updated_at=?)',bindings:[p.ownerId,workspace.content,workspace.revision,workspace.updated_at]});
  const current=await readCurrent(db,p.ownerId,options.now),task=current.workspace.tasks.find(t=>t.id===record.spec.taskId),project=current.workspace.projects.find(v=>v.id===record.spec.projectId);
- if(current.revision!==workspace.revision||!project||project.archivedAt||!task||task.projectId!==project.id||task.status==='archived'||await agentTaskSnapshotSha256(task,await options.context.taskInputs(task.id))!==record.spec.taskSnapshotSha256)fail('approved_task_changed');
+ if(current.revision!==workspace.revision||!project||project.archivedAt||!task||task.projectId!==project.id||task.status==='archived')fail('approved_task_changed');
+ const taskInput=agentTaskSemanticProjection(task,await options.context.taskInputs(task.id));
+ if(await contentHash(canonical(taskInput))!==record.spec.taskSnapshotSha256)fail('approved_task_changed');
  const approval=await one(db,'job_approvals',p.ownerId,'id',text(state,'approval_id'));if(!approval||approval.device_id!==p.deviceId||approval.job_id!==jobId||approval.revoked_at!==null)fail('approval_unavailable');
  const envelope=await validateAgentApprovalEnvelope(record.spec,JSON.parse(text(approval,'payload_json')),options.now);
  if(envelope.approval.id!==approval.id||envelope.approval.jobId!==jobId||envelope.approval.deviceId!==p.deviceId||envelope.approverId!==p.ownerId||approval.spec_hash!==record.specSha256||approval.binding_hash!==envelope.bindingSha256||approval.expires_at!==envelope.approval.expiresAt||approval.created_at!==envelope.approval.approvedAt||approval.reserved_seconds!==record.spec.timeoutSeconds)fail('approval_identity_differs');
@@ -84,11 +86,16 @@ async function active(db:SqlDatabase,p:DevicePrincipal,jobId:string,options:Agen
  for(const entry of dependencies.filter(row=>row.id===record.id))if(entry.ownerId!==p.ownerId||canonical(entry.dependsOnJobIds)!==canonical(root.dependsOnJobIds))fail('dependency_root_identity_differs');
  validateAgentDependencyGraph(record.id,p.ownerId,[...dependencies.filter(row=>row.id!==record.id),root],true);
  const artifacts=await options.context.artifacts(record.spec.inputArtifactIds);if(canonical([...artifacts].sort((a,b)=>a.id.localeCompare(b.id)))!==canonical([...envelope.executionBinding.artifactRefs].sort((a,b)=>a.id.localeCompare(b.id))))fail('input_artifacts_changed');
+ if(new TextEncoder().encode(canonical(taskInput)).length+artifacts.reduce((n,row)=>n+row.bytes,0)>envelope.executionBinding.budget.inputBytesLimit)fail('frozen_task_input_capacity');
  const intent=await one(db,'workspace_job_intents',p.ownerId,'id',record.intentId);
  if(!intent||intent.kind!=='agent.execute'||intent.cancel_requested!==0||!['pending','claimed','running'].includes(text(intent,'status'))||intent.execution_epoch!==state.execution_epoch||Date.parse(text(intent,'not_before'))>Date.parse(options.now)||canonical(JSON.parse(text(intent,'payload_json')))!==canonical({jobId:record.id,specSha256:record.specSha256}))fail('job_intent_unavailable');
- return {auth,proofs,record,state,approval,envelope,budget,capability,intent};
+ return {auth,proofs,record,state,approval,envelope,budget,capability,intent,taskInput};
 }
-function lease(a:Row,record:AgentJobRecordV1,binding:AgentExecutionBindingV1,leaseToken:string,resumed:boolean):AgentLease{return {attemptId:text(a,'id'),jobId:record.id,executionEpoch:integer(a,'execution_epoch'),leaseToken,leaseExpiresAt:text(a,'lease_expires_at'),deadlineAt:text(a,'deadline_at'),operationalRevision:integer(a,'operational_revision'),record,executionBinding:binding,resumed};}
+async function lease(a:Row,record:AgentJobRecordV1,binding:AgentExecutionBindingV1,leaseToken:string,resumed:boolean,serverNow:string):Promise<AgentLease>{
+ const identity=JSON.parse(text(a,'identity_json')) as {approvalEnvelope:unknown;taskInput:JsonValue;budgetId:string},approvalEnvelope=agentApprovalEnvelopeSchema.parse(identity.approvalEnvelope);
+ if(identity.taskInput===undefined||await contentHash(canonical(identity.taskInput))!==record.spec.taskSnapshotSha256||new TextEncoder().encode(canonical(identity.taskInput)).length+binding.artifactRefs.reduce((n,row)=>n+row.bytes,0)>binding.budget.inputBytesLimit||canonical(approvalEnvelope.executionBinding)!==canonical(binding)||approvalEnvelope.approval.jobId!==record.id||approvalEnvelope.approval.deviceId!==a.device_id||approvalEnvelope.approval.specSha256!==record.specSha256||approvalEnvelope.reservationId!==identity.budgetId)fail('frozen_lease_input_differs');
+ return {attemptId:text(a,'id'),jobId:record.id,executionEpoch:integer(a,'execution_epoch'),leaseToken,leaseExpiresAt:text(a,'lease_expires_at'),deadlineAt:text(a,'deadline_at'),operationalRevision:integer(a,'operational_revision'),record,executionBinding:binding,approvalEnvelope,taskInput:identity.taskInput,serverNow,resumed};
+}
 export async function claimAgentJob(db:SqlDatabase,p:DevicePrincipal,raw:unknown,options:AgentStoreOptions):Promise<AgentLease|null>{
  const input=claimInput.parse(raw),auth=await authority(db,p,options.now),recoveryProofs=await snapshot(db,p.ownerId,['job_attempts','agent_job_state','agent_device_slots','workspace_job_intents']),prior=await one(db,'job_attempts',p.ownerId,'job_id',input.jobId),nonce=await contentHash(input.journalNonce),secret=token(),hash=await contentHash(secret);
  if(prior){
@@ -96,12 +103,12 @@ export async function claimAgentJob(db:SqlDatabase,p:DevicePrincipal,raw:unknown
   if(!state||!slot||slot.attempt_id!==prior.id||slot.released_at!==null||state.attempt_id!==prior.id||state.cancel_requested_at!==null||record.id!==input.jobId||prior.device_id!==p.deviceId||prior.journal_nonce_hash!==nonce||prior.result_json!==null||prior.reconciled_at!==null||prior.execution_epoch!==state.execution_epoch||!['leased','running'].includes(text(state,'status'))||Date.parse(text(prior,'lease_expires_at'))<=Date.parse(options.now)||Date.parse(text(prior,'deadline_at'))<=Date.parse(options.now))fail('attempt_requires_reconciliation');
   const expires=new Date(Math.min(Date.parse(options.now)+AGENT_LIMITS.leaseMs,Date.parse(text(prior,'deadline_at')))).toISOString();
   const ok=await atomic(db,p,attemptGuard(auth,p,prior,options.now),recoveryProofs,(gate,b)=>[db.prepare('UPDATE job_attempts SET lease_token_hash=?,lease_expires_at=?,operational_revision=operational_revision+1 WHERE user_id=? AND id=? AND '+gate).bind(hash,expires,p.ownerId,prior.id,...b)]);
-  if(!ok)return null;return lease({...prior,lease_expires_at:expires,operational_revision:integer(prior,'operational_revision')+1},record,identity.executionBinding,secret,true);
+  if(!ok)return null;return lease({...prior,lease_expires_at:expires,operational_revision:integer(prior,'operational_revision')+1},record,identity.executionBinding,secret,true,options.now);
  }
  const c=await active(db,p,input.jobId,options);
  if(c.state.status!=='queued'||c.state.device_id!==p.deviceId||c.approval.consumed_at!==null||c.state.attempt_id!==null||c.state.cancel_requested_at!==null)fail('queued_approval_unavailable');
  const slot=await one(db,'agent_device_slots',p.ownerId,'device_id',p.deviceId);if(slot&&slot.released_at===null)fail('device_slot_unavailable');
- const id=crypto.randomUUID(),deadline=new Date(Date.parse(options.now)+c.record.spec.timeoutSeconds*1000).toISOString(),expires=new Date(Math.min(Date.parse(options.now)+AGENT_LIMITS.leaseMs,Date.parse(deadline))).toISOString(),identity=canonical({record:c.record,executionBinding:c.envelope.executionBinding,budgetId:c.envelope.reservationId});
+ const id=crypto.randomUUID(),deadline=new Date(Date.parse(options.now)+c.record.spec.timeoutSeconds*1000).toISOString(),expires=new Date(Math.min(Date.parse(options.now)+AGENT_LIMITS.leaseMs,Date.parse(deadline))).toISOString(),identity=canonical({record:c.record,executionBinding:c.envelope.executionBinding,approvalEnvelope:c.envelope,taskInput:c.taskInput,budgetId:c.envelope.reservationId});
  const row:Row={id,job_id:input.jobId,device_id:p.deviceId,approval_id:c.approval.id,execution_epoch:c.state.execution_epoch,journal_nonce_hash:nonce,lease_token_hash:hash,lease_expires_at:expires,deadline_at:deadline,created_at:options.now,launched_at:null,exited_at:null,cancel_acknowledged_at:null,last_applied_sequence:0,operational_revision:1,identity_json:identity,result_json:null,reconciled_at:null};
  const ok=await atomic(db,p,c.auth,c.proofs,(gate,b)=>[
   db.prepare('INSERT INTO job_attempts(user_id,id,job_id,device_id,approval_id,execution_epoch,journal_nonce_hash,lease_token_hash,lease_expires_at,deadline_at,created_at,operational_revision,identity_json) SELECT ?,?,?,?,?,?,?,?,?,?,?,1,? WHERE '+gate).bind(p.ownerId,id,input.jobId,p.deviceId,c.approval.id,c.state.execution_epoch,nonce,hash,expires,deadline,options.now,identity,...b),
@@ -110,7 +117,7 @@ export async function claimAgentJob(db:SqlDatabase,p:DevicePrincipal,raw:unknown
   db.prepare('UPDATE workspace_job_intents SET status=? WHERE user_id=? AND id=? AND '+gate).bind('running',p.ownerId,c.record.intentId,...b),
   db.prepare('INSERT INTO agent_device_slots(user_id,device_id,attempt_id,reserved_at,released_at) SELECT ?,?,?,?,NULL WHERE '+gate+' ON CONFLICT(user_id,device_id) DO UPDATE SET attempt_id=excluded.attempt_id,reserved_at=excluded.reserved_at,released_at=NULL').bind(p.ownerId,p.deviceId,id,options.now,...b)
  ]);
- return ok?lease(row,c.record,c.envelope.executionBinding,secret,false):null;
+ return ok?lease(row,c.record,c.envelope.executionBinding,secret,false,options.now):null;
 }
 async function ownedAttempt(db:SqlDatabase,p:DevicePrincipal,input:{attemptId:string;leaseToken:string},now:string,allowExpired=false){
  const auth=await authority(db,p,now),attempt=await one(db,'job_attempts',p.ownerId,'id',input.attemptId);if(!attempt||attempt.device_id!==p.deviceId||attempt.lease_token_hash!==await contentHash(input.leaseToken))fail('attempt_lease_unavailable',403);
@@ -126,7 +133,7 @@ export async function renewAgentLease(db:SqlDatabase,p:DevicePrincipal,raw:unkno
  if(!state||state.attempt_id!==a.attempt.id||state.execution_epoch!==a.attempt.execution_epoch||state.cancel_requested_at!==null||!['leased','running'].includes(text(state,'status'))||a.attempt.result_json!==null)fail('attempt_not_renewable');
  const expires=new Date(Math.min(Date.parse(options.now)+AGENT_LIMITS.leaseMs,Date.parse(text(a.attempt,'deadline_at')))).toISOString();
  if(!await atomic(db,p,attemptGuard(a.auth,p,a.attempt,options.now),proofs,(gate,b)=>[db.prepare('UPDATE job_attempts SET lease_expires_at=?,operational_revision=operational_revision+1 WHERE user_id=? AND id=? AND '+gate).bind(expires,p.ownerId,input.attemptId,...b)]))fail('lease_changed');
- return lease({...a.attempt,lease_expires_at:expires,operational_revision:integer(a.attempt,'operational_revision')+1},record,identity.executionBinding,input.leaseToken,true);
+ return lease({...a.attempt,lease_expires_at:expires,operational_revision:integer(a.attempt,'operational_revision')+1},record,identity.executionBinding,input.leaseToken,true,options.now);
 }
 function attemptGuard(auth:DeviceSqlGuard,p:DevicePrincipal,a:Row,now:string,allowExpired=false):DeviceSqlGuard{
  const clauses=['user_id=?','id=?','device_id=?','lease_token_hash=?','operational_revision=?','execution_epoch=?'];
@@ -141,7 +148,7 @@ async function eventsFor(db:SqlDatabase,p:DevicePrincipal,a:Row){
  return events;
 }
 function protocol(events:Map<number,{row:Row;event:AgentJobEventV1}>,record:AgentJobRecordV1,binding:AgentExecutionBindingV1,attempt:Row,state:Row){
- let accepted=false,started=false,exited=false,completed=false,blocked=false,cancelled=false,exitCode:number|null=null,observedModel:string|null=null,sequence=0;
+ let accepted=false,started=false,exited=false,completed=false,blocked=false,cancelled=false,identityMismatch=false,exitCode:number|null=null,observedModel:string|null=null,sequence=0;
  const artifactIds=new Set<string>();let resultHash:string|null=null;
  while(events.has(sequence+1)){
   const e=events.get(++sequence)!.event;
@@ -149,7 +156,8 @@ function protocol(events:Map<number,{row:Row;event:AgentJobEventV1}>,record:Agen
   if(e.kind==='accepted'){
    if(sequence!==1||accepted||e.details.specSha256!==record.specSha256||e.details.capabilitySha256!==binding.capabilitySha256)fail('accepted_event_identity_differs');accepted=true;
   }else if(e.kind==='started'){
-   if(!accepted||started||exited||e.details.runtimePackageSha256!==binding.runtime.packageSha256||e.details.toolPolicySha256!==binding.runtime.toolPolicySha256||e.details.requestedModel!==record.spec.requestedModel||e.details.observedModel!==null&&e.details.observedModel!==record.spec.requestedModel)fail('started_event_identity_differs');
+   if(!accepted||started||exited)fail('started_event_outside_process');
+   identityMismatch=e.details.runtimePackageSha256!==binding.runtime.packageSha256||e.details.toolPolicySha256!==binding.runtime.toolPolicySha256||e.details.requestedModel!==record.spec.requestedModel||e.details.observedModel!==null&&e.details.observedModel!==record.spec.requestedModel;
    started=true;observedModel=e.details.observedModel;
   }else if(e.kind==='progress'){
    if(!started||exited)fail('progress_outside_process');
@@ -167,7 +175,7 @@ function protocol(events:Map<number,{row:Row;event:AgentJobEventV1}>,record:Agen
    if(!accepted||started&&!exited)fail('blocked_process_exit_not_proven');blocked=true;
   }
  }
- return {sequence,accepted,started,exited,completed,blocked,cancelled,exitCode,observedModel,artifactIds,resultHash};
+ return {sequence,accepted,started,exited,completed,blocked,cancelled,identityMismatch,exitCode,observedModel,artifactIds,resultHash};
 }
 async function persistAgentEvents(db:SqlDatabase,p:DevicePrincipal,raw:unknown,options:AgentStoreOptions,reconciliation?:{attempt:Row;auth:DeviceSqlGuard}):Promise<{receipts:AgentEventReceipt[];lastAppliedSequence:number}>{
  const proofs=await snapshot(db,p.ownerId,['job_attempts','job_events','agent_job_state','workspace_job_intents']);
@@ -189,7 +197,7 @@ async function persistAgentEvents(db:SqlDatabase,p:DevicePrincipal,raw:unknown,o
   ...inserts.map(row=>db.prepare('INSERT INTO job_events(user_id,attempt_id,epoch,sequence,payload_hash,payload_json,receipt_json,received_at) SELECT ?,?,?,?,?,?,?,? WHERE '+gate).bind(p.ownerId,row.attempt_id,row.epoch,row.sequence,row.payload_hash,row.payload_json,row.receipt_json,row.received_at,...b)),
   db.prepare('UPDATE job_events SET applied_at=COALESCE(applied_at,?) WHERE user_id=? AND attempt_id=? AND sequence<=? AND '+gate).bind(options.now,p.ownerId,a.attempt.id,applied.sequence,...b),
   db.prepare('UPDATE job_attempts SET last_applied_sequence=?,launched_at=CASE WHEN ? THEN COALESCE(launched_at,?) ELSE launched_at END,exited_at=CASE WHEN ? THEN COALESCE(exited_at,?) ELSE exited_at END,cancel_acknowledged_at=CASE WHEN ? THEN COALESCE(cancel_acknowledged_at,?) ELSE cancel_acknowledged_at END,operational_revision=operational_revision+1 WHERE user_id=? AND id=? AND '+gate).bind(applied.sequence,applied.started?1:0,options.now,applied.exited?1:0,options.now,applied.cancelled?1:0,options.now,p.ownerId,a.attempt.id,...b),
-  db.prepare("UPDATE agent_job_state SET status=CASE WHEN ? THEN 'reconcile_required' WHEN cancel_requested_at IS NOT NULL THEN 'cancelling' WHEN ? THEN 'running' ELSE status END,operational_revision=operational_revision+1,updated_at=? WHERE user_id=? AND job_id=? AND "+gate).bind(reconciliation?1:0,applied.started?1:0,options.now,p.ownerId,record.id,...b)
+  db.prepare("UPDATE agent_job_state SET status=CASE WHEN ? THEN 'reconcile_required' WHEN cancel_requested_at IS NOT NULL THEN 'cancelling' WHEN ? THEN 'running' ELSE status END,operational_revision=operational_revision+1,updated_at=? WHERE user_id=? AND job_id=? AND "+gate).bind(reconciliation||applied.identityMismatch?1:0,applied.started?1:0,options.now,p.ownerId,record.id,...b)
  ]))fail('event_commit_conflict');
  return {receipts,lastAppliedSequence:applied.sequence};
 }
@@ -222,12 +230,24 @@ async function finish(db:SqlDatabase,p:DevicePrincipal,a:Row,auth:DeviceSqlGuard
  if(proof.sequence!==events.size||proof.sequence!==a.last_applied_sequence)fail('terminal_event_gap');
  if(!proof.exited||!result.processExitConfirmed||result.terminationUnconfirmed)fail('terminal_exit_not_proven');
  if(result.terminalProtocolObserved!==proof.completed)fail('terminal_protocol_claim_differs');
- if(result.observedModel!==proof.observedModel||result.disposition==='succeeded'&&(!proof.completed||proof.exitCode!==0||proof.resultHash!==hash)||result.disposition==='cancelled'&&(!proof.cancelled||!state.cancel_requested_at))fail('terminal_protocol_identity_differs');
- const verified=await options.verifyResult?.({principal:p,record,attemptId:text(a,'id'),result,executionBinding:identity.executionBinding})??{adapterChecksPassed:false};
- validateAgentResult(record.spec,identity.executionBinding,result,{adapterChecksPassed:verified.adapterChecksPassed});
- if(result.artifactIds.some(id=>!proof.artifactIds.has(id))||proof.artifactIds.size!==result.artifactIds.length||result.artifactIds.length&&!verified.guard)fail('terminal_artifact_proof_unavailable');
+ if(proof.completed&&proof.resultHash!==hash)fail('completed_result_digest_differs');
+ if(result.observedModel!==proof.observedModel||result.disposition==='succeeded'&&(!proof.completed||proof.exitCode!==0||proof.identityMismatch)||result.disposition==='cancelled'&&(!proof.cancelled||!state.cancel_requested_at))fail('terminal_protocol_identity_differs');
+ const portableJob=await one(db,'agent_jobs',p.ownerId,'id',record.id),currentEpoch=await db.prepare('SELECT epoch FROM workspace_execution_state WHERE user_id=?').bind(p.ownerId).first<{epoch:number}>();
+ let importedJob=false;if(portableJob){try{importedJob=JSON.parse(text(portableJob,'payload_json')).historical===true;}catch{fail('portable_job_identity_invalid');}}
+ const historical=!portableJob||importedJob||(currentEpoch?.epoch??0)!==a.execution_epoch||portableJob.spec_hash!==record.specSha256,historicalReconciliation=reconciled&&historical;
+ // A detached retained journal can establish process exit without proving that
+ // old files still exist. Preserve its exact result as a historical claim ONLY;
+ // do not synthesize adapter success or make the private job succeed.
+ const verified: {adapterChecksPassed:boolean;guard?:DeviceSqlGuard}=historicalReconciliation?{adapterChecksPassed:false}:await options.verifyResult?.({principal:p,record,attemptId:text(a,'id'),result,executionBinding:identity.executionBinding})??{adapterChecksPassed:false};
+ if(historicalReconciliation){
+  if(!proof.completed||proof.resultHash!==hash)fail('historical_completed_proof_required');
+  validateAgentExecutionBinding(record.spec,identity.executionBinding);
+  if(result.requestedModel!==record.spec.requestedModel||result.usage?.runtimeSeconds!==null&&result.usage?.runtimeSeconds!==undefined&&result.usage.runtimeSeconds>record.spec.timeoutSeconds)fail('historical_execution_identity_differs');
+ }else validateAgentResult(record.spec,identity.executionBinding,result,{adapterChecksPassed:verified.adapterChecksPassed});
+ if(result.artifactIds.some(id=>!proof.artifactIds.has(id))||proof.artifactIds.size!==result.artifactIds.length||!historicalReconciliation&&result.artifactIds.length&&!verified.guard)fail('terminal_artifact_proof_unavailable');
  if(new TextEncoder().encode(canonical(result)).length>16384)fail('terminal_result_capacity');
- const value={id:recordId,jobId:record.id,attemptId:text(a,'id'),recordedAt:options.now,result,resultSha256:hash,historical:false};
+ const value={id:recordId,jobId:record.id,attemptId:text(a,'id'),recordedAt:options.now,result,resultSha256:hash,frozenJob:{...record,historical:true},historical};
+ if(new TextEncoder().encode(canonical(value)).length>24576)fail('terminal_result_record_capacity');
  const watermarks=await readOperationalWatermarks(db,p.ownerId),before=watermarks.agents??0,sequence=before+1;
  const event=parseAuditEvent({id:crypto.randomUUID(),kind:'agent.result',entityType:'agent-job',entityId:record.id,changes:[{path:['agent-result',recordId],before:{exists:false,value:null},after:{exists:true,value:{id:recordId,attemptId:text(a,'id'),resultSha256:hash,disposition:result.disposition}}}],origin:'owner',actorId:p.ownerId,occurredAt:options.now,sourceRef:null,undoOf:null});
  const valueHash=await contentHash(canonical(value));
@@ -242,12 +262,12 @@ async function finish(db:SqlDatabase,p:DevicePrincipal,a:Row,auth:DeviceSqlGuard
   db.prepare('INSERT INTO operational_stream_heads(user_id,stream_id,revision,last_sequence) SELECT ?,?,1,? WHERE '+gate+' ON CONFLICT(user_id,stream_id) DO UPDATE SET revision=operational_stream_heads.revision+1,last_sequence=excluded.last_sequence').bind(p.ownerId,'agents',sequence,...b),
   db.prepare('INSERT INTO audit_events(user_id,event_id,workspace_revision,ordinal,stream_id,stream_sequence,kind,entity_type,entity_id,occurred_at,payload_json,origin,actor_id,source_ref,undo_of) SELECT ?,?,NULL,NULL,?,?,?,?,?,?,?,?,?,NULL,NULL WHERE '+gate).bind(p.ownerId,event.id,'agents',sequence,event.kind,event.entityType,event.entityId,options.now,canonical(event),'owner',p.ownerId,...b),
   db.prepare('UPDATE job_attempts SET result_json=?,reconciled_at=CASE WHEN ? THEN ? ELSE reconciled_at END,operational_revision=operational_revision+1 WHERE user_id=? AND id=? AND '+gate).bind(canonical(result),reconciled?1:0,options.now,p.ownerId,a.id,...b),
-  db.prepare('UPDATE agent_job_state SET status=?,result_json=?,updated_at=?,operational_revision=operational_revision+1 WHERE user_id=? AND job_id=? AND '+gate).bind(result.disposition,canonical(result),options.now,p.ownerId,record.id,...b),
+  db.prepare('UPDATE agent_job_state SET status=?,result_json=?,updated_at=?,operational_revision=operational_revision+1 WHERE user_id=? AND job_id=? AND '+gate).bind(historicalReconciliation?'blocked':result.disposition,canonical(result),options.now,p.ownerId,record.id,...b),
   db.prepare('UPDATE agent_device_slots SET released_at=? WHERE user_id=? AND device_id=? AND attempt_id=? AND released_at IS NULL AND '+gate).bind(options.now,p.ownerId,p.deviceId,a.id,...b),
   // Launched jobs remain charged against the finite job count. Unknown usage can
   // never refund time: conservatively charge the full approved timeout.
   db.prepare('UPDATE agent_budgets SET reserved_seconds=reserved_seconds-?,charged_seconds=charged_seconds+?,updated_at=?,operational_revision=operational_revision+1 WHERE user_id=? AND id=? AND '+gate).bind(record.spec.timeoutSeconds,record.spec.timeoutSeconds,options.now,p.ownerId,identity.budgetId,...b),
-  db.prepare('UPDATE workspace_job_intents SET status=? WHERE user_id=? AND id=? AND '+gate).bind(result.disposition==='succeeded'?'completed':result.disposition==='cancelled'?'cancelled':'failed',p.ownerId,record.intentId,...b)
+  db.prepare('UPDATE workspace_job_intents SET status=? WHERE user_id=? AND id=? AND '+gate).bind(historicalReconciliation?'cancelled':result.disposition==='succeeded'?'completed':result.disposition==='cancelled'?'cancelled':'failed',p.ownerId,record.intentId,...b)
  ]);
  if(!committed)fail('terminal_commit_conflict');return {result,recordId};
 }
