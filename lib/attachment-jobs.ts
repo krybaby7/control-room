@@ -16,14 +16,16 @@ export interface AttachmentCleanupSnapshot {
  * Implementations MUST atomically compare metadata/references when claiming, retain the
  * tombstone/fence forever, and reject finalization, upload and new reference/backup
  * retention to a claimed key. A lease that expires or allows resurrection is unsafe.
- * No production SQL adapter is supplied: this interface requires schema-backed fencing.
+ * The SQL adapter supplies these fences; production activation also requires the guarded runner.
  */
 export interface AttachmentCleanupStore {
+ /** Read-only completed-key lookup; never resolves the deletion key from current metadata. */
+ completed?(intent:{attachmentId:string;storageKey:string;sha256:string|null}):Promise<boolean>;
  read(attachmentId:string):Promise<AttachmentCleanupSnapshot|null>;
  claim(input:{attachmentId:string;expectedRowRevision:number;referenceRevision:string;storageKey:string}):Promise<AttachmentCleanupSnapshot|null>;
  /** Fresh guarded read; checks exact persistent claim, namespace, terminal state and no references. */
  authorize(claim:AttachmentDeletionClaim):Promise<AttachmentCleanupSnapshot|null>;
- /** CAS marks only purged metadata, retaining the record/claim. Never changes quota. */
+ /** After confirmed blob absence, atomically marks fence and matching physical ledger purged; retains tombstones. */
  complete(claim:AttachmentDeletionClaim):Promise<boolean>;
 }
 export interface AttachmentCleanupRunner {
@@ -55,6 +57,7 @@ export async function runAttachmentCleanup(raw:AttachmentCleanupIntent,runner:At
  }
  function validClaim(snapshot:AttachmentCleanupSnapshot,claim:AttachmentDeletionClaim){return snapshot.claim?.token===claim.token&&claim.token.length>0&&snapshot.claim.attachmentId===intent.attachmentId&&snapshot.claim.storageKey===intent.storageKey&&claim.attachmentId===intent.attachmentId&&claim.storageKey===intent.storageKey;}
  try{
+  if(runner.metadata.completed&&await bounded(()=>runner.metadata.completed!(intent)))return {status:'purged',alreadyAbsent:true};
   let snapshot=await bounded(()=>runner.metadata.read(intent.attachmentId));if(!snapshot)return {status:'blocked',reason:'missing'};
   let blocked=check(snapshot);if(blocked)return blocked;
   if(!runner.blobs.available)return {status:'retry',reason:'unavailable'};

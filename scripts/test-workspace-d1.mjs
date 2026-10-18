@@ -1,0 +1,50 @@
+// Isolated synthetic production D1/R2 SQL and native archive integration probe.
+import assert from 'node:assert/strict';
+import {readFile,readdir} from 'node:fs/promises';
+import {Miniflare} from 'miniflare';
+import {createSeedWorkspace} from '../lib/seed.ts';
+import {loadWorkspace,readCurrent} from '../lib/workspace-store.ts';
+import {executeWorkspaceCommand} from '../lib/workspace-transaction.ts';
+import {workspaceHandlers} from '../lib/workspace-handlers.ts';
+import {ownerAttachmentServices} from '../lib/attachment-services.ts';
+import {ownerReader} from '../lib/workspace-modules.ts';
+import {attachmentRecordSchema} from '../lib/evidence-module.ts';
+import {getWorkspaceNamespaces} from '../lib/workspace-namespaces.ts';
+import {createR2BlobStore,stageAttachmentUpload,readReadyAttachment} from '../lib/attachments.ts';
+import {beginUpload,finishUpload} from '../lib/attachment-upload-fences.ts';
+import {exportWorkspaceBundle} from '../lib/workspace-export.ts';
+import {writeAttachmentArchive} from '../lib/attachment-archive-export.ts';
+import {stageAttachmentArchive} from '../lib/attachment-archive-staging.ts';
+import {resolveAttachmentNamespace} from '../lib/attachment-namespace-access.ts';
+assert.ok(Number(process.versions.node.split('.')[0])>=24,'Node 24 or newer is required.');
+const owner='synthetic-d1-native-archive-owner',now='2026-10-18T12:00:00.000Z',bytes=new TextEncoder().encode('Actual Miniflare D1 and R2 fixture bytes.\n');
+const stream=value=>new ReadableStream({start(c){c.enqueue(value.slice());c.close();}});
+const mf=new Miniflare({modules:true,script:'export default {fetch(){return new Response("isolated D1 fixture");}}',compatibilityDate:'2026-05-15',d1Databases:['DB'],d1Persist:false,r2Buckets:['BUCKET'],r2Persist:false,cf:false});
+try{
+ const db=await mf.getD1Database('DB'),bucket=await mf.getR2Bucket('BUCKET'),store=createR2BlobStore(bucket);
+ const migrationNames=(await readdir(new URL('../drizzle/',import.meta.url))).filter(name=>/^\d+.*\.sql$/.test(name)).sort();
+ for(const name of migrationNames){const source=await readFile(new URL(`../drizzle/${name}`,import.meta.url),'utf8');for(const sql of source.split('--> statement-breakpoint'))if(sql.trim())await db.prepare(sql.trim()).run();}
+ console.log(`Applied ${migrationNames.length} exact SQL migrations to actual Miniflare D1.`);
+ await loadWorkspace(db,owner,()=>createSeedWorkspace(now),now);
+ async function send(command){return executeWorkspaceCommand(owner,{protocolVersion:1,expectedRevision:(await readCurrent(db,owner,now)).revision,mutationId:crypto.randomUUID(),command},{db,handlers:workspaceHandlers,now:()=>now,...await ownerAttachmentServices(db,owner,now,bucket)});}
+ const before=await readCurrent(db,owner,now),project=before.workspace.projects[0];assert.ok(project);
+ assert.equal((await send({type:'project.edit',id:project.id,patch:{name:'Synthetic D1 verified project'}})).status,'committed');
+ assert.equal((await send({type:'attachment.reserve',value:{filename:'d1-fixture.txt',mimeType:'text/plain',expectedBytes:bytes.length}})).status,'committed');
+ const row=(await ownerReader(db,owner).list('attachments'))[0],original=attachmentRecordSchema.parse(JSON.parse(row.payload_json)),namespace=(await getWorkspaceNamespaces(db,owner)).blobNamespace;
+ const token=await beginUpload(db,owner,{record:original,rowRevision:row.row_revision,now,ownerNamespace:namespace});assert.ok(token);
+ assert.equal((await stageAttachmentUpload(owner,original,stream(bytes),store,{ownerNamespace:namespace,now})).status,'staged');assert.equal(await finishUpload(db,owner,{token,now,definitivelySettled:true}),true);
+ assert.equal((await send({type:'attachment.finalize',id:original.id})).status,'committed');
+ const ready=attachmentRecordSchema.parse(JSON.parse((await ownerReader(db,owner).get('attachments',original.id)).payload_json));
+ const ledger=await db.prepare('SELECT sha256,verified_at FROM attachment_blob_objects WHERE user_id=? AND storage_key=?').bind(owner,ready.storageKey).first();assert.equal(ledger.sha256,ready.sha256);assert.equal(ledger.verified_at,now);
+ assert.equal((await send({type:'evidence.create',value:{basis:'documented-result',scope:'implementation',title:'D1 exact attachment',statement:'Synthetic exact immutable source',observedAt:now,candidate:null,environment:'Miniflare',sourceUrl:null,sourceRevision:null,sourceRecordId:null,attachmentIds:[ready.id]}})).status,'committed');
+ const evidence=(await ownerReader(db,owner).list('evidence_versions')).map(r=>({id:r.id,payload:r.payload_json}));
+ const bundle=await exportWorkspaceBundle(db,owner,{now:()=>now});
+ const zip=new Uint8Array(await new Response(writeAttachmentArchive(bundle,[ready],async id=>{assert.equal(id,ready.id);return (await readReadyAttachment(owner,ready,store,{ownerNamespace:namespace,now})).bytes;})).arrayBuffer());
+ const revision=(await readCurrent(db,owner,now)).revision,stage=await stageAttachmentArchive(db,owner,stream(zip),{store,now:()=>now,targetRevision:revision});
+ assert.equal(stage.archive.files,1);assert.equal((await send({type:'workspace.import.commit',importId:stage.stage.id,hash:stage.stage.hash,targetRevision:revision,mode:'replace'})).status,'committed');
+ const restored=attachmentRecordSchema.parse(JSON.parse((await ownerReader(db,owner).get('attachments',ready.id)).payload_json)),restoredNamespace=await resolveAttachmentNamespace(db,owner,restored);assert.ok(restoredNamespace);assert.notEqual(restored.storageKey,ready.storageKey);assert.equal(restored.sha256,ready.sha256);
+ assert.deepEqual((await readReadyAttachment(owner,restored,store,{ownerNamespace:restoredNamespace,now})).bytes,bytes);assert.deepEqual((await ownerReader(db,owner).list('evidence_versions')).map(r=>({id:r.id,payload:r.payload_json})),evidence);
+ assert.equal((await db.prepare('SELECT status FROM attachment_archive_stages WHERE user_id=? AND id=?').bind(owner,stage.archive.id).first()).status,'committed');
+ console.log(JSON.stringify({migrations:migrationNames.length,planning:'committed',finalization:'verified-ledger',nativeArchive:'reviewed-restored',sameLogicalId:restored.id===ready.id,bytes:bytes.length,revision:(await readCurrent(db,owner,now)).revision}));
+ console.log('PASS actual isolated Miniflare D1 + R2: migrations, planning, reservation, upload, finalization, native ZIP staging and reviewed restore.');
+}finally{await mf.dispose();}

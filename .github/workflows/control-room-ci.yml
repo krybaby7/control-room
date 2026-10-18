@@ -21,10 +21,15 @@ jobs:
       - run: npm run lint
       - id: build
         run: npm run build
+      - run: npm run test:generation-d1
+      - run: npm run test:workspace-d1
       - run: npm run test:fixture
       - run: npm run test:attachments-r2
-      - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
+      - run: npm run test:attachment-recovery-r2
+      - if: ${{ !cancelled() && steps.build.conclusion == 'success' }}
+        run: npx playwright install --with-deps chromium
+      - if: ${{ !cancelled() && steps.build.conclusion == 'success' }}
+        run: npm run test:e2e
       - if: ${{ !cancelled() && steps.build.conclusion == 'success' }}
         run: npm run test:e2e:r2
       - if: ${{ !cancelled() && steps.build.conclusion == 'success' }}
@@ -33,6 +38,8 @@ jobs:
         if: failure()
         with:
           name: browser-failure-evidence
-          path: test-results/
+          path: |
+            test-results/
+            test-results-r2/
           if-no-files-found: ignore
           retention-days: 3

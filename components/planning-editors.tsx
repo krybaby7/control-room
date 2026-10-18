@@ -1,5 +1,7 @@
 'use client';
 
+import {SubjectReviewLink} from './subject-review-link';
+
 import type { Command, Milestone, MilestoneInput, Project } from '@/lib/types';
 import { useDurableDraft } from './durable-draft';
 import { changedFields } from '@/lib/draft';
@@ -9,6 +11,7 @@ export function ProjectEditor({ project, onSave, onClose }: { project: Project; 
   const { baseline, draft, setDraft, saved, notice } = useDurableDraft('project', project.id, { description: project.description, goal: project.goal });
   return <FormDialog title={`The goal for ${project.name}`} subtitle="Your definition of a meaningful outcome." dirty={draft.description !== baseline.description || draft.goal !== baseline.goal} onClose={onClose} onSave={async () => { await onSave({ type: 'project.update', id: project.id, patch: changedFields(baseline, draft) }); await saved(); }}>
     {notice}
+    <p><SubjectReviewLink subject={{type:'project',id:project.id}}/></p>
     <Field label="Project goal" hint="Describe the outcome, including the constraints that matter."><textarea autoFocus required rows={5} maxLength={5000} value={draft.goal} onChange={e => setDraft(d => ({ ...d, goal: e.target.value }))} /></Field>
     <Field label="Description"><textarea rows={4} maxLength={5000} value={draft.description} onChange={e => setDraft(d => ({ ...d, description: e.target.value }))} /></Field>
   </FormDialog>;
@@ -20,6 +23,7 @@ export function MilestoneEditor({ milestone, project, onSave, onClose }: { miles
   const set = <K extends keyof MilestoneInput>(key: K, value: MilestoneInput[K]) => setDraft(d => ({ ...d, [key]: value }));
   return <FormDialog title={milestone ? 'Edit milestone' : 'Define a milestone'} subtitle={`A meaningful outcome for ${project.name}.`} dirty={JSON.stringify(draft) !== JSON.stringify(baseline)} onClose={onClose} submitLabel={milestone ? 'Save milestone' : 'Create milestone'} onSave={async () => { await onSave(milestone ? { type: 'milestone.update', id: milestone.id, patch: changedFields(baseline, draft) } : { type: 'milestone.create', milestone: draft }); await saved(); }}>
     {notice}
+    {milestone&&<p><SubjectReviewLink subject={{type:'milestone',id:milestone.id}}/></p>}
     <Field label="Milestone title"><input autoFocus required maxLength={200} value={draft.title} onChange={e => set('title', e.target.value)} placeholder="What should be true at the end?" /></Field>
     <Field label="Description"><textarea rows={3} maxLength={5000} value={draft.description} onChange={e => set('description', e.target.value)} /></Field>
     <Field label="Acceptance criteria" hint="Make the finish line explicit: what will you check?"><textarea required rows={4} maxLength={5000} value={draft.acceptance} onChange={e => set('acceptance', e.target.value)} placeholder="This milestone is achieved when…" /></Field>

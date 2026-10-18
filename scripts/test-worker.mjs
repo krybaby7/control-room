@@ -6,8 +6,16 @@ import {spawn} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {ROOT,FIXTURE_ORIGIN,WORKER_ORIGIN,parseFixtureArgs,prepareFixtures} from './test-fixtures.mjs';
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+export const FIXTURE_REQUEST_TIMEOUT_MS=15_000;
+/** The same signal bounds response headers and subsequent JSON/text/binary body reads. */
+export function fixtureFetch(input,init={},timeoutMs=FIXTURE_REQUEST_TIMEOUT_MS){
+ if(!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>FIXTURE_REQUEST_TIMEOUT_MS)throw new Error('Invalid fixture request deadline.');
+ const timeout=AbortSignal.timeout(timeoutMs),signal=init.signal?AbortSignal.any([init.signal,timeout]):timeout;
+ return fetch(input,{...init,signal});
+}
 export async function requireFreePort(port){await new Promise((resolve,reject)=>{const server=net.createServer();server.once('error',()=>reject(new Error(`Fixture port ${port} is occupied.`)));server.listen(port,'127.0.0.1',()=>server.close(resolve));});}
-export function fixtureProxy(){
+export function fixtureProxy({requestTimeoutMs=FIXTURE_REQUEST_TIMEOUT_MS}={}){
+ if(!Number.isSafeInteger(requestTimeoutMs)||requestTimeoutMs<1||requestTimeoutMs>FIXTURE_REQUEST_TIMEOUT_MS)throw new Error('Invalid fixture proxy deadline.');
  return http.createServer((request,response)=>{
   if(request.headers.host!=='127.0.0.1:4173'){response.writeHead(421).end();return;}
   if(!request.url?.startsWith('/')||request.url.startsWith('//')){response.writeHead(400).end();return;}
@@ -22,17 +30,20 @@ export function fixtureProxy(){
   if(session==='a'||session==='b'){headers['oai-authenticated-user-id']=`synthetic-${session}`;headers['oai-authenticated-user-email']=`synthetic-${session}@example.invalid`;}
   // Preserve external/missing origins so production same-origin checks still reject them.
   if(headers.origin===FIXTURE_ORIGIN)headers.origin=WORKER_ORIGIN;
-  const upstream=http.request(new URL(request.url??'/',WORKER_ORIGIN),{method:request.method,headers},incoming=>{const outgoing={...incoming.headers};if(typeof outgoing.location==='string'&&outgoing.location.startsWith(WORKER_ORIGIN))outgoing.location=FIXTURE_ORIGIN+outgoing.location.slice(WORKER_ORIGIN.length);response.writeHead(incoming.statusCode??502,outgoing);incoming.pipe(response);});
+  const upstream=http.request(new URL(request.url??'/',WORKER_ORIGIN),{method:request.method,headers},incoming=>{const outgoing={...incoming.headers};if(typeof outgoing.location==='string'&&outgoing.location.startsWith(WORKER_ORIGIN))outgoing.location=FIXTURE_ORIGIN+outgoing.location.slice(WORKER_ORIGIN.length);response.writeHead(incoming.statusCode??502,outgoing);incoming.on('error',()=>response.destroy());incoming.pipe(response);});
+  const deadline=setTimeout(()=>upstream.destroy(new Error('Synthetic fixture upstream deadline exceeded.')),requestTimeoutMs);
+  upstream.setTimeout(requestTimeoutMs,()=>upstream.destroy(new Error('Synthetic fixture upstream socket timed out.')));
+  response.once('finish',()=>clearTimeout(deadline));response.once('close',()=>{clearTimeout(deadline);upstream.destroy();});
   upstream.on('error',()=>{if(!response.headersSent)response.writeHead(502);response.end();});request.on('aborted',()=>upstream.destroy());request.pipe(upstream);
  });
 }
-async function waitReady(child){const deadline=Date.now()+60000;while(Date.now()<deadline){if(child.exitCode!==null)throw new Error('Fixture worker exited before readiness.');try{const response=await fetch(`${WORKER_ORIGIN}/api/workspace`,{signal:AbortSignal.timeout(1500)});if(response.status===401)return;}catch{}await pause(200);}throw new Error('Fixture worker readiness timed out.');}
+async function waitReady(child){const deadline=Date.now()+60000;while(Date.now()<deadline){if(child.exitCode!==null)throw new Error('Fixture worker exited before readiness.');try{const response=await fixtureFetch(`${WORKER_ORIGIN}/api/workspace`,{signal:AbortSignal.timeout(1500)});if(response.status===401)return;}catch{}await pause(200);}throw new Error('Fixture worker readiness timed out.');}
 export async function smokeFixture(){
- const headers={cookie:'fixture_session=a',origin:FIXTURE_ORIGIN,'Content-Type':'application/json'};const currentResponse=await fetch(`${FIXTURE_ORIGIN}/api/workspace`,{headers});if(!currentResponse.ok)throw new Error(`Fixture GET failed ${currentResponse.status}`);const current=await currentResponse.json();
+ const headers={cookie:'fixture_session=a',origin:FIXTURE_ORIGIN,'Content-Type':'application/json'};const currentResponse=await fixtureFetch(`${FIXTURE_ORIGIN}/api/workspace`,{headers});if(!currentResponse.ok)throw new Error(`Fixture GET failed ${currentResponse.status}`);const current=await currentResponse.json();
  const body={revision:current.revision,mutationId:crypto.randomUUID(),command:{type:'capture.create',capture:{title:'Synthetic smoke capture',body:'fixture only',projectId:null,kind:'idea',sourceUrl:null}}};
- for(let i=0;i<2;i++){const response=await fetch(`${FIXTURE_ORIGIN}/api/workspace`,{method:'POST',headers,body:JSON.stringify(body)});if(!response.ok)throw new Error(`Fixture POST/replay failed ${response.status}: ${await response.text()}`);}
- const after=await (await fetch(`${FIXTURE_ORIGIN}/api/workspace`,{headers})).json();if(after.workspace.captures.filter(row=>row.title==='Synthetic smoke capture').length!==1||after.revision!==current.revision+1)throw new Error('Fixture replay was not exactly once.');
- const denied=await fetch(`${FIXTURE_ORIGIN}/api/workspace`,{method:'POST',headers:{...headers,origin:'https://foreign.invalid'},body:JSON.stringify(body)});if(denied.status!==403)throw new Error('Fixture proxy weakened the origin check.');
+ for(let i=0;i<2;i++){const response=await fixtureFetch(`${FIXTURE_ORIGIN}/api/workspace`,{method:'POST',headers,body:JSON.stringify(body)});if(!response.ok)throw new Error(`Fixture POST/replay failed ${response.status}: ${await response.text()}`);}
+ const after=await (await fixtureFetch(`${FIXTURE_ORIGIN}/api/workspace`,{headers})).json();if(after.workspace.captures.filter(row=>row.title==='Synthetic smoke capture').length!==1||after.revision!==current.revision+1)throw new Error('Fixture replay was not exactly once.');
+ const denied=await fixtureFetch(`${FIXTURE_ORIGIN}/api/workspace`,{method:'POST',headers:{...headers,origin:'https://foreign.invalid'},body:JSON.stringify(body)});if(denied.status!==403)throw new Error('Fixture proxy weakened the origin check.');
  console.log('Synthetic fixture HTTP GET/POST/replay/CSRF smoke passed.');
 }
 /** Keep failed HTTP assertions actionable without consuming the caller's response. */
@@ -43,7 +54,7 @@ export async function assertFixtureStatus(response,expected,step){
 }
 export async function smokeAttachments(){
  const headers={cookie:'fixture_session=a',origin:FIXTURE_ORIGIN,'Content-Type':'application/json'};
- const request=(url,options={})=>fetch(`${FIXTURE_ORIGIN}${url}`,{...options,headers:{...headers,...options.headers}});
+ const request=(url,options={})=>fixtureFetch(`${FIXTURE_ORIGIN}${url}`,{...options,headers:{...headers,...options.headers}});
  const json=async url=>{const response=await request(url);assert.equal(response.status,200,await response.clone().text());return response.json();};
  const command=async value=>{const current=await json('/api/workspace');return {revision:current.revision,mutationId:randomUUID(),command:value};};
  const post=body=>request('/api/workspace',{method:'POST',body:JSON.stringify(body)});

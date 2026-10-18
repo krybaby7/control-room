@@ -6,8 +6,11 @@ import type { ImportDiagnostic, ImportPreview } from '@/lib/import-quarantine';
 import type { PlanningRepairOperation, PlanningRepairReport } from '@/lib/import-repair';
 import type { PlanningCollection, PlanningMergePreview, PlanningMergeSelection } from '@/lib/workspace-merge';
 import { boundedRequest } from '@/lib/save-controller';
+import {readImportResponseBytes,readImportResponseJson} from '@/lib/import-response';
 import { SessionExpiredError } from '@/lib/workspace-client';
 import { dateLabel } from './ui';
+import {ArchiveStageRecovery} from './archive-stage-recovery';
+import type {ArchiveStageSummary} from '@/lib/attachment-archive-recovery';
 
 const collections: PlanningCollection[] = ['projects', 'milestones', 'tasks', 'captures', 'activity'];
 const emptySelection = (): PlanningMergeSelection => ({ projects: [], milestones: [], tasks: [], captures: [], activity: [] });
@@ -15,12 +18,13 @@ const PAGE_SIZE = 100;
 interface ArchiveSummary { id:string;files:number;bytes:number;expiresAt:number|string;sourceManifestHash:string }
 interface StagedFile { archive?:ArchiveSummary; id: string; hash: string; bytes: number; diagnostics: ImportDiagnostic[]; expiresAt: number | string }
 interface Review { repairReports?: PlanningRepairReport[]; lineage?: {parentId:string;parentHash:string;steps:number}; preview: ImportPreview; planningBefore: Workspace; planningIncoming: Workspace | null; mergePreview?: PlanningMergePreview }
-async function request<T>(url: string, init: RequestInit = {}, decode?: (response: Response) => Promise<T>, deadlineMs=15_000): Promise<T> {
+async function request<T>(url: string, init: RequestInit = {}, decode?: (response: Response,signal?:AbortSignal) => Promise<T>, deadlineMs=15_000): Promise<T> {
+  let responseSignal:AbortSignal|undefined;
   try {
     return await boundedRequest(url, { credentials: 'same-origin', cache: 'no-store', ...init }, async response => {
       if (!response.ok) throw new Error(response.status === 400 ? 'The review could not be prepared. Check your selection, including linked projects and milestones, then try again.' : 'This import review is unavailable or expired. Your workspace has not changed.');
-      return decode ? decode(response) : await response.json() as T;
-    }, {deadlineMs});
+      return decode ? decode(response,responseSignal) : await readImportResponseJson<T>(response,{signal:responseSignal});
+    }, {deadlineMs,fetch:(input,options)=>{responseSignal=init.signal&&options?.signal?AbortSignal.any([init.signal,options.signal]):options?.signal??init.signal??undefined;return fetch(input,{...options,signal:responseSignal});}});
   } catch (error) {
     if (error instanceof SessionExpiredError) window.dispatchEvent(new Event('control-room-session-expired'));
     throw error;
@@ -73,8 +77,13 @@ export function ImportReview({ revision, busy, onImport }: { revision: number; b
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const generation = useRef(0);
-  useEffect(() => { const epoch = ++generation.current; return () => { generation.current = epoch + 1; }; }, []);
-  useEffect(()=>{const clear=()=>{generation.current++;setExpired(true);setStage(null);setArchive(null);setReview(null);setOriginalId(null);setFilename('');setSelection(emptySelection());setMergeKey(null);setAccepted(false);setWorking('');setError('');setMessage('');};window.addEventListener('control-room-session-expired',clear);return()=>window.removeEventListener('control-room-session-expired',clear);},[]);
+  const activeRequests=useRef(new Set<AbortController>());
+  useEffect(() => { const epoch = ++generation.current,controllers=activeRequests.current; return () => { generation.current = epoch + 1;for(const controller of controllers)controller.abort();controllers.clear(); }; }, []);
+  useEffect(()=>{const clear=()=>{generation.current++;for(const controller of activeRequests.current)controller.abort();activeRequests.current.clear();setExpired(true);setStage(null);setArchive(null);setReview(null);setOriginalId(null);setFilename('');setSelection(emptySelection());setMergeKey(null);setAccepted(false);setWorking('');setError('');setMessage('');};window.addEventListener('control-room-session-expired',clear);return()=>window.removeEventListener('control-room-session-expired',clear);},[]);
+  const read=async<T,>(url:string,init:RequestInit={},decode?: (response:Response,signal?:AbortSignal)=>Promise<T>,deadlineMs=15_000):Promise<T>=>{
+    const controller=new AbortController();activeRequests.current.add(controller);
+    try{return await request<T>(url,{...init,signal:controller.signal},decode,deadlineMs);}finally{activeRequests.current.delete(controller);}
+  };
   const endpoint = stage ? `/api/workspace/imports/${encodeURIComponent(stage.id)}` : '';
   const disabled = expired || busy || !!working;
   const selectionKey = JSON.stringify(selection);
@@ -85,6 +94,13 @@ export function ImportReview({ revision, busy, onImport }: { revision: number; b
   const pageRows = rows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const lastPage = Math.max(0, Math.ceil(rows.length / PAGE_SIZE) - 1);
 
+  const recoverArchive=async(summary:ArchiveStageSummary)=>{
+    const recovered=summary.recoverableStagedImport;if(disabled||stage||!recovered)return;
+    const epoch=generation.current;setWorking('recover');setError('');setMessage('');
+    try{const result=await read<Review>(`/api/workspace/imports/${encodeURIComponent(recovered.id)}`);if(generation.current!==epoch)return;
+      setStage({...recovered});setArchive({id:summary.id,files:summary.files,bytes:summary.bytes,expiresAt:summary.expiresAt,sourceManifestHash:summary.sourceManifestHash});setMode('replace');setOriginalId(recovered.id);setFilename('Recovered native archive stage');setSelection(emptySelection());setAccepted(false);setMergeKey(null);setReview(result);
+    }catch(cause){if(generation.current===epoch)setError(cause instanceof Error?cause.message:'This archive stage is unavailable.');}finally{if(generation.current===epoch)setWorking('');}
+  };
   const choose = async (file?: File) => {
     if (!file || disabled || stage) return;
     const epoch = generation.current;
@@ -93,13 +109,13 @@ export function ImportReview({ revision, busy, onImport }: { revision: number; b
       const isArchive=/\.zip$/i.test(file.name)||['application/zip','application/x-zip-compressed'].includes(file.type.toLowerCase());
       if(file.size>(isArchive?220*1024*1024:8_000_000))throw new Error(isArchive?'Choose a ZIP archive no larger than 220 MiB.':'Choose a JSON file no larger than 8,000,000 bytes.');
       // File bytes are sent directly and never placed in a durable draft.
-      const staged = await request<StagedFile>(isArchive?'/api/workspace/imports/archive':'/api/workspace/imports', { method: 'POST', headers: isArchive?{ 'Content-Type':'application/zip','X-Workspace-Revision':String(revision)}:{'Content-Type':'application/json'}, body: file },undefined,isArchive?120_000:15_000);
+      const staged = await read<StagedFile>(isArchive?'/api/workspace/imports/archive':'/api/workspace/imports', { method: 'POST', headers: isArchive?{ 'Content-Type':'application/zip','X-Workspace-Revision':String(revision)}:{'Content-Type':'application/json'}, body: file },undefined,isArchive?120_000:15_000);
       if(isArchive&&(!staged.archive||typeof staged.archive.id!=='string'||!Number.isSafeInteger(staged.archive.files)||staged.archive.files<0||!Number.isSafeInteger(staged.archive.bytes)||staged.archive.bytes<0||!/^[a-f0-9]{64}$/.test(staged.archive.sourceManifestHash)||!Number.isFinite(new Date(staged.archive.expiresAt).getTime())))throw new Error('Archive staging could not be confirmed. Keep your source ZIP. Any retained stage expires automatically; no workspace import was accepted.');
       if (generation.current !== epoch) return;
       setStage(staged);setArchive(staged.archive?{id:staged.archive.id,files:staged.archive.files,bytes:staged.archive.bytes,expiresAt:staged.archive.expiresAt,sourceManifestHash:staged.archive.sourceManifestHash}:null);setMode(staged.archive?'replace':'merge'); setOriginalId(staged.id); setFilename(file.name); setSelection(emptySelection()); setAccepted(false); setMergeKey(null);
-      const result = await request<Review>(`/api/workspace/imports/${encodeURIComponent(staged.id)}`);
+      const result = await read<Review>(`/api/workspace/imports/${encodeURIComponent(staged.id)}`);
       if (generation.current === epoch) setReview(result);
-    } catch (cause) { if (generation.current !== epoch) return;setError(cause instanceof Error ? cause.message : 'The file could not be staged.');if(/\.zip$/i.test(file.name)||['application/zip','application/x-zip-compressed'].includes(file.type.toLowerCase()))setMessage('If the archive response was lost, a private stage may remain until expiry. Keep your source ZIP; this interface cannot identify or discard an unconfirmed stage. No replacement is automatically accepted.'); }
+    } catch (cause) { if (generation.current !== epoch) return;setError(cause instanceof Error ? cause.message : 'The file could not be staged.');if(/\.zip$/i.test(file.name)||['application/zip','application/x-zip-compressed'].includes(file.type.toLowerCase()))setMessage('If the archive response was lost, a private stage may remain until expiry. Keep your source ZIP; use Recover staged archives below to locate and review or discard it. Physical copies remain charged until guarded cleanup. No replacement is automatically accepted.'); }
     finally { if (generation.current === epoch) setWorking(''); }
   };
   const preview = async (merge: boolean) => {
@@ -107,7 +123,7 @@ export function ImportReview({ revision, busy, onImport }: { revision: number; b
     const epoch = generation.current;
     setWorking('preview'); setError(''); setAccepted(false); setMergeKey(null);
     try {
-      const result = await request<Review>(endpoint, merge ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'merge', selection }) } : {});
+      const result = await read<Review>(endpoint, merge ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'merge', selection }) } : {});
       if (generation.current !== epoch) return;
       setReview(result);
       if (merge && result.mergePreview) setMergeKey(selectionKey);
@@ -119,7 +135,7 @@ export function ImportReview({ revision, busy, onImport }: { revision: number; b
     const epoch = generation.current;
     setWorking('download'); setError('');
     try {
-      const bytes = await request(`/api/workspace/imports/${encodeURIComponent(id)}?download=1`, {}, response => response.arrayBuffer());
+      const bytes = await read(`/api/workspace/imports/${encodeURIComponent(id)}?download=1`, {}, async(response,signal)=>(await readImportResponseBytes(response,{signal})).buffer);
       if (generation.current === epoch) downloadOriginal(bytes, id,!!archive);
     } catch (cause) { if (generation.current === epoch) setError(cause instanceof Error ? cause.message : 'The original file could not be downloaded.'); }
     finally { if (generation.current === epoch) setWorking(''); }
@@ -129,9 +145,9 @@ export function ImportReview({ revision, busy, onImport }: { revision: number; b
     const epoch = generation.current;
     setWorking('discard'); setError('');
     try {
-      await request(endpoint, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      await read(archive?`/api/workspace/imports/archives?id=${encodeURIComponent(archive.id)}`:endpoint,archive?{method:'DELETE'}:{method:'DELETE',headers:{'Content-Type':'application/json'},body:'{}'});
       if (generation.current !== epoch) return;
-      setStage(null); setArchive(null); setOriginalId(null); setReview(null); setFilename(''); setSelection(emptySelection()); setMergeKey(null); setAccepted(false); setMessage(archive?'Discard was confirmed for this staged metadata. Unaccepted archive storage is subject to server cleanup and expiry; this interface does not verify physical byte deletion. Your workspace has not changed.':'Staged file discarded. Your workspace has not changed.');
+      setStage(null); setArchive(null); setOriginalId(null); setReview(null); setFilename(''); setSelection(emptySelection()); setMergeKey(null); setAccepted(false); setMessage(archive?'Archive review was discarded. Staged physical copies remain charged until guarded cleanup confirms deletion. Your workspace has not changed.':'Staged file discarded. Your workspace has not changed.');
     } catch (cause) { if (generation.current === epoch) setError(cause instanceof Error ? cause.message : 'The staged file could not be discarded.'); }
     finally { if (generation.current === epoch) setWorking(''); }
   };
@@ -162,11 +178,11 @@ export function ImportReview({ revision, busy, onImport }: { revision: number; b
         if(!/^\d+$/.test(repairIndex)||!Number.isSafeInteger(Number(repairIndex)))throw new Error('Enter the exact zero-based occurrence index.');
         operation={type:repairType,collection:repairCollection,occurrenceIndex:Number(repairIndex),newId:repairTarget};
       }
-      const child=await request<StagedFile>(endpoint+'/repair',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({operation})});
+      const child=await read<StagedFile>(endpoint+'/repair',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({operation})});
       if(generation.current!==epoch)return;
       setStage(child);setReview(null);setSelection(emptySelection());setPage(0);
       setMessage('A separate repaired file is ready for review. The earlier file is retained. Your workspace has not changed.');
-      const result=await request<Review>(`/api/workspace/imports/${encodeURIComponent(child.id)}`);
+      const result=await read<Review>(`/api/workspace/imports/${encodeURIComponent(child.id)}`);
       if(generation.current===epoch)setReview(result);
     }catch(cause){if(generation.current===epoch)setError(cause instanceof Error?cause.message:'This repair could not be prepared.');}
     finally{if(generation.current===epoch)setWorking('');}
@@ -179,6 +195,7 @@ export function ImportReview({ revision, busy, onImport }: { revision: number; b
   if(expired)return <p role="alert">Sign in again to review private imports. Staged review details are locked.</p>;
   return <section className="panel data-panel" aria-labelledby="import-review-heading"><h2 id="import-review-heading">Review an import</h2><p>Choose Planning JSON, a complete JSON bundle or a native ZIP archive. JSON source bytes are held separately for review; choosing it does not change your workspace. No automatic repair, acceptance or completion is performed.</p>
     <input type="file" accept=".json,application/json,.zip,application/zip,application/x-zip-compressed" aria-label="Choose file for import review" disabled={disabled || !!stage} onChange={event => { void choose(event.target.files?.[0]); event.target.value = ''; }} />
+    <ArchiveStageRecovery disabled={disabled||!!stage} onRecover={summary=>void recoverArchive(summary)}/>
     {stage && <div className="restore-section"><h3>{filename}</h3><p>{stage.bytes.toLocaleString()} staged bytes · Review expires {dateLabel(new Date(stage.expiresAt).toISOString(), true)}</p><p className="field-hint" style={{ overflowWrap: 'anywhere' }}>File digest: {stage.hash}</p><div className="data-actions"><button type="button" className="button secondary" disabled={disabled} onClick={() => void original()}>{archive?'Download staged metadata JSON (not original ZIP)':originalId===stage.id?'Download original file':'Download repaired file'}</button>{originalId && originalId!==stage.id && <button type="button" className="button secondary" disabled={disabled} onClick={() => void original(originalId)}>Download unchanged original</button>}{review?.lineage && review.lineage.parentId!==originalId && <button type="button" className="button secondary" disabled={disabled} onClick={() => void original(review.lineage!.parentId)}>Download previous repair source</button>}<button type="button" className="button secondary" disabled={disabled} onClick={() => void discard()}>Discard staged file</button><button type="button" className="button secondary" disabled={disabled} onClick={() => void preview(false)}>Refresh review</button></div>
       {archive&&<div className="restore-preview"><h3>Native archive staged for explicit replacement review</h3><p>{archive.files} files · {archive.bytes.toLocaleString()} declared file bytes · Stage expires {dateLabel(new Date(archive.expiresAt).toISOString(),true)}</p><p style={{overflowWrap:'anywhere'}}>Source manifest digest: {archive.sourceManifestHash}</p><p>Keep the original ZIP in your own storage. The server retains rekeyed metadata and separately staged private bytes, not the original ZIP. The metadata download is not your original source file. Only a full reviewed replacement is available; archive module records cannot be merged.</p><p>Repairing staged archive metadata would lose its verified archive binding. Correct the source and stage a new archive instead. Staging never accepts or replaces the workspace automatically.</p></div>}
       {diagnostics.length > 0 && <div role="alert"><h3>This file needs attention</h3><p>It remains separate from your workspace. {archive?'Correct your retained source ZIP and stage a new archive.':'Download the unchanged original for correction.'}</p><ul>{diagnostics.map((item, index) => <li key={index}>{item.path}: {item.code}</li>)}</ul></div>}

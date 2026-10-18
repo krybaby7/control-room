@@ -99,7 +99,9 @@
         "CI39139870503/job117711897996 at6e31db7e passed cleanlockedinstall,604Node,typecheck,lint,build,actualHTTPfixture and27/31Chromium. All5new evidence/decision journeys passed. Four existingreviewedmerge journeys exposed one real overbroadnormalizedrestoreguard; narrowedfix +4actualSQLite preservation/race regressions prepared,rerunpending.",
         "Merge-fix working source passes617 Node tests,zero failures/skips,typecheck,lint,productionbuild andactualisolatedHTTPfixture;4newSQLite regressions retainall16modules andcurrentownergrants while rejecting complete-set races. Owner assessment freshness/read-only preview and server-only attribution are implemented; currentprotectedactionUI is not yet integrated.",
         "CI39140792141/job117714617857 atcf1c2e1b passed617Node/allprebrowsergates and30/31Chromium,includingallmergejourneys. Soleattentionglobalcountfixture assumption correctedwithoutproductweakening. Uncommitted626Nodepass;35browserjourneysdiscovered. ActualisolatedMiniflareR2direct andauthenticatedHTTPreserve/stage/finalize/replay/download/ownerB404/session401/origin403/invalidsignature422 fixtures pass;notliveprivateR2proof.",
-        "Private nonexpiring upload/cleanup fences, physical quota including staged/retired/retained objects, native streaming ZIP validation/rekeyed reviewed restore, exact citations and planning presenceundo integrated; source gates and actualbrowser evidence tracked in docs/verification/evidence-history.md."
+        "Private nonexpiring upload/cleanup fences, physical quota including staged/retired/retained objects, native streaming ZIP validation/rekeyed reviewed restore, exact citations and planning presenceundo integrated; source gates and actualbrowser evidence tracked in docs/verification/evidence-history.md.",
+        "Attachment finalize now seals verified digest/time in private physical ledger in the same owner transaction; two actual SQLite regressions cover immutable identity, altered same-size archive rejection, complete rollback and same-mutation retry. Full working tree779 Node tests and typecheck pass; fresh-generation recovery integration pending.",
+        "803 Node tests passed, zero failures/skips; typecheck/lint/production build passed. Actual Miniflare D1 depth100 calibration and all helper/compiler probes passed. Actual D1+R2 applied17 migrations and passed planning/reserve/upload/finalize/nativeZIP reviewedrestore preserving logicalID/evidence/42 exactbytes. Built Worker HTTP reserve/stage/finalize/replay/download/isolation/forgery passed32bytes SHA256ee8061dff83dd68f205b6597c2333557be9e2b07a15c5dab79b35e707fb8104e. ActualR2+SQLite orphancleanup/restore passed43bytes.40default+3R2browser journeys discovered; execution pending cloud CI."
       ],
       "blockers": [
         "Actual private hosted R2 and deployed authentication/attachment acceptance remain unverified.",
@@ -138,7 +140,7 @@
       "blockers": []
     }
   ],
-  "nextAction": "Finish finalNode/type/lint/discovery checks, publish coherent native archive/fence/citation checkpoint and inspect both actual Chromium suites plus Wrangler diagnostics. Continue orphan staging cleanup/recovery and remainingPhase3 integration, then Phases4\u20138.",
+  "nextAction": "Publish this verified source checkpoint and inspect40default+3R2cloud browser journeys; integrate remaining bounded Phase3 audit corrections with regressions, then establish Phase4 shared contracts and continue in order.",
   "allowedStatuses": [
     "not_started",
     "in_progress",
@@ -165,22 +167,21 @@
     "evidence": "Explicit supported model selection accepted and worker IDs returned."
   },
   "checkpoint": {
-    "publishedCommit": "45d008e763a0257bc134f6acd19280462b0f7db5",
-    "workingTree": "Coherent uncommitted native archive export/staged reviewed restore, private physical quota and permanent upload/cleanup fences, exact citations, planning create/delete undo, UI and synthetic regressions. No private identity/access changes.",
-    "tests": "727Nodepass0fail/skip;typecheck/lint/buildpass;actuallocalMiniflareR2direct+authenticatedHTTPfixturespass. Discovery37defaultChromium+2R2Chromium, actualexecutionpendingcloudCI.",
+    "publishedCommit": "d613937723db1428ba69947233243e6b18cd04b4",
+    "workingTree": "Coherent Phase3 review/recovery source checkpoint: migration0016, orphan cleanup/recovery UI, subject context/search/attention, correction undo, streaming response bounds, immutable finalization identity and fresh-generation archive recovery. Phase3 source acceptance remains in progress.",
+    "tests": "803 Node tests passed, zero failures/skips; typecheck/lint/production build passed. Actual Miniflare D1 depth100 calibration and all helper/compiler probes passed. Actual D1+R2 applied17 migrations and passed planning/reserve/upload/finalize/nativeZIP reviewedrestore preserving logicalID/evidence/42 exactbytes. Built Worker HTTP reserve/stage/finalize/replay/download/isolation/forgery passed32bytes SHA256ee8061dff83dd68f205b6597c2333557be9e2b07a15c5dab79b35e707fb8104e. ActualR2+SQLite orphancleanup/restore passed43bytes.40default+3R2browser journeys discovered; execution pending cloud CI.",
     "knownFailures": [
-      "CloudR2browserfixtureomittedexplicitsupportsrelationship;correctedpendingrerun.",
-      "CloudHTTPR2crossownerPUTreceivedWranglermid-requestrestart503instead404;localactualfixturepasses. Boundeddebuglogsadded;triggerunproven."
+      "Previous published citation navigation, archive test endpoint and unbounded HTTP harness failures are corrected in source; cloud browser rerun pending.",
+      "New D1 depth100 regression fixed with factored SQL and MATERIALIZED proof assertions; actual D1 command/native archive and built HTTP gates pass."
     ],
     "unfinished": [
-      "Phase3nativearchivebrowseracceptance andabandonedstagecleanup/recovery",
-      "Phase3globalreviewsearch/attention/contextintegration andnormalizedversion/headundo",
-      "Phases4\u20138",
-      "Externalprivatehostedstorage/device/provider/renewablerunneracceptance"
+      "Phase3 acceptance audit found remaining feasible inline-to-structured legacy synchronization, baseline contextual provenance migration, milestone assessment display, decision criterion-change attention and date/due browsing; bounded helpers being prepared after this source checkpoint.",
+      "Phases4\u20138 not started; Phase4 inspection prepared only.",
+      "Private hosted R2/session/renewable runner, provider and Windows/device acceptance remain external gates."
     ],
-    "nextCommand": "Finish finalNode/type/lint/discovery checks, publish coherent native archive/fence/citation checkpoint and inspect both actual Chromium suites plus Wrangler diagnostics. Continue orphan staging cleanup/recovery and remainingPhase3 integration, then Phases4\u20138.",
-    "publishedTree": "c079838cb36057b766cd8baf57b4367e25fc1c5c",
-    "cloudRun": "39143667192/job117723030000 at45d008e:635Node/type/lint/build/defaultHTTP/directR2pass;35/35defaultChromiumpass. SeparateR2browserfailedmissingexplicitSupportsselectionfixture(nowfixedlocally);HTTPR2deniedPUTgotWranglermid-requestrestart503. DebugworkerlogsaddedwithoutautomaticPUTretry.",
-    "currentCommit": "45d008e763a0257bc134f6acd19280462b0f7db5"
+    "nextCommand": "Publish this verified source checkpoint and inspect40default+3R2cloud browser journeys; integrate remaining bounded Phase3 audit corrections with regressions, then establish Phase4 shared contracts and continue in order.",
+    "publishedTree": "afc8062555af3ef11803ca612703a619ebdb02c0",
+    "cloudRun": "39144588427/job117725736733 atd6139377 terminalfailure:727Node/prebrowsergatespass;36/37defaultChromium (citationsoftnavigationmissing,rootfixpending);1/2R2browserpass (attachmentassessmentpass;ZIPUIactuallycommittedbuttestawaitedwrongendpoint,fixturefixed);HTTPfetchhungthenfailedwithrequest-stream-after-responseerrors. Nextsourceboundsrequests/proxyandcancelsunuseduploadbodies; no retries/assertionweakening.",
+    "currentCommit": "d613937723db1428ba69947233243e6b18cd04b4"
   }
 }

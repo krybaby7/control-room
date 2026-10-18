@@ -6,10 +6,10 @@ import type {JsonValue,WorkspaceCommand} from '@/lib/workspace-protocol';
 import {useDurableDraft} from './durable-draft';
 import {Field,FormDialog} from './form-dialog';
 type LinkInput={subject:EvidenceSubject;requirementId:string|null;relation:'supports'|'contradicts'|'context'};
-export interface EvidenceLinkEditorProps {evidence:EvidenceVersion;workspace:Workspace;requirements:EvidenceRequirement[];onSave:(command:WorkspaceCommand)=>Promise<void>;onClose:()=>void}
-export function EvidenceLinkEditor({evidence,workspace,requirements,onSave,onClose}:EvidenceLinkEditorProps){
- const initial:LinkInput={subject:{type:'project',id:''},requirementId:null,relation:'context'};
- const {baseline,draft,setDraft,saved,notice}=useDurableDraft('evidence-link',`${evidence.id}:${evidence.version}`,initial);
+export interface EvidenceLinkEditorProps {evidence:EvidenceVersion;workspace:Workspace;requirements:EvidenceRequirement[];initialSubject?:EvidenceSubject;onSave:(command:WorkspaceCommand)=>Promise<void>;onClose:()=>void}
+export function EvidenceLinkEditor({evidence,workspace,requirements,initialSubject,onSave,onClose}:EvidenceLinkEditorProps){
+ const initial:LinkInput={subject:initialSubject?{...initialSubject}:{type:'project',id:''},requirementId:null,relation:'context'};
+ const {baseline,draft,setDraft,saved,notice}=useDurableDraft('evidence-link',`${evidence.id}:${evidence.version}:${initialSubject?.type??'all'}:${initialSubject?.id??'all'}`,initial);
  const subjects=draft.subject.type==='project'?workspace.projects.map(row=>({id:row.id,label:row.name,archived:!!row.archivedAt})):draft.subject.type==='milestone'?workspace.milestones.map(row=>({id:row.id,label:row.title,archived:!!row.archivedAt})):draft.subject.type==='task'?workspace.tasks.map(row=>({id:row.id,label:row.title,archived:row.status==='archived'})):workspace.captures.map(row=>({id:row.id,label:row.title,archived:row.status==='archived'}));
  const matching=requirements.filter(row=>!row.archivedAt&&row.subject.type===draft.subject.type&&row.subject.id===draft.subject.id);
  return <FormDialog title="Link an exact evidence version" subtitle="Choose the saved subject and the relationship this statement has to it." dirty={JSON.stringify(draft)!==JSON.stringify(baseline)} onClose={onClose} submitLabel="Save evidence link" onSave={async()=>{

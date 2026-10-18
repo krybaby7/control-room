@@ -18,7 +18,10 @@
     "test:fixture": "node scripts/test-worker.mjs --target local-fixture",
     "test:attachments-r2": "node --experimental-strip-types scripts/test-attachments-r2.mjs",
     "test:attachments-http": "node scripts/test-worker.mjs --target local-fixture --with-r2",
-    "test:e2e:r2": "playwright test --config playwright.r2.config.ts"
+    "test:e2e:r2": "playwright test --config playwright.r2.config.ts",
+    "test:attachment-recovery-r2": "node --experimental-strip-types scripts/test-attachment-recovery-r2.mjs",
+    "test:generation-d1": "node --experimental-strip-types scripts/probe-generation-d1.mjs",
+    "test:workspace-d1": "node --experimental-strip-types scripts/test-workspace-d1.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

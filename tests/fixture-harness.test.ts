@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import {parseFixtureArgs,fixtureConfig,fixtureEnvironment,SYNTHETIC_DB_ID,FIXTURE_ORIGIN} from '../scripts/test-fixtures.mjs';
-import {fixtureProxy,requireFreePort,assertFixtureStatus,fixtureFailure} from '../scripts/test-worker.mjs';
+import {fixtureProxy,requireFreePort,assertFixtureStatus,fixtureFailure,fixtureFetch,FIXTURE_REQUEST_TIMEOUT_MS} from '../scripts/test-worker.mjs';
 const source={main:'index.js',assets:{directory:'../client'},compatibility_date:'2026-05-15',d1_databases:[{binding:'DB',database_id:SYNTHETIC_DB_ID}],r2_buckets:[]};
 test('harness accepts only explicit local fixture flags and rejects deployment bindings',()=>{
  assert.deepEqual(parseFixtureArgs(['--target','local-fixture']),{serve:false,withR2:false});assert.equal(parseFixtureArgs(['--target','local-fixture','--serve']).serve,true);
@@ -49,4 +49,18 @@ test('fixture smoke failure retains exact step and bounded Worker restart diagno
  const failure=fixtureFailure(original,'discarded prefix '+'.'.repeat(13000)+'[wrangler:debug] bundle update/restart');
  assert.equal(failure.cause,original);assert.ok(failure.message.startsWith(original.message));assert.match(failure.message,/Synthetic local Worker logs/);assert.match(failure.message,/bundle update\/restart/);assert.ok(!failure.message.includes('discarded prefix'));assert.ok(failure.message.length<original.message.length+12100);
  assert.match(fixtureFailure(original,'').message,/no Worker output captured/);
+});
+
+test('fixture deadline covers a hung POST response body without retrying the request',async()=>{
+ let requests=0;const server=http.createServer((request,response)=>{requests++;request.resume();response.writeHead(200,{'Content-Type':'application/json'});response.write('{"partial":');});
+ await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));try{const address=server.address();assert.ok(address&&typeof address==='object');const response=await fixtureFetch(`http://127.0.0.1:${address.port}/synthetic-hung`,{method:'POST',body:'synthetic'},80);assert.equal(response.status,200);await assert.rejects(response.json(),error=>error instanceof Error&&['AbortError','TimeoutError'].includes(error.name));assert.equal(requests,1);assert.equal(FIXTURE_REQUEST_TIMEOUT_MS,15000);assert.throws(()=>fixtureFetch('http://127.0.0.1/',{},15001));}finally{server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));}
+});
+test('proxy bounds an unresponsive upstream and destroys orphan upstream responses on client abort',async()=>{
+ const closed=new Map<string,Promise<void>>(),resolvers=new Map<string,()=>void>();for(const path of ['/no-headers','/hung-body'])closed.set(path,new Promise<void>(resolve=>resolvers.set(path,resolve)));
+ const upstream=http.createServer((request,response)=>{response.on('close',()=>resolvers.get(request.url??'')?.());if(request.url==='/hung-body'){response.writeHead(200);response.write('partial synthetic body');}});
+ const proxy=fixtureProxy({requestTimeoutMs:1200});await new Promise<void>(resolve=>upstream.listen(4174,'127.0.0.1',resolve));await new Promise<void>(resolve=>proxy.listen(4173,'127.0.0.1',resolve));
+ const waitClosed=async(path:string,deadline=1500)=>{let timer:ReturnType<typeof setTimeout>|undefined;try{await Promise.race([closed.get(path),new Promise<never>((_,reject)=>{timer=setTimeout(()=>reject(new Error(`Synthetic upstream ${path} did not close`)),deadline);})]);}finally{clearTimeout(timer);}};
+ try{const response=await fixtureFetch(`${FIXTURE_ORIGIN}/no-headers`,{},3000);assert.equal(response.status,502);await response.text();await waitClosed('/no-headers');
+ const controller=new AbortController();const body=await fixtureFetch(`${FIXTURE_ORIGIN}/hung-body`,{signal:controller.signal},1500);const reading=body.text();controller.abort();await assert.rejects(reading);await waitClosed('/hung-body',400);
+ }finally{proxy.closeAllConnections();upstream.closeAllConnections();await Promise.all([new Promise<void>(resolve=>proxy.close(()=>resolve())),new Promise<void>(resolve=>upstream.close(()=>resolve()))]);}
 });

@@ -1,5 +1,7 @@
 'use client';
 
+import {SubjectReviewLink} from './subject-review-link';
+
 import { useState } from 'react';
 import { ArrowLeft, ArrowRight, CalendarDays, Check, ChevronRight, Edit3, Flag, Plus, Search, SlidersHorizontal } from 'lucide-react';
 import type { Milestone, Project, Task, Workspace } from '@/lib/types';
@@ -27,7 +29,7 @@ export function ProjectDetail({ project, workspace, busy, onBack, onProjectEdit,
   const visible = tasks.filter(t => (horizon === 'all' || t.horizon === horizon) && (status === 'all' || (status === 'active' ? !['done', 'archived'].includes(t.status) : t.status === status)) && `${t.title} ${t.notes}`.toLowerCase().includes(query.toLowerCase()));
   return <>
     <button className="back-button" onClick={onBack}><ArrowLeft size={16} />All projects</button>
-    <header className="project-detail-heading"><div className="project-title-group"><ProjectIcon project={project} /><div><p className="eyebrow">PROJECT WORKSPACE</p><h1>{project.name}</h1></div></div><div className="data-actions">{onProjectLifecycle&&<button type="button" className="button secondary" disabled={busy} onClick={()=>onProjectLifecycle(project,archived?'restore':'archive')}>{archived?'Restore project':'Archive project'}</button>}<button className="button secondary" disabled={busy} onClick={onProjectEdit}><Edit3 size={15} />Edit project</button></div></header>
+    <header className="project-detail-heading"><div className="project-title-group"><ProjectIcon project={project} /><div><p className="eyebrow">PROJECT WORKSPACE</p><h1>{project.name}</h1></div></div><div className="data-actions"><SubjectReviewLink subject={{type:'project',id:project.id}}/>{onProjectLifecycle&&<button type="button" className="button secondary" disabled={busy} onClick={()=>onProjectLifecycle(project,archived?'restore':'archive')}>{archived?'Restore project':'Archive project'}</button>}<button className="button secondary" disabled={busy} onClick={onProjectEdit}><Edit3 size={15} />Edit project</button></div></header>
     {archived&&<div className="restore-preview" role="status"><h2>This project is archived</h2><p>Its tasks, milestones, evidence and completion history are retained. Restore the project to add new work or apply a baseline.</p></div>}
     <section className={`goal-panel ${project.color}`}><span className="eyebrow">THE OUTCOME WE’RE WORKING TOWARD</span><p>{project.goal || 'Define a clear goal for this project.'}</p>{project.description && <span className="goal-description">{project.description}</span>}<span className="owner-defined">Owner-defined goal · Equal priority</span></section>
     <ProjectBaseline removedIds={baselineRemovedIds} project={project} workspace={workspace} busy={busy||archived} onApply={archived?undefined:onApplyBaseline} />

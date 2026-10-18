@@ -4,6 +4,8 @@ import {readCurrent} from './workspace-store.ts';
 import {ownerReader} from './workspace-modules.ts';
 import type {CommandHandler,MutationPlan,PrepareContext} from './workspace-transaction.ts';
 import {readAuditCommandGroup,type AuditCommandGroup} from './history-command-group.ts';
+import {prepareDecisionUndo} from './history-decision-undo.ts';
+import {prepareEvidenceUndo} from './history-evidence-undo.ts';
 import {previewPlanningUndo} from './history-undo.ts';
 import {parseAuditEvent,topLevelChanges,type AuditEventDraft,type FieldChange,type JsonValue} from './audit-events.ts';
 import {canonical,contentHash} from './canonical-json.ts';
@@ -17,7 +19,7 @@ function parseGroup(userId:string,values:readonly AuditEventDraft[]):AuditEventD
 /** The resolver must return the whole immutable command in ordinal order, never a selected subset. */
 export async function prepareHistoryUndoGroup(context:PrepareContext,values:readonly AuditEventDraft[]):Promise<MutationPlan>{
  if(context.command.type!=='history.undo'||context.command.targetRevision!==undefined&&context.command.targetRevision!==context.before.revision)throw new Error('An explicit current-revision undo command is required.');
- const events=parseGroup(context.userId,values);let planningAfter=structuredClone(context.before.workspace);for(const event of [...events].reverse())planningAfter=previewPlanningUndo(planningAfter,event,context.now).planningAfter;
+ const events=parseGroup(context.userId,values);const evidencePlan=await prepareEvidenceUndo(context,events);if(evidencePlan)return evidencePlan;const decisionPlan=await prepareDecisionUndo(context,events);if(decisionPlan)return decisionPlan;let planningAfter=structuredClone(context.before.workspace);for(const event of [...events].reverse())planningAfter=previewPlanningUndo(planningAfter,event,context.now).planningAfter;
  const changes:FieldChange[]=[];for(const collection of ['projects','milestones','tasks','captures'] as const){
   const before=new Map(context.before.workspace[collection].map(row=>[row.id,row])),after=new Map(planningAfter[collection].map(row=>[row.id,row]));
   for(const id of new Set([...before.keys(),...after.keys()])){const previous=before.get(id),next=after.get(id);
@@ -33,9 +35,17 @@ export async function prepareHistoryUndoGroup(context:PrepareContext,values:read
 async function inspect(context:PrepareContext,eventId:string,group:AuditCommandGroup):Promise<{plan:MutationPlan;preview:HistoryUndoPreview}>{
  if(!group.events.some(event=>event.id===eventId))throw new Error('Requested event is outside its complete command group.');z.string().regex(/^[A-Za-z0-9_-]{16,128}$/).parse(group.mutationId);const plan=await prepareHistoryUndoGroup({...context,command:{...context.command,eventId}},group.events);const sourceEventHashes=await Promise.all(group.events.map(async event=>({id:event.id,hash:await contentHash(canonical(parseAuditEvent(event)))})));
  // Server-managed updatedAt is recomputed at commit; the owner revision binds its current value.
- const affected=plan.events[0].changes.filter(change=>change.path.at(-1)!=='updatedAt');
+ const changes=plan.events.flatMap(event=>event.changes);if(!changes.length||changes.length>2000)throw new Error('Undo exceeds its complete change review limit.');
+ const affected=changes.filter(change=>change.path.at(-1)!=='updatedAt').map(change=>{
+  if(change.path[0]==='record'&&change.before.exists&&change.after.exists&&change.before.value&&change.after.value&&typeof change.before.value==='object'&&typeof change.after.value==='object'&&!Array.isArray(change.before.value)&&!Array.isArray(change.after.value)){
+   const previous=change.before.value.version,next=change.after.value.version;
+   if(previous&&next&&typeof previous==='object'&&typeof next==='object'&&!Array.isArray(previous)&&!Array.isArray(next)&&typeof previous.version==='number'&&next.version===previous.version+1){const generated=structuredClone(change);delete ((generated.after.value as Record<string,JsonValue>).version as Record<string,JsonValue>).recordedAt;return generated;}
+  }
+  if(change.path[0]!=='evidence_versions'||change.before.exists||!change.after.exists||!change.after.value||typeof change.after.value!=='object'||Array.isArray(change.after.value))return change;
+  const generated=structuredClone(change);delete (generated.after.value as Record<string,JsonValue>).recordedAt;return generated;
+ });
  const previewHash=await contentHash(canonical({type:'history.undo',eventId,sourceMutationId:group.mutationId,targetRevision:context.before.revision,sourceEventHashes,affected,referenceDigest:plan.referenceSnapshot!.digest}));
- return {plan,preview:{eventId,sourceMutationId:group.mutationId,targetRevision:context.before.revision,sourceEventIds:group.events.map(event=>event.id),changes:plan.events[0].changes,previewHash,canUndo:true,blockers:[]}};
+ return {plan,preview:{eventId,sourceMutationId:group.mutationId,targetRevision:context.before.revision,sourceEventIds:group.events.map(event=>event.id),changes,previewHash,canUndo:true,blockers:[]}};
 }
 /** Server read-only preview; the authoritative owner and revision must be supplied by the authenticated route. */
 export async function previewHistoryUndo(db:SqlDatabase,userId:string,eventId:string,revision:number,now:string):Promise<HistoryUndoPreview>{

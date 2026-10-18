@@ -1,6 +1,7 @@
 import {z} from 'zod';
 import type {SqlDatabase,SqlStatement} from './workspace-store.ts';
 import {ATTACHMENT_POLICY} from './attachment-policy.ts';
+import {attachmentPriorGenerationSql} from './attachment-generation.ts';
 import {attachmentStorageKey} from './attachments.ts';
 export const ARCHIVE_RESERVATION_LIMITS=Object.freeze({activeStages:8,manifestBytes:8_000_000,ttlMs:3_600_000});
 const ownerSchema=z.string().min(1).max(256).refine(value=>value.trim()===value&&!/[\u0000-\u001f\u007f]/u.test(value));
@@ -37,13 +38,14 @@ export async function reserveArchiveObjects(db:SqlDatabase,userId:string,input:A
  assert('EXISTS(SELECT 1 FROM workspaces WHERE user_id=? AND revision=?)',[owner,value.targetRevision]);
  assert('NOT EXISTS(SELECT 1 FROM attachment_archive_stages WHERE user_id=? AND id=?)',[owner,value.stageId]);
  // A namespace addresses physical keys in the shared private bucket; never reuse it for another owner.
- for(const [table,column]of [['attachment_blob_namespaces','namespace'],['attachment_archive_stages','namespace'],['attachment_blob_objects','namespace'],['attachment_blob_fences','namespace'],['workspace_source_namespaces','blob_namespace']]as const)assert(`NOT EXISTS(SELECT 1 FROM ${table} WHERE ${column}=?)`,[value.namespace]);
+ for(const [table,column]of [['attachment_blob_namespaces','namespace'],['attachment_archive_stages','namespace'],['attachment_blob_objects','namespace'],['attachment_blob_fences','namespace'],['attachment_archive_cleanup_claims','namespace'],['workspace_source_namespaces','blob_namespace']]as const)assert(`NOT EXISTS(SELECT 1 FROM ${table} WHERE ${column}=?)`,[value.namespace]);
  assert('NOT EXISTS(SELECT 1 FROM attachments WHERE storage_key LIKE ?)',[`attachments/${value.namespace}/%`]);
  assert("(SELECT COUNT(*) FROM attachment_archive_stages WHERE user_id=? AND status IN ('preparing','verified') AND expires_at>?) < ?",[owner,value.createdAt,ARCHIVE_RESERVATION_LIMITS.activeStages]);
  assert("NOT EXISTS(SELECT 1 FROM attachment_blob_objects WHERE user_id=? AND purged_at IS NULL AND (typeof(bytes)<>'integer' OR bytes<0)) AND (SELECT COUNT(*) FROM attachment_blob_objects WHERE user_id=? AND purged_at IS NULL)+?<=? AND (SELECT COALESCE(SUM(bytes),0) FROM attachment_blob_objects WHERE user_id=? AND purged_at IS NULL)+?<=?",[owner,owner,records.length,ATTACHMENT_POLICY.ownerFiles,owner,requestedBytes,ATTACHMENT_POLICY.ownerBytes]);
- assert("NOT EXISTS(SELECT 1 FROM json_each(?) r JOIN attachment_blob_fences f ON (f.user_id=? AND f.attachment_id=json_extract(r.value,'$.id')) OR f.storage_key=json_extract(r.value,'$.storageKey'))",[payload,owner]);
- // Logical attachment identity is immutable across every physical generation, even after purge.
- assert("NOT EXISTS(SELECT 1 FROM json_each(?) r JOIN attachment_blob_objects existing ON existing.user_id=? AND existing.attachment_id=json_extract(r.value,'$.id') WHERE existing.bytes<>json_extract(r.value,'$.bytes') OR (existing.sha256 IS NOT NULL AND existing.sha256<>json_extract(r.value,'$.sha256')))",[payload,owner]);
+ const prior=attachmentPriorGenerationSql({owner:'reservation_owner.owner',attachmentId:"json_extract(r.value,'$.id')",storageKey:"json_extract(r.value,'$.storageKey')",bytes:"json_extract(r.value,'$.bytes')",sha256:"json_extract(r.value,'$.sha256')"});
+ assert(`NOT EXISTS(SELECT 1 FROM json_each(?) r CROSS JOIN (SELECT ? AS owner) reservation_owner WHERE NOT ${prior})`,[payload,owner]);
+ // No generation may revive an exact fenced key, even after definitive purge.
+ assert("NOT EXISTS(SELECT 1 FROM json_each(?) r JOIN attachment_blob_fences f ON f.storage_key=json_extract(r.value,'$.storageKey'))",[payload]);
  for(const table of ['attachment_blob_objects','attachments']as const)assert(`NOT EXISTS(SELECT 1 FROM json_each(?) r JOIN ${table} existing ON existing.storage_key=json_extract(r.value,'$.storageKey'))`,[payload]);
  statements.push(db.prepare("INSERT INTO attachment_archive_stages(user_id,id,namespace,source_manifest_hash,manifest_json,created_at,expires_at,target_revision,status,import_id,import_hash) VALUES(?,?,?,?,?,?,?,?,'preparing',NULL,NULL)").bind(owner,value.stageId,value.namespace,value.sourceManifestHash,value.manifestJson,value.createdAt,value.expiresAt,value.targetRevision));
  statements.push(db.prepare("INSERT INTO attachment_blob_namespaces(user_id,namespace,created_at,purpose,source_import_id) VALUES(?,?,?,'archive-stage',NULL)").bind(owner,value.namespace,value.createdAt));

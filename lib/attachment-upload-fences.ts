@@ -1,3 +1,4 @@
+import {isAdmittedAttachmentGeneration} from './attachment-generation.ts';
 import {z} from 'zod';
 import type {SqlDatabase} from './workspace-store.ts';
 import type {AttachmentRecord} from './evidence-contract.ts';
@@ -46,5 +47,8 @@ export async function finishUpload(db:SqlDatabase,userId:string,input:FinishAtta
 /** Read-only convenience check; never substitutes for the atomic begin/cleanup guards. */
 export async function isBlobFenced(db:SqlDatabase,userId:string,input:{attachmentId:string;storageKey:string}):Promise<boolean>{
  owner(userId);uuid.parse(input.attachmentId);if(typeof input.storageKey!=='string'||input.storageKey.length<1||input.storageKey.length>500)throw new Error('A bounded attachment key is required.');
- return Boolean(await db.prepare('SELECT token FROM attachment_blob_fences WHERE user_id=? AND (storage_key=? OR attachment_id=?) LIMIT 1').bind(userId,input.storageKey,input.attachmentId).first());
+ if(await db.prepare('SELECT token FROM attachment_blob_fences WHERE user_id=? AND storage_key=? LIMIT 1').bind(userId,input.storageKey).first())return true;
+ if(!await db.prepare('SELECT token FROM attachment_blob_fences WHERE user_id=? AND attachment_id=? LIMIT 1').bind(userId,input.attachmentId).first())return false;
+ const object=await db.prepare('SELECT bytes,sha256 FROM attachment_blob_objects WHERE user_id=? AND storage_key=? AND attachment_id=? AND verified_at IS NOT NULL AND purged_at IS NULL').bind(userId,input.storageKey,input.attachmentId).first<{bytes:number;sha256:string|null}>();
+ return !object?.sha256||!await isAdmittedAttachmentGeneration(db,userId,{...input,bytes:object.bytes,sha256:object.sha256});
 }

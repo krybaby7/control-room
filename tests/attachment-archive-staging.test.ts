@@ -96,3 +96,28 @@ test('final CAS rejects physical digest changes and newly pending uploads after 
  assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM workspace_imports').get()!.n, 0);
  } finally { f.sqlite.close(); } }
 });
+test('same-ID archive after definitive purge stages new namespace while old key stays permanently fenced', async () => {
+ const f = await fixture(); try {
+ const namespace='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+ f.sqlite.prepare('INSERT INTO attachment_blob_objects(user_id,storage_key,attachment_id,namespace,bytes,sha256,created_at,verified_at,purged_at) VALUES(?,?,?,?,?,?,?,?,?)').run('synthetic',f.record.storageKey,f.record.id,namespace,f.bytes.length,f.record.sha256,now,now,now);
+ f.sqlite.prepare('INSERT INTO attachment_blob_fences(user_id,storage_key,attachment_id,namespace,token,created_at,purged_at) VALUES(?,?,?,?,?,?,?)').run('synthetic',f.record.storageKey,f.record.id,namespace,crypto.randomUUID(),now,now);
+ const result=await stageAttachmentArchive(f.db,'synthetic',f.stream(),f.options);
+ const row=result.stage.bundle!.modules.attachments.records[0] as {value:AttachmentRecord};
+ assert.notEqual(row.value.storageKey,f.record.storageKey);assert.equal(row.value.id,f.record.id);
+ assert.equal(f.store.objects.has(f.record.storageKey),false);
+ assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM attachment_blob_fences WHERE storage_key=?').get(f.record.storageKey)!.n,1);
+ const registered=f.sqlite.prepare("SELECT source_import_id FROM attachment_blob_namespaces WHERE purpose='archive-stage'").get()!;
+ assert.equal(registered.source_import_id,result.stage.id);
+ }finally{f.sqlite.close();}
+});
+test('namespace import linkage and verified stage commit atomically', async () => {
+ const f=await fixture();try{
+ f.sqlite.exec("CREATE TRIGGER synthetic_namespace_link_failure BEFORE UPDATE OF source_import_id ON attachment_blob_namespaces BEGIN SELECT RAISE(ABORT,'synthetic link failure'); END;");
+ await assert.rejects(stageAttachmentArchive(f.db,'synthetic',f.stream(),f.options),/target changed/);
+ assert.equal(f.sqlite.prepare('SELECT status,import_id FROM attachment_archive_stages').get()!.status,'failed');
+ assert.equal(f.sqlite.prepare('SELECT import_id FROM attachment_archive_stages').get()!.import_id,null);
+ assert.equal(f.sqlite.prepare('SELECT source_import_id FROM attachment_blob_namespaces').get()!.source_import_id,null);
+ assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM workspace_imports').get()!.n,0);
+ assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM attachment_blob_objects WHERE purged_at IS NULL').get()!.n,1);
+ }finally{f.sqlite.close();}
+});

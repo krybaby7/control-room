@@ -67,13 +67,25 @@ test('identical fresh copies preserve logical identity while charging every unpu
  }finally{sqlite.close();}
 });
 
-test('purged identity remains binding and nullable historical digest permits only identical byte length',async()=>{
+test('purged identity remains binding and unknown historical digest cannot authorize a new generation',async()=>{
  const {db,sqlite}=await fixture();try{const known=crypto.randomUUID();object(sqlite,'a',5,{id:known,purged:true});sqlite.prepare('UPDATE attachment_blob_objects SET sha256=? WHERE user_id=? AND attachment_id=?').run('a'.repeat(64),'a',known);assert.deepEqual(await readPhysicalAttachmentUsage(db,'a'),{bytes:0,files:0});const before=state(sqlite);await assert.rejects(reserveArchiveObjects(db,'a',input([{id:known,bytes:5,sha256:'b'.repeat(64)}])),ArchiveObjectReservationError);assert.deepEqual(state(sqlite),before);
- const unknown=crypto.randomUUID();object(sqlite,'a',7,{id:unknown,purged:true});await reserveArchiveObjects(db,'a',input([{id:unknown,bytes:7,sha256:'c'.repeat(64)}]));assert.deepEqual(await readPhysicalAttachmentUsage(db,'a'),{bytes:7,files:1});const after=state(sqlite);await assert.rejects(reserveArchiveObjects(db,'a',input([{id:unknown,bytes:8,sha256:'c'.repeat(64)}])),ArchiveObjectReservationError);assert.deepEqual(state(sqlite),after);
+ const unknown=crypto.randomUUID();object(sqlite,'a',7,{id:unknown,purged:true});const after=state(sqlite);await assert.rejects(reserveArchiveObjects(db,'a',input([{id:unknown,bytes:7,sha256:'c'.repeat(64)}])),ArchiveObjectReservationError);assert.deepEqual(await readPhysicalAttachmentUsage(db,'a'),{bytes:0,files:0});assert.deepEqual(state(sqlite),after);await assert.rejects(reserveArchiveObjects(db,'a',input([{id:unknown,bytes:8,sha256:'c'.repeat(64)}])),ArchiveObjectReservationError);assert.deepEqual(state(sqlite),after);
  }finally{sqlite.close();}
 });
 
 test('a conflicting identity inserted immediately before the reservation batch prevents every staged write',async()=>{
  const {db,sqlite}=await fixture();try{const value=input();let afterRace:ReturnType<typeof state>|undefined;const raced:SqlDatabase={...db,async batch(statements){object(sqlite,'a',value.records[0].bytes,{id:value.records[0].id});sqlite.prepare('UPDATE attachment_blob_objects SET sha256=? WHERE user_id=? AND attachment_id=?').run('c'.repeat(64),'a',value.records[0].id);afterRace=state(sqlite);return db.batch(statements);}};await assert.rejects(reserveArchiveObjects(raced,'a',value),ArchiveObjectReservationError);assert.deepEqual(state(sqlite),afterRace);
  }finally{sqlite.close();}
+});
+
+test('post-purge fresh generation requires trusted identical history and settled old upload attempts',async()=>{
+ for(const variant of ['valid','unpurged-fence','unknown-digest','unverified','changed-digest','pending']as const){const {db,sqlite}=await fixture();try{
+ const id=crypto.randomUUID(),namespace=crypto.randomUUID(),key=attachmentStorageKey(namespace,id),digest='a'.repeat(64),value=input([{id,bytes:5,sha256:digest}]);
+ sqlite.prepare('INSERT INTO attachment_blob_objects(user_id,storage_key,attachment_id,namespace,bytes,sha256,created_at,verified_at,purged_at) VALUES(?,?,?,?,?,?,?,?,?)').run('a',key,id,namespace,5,variant==='unknown-digest'?null:variant==='changed-digest'?'b'.repeat(64):digest,now,variant==='unverified'?null:now,now);
+ sqlite.prepare('INSERT INTO attachment_blob_fences(user_id,storage_key,attachment_id,namespace,token,created_at,purged_at) VALUES(?,?,?,?,?,?,?)').run('a',key,id,namespace,crypto.randomUUID(),now,variant==='unpurged-fence'?null:now);
+ if(variant==='pending')sqlite.prepare('INSERT INTO attachment_upload_attempts(user_id,token,attachment_id,storage_key,created_at,settled_at) VALUES(?,?,?,?,?,NULL)').run('a',crypto.randomUUID(),id,key,now);
+ const before=state(sqlite);
+ if(variant==='valid'){const result=await reserveArchiveObjects(db,'a',value);assert.notEqual(result.records[0].storageKey,key);assert.deepEqual(result.usage,{bytes:5,files:1});assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM attachment_blob_fences').get()!.n,1);}
+ else{await assert.rejects(reserveArchiveObjects(db,'a',value),ArchiveObjectReservationError);assert.deepEqual(state(sqlite),before);}
+ }finally{sqlite.close();}}
 });

@@ -1,3 +1,4 @@
+import {attachmentGenerationSql,attachmentGenerationPredicate} from './attachment-generation.ts';
 import {ownerPrepareContext} from './workspace-context.ts';
 import {auditProjectIds} from './audit-projects.ts';
 import {moduleProjection,moduleColumnNames,IMMUTABLE_MODULE_TABLES} from './module-columns.ts';
@@ -149,17 +150,40 @@ export async function executeWorkspaceCommand(userId:string,input:{protocolVersi
     statements.push(db.prepare(`INSERT INTO attachment_blob_objects(user_id,storage_key,attachment_id,namespace,bytes,sha256,created_at,verified_at,purged_at) SELECT ?,?,?,blob_namespace,?,NULL,?,NULL,NULL FROM workspace_source_namespaces WHERE user_id=? AND ${claim}`).bind(userId,value.storageKey,value.id,value.expectedBytes,value.createdAt,userId,...guard));
     assertion('(SELECT COUNT(*) FROM attachment_blob_objects WHERE user_id=? AND purged_at IS NULL)<=500 AND (SELECT COALESCE(SUM(bytes),0) FROM attachment_blob_objects WHERE user_id=? AND purged_at IS NULL)<=209715200',[userId,userId]);
   }
+  // Only the actual verified finalize command can establish immutable physical identity.
+  // Imported metadata never grants digest authority to an ordinary reservation.
+  if(command.type==='attachment.finalize')for(const write of plan.writes)if(write.table==='attachments'&&write.operation==='update'){
+    const value=write.value as unknown as {id:string;storageKey:string;expectedBytes:number;sha256:string|null;readyAt:string|null;status:string};
+    if(value.status!=='ready'||!value.sha256||!value.readyAt)throw new CommandValidationError('Finalization requires verified attachment identity.');
+    assertion('EXISTS (SELECT 1 FROM attachment_blob_objects WHERE user_id=? AND storage_key=? AND attachment_id=? AND bytes=? AND purged_at IS NULL AND (sha256 IS NULL OR sha256=?))',[userId,value.storageKey,value.id,value.expectedBytes,value.sha256]);
+    statements.push(db.prepare(`UPDATE attachment_blob_objects SET sha256=?,verified_at=COALESCE(verified_at,?) WHERE user_id=? AND storage_key=? AND attachment_id=? AND bytes=? AND purged_at IS NULL AND (sha256 IS NULL OR sha256=?) AND ${claim}`).bind(value.sha256,value.readyAt,userId,value.storageKey,value.id,value.expectedBytes,value.sha256,...guard));
+  }
   // Permanent cleanup fences are private authority, including after full module replacement.
   // Every current or historical reference must remain unable to revive a fenced key.
-  assertion(`NOT EXISTS (SELECT 1 FROM attachments a JOIN attachment_blob_fences f ON f.user_id=a.user_id AND (f.attachment_id=a.id OR f.storage_key=a.storage_key) WHERE a.user_id=? AND a.status IN ('reserved','ready'))`,[userId]);
-  assertion(`NOT EXISTS (SELECT 1 FROM evidence_versions e JOIN json_each(e.payload_json,'$.attachmentIds') ref JOIN attachment_blob_fences f ON f.user_id=e.user_id AND f.attachment_id=ref.value WHERE e.user_id=?)`,[userId]);
+  const generationReview={id:'generation_review.id',hash:'generation_review.hash',targetRevision:'generation_review.revision',now:'generation_review.now'};
+  const generationFields={owner:'a.user_id',attachmentId:'a.id',storageKey:'a.storage_key',bytes:'a.expected_bytes',sha256:'a.sha256'};
+  const generationAllowed=attachmentGenerationSql(generationFields,generationReview);
+  const generationReviewValues=[plan.importSource?.id??'',plan.importSource?.hash??'',revision,now];
+  const generationReviewSource='(SELECT ? AS id,? AS hash,? AS revision,? AS now) generation_review';
+  // Materialize the proof separately from the assertion expression: deployed D1 limits
+  // expression depth to 100, below the desktop SQLite default used by unit fixtures.
+  const generationCte=`WITH admitted_generations AS MATERIALIZED (SELECT a.user_id,a.id,a.storage_key FROM attachments a CROSS JOIN ${generationReviewSource} WHERE a.user_id=? AND a.status='ready' AND ${generationAllowed})`;
+  const assertGenerations=(condition:string,values:(string|number|null)[])=>statements.push(db.prepare(`${generationCte} INSERT INTO workspace_assertions(user_id,mutation_id,valid) SELECT ?,?,CASE WHEN ${condition} THEN 1 ELSE 0 END WHERE ${claim}`).bind(...generationReviewValues,userId,userId,id,...values,...guard));
+  assertGenerations(`NOT EXISTS (SELECT 1 FROM attachments a JOIN attachment_blob_fences f ON f.user_id=a.user_id AND (f.attachment_id=a.id OR f.storage_key=a.storage_key) LEFT JOIN admitted_generations admitted ON admitted.user_id=a.user_id AND admitted.id=a.id AND admitted.storage_key=a.storage_key WHERE a.user_id=? AND a.status IN ('reserved','ready') AND (f.storage_key=a.storage_key OR admitted.id IS NULL))`,[userId]);
+  assertGenerations(`NOT EXISTS (SELECT 1 FROM evidence_versions e JOIN json_each(e.payload_json,'$.attachmentIds') ref JOIN attachment_blob_fences f ON f.user_id=e.user_id AND f.attachment_id=ref.value LEFT JOIN admitted_generations admitted ON admitted.user_id=e.user_id AND admitted.id=ref.value WHERE e.user_id=? AND admitted.id IS NULL)`,[userId]);
   if(preparedBackup){
-    const bundle=JSON.parse(preparedBackup.content) as {modules:{attachments?:{records:Array<{id:string;value:{status?:string;storageKey?:string}}>}}};
+    const bundle=JSON.parse(preparedBackup.content) as {modules:{attachments?:{records:Array<{id:string;value:{status?:string;storageKey?:string;expectedBytes?:number;sha256?:string|null}}>}}};
     // A deleted tombstone is not a promise of retained file bytes. Unknown legacy rows already fail closed in cleanup.
-    for(const row of bundle.modules.attachments?.records??[])if(row.value.status!=='deleted')assertion('NOT EXISTS (SELECT 1 FROM attachment_blob_fences WHERE user_id=? AND (attachment_id=? OR storage_key=?))',[userId,row.id,row.value.storageKey??'']);
+    for(const row of bundle.modules.attachments?.records??[])if(row.value.status!=='deleted'){
+      const value=row.value;
+      if(value.status==='ready'&&value.storageKey&&value.sha256&&Number.isSafeInteger(value.expectedBytes)){
+        const generation=attachmentGenerationPredicate(userId,{attachmentId:row.id,storageKey:value.storageKey,bytes:value.expectedBytes!,sha256:value.sha256});
+        assertion(`NOT EXISTS (SELECT 1 FROM attachment_blob_fences WHERE user_id=? AND (attachment_id=? OR storage_key=?)) OR ${generation.sql}`,[userId,row.id,value.storageKey,...generation.bindings]);
+      }else assertion('NOT EXISTS (SELECT 1 FROM attachment_blob_fences WHERE user_id=? AND (attachment_id=? OR storage_key=?))',[userId,row.id,value.storageKey??'']);
+    }
   }
   // Newly staged private namespaces become readable only in the exact reviewed import transaction.
-  assertion(`NOT EXISTS (SELECT 1 FROM attachments a JOIN attachment_blob_namespaces n ON n.user_id=a.user_id AND a.storage_key='attachments/'||n.namespace||'/'||a.id WHERE a.user_id=? AND a.status='ready' AND NOT EXISTS (SELECT 1 FROM attachment_blob_objects o JOIN attachment_archive_stages s ON s.user_id=o.user_id AND s.namespace=o.namespace WHERE o.user_id=a.user_id AND o.storage_key=a.storage_key AND o.attachment_id=a.id AND o.bytes=a.expected_bytes AND o.sha256=a.sha256 AND o.verified_at IS NOT NULL AND o.purged_at IS NULL AND (s.status='committed' OR (s.status='verified' AND s.import_id=? AND s.import_hash=? AND s.target_revision=? AND s.expires_at>?))))`,[userId,plan.importSource?.id??'',plan.importSource?.hash??'',revision,now]);
+  assertion(`NOT EXISTS (SELECT 1 FROM attachments a JOIN attachment_blob_namespaces n ON n.user_id=a.user_id AND a.storage_key='attachments/'||n.namespace||'/'||a.id WHERE a.user_id=? AND a.status='ready' AND NOT EXISTS (SELECT 1 FROM attachment_blob_objects o JOIN attachment_archive_stages s ON s.user_id=o.user_id AND s.namespace=o.namespace WHERE o.user_id=a.user_id AND o.storage_key=a.storage_key AND o.attachment_id=a.id AND o.bytes=a.expected_bytes AND o.sha256=a.sha256 AND o.verified_at IS NOT NULL AND o.purged_at IS NULL AND NOT EXISTS(SELECT 1 FROM attachment_archive_cleanup_claims c WHERE c.storage_key=o.storage_key) AND (s.status='committed' OR (s.status='verified' AND s.import_id=? AND s.import_hash=? AND s.target_revision=? AND s.expires_at>?))))`,[userId,plan.importSource?.id??'',plan.importSource?.hash??'',revision,now]);
   if(plan.importSource){
     assertion("NOT EXISTS (SELECT 1 FROM attachment_archive_stages WHERE user_id=? AND import_id=? AND (import_hash<>? OR status<>'verified' OR target_revision<>? OR expires_at<=?))",[userId,plan.importSource.id,plan.importSource.hash,revision,now]);
     statements.push(db.prepare(`UPDATE attachment_archive_stages SET status='committed' WHERE user_id=? AND import_id=? AND import_hash=? AND status='verified' AND target_revision=? AND expires_at>? AND ${claim}`).bind(userId,plan.importSource.id,plan.importSource.hash,revision,now,...guard));
