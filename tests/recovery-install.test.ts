@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {database} from './helpers/sqlite.ts';
 import {loadWorkspace,readCurrent} from '../lib/workspace-store.ts';
+import {encodePlanning} from '../lib/workspace-codec.ts';
 import {createSeedWorkspace} from '../lib/seed.ts';
 import {canonical,contentHash} from '../lib/canonical-json.ts';
 import {agentCapabilitySchema} from '../lib/agents/contracts.ts';
@@ -29,6 +30,8 @@ test('privileged installer retains unknown journal, event receipt, occupied slot
   const event={schemaVersion:1,attemptId,epoch:0,sequence:1,observedAt:NOW,diagnostic:'ok',kind:'accepted',details:{specSha256:specHash,capabilitySha256:await contentHash(canonical(cap))}},eventHash=await contentHash(canonical(event)),receipt={attemptId,epoch:0,sequence:1,payloadSha256:eventHash,receivedAt:NOW};
   source.sqlite.prepare('INSERT INTO job_events(user_id,attempt_id,epoch,sequence,payload_hash,payload_json,receipt_json,received_at,applied_at) VALUES(?,?,0,1,?,?,?,?,?)').run(OWNER,attemptId,eventHash,canonical(event),canonical(receipt),NOW,NOW);
 
+ const previousBytes=encodePlanning(workspace);
+ source.sqlite.prepare('INSERT INTO workspace_recovery(user_id,content,revision,updated_at) VALUES(?,?,1,?)').run(OWNER,previousBytes,NOW);
  const schema=await inspectRecoveryMaintenanceSchema(source.db);
  const sourceContext={workspaceRevision:1,executionEpoch:0,operationalWatermarks:await readOperationalWatermarks(source.db,OWNER)},ownerContextHash=await contentHash(OWNER);
  const sourceReceipt=await freezeRecoveryDatabase(source.db,{operationId:crypto.randomUUID(),token:'b'.repeat(64),ownerId:OWNER,manifestSha256:SHA,ownerContextHash,schemaFingerprint:schema.schemaFingerprint,sourceContext,now:NOW});
@@ -44,6 +47,7 @@ test('privileged installer retains unknown journal, event receipt, occupied slot
  await loadWorkspace(writable,OWNER,()=>workspace,NOW);
  const result=await installRecoveryPrivateContinuity(source.db,sourceReceipt,target.db,targetReceipt,continuity,continuity.sha256);
  assert.equal(result.retainedAttempts,1);
+ assert.deepEqual({...target.sqlite.prepare('SELECT content,revision,updated_at FROM workspace_recovery WHERE user_id=?').get(OWNER)!},{content:previousBytes,revision:1,updated_at:NOW});
  const restored=target.sqlite.prepare('SELECT * FROM agent_job_state WHERE user_id=?').get(OWNER)!;
  assert.equal(restored.status,'reconcile_required');assert.equal(restored.attempt_id,attemptId);
  assert.equal(target.sqlite.prepare('SELECT identity_json FROM job_attempts').get()!.identity_json,identity);
@@ -53,6 +57,12 @@ test('privileged installer retains unknown journal, event receipt, occupied slot
  assert.deepEqual({...budget},{enabled:0,reserved_jobs:1,reserved_seconds:120,charged_seconds:0});
  assert.equal(target.sqlite.prepare('SELECT revoked_at FROM job_approvals').get()!.revoked_at,NOW);
  assert.equal(target.sqlite.prepare('SELECT epoch FROM workspace_execution_state').get()!.epoch,1);
+ const pendingToken=crypto.randomUUID(),pendingId=crypto.randomUUID(),pendingKey='attachments/'+crypto.randomUUID()+'/'+pendingId;
+ await writable.prepare('INSERT INTO attachment_upload_attempts(user_id,token,attachment_id,storage_key,created_at,settled_at) VALUES(?,?,?,?,?,NULL)').bind(OWNER,pendingToken,pendingId,pendingKey,NOW).run();
+ const pendingInventory=await recoveryTargetInventorySha256(target.db,targetReceipt);
+ await assert.rejects(markRecoveryTargetReady(target.db,source.db,sourceReceipt,targetReceipt,{privateSha256:continuity.sha256,inventorySha256:pendingInventory,actualInventorySha256:()=>recoveryTargetInventorySha256(target.db,targetReceipt)}),/upload settlement/i);
+ // This fixture has not invoked PUT, so a definitive no-write settlement is safe.
+ await writable.prepare('UPDATE attachment_upload_attempts SET settled_at=? WHERE token=?').bind(NOW,pendingToken).run();
  const inventorySha256=await recoveryTargetInventorySha256(target.db,targetReceipt);
  await markRecoveryTargetReady(target.db,source.db,sourceReceipt,targetReceipt,{privateSha256:continuity.sha256,inventorySha256,actualInventorySha256:()=>recoveryTargetInventorySha256(target.db,targetReceipt)});
  await assert.rejects(writable.prepare('UPDATE agent_budgets SET enabled=1').run(),/maintenance|state|inactive/i);

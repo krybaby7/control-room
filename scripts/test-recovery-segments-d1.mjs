@@ -18,12 +18,14 @@ import {readOperationalWatermarks} from '../lib/operational-watermarks.ts';
 import {parsePlanningImport,encodePlanning} from '../lib/workspace-codec.ts';
 import {moduleProjection,moduleColumnNames} from '../lib/module-columns.ts';
 import {parseAuditEvent} from '../lib/audit-events.ts';
-import {prepareHistoricalAuditRows} from '../lib/audit-import.ts';
+import {readHistoryPage,verifyHistoryCursor} from '../lib/history.ts';
+import {criteriaHash,evidenceRequirementSchema} from '../lib/evidence-requirements.ts';
 import {attachmentRecordSchema} from '../lib/evidence-module.ts';
 import {deriveAttachmentManifest,validateAttachmentManifest} from '../lib/attachment-manifest.ts';
 import {getWorkspaceNamespaces,getOrCreateWorkspaceNamespaces} from '../lib/workspace-namespaces.ts';
 import {createR2BlobStore,stageAttachmentUpload,readReadyAttachment,attachmentStorageKey} from '../lib/attachments.ts';
 import {beginUpload,finishUpload} from '../lib/attachment-upload-fences.ts';
+import {runInteractiveReview} from '../lib/reviews/http.ts';
 import {agentCapabilitySchema} from '../lib/agents/contracts.ts';
 import {buildAgentJobSpec,agentJobSpecSha256,buildAgentExecutionBinding,agentExecutionBindingSha256,buildAgentApprovalEnvelope} from '../lib/agents/policy.ts';
 import {writeAttachmentArchive,attachmentArchivePath} from '../lib/attachment-archive-export.ts';
@@ -77,6 +79,8 @@ try{
  assert.equal(deletion.canDelete,true,canonical(deletion.blockers));
  await send({type:'entity.delete',entityType:'capture',id:removedBaselineContextId,previewHash:deletion.previewHash,targetRevision:deletionBase.revision});
  await send({type:'decisions.create',value:{title:'Synthetic replacement decision',question:'Retain the exact draft?',options:[{id:'retain',label:'Retain',description:''}],selectedOptionId:null,rationale:'',reviewOn:null,subjects:[{type:'project',id:project.id}],evidenceRefs:[],sourceCaptureId:null,sourceUrl:null,supersedesDecisionId:null}});
+ const nativeDecision=(await ownerReader(source,OWNER).list('decision_records'))[0];
+ await send({type:'decisions.decide',id:nativeDecision.id,expectedVersion:1,choice:{selectedOptionId:'retain',rationale:'Explicit synthetic owner choice, with no execution or trading effect.'}});
  const fileBytes=new TextEncoder().encode('Synthetic segmented recovery R2 bytes; no private owner data.\n');
  await send({type:'attachment.reserve',value:{filename:'replacement-fixture.txt',mimeType:'text/plain',expectedBytes:fileBytes.length}});
  const reservedRow=(await ownerReader(source,OWNER).list('attachments'))[0],reserved=attachmentRecordSchema.parse(JSON.parse(reservedRow.payload_json));
@@ -88,9 +92,23 @@ try{
  const ready=attachmentRecordSchema.parse(JSON.parse((await ownerReader(source,OWNER).get('attachments',reserved.id)).payload_json));
  await send({type:'evidence.create',value:{basis:'documented-result',scope:'implementation',title:'Exact recovery attachment',statement:'Synthetic bytes retained, not proof of a physical device.',observedAt:NOW,candidate:null,environment:'isolated Miniflare',sourceUrl:null,sourceRevision:null,sourceRecordId:null,attachmentIds:[ready.id]}});
 
+ const acceptanceSubject={type:'project',id:project.id},requirements=(await ownerReader(source,OWNER).list('evidence_requirements')).map(row=>evidenceRequirementSchema.parse(JSON.parse(row.payload_json)));
+ await send({type:'acceptance.record',value:{subject:acceptanceSubject,decision:'accepted',statement:'Owner acceptance of synthetic software context only; no physical execution claim.',candidate:null,criteriaHash:await criteriaHash(acceptanceSubject,requirements),evidenceRefs:[],supersedesId:null,exceptions:[]}});
+ const ownerAssessment=(await ownerReader(source,OWNER).list('acceptance_records'))[0],importedAssessmentId=crypto.randomUUID(),importedAssessment={...JSON.parse(ownerAssessment.payload_json),id:importedAssessmentId,statement:'Historical imported assessment fixture; no native owner attribution.'};
+ const assessmentProjection=await moduleProjection('acceptance_records',importedAssessmentId,importedAssessment),assessmentNames=moduleColumnNames('acceptance_records');
+ await source.prepare('INSERT INTO acceptance_records(user_id,id,row_revision,payload_json,content_hash,'+assessmentNames.join(',')+') VALUES('+['user_id','id','row_revision','payload_json','content_hash',...assessmentNames].map(()=>'?').join(',')+')').bind(OWNER,importedAssessmentId,1,canonical(importedAssessment),await hash(importedAssessment),...assessmentNames.map(name=>assessmentProjection[name])).run();
+ await send({type:'reviews.request',projectIds:[project.id],filterDigest:await hash({projectId:project.id})});
+ const reviewIntent=(await source.prepare("SELECT id FROM workspace_job_intents WHERE user_id=? AND kind='review_generate' AND status='pending'").bind(OWNER).first()).id;
+ assert.equal((await runInteractiveReview(source,OWNER,reviewIntent,()=>NOW)).status,'committed');
+ assert.ok((await readOperationalWatermarks(source,OWNER)).reviews>0);
+ const nativeReview=(await ownerReader(source,OWNER).list('review_snapshots'))[0];
+ await send({type:'reviews.acknowledge',snapshotId:nativeReview.id,snapshotHash:nativeReview.content_hash});
+ const nativeNotification=(await ownerReader(source,OWNER).list('notification_events'))[0];assert.ok(nativeNotification);
+ await send({type:'notifications.read',id:nativeNotification.id,contentHash:nativeNotification.content_hash,read:true});
+ await source.prepare('INSERT INTO workspace_drafts(user_id,id,row_revision,payload_json,expires_at) VALUES(?,?,1,?,?)').bind(OWNER,'synthetic-unsaved-owner-draft',JSON.stringify({text:'Unsubmitted owner wording retained exactly; never execute as instructions.'}),'2026-10-19T12:00:00.000Z').run();
  {
  const SHA='a'.repeat(64);
-  const sourcePlanning=await readCurrent(source,OWNER,NOW),workspace=sourcePlanning.workspace,task=workspace.tasks.find(row=>row.status!=='archived'&&workspace.projects.some(project=>project.id===row.projectId&&project.archivedAt===null)&&(!row.milestoneId||workspace.milestones.some(milestone=>milestone.id===row.milestoneId&&milestone.archivedAt===null)))!;assert.ok(task);const deviceId='synthetic-private-device',jobId='synthetic-private-job',attemptId='synthetic-private-attempt',budgetId='synthetic-private-budget',intentId='synthetic-private-intent';
+  const sourcePlanning=await readCurrent(source,OWNER,NOW),workspace=sourcePlanning.workspace,task=workspace.tasks.find(row=>row.status!=='archived'&&workspace.projects.some(project=>project.id===row.projectId&&project.archivedAt===null)&&(!row.milestoneId||workspace.milestones.some(milestone=>milestone.id===row.milestoneId&&milestone.archivedAt===null)));assert.ok(task);const deviceId='synthetic-private-device',jobId='synthetic-private-job',attemptId='synthetic-private-attempt',budgetId='synthetic-private-budget',intentId='synthetic-private-intent';
   const cap=agentCapabilitySchema.parse({schemaVersion:1,deviceId,configurationSha256:SHA,provider:'codex',runtime:{version:'synthetic-1',sourceCommit:'b'.repeat(40),packageSha256:SHA,toolPolicy:'synthetic-policy',executableSha256:SHA,executableVersion:'synthetic 1',toolPolicySha256:SHA},operations:['project.inspect'],models:[{id:'synthetic-model',efforts:['medium']}],repositoryKeys:['synthetic-repo'],observedAt:NOW,expiresAt:'2026-10-18T12:05:00.000Z',maxConcurrent:1,availableSlots:1,maxTimeoutSeconds:600,maxOutputBytesLimit:2048,allowedPathsSha256ByRepositoryKey:{'synthetic-repo':SHA},modelIdentityPolicy:'require-observed',subscriptionOnly:true,extraUsageOffAttested:true});
   const spec=await buildAgentJobSpec({operation:'project.inspect',projectId:task.projectId,taskId:task.id,repositoryKey:'synthetic-repo',baseCommit:'b'.repeat(40),inputArtifactIds:[],requestedModel:'synthetic-model',effort:'medium',timeoutSeconds:120,outputBytesLimit:2048,dependsOnJobIds:[]},{workspace,workspaceRevision:sourcePlanning.revision,acceptanceInputs:{}});
   const specHash=await agentJobSpecSha256(spec),binding=await buildAgentExecutionBinding(spec,cap,{artifactRefs:[],budget:{jobs:1,timeoutSeconds:120,outputBytesLimit:2048,inputBytesLimit:32768,payment:'subscription-only',costDollars:null},now:NOW}),bindingHash=await agentExecutionBindingSha256(binding);
@@ -239,7 +257,12 @@ try{
   assert.ok(split,'Composite replacement requires an explicit typed splitter: '+adapter.key);assert.deepEqual(split.map(group=>group.table).sort(),declared.sort());
   for(const group of split)for(const record of group.records){
    const portable=modules[adapter.key].records.find(row=>row.id===record.id||row.value?.physicalId===record.id);assert.ok(portable,'Exact physical row provenance');
-   prepared.push({table:group.table,id:record.id,value:record.value,rowRevision:portable.rowRevision});
+   const native=await ownerReader(source,OWNER).get(group.table,record.id);assert.ok(native);
+   const nativeValue=JSON.parse(native.payload_json);assert.equal(await hash(nativeValue),native.content_hash);assert.equal(native.row_revision,portable.rowRevision);
+   // A trusted same-owner frozen cutover retains original records. Ordinary
+   // portable import transformations (for example historical agent labels) are
+   // not new attribution or execution authority here; private dispatch is revoked.
+   prepared.push({table:group.table,id:record.id,value:nativeValue,rowRevision:native.row_revision});
   }
  }
  const covered=new Set(adapters.flatMap(moduleTables));assert.deepEqual([...covered].sort(),OWNER_TABLES.filter(table=>table!=='workspace_configuration').sort());
@@ -252,6 +275,9 @@ try{
   }
   assert.ok(progress,'Foreign key dependency cycle requires an explicit reviewed adapter');
  }
+ const sourcePhysical=await source.prepare('SELECT COUNT(*) count,COALESCE(SUM(bytes),0) bytes FROM attachment_blob_objects WHERE user_id=? AND purged_at IS NULL').bind(OWNER).first();
+ const freshFileBytes=header.attachmentManifest.reduce((total,file)=>total+file.bytes,0);
+ assert.ok(sourcePhysical.count+header.attachmentManifest.length<=500&&sourcePhysical.bytes+freshFileBytes<=209715200,'Fresh file generations require physical quota headroom including old keys.');
  // Every attachment is read and fully checked before any replacement metadata is installed.
  const verifiedBytes=new Map();
  for(const entry of header.attachmentManifest){
@@ -278,7 +304,9 @@ try{
   const rawTarget=db;
   const targetReceipt=await prepareInactiveRecoveryTarget(rawTarget,source,sourceReceipt,{operationId:crypto.randomUUID(),token:crypto.randomUUID().replaceAll('-','')+crypto.randomUUID().replaceAll('-',''),expectedPrivateSha256:privateContinuity.sha256});
   db=inactiveRecoveryDatabase(rawTarget,targetReceipt);
-  const namespaces=await getOrCreateWorkspaceNamespaces(db,OWNER);assert.notEqual(namespaces.auditNamespace,sourceNamespaces.auditNamespace);assert.notEqual(namespaces.blobNamespace,sourceNamespaces.blobNamespace);
+  await getOrCreateWorkspaceNamespaces(db,OWNER);
+  await db.prepare('UPDATE workspace_source_namespaces SET audit_namespace=? WHERE user_id=?').bind(sourceNamespaces.auditNamespace,OWNER).run();
+  const namespaces=await getWorkspaceNamespaces(db,OWNER);assert.equal(namespaces.auditNamespace,sourceNamespaces.auditNamespace);assert.notEqual(namespaces.blobNamespace,sourceNamespaces.blobNamespace);assert.notDeepEqual(namespaces.cursorSecret,sourceNamespaces.cursorSecret);
   await db.prepare('INSERT INTO workspaces(user_id,content,revision,updated_at) VALUES(?,?,?,?)').bind(OWNER,encodePlanning(planning),context.workspaceRevision,NOW).run();
   let writes=0;
   for(const table of tableOrder){
@@ -303,31 +331,31 @@ try{
    }
    await batch(db,statements);writes+=statements.length;if(failAfter!==null&&writes>=failAfter)throw new Error('Synthetic interrupted physical installation');
   }
-  let auditAfter='',ordinal=0;const auditDigest=createHash('sha256');auditDigest.update('[');
+  let auditAfter='';const auditDigest=createHash('sha256');auditDigest.update('[');
   for(;;){
    const page=(await stage.prepare("SELECT row_json FROM staged_rows WHERE install_id='interrupted' AND module='audit_events' AND id>? ORDER BY id LIMIT 32").bind(auditAfter).all()).results;if(!page.length)break;
    const original=page.map(row=>JSON.parse(row.row_json));
    for(const row of original){assert.equal(row.contentHash,await hash(row.value));if(ordinal+original.indexOf(row))auditDigest.update(',');auditDigest.update(canonical(row.value));}
-   const claims=await prepareHistoricalAuditRows(original.map(row=>row.value),header.sourceAuditNamespace,manifest.sha256),statements=[];
-   for(const claim of claims){
-    const event=parseAuditEvent({id:claim.id,kind:'imported-history',entityType:'historical-claim',entityId:null,changes:[{path:['sourceClaim'],before:{exists:false,value:null},after:{exists:true,value:claim.source}}],origin:'owner',actorId:OWNER,occurredAt:NOW,sourceRef:claim.importHash,undoOf:null});
-    statements.push(db.prepare("INSERT INTO audit_events(user_id,event_id,workspace_revision,ordinal,kind,entity_type,entity_id,occurred_at,payload_json,origin,actor_id,source_ref) VALUES(?,?,?,?,'imported-history','historical-claim',NULL,?,?,'owner',?,?)").bind(OWNER,event.id,context.workspaceRevision,ordinal++,NOW,canonical(event),OWNER,manifest.sha256));
-    statements.push(db.prepare('INSERT INTO audit_import_identities(user_id,source_identity,source_hash,event_id) VALUES(?,?,?,?)').bind(OWNER,claim.sourceIdentity,claim.sourceHash,claim.id));
+   const nativeColumns=['event_id','workspace_revision','ordinal','stream_id','stream_sequence','kind','entity_type','entity_id','occurred_at','payload_json','origin','actor_id','source_ref','undo_of'],statements=[];
+   for(const row of original){
+    const native=await source.prepare('SELECT '+nativeColumns.join(',')+' FROM audit_events WHERE user_id=? AND event_id=?').bind(OWNER,row.id).first();assert.ok(native);
+    assert.deepEqual(serializePortableAuditRow(Object.fromEntries(auditColumns.split(',').map(column=>[column,native[column]]))),row.value);
+    statements.push(db.prepare('INSERT INTO audit_events(user_id,'+nativeColumns.join(',')+') VALUES('+['user_id',...nativeColumns].map(()=>'?').join(',')+')').bind(OWNER,...nativeColumns.map(column=>native[column])));
    }
    await batch(db,statements);
-   const restored=(await db.prepare('SELECT a.event_id,a.payload_json,i.source_identity,i.source_hash FROM audit_events a JOIN audit_import_identities i ON i.user_id=a.user_id AND i.event_id=a.event_id WHERE a.user_id=? AND a.event_id IN ('+claims.map(()=>'?').join(',')+')').bind(OWNER,...claims.map(claim=>claim.id)).all()).results;
-   assert.equal(restored.length,claims.length);
-   for(const claim of claims){const actual=restored.find(row=>row.event_id===claim.id);assert.ok(actual);assert.equal(actual.source_identity,claim.sourceIdentity);assert.equal(actual.source_hash,claim.sourceHash);assert.deepEqual(parseAuditEvent(JSON.parse(actual.payload_json)).changes[0].after.value,claim.source);}
+   const preserved=(await db.prepare('SELECT '+nativeColumns.join(',')+' FROM audit_events WHERE user_id=? AND event_id IN ('+original.map(()=>'?').join(',')+') ORDER BY event_id').bind(OWNER,...original.map(row=>row.id)).all()).results;
+   const nativeSource=(await source.prepare('SELECT '+nativeColumns.join(',')+' FROM audit_events WHERE user_id=? AND event_id IN ('+original.map(()=>'?').join(',')+') ORDER BY event_id').bind(OWNER,...original.map(row=>row.id)).all()).results;
+   assert.deepEqual(preserved,nativeSource,'Native audit IDs, actor/origin, stream/null fields and exact original payload differ.');
    auditAfter=original.at(-1).id;
   }
   auditDigest.update(']');assert.equal(auditDigest.digest('hex'),sourceHashes.audit_events);
   assert.deepEqual((await readCurrent(db,OWNER,NOW)).workspace,planning);
   const auditCount=(await db.prepare('SELECT COUNT(*) n FROM audit_events WHERE user_id=?').bind(OWNER).first()).n;
   assert.equal(auditCount,manifest.modules.find(recoveryModule=>recoveryModule.key==='audit_events').rows);
-  assert.equal((await db.prepare('SELECT COUNT(*) n FROM audit_import_identities WHERE user_id=?').bind(OWNER).first()).n,auditCount);
+  assert.equal((await db.prepare('SELECT COUNT(*) n FROM audit_import_identities WHERE user_id=?').bind(OWNER).first()).n,0);
   assert.equal((await db.prepare('PRAGMA foreign_key_check').all()).results.length,0);
   // Private authority must start empty. New namespaces and verified target object ledger are the only intentional private setup.
-  for(const table of ['workspace_mutations','workspace_job_intents','decision_owner_grants','acceptance_owner_grants','source_sync_state','automation_runtime']){
+  for(const table of ['workspace_mutations','workspace_job_intents','source_sync_state','automation_runtime']){
    const exists=await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").bind(table).first();if(exists)assert.equal((await db.prepare('SELECT COUNT(*) n FROM '+table).first()).n,0,table);
   }
   const physical=[];
@@ -340,6 +368,15 @@ try{
    }
   }
   const continuityResult=await installRecoveryPrivateContinuity(source,sourceReceipt,rawTarget,targetReceipt,privateContinuity,privateContinuity.sha256);
+  assert.equal((await rawTarget.prepare('SELECT COUNT(*) count FROM acceptance_owner_grants WHERE user_id=? AND record_id=?').bind(OWNER,ownerAssessment.id).first()).count,1);
+  assert.equal((await rawTarget.prepare('SELECT COUNT(*) count FROM acceptance_owner_grants WHERE user_id=? AND record_id=?').bind(OWNER,importedAssessmentId).first()).count,0);
+  for(const table of ['acceptance_owner_grants','decision_owner_grants','review_ack_grants','notification_read_state','audit_project_links','audit_import_identities','workspace_drafts'])assert.equal((await rawTarget.prepare('SELECT COUNT(*) count FROM '+table+' WHERE user_id=?').bind(OWNER).first()).count,privateContinuity.tables[table].length,table);
+  assert.equal((await rawTarget.prepare('SELECT payload_json FROM workspace_drafts WHERE user_id=?').bind(OWNER).first()).payload_json,privateContinuity.tables.workspace_drafts[0].payload_json);
+  const oldHistory=await readHistoryPage(source,OWNER,{}, {secret:sourceNamespaces.cursorSecret,now:()=>NOW});assert.ok(oldHistory.nextCursor);
+  await assert.rejects(readHistoryPage(rawTarget,OWNER,{cursor:oldHistory.nextCursor},{secret:namespaces.cursorSecret,now:()=>NOW}),/cursor.*unavailable/i);
+  const newHistory=await readHistoryPage(rawTarget,OWNER,{}, {secret:namespaces.cursorSecret,now:()=>NOW});assert.ok(newHistory.nextCursor);
+  assert.deepEqual(newHistory.entries.map(entry=>entry.id),oldHistory.entries.map(entry=>entry.id));
+  await verifyHistoryCursor(OWNER,newHistory.nextCursor,{}, {secret:namespaces.cursorSecret,now:()=>NOW});
   assert.equal(continuityResult.retainedAttempts,1);assert.equal(continuityResult.retainedRemovalFences,1);
   assert.ok((await readCurrent(rawTarget,OWNER,NOW)).baselineRemovedIds.includes(removedBaselineContextId));
   assert.equal((await rawTarget.prepare("SELECT status FROM agent_job_state WHERE user_id=? AND job_id='synthetic-private-job'").bind(OWNER).first()).status,'reconcile_required');
@@ -356,6 +393,9 @@ try{
   // A delayed operation on the permanently excluded old key cannot address any
   // new namespace file. This is a real isolated R2 DELETE, never an owner bucket.
   await (await mf.getR2Bucket('SOURCE_BUCKET')).delete(oldKey);
+  assert.deepEqual(await readOperationalWatermarks(rawTarget,OWNER),vector);
+  const restoredReviewRows=await exportRegistry.get('review_snapshots').exportRows({userId:OWNER,sourceRevision:context.workspaceRevision,query:ownerReader(rawTarget,OWNER),db:rawTarget,operationalWatermarks:await readOperationalWatermarks(rawTarget,OWNER)});
+  assert.equal(restoredReviewRows.length,smallModules.review_snapshots.records.length);assert.ok(restoredReviewRows.length>0);
   const backupCopies=await copyRecoveryBackupArchives(source,sourceReceipt,rawTarget,targetReceipt,privateContinuity,{source:{bucket:await mf.getR2Bucket('SOURCE_BUCKET'),attachmentBucket:await mf.getR2Bucket('SOURCE_BUCKET')},targetBucket:await mf.getR2Bucket('SOURCE_BUCKET')});
   assert.equal(backupCopies.mappings.length,1);assert.equal(backupCopies.retainedInert,1);
   const copiedReady=backupCopies.mappings[0];assert.equal(copiedReady.archiveId,backupIds.ready);assert.notEqual(copiedReady.sourceNamespace,copiedReady.targetNamespace);
@@ -365,6 +405,8 @@ try{
   const actualBackup=await readReadyFileBackup(rawTarget,OWNER,backupIds.ready,{bucket:await mf.getR2Bucket('SOURCE_BUCKET'),attachmentBucket:await mf.getR2Bucket('SOURCE_BUCKET')});
   assert.ok(actualBackup);await actualBackup.stream.cancel();
   assert.equal(await readReadyFileBackup(rawTarget,OWNER,backupIds.retired,{bucket:await mf.getR2Bucket('SOURCE_BUCKET'),attachmentBucket:await mf.getR2Bucket('SOURCE_BUCKET')}),null);
+  const targetPhysical=await rawTarget.prepare('SELECT COUNT(*) count,COALESCE(SUM(bytes),0) bytes FROM attachment_blob_objects WHERE user_id=? AND purged_at IS NULL').bind(OWNER).first();
+  assert.equal(targetPhysical.count,sourcePhysical.count+header.attachmentManifest.length);assert.equal(targetPhysical.bytes,sourcePhysical.bytes+freshFileBytes);
   const inventorySha256=await recoveryTargetInventorySha256(rawTarget,targetReceipt);
   await markRecoveryTargetReady(rawTarget,source,sourceReceipt,targetReceipt,{privateSha256:privateContinuity.sha256,inventorySha256,actualInventorySha256:()=>recoveryTargetInventorySha256(rawTarget,targetReceipt)});
   await assert.rejects(rawTarget.prepare('UPDATE workspaces SET revision=revision+1 WHERE user_id=?').bind(OWNER).run(),/operator_recovery_frozen/);
@@ -385,5 +427,5 @@ try{
  assert.deepEqual(await readCurrent(source,OWNER,NOW),frozen);assert.deepEqual(await readOperationalWatermarks(source,OWNER),vector);
  assert.deepEqual((await readReadyAttachment(OWNER,attachmentRecordSchema.parse(JSON.parse((await ownerReader(target,OWNER).get('attachments',ready.id)).payload_json)),targetStore,{ownerNamespace:(await getWorkspaceNamespaces(target,OWNER)).blobNamespace,now:NOW})).bytes,fileBytes);
  console.log(JSON.stringify({profile:'isolated-replacement-rehearsal',migrations:migrationNames.length,modules:specs.length,segments:manifest.modules.reduce((sum,recoveryModule)=>sum+recoveryModule.segments.length,0),rows:manifest.totalRows,bytes:manifest.totalBytes,handoff:installed.handoff,sourcePlanningUnchanged:true,sharedIsolatedR2FreshNamespaces:true,excludedLateDeletesTested:true,v1BoundsUnchanged:true,hostedBindingChanged:false,limitations:['64MiB metadata profile only','No hosted cutover or live provider/device verification','No private credential, capability or dispatch authority is restored','Backup source physical identities retained in sealed continuity; ready chunks use fresh namespaces','Single-owner empty replacement profile; no production binding cutover']}));
- console.log('PASS actual isolated D1/R2 segmented replacement: all-segment preverification, corruption rejection, checkpoint CAS, interrupted-target refusal, typed reference/FK validation, stable historical identities, verified fresh-namespace attachment, manual-only handoff.');
+ console.log('PASS actual isolated D1/R2 segmented replacement: all-segment preverification, corruption rejection, checkpoint CAS, interrupted-target refusal, typed reference/FK validation, exact native audit identities and existing nonexecution owner attribution, verified fresh-namespace attachment, manual-only handoff.');
 }finally{await mf.dispose();}

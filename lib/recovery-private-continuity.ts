@@ -4,12 +4,27 @@ import {readCurrent,type SqlDatabase} from './workspace-store.ts';
 import {readOperationalWatermarks} from './operational-watermarks.ts';
 import {agentJobEventSchema,agentJobResultSchema,agentApprovalEnvelopeSchema} from './agents/contracts.ts';
 import {validateAgentJobRecord,validateAgentExecutionBinding} from './agents/policy.ts';
+import {acceptanceRecordSchema} from './acceptance.ts';
+import {decisionVersionSchema} from './decisions.ts';
+import {reviewAcknowledgementSchema,reviewSnapshotSchema,notificationEventSchema} from './reviews/validation.ts';
+import {baselineRevisionSchema} from './baselines/validation.ts';
+import {versionRowId} from './version-identity.ts';
 import {parseAuditEvent} from './audit-events.ts';
 
 /** Private inspection format, deliberately NOT portable data, installation permission or a source-freeze proof. */
-export const PRIVATE_CONTINUITY_LIMITS=Object.freeze({bytes:64*1024*1024,rows:100000,page:8});
+export const PRIVATE_CONTINUITY_LIMITS=Object.freeze({bytes:64*1024*1024,rows:200000,tableRows:100000,page:8});
 const digest=z.string().regex(/^[a-f0-9]{64}$/),integer=z.number().int().nonnegative().safe(),positive=integer.min(1),stamp=z.string().datetime({offset:true}),nullableStamp=stamp.nullable(),id=z.string().min(1).max(500),json=z.string().max(1800000),flag=z.union([z.literal(0),z.literal(1)]);
 const schemas={
+ acceptance_owner_grants:z.object({record_id:id,content_hash:digest}).strict(),
+ decision_owner_grants:z.object({decision_id:id,version:positive,content_hash:digest}).strict(),
+ review_ack_grants:z.object({ack_id:id,ack_hash:digest,snapshot_id:id,snapshot_hash:digest,created_at:stamp}).strict(),
+ notification_read_state:z.object({notification_id:id,notification_hash:digest,read_at:stamp,request_id:id}).strict(),
+ audit_import_identities:z.object({source_identity:id,source_hash:digest,event_id:id}).strict(),
+ audit_project_links:z.object({event_id:id,project_id:id}).strict(),
+ project_baseline_heads:z.object({project_id:id,revision_id:id,content_hash:digest,recorded_at:stamp}).strict(),
+ workspace_drafts:z.object({id,row_revision:positive,payload_json:json,expires_at:stamp}).strict(),
+ backup_archive_retained_objects:z.object({storage_key:id,source_archive_id:id,part_number:integer.max(4),namespace:z.string().uuid(),bytes:positive.max(4194304),sha256:digest,created_at:stamp,verified_at:stamp,purged_at:nullableStamp}).strict(),
+ operational_stream_heads:z.object({stream_id:z.string().regex(/^[a-z][a-z0-9_-]{0,63}$/),revision:positive,last_sequence:integer}).strict(),
  workspace_recovery:z.object({content:z.string().max(1250000),revision:positive,updated_at:stamp}).strict(),
  workspace_backups:z.object({id,source_revision:positive,created_at:stamp,reason:id,bytes:integer.max(8000000),sha256:digest,content:z.string().max(8000000),status:z.enum(['preparing','ready','failed','expired']),pinned:flag}).strict(),
  backup_archive_cleanup_claims:z.object({storage_key:id,archive_id:id,part_number:integer.max(4),token:id,claimed_at:stamp,purged_at:nullableStamp}).strict(),
@@ -33,11 +48,14 @@ const schemas={
 };
 type Table=keyof typeof schemas;
 export const PRIVATE_CONTINUITY_TABLES=Object.freeze(Object.keys(schemas) as Table[]);
-const keys:Record<Table,readonly string[]>={workspace_recovery:['revision'],workspace_backups:['id'],backup_archive_cleanup_claims:['storage_key'],attachment_blob_fences:['storage_key'],attachment_blob_objects:['storage_key'],attachment_upload_attempts:['token'],attachment_blob_namespaces:['namespace'],attachment_archive_cleanup_claims:['storage_key'],workspace_mutation_epochs:['epoch'],workspace_mutations:['mutation_id'],workspace_job_intents:['id'],agent_job_state:['job_id'],job_approvals:['id'],job_attempts:['id'],job_events:['attempt_id','epoch','sequence'],agent_device_slots:['device_id'],agent_budgets:['id'],agent_artifacts:['attempt_id','artifact_id'],backup_archives:['id'],backup_archive_objects:['archive_id','part_number']};
+const keys:Record<Table,readonly string[]>={
+ acceptance_owner_grants:['record_id','content_hash'],decision_owner_grants:['decision_id','version','content_hash'],
+ review_ack_grants:['ack_id'],notification_read_state:['notification_id'],audit_import_identities:['source_identity'],
+ audit_project_links:['event_id','project_id'],project_baseline_heads:['project_id'],workspace_drafts:['id'],backup_archive_retained_objects:['storage_key'],operational_stream_heads:['stream_id'],workspace_recovery:['revision'],workspace_backups:['id'],backup_archive_cleanup_claims:['storage_key'],attachment_blob_fences:['storage_key'],attachment_blob_objects:['storage_key'],attachment_upload_attempts:['token'],attachment_blob_namespaces:['namespace'],attachment_archive_cleanup_claims:['storage_key'],workspace_mutation_epochs:['epoch'],workspace_mutations:['mutation_id'],workspace_job_intents:['id'],agent_job_state:['job_id'],job_approvals:['id'],job_attempts:['id'],job_events:['attempt_id','epoch','sequence'],agent_device_slots:['device_id'],agent_budgets:['id'],agent_artifacts:['attempt_id','artifact_id'],backup_archives:['id'],backup_archive_objects:['archive_id','part_number']};
 const sourceContextSchema=z.object({workspaceRevision:positive,executionEpoch:integer,operationalWatermarks:z.record(z.string().regex(/^[a-z][a-z0-9_-]{0,63}$/),integer).refine(value=>Object.keys(value).length<=32)}).strict();
 const deletionSchema=z.object({event_id:id,kind:z.literal('entity.delete'),entity_type:z.enum(['task','capture']),entity_id:id,occurred_at:stamp,payload_json:json}).strict();
-const tablesSchema=z.object(Object.fromEntries(PRIVATE_CONTINUITY_TABLES.map(table=>[table,z.array(schemas[table]).max(PRIVATE_CONTINUITY_LIMITS.rows)])) as unknown as {[K in Table]:z.ZodArray<typeof schemas[K]>}).strict();
-export const recoveryPrivateContinuitySchema=z.object({format:z.literal('control-room-private-continuity'),version:z.literal(1),authority:z.literal('inspection-only'),manifestSha256:digest,ownerContextHash:digest,sourceContext:sourceContextSchema,capturedAt:stamp,sourceNamespaces:z.object({audit_namespace:z.string().uuid(),blob_namespace:z.string().uuid()}).strict(),tables:tablesSchema,baselineRemovalFences:z.array(deletionSchema).max(PRIVATE_CONTINUITY_LIMITS.rows),sha256:digest}).strict();
+const tablesSchema=z.object(Object.fromEntries(PRIVATE_CONTINUITY_TABLES.map(table=>[table,z.array(schemas[table]).max(PRIVATE_CONTINUITY_LIMITS.tableRows)])) as unknown as {[K in Table]:z.ZodArray<typeof schemas[K]>}).strict();
+export const recoveryPrivateContinuitySchema=z.object({format:z.literal('control-room-private-continuity'),version:z.literal(1),authority:z.literal('inspection-only'),manifestSha256:digest,ownerContextHash:digest,sourceContext:sourceContextSchema,capturedAt:stamp,sourceNamespaces:z.object({audit_namespace:z.string().uuid(),blob_namespace:z.string().uuid()}).strict(),tables:tablesSchema,baselineRemovalFences:z.array(deletionSchema).max(PRIVATE_CONTINUITY_LIMITS.tableRows),sha256:digest}).strict();
 export type RecoveryPrivateContinuity=z.infer<typeof recoveryPrivateContinuitySchema>;
 export interface PrivateContinuityExpected {manifestSha256:string;ownerContextHash:string;sourceContext:z.infer<typeof sourceContextSchema>;sha256:string;ownerId:string}
 type Row=Record<string,string|number|null>;
@@ -67,6 +85,8 @@ export async function validateRecoveryPrivateContinuity(raw:unknown,expected:Pri
   const archive=value.tables.backup_archives.find(row=>row.id===claim.archive_id);
   if(!archive||claim.storage_key!=='backups/'+archive.namespace+'/part-'+String(claim.part_number).padStart(4,'0'))throw new Error('Backup cleanup physical identity differs.');
  }
+ for(const head of value.tables.operational_stream_heads)if(value.sourceContext.operationalWatermarks[head.stream_id]!==head.last_sequence)throw new Error('Private operational head differs from the frozen source vector.');
+ for(const [stream,sequence]of Object.entries(value.sourceContext.operationalWatermarks))if(sequence!==0&&!value.tables.operational_stream_heads.some(head=>head.stream_id===stream&&head.last_sequence===sequence))throw new Error('Frozen operational head is unavailable.');
  let count=value.baselineRemovalFences.length;
  for(const table of PRIVATE_CONTINUITY_TABLES){const rows=value.tables[table] as unknown as Row[];count+=rows.length;ordered(rows,keys[table]);}
  if(count>PRIVATE_CONTINUITY_LIMITS.rows)throw new Error('Private continuity row limit exceeded.');
@@ -104,7 +124,9 @@ export async function validateRecoveryPrivateContinuity(raw:unknown,expected:Pri
   if(!intent||intent.kind!=='agent.execute'||(parseJson(intent.payload_json) as {jobId?:unknown}).jobId!==state.job_id||state.attempt_id!==null&&!attempts.has(state.attempt_id))throw new Error('Retained queue/state identity differs.');
  }
  const archiveIndex=z.object({format:z.literal('workspace-archive-chunks'),version:z.literal(1),archiveId:id,metadataSha256:digest,manifestSha256:digest,zipBytes:positive.max(20*1024*1024),files:integer.max(500),fileBytes:integer.max(20*1024*1024),chunks:z.array(z.object({part:integer.max(4),bytes:positive.max(4194304),sha256:digest}).strict()).min(1).max(5)}).strict();
+ for(const retained of value.tables.backup_archive_retained_objects)if(retained.storage_key!=='backups/'+retained.namespace+'/part-'+String(retained.part_number).padStart(4,'0'))throw new Error('Retained backup physical identity differs.');
  for(const archive of value.tables.backup_archives){
+  if(archive.execution_epoch>value.sourceContext.executionEpoch)throw new Error('Backup archive epoch is ahead of the actual source context.');
   if((archive.index_json===null)!==(archive.index_sha256===null))throw new Error('Backup archive index identity is incomplete.');
   if(archive.status==='retired'&&(archive.metadata_content!==null||archive.metadata_bytes!==0))throw new Error('Retired backup metadata differs.');
   if(archive.metadata_content!==null&&(encoder.encode(archive.metadata_content).byteLength!==archive.metadata_bytes||await contentHash(archive.metadata_content)!==archive.source_sha256))throw new Error('Backup source metadata digest differs.');
@@ -122,6 +144,41 @@ export async function validateRecoveryPrivateContinuity(raw:unknown,expected:Pri
  for(const fence of value.baselineRemovalFences){const event=parseAuditEvent(parseJson(fence.payload_json));if(event.id!==fence.event_id||event.kind!=='entity.delete'||event.entityType!==fence.entity_type||event.entityId!==fence.entity_id||event.origin!=='owner'||event.actorId!==trusted.ownerId||event.occurredAt!==fence.occurred_at)throw new Error('Baseline removal must be an original owner deletion, not imported history.');}
  return value;
 }
+/** Actual same-owner immutable body proofs; portable records alone create none of these rows. */
+export async function verifyNativeOwnerAttribution(db:SqlDatabase,owner:string,value:RecoveryPrivateContinuity){
+ async function body(table:string,key:string,expected:string){
+  const row=await db.prepare('SELECT payload_json,content_hash FROM '+table+' WHERE user_id=? AND id=?').bind(owner,key).first<{payload_json:string;content_hash:string}>();
+  if(!row||row.content_hash!==expected)throw new Error('Native owner attribution body is unavailable.');
+  const parsed=JSON.parse(row.payload_json);if(await contentHash(canonical(parsed))!==expected)throw new Error('Native owner attribution digest differs.');return parsed;
+ }
+ for(const grant of value.tables.acceptance_owner_grants){const record=acceptanceRecordSchema.parse(await body('acceptance_records',grant.record_id,grant.content_hash));if(record.id!==grant.record_id)throw new Error('Native assessment identity differs.');}
+ for(const grant of value.tables.decision_owner_grants){const record=decisionVersionSchema.parse(await body('decision_versions',await versionRowId(grant.decision_id,grant.version),grant.content_hash));if(record.id!==grant.decision_id||record.version!==grant.version||record.status!=='decided')throw new Error('Native decision identity differs.');}
+ for(const grant of value.tables.review_ack_grants){
+  const ack=reviewAcknowledgementSchema.parse(await body('review_acknowledgements',grant.ack_id,grant.ack_hash));
+  const snapshot=reviewSnapshotSchema.parse(await body('review_snapshots',grant.snapshot_id,grant.snapshot_hash));
+  if(ack.id!==grant.ack_id||ack.snapshotId!==snapshot.id||ack.snapshotHash!==grant.snapshot_hash||ack.acknowledgedAt!==grant.created_at)throw new Error('Native acknowledgement identity differs.');
+ }
+ for(const read of value.tables.notification_read_state){const record=notificationEventSchema.parse(await body('notification_events',read.notification_id,read.notification_hash));if(record.id!==read.notification_id)throw new Error('Native notification identity differs.');}
+ for(const head of value.tables.project_baseline_heads){const record=baselineRevisionSchema.parse(await body('project_baseline_revisions',head.revision_id,head.content_hash));if(record.id!==head.revision_id||record.projectId!==head.project_id||record.recordedAt!==head.recorded_at)throw new Error('Native baseline head identity differs.');}
+ for(const link of value.tables.audit_project_links)if(!await db.prepare('SELECT 1 FROM audit_events WHERE user_id=? AND event_id=?').bind(owner,link.event_id).first())throw new Error('Native audit project link has no source event.');
+ for(const identity of value.tables.audit_import_identities)if(!await db.prepare('SELECT 1 FROM audit_events WHERE user_id=? AND event_id=?').bind(owner,identity.event_id).first())throw new Error('Native imported identity has no source event.');
+}
+/** Exact existing nonexecution semantics, not permission inferred from imported payloads. */
+export async function verifyRecoveryOwnerAttributionContinuity(source:SqlDatabase,target:SqlDatabase,owner:string){
+ const selected:Table[]=['acceptance_owner_grants','decision_owner_grants','review_ack_grants','notification_read_state','project_baseline_heads','workspace_drafts','audit_import_identities','audit_project_links'];
+ async function tableDigest(db:SqlDatabase,table:Table){
+  const columns=Object.keys(schemas[table].shape),order=keys[table],pageSize=table==='workspace_drafts'?1:8;
+  let after:Row|null=null,count=0,chain=await contentHash('native-owner-continuity-v1:'+table);
+  for(;;){
+   const where:string=after?' AND ('+order.join(',')+')>('+order.map(()=>'?').join(',')+')':'',bindings:(string|number|null)[]=after?order.map(key=>after![key]):[];
+   const page:Row[]=(await db.prepare('SELECT '+columns.join(',')+' FROM '+table+' WHERE user_id=?'+where+' ORDER BY '+order.join(',')+' LIMIT ?').bind(owner,...bindings,pageSize).all<Row>()).results;
+   for(const raw of page){const row=schemas[table].parse(raw) as unknown as Row;count++;if(count>PRIVATE_CONTINUITY_LIMITS.tableRows)throw new Error('Native attribution table capacity exceeded.');after=row;}
+   if(page.length)chain=await contentHash(chain+canonical(page));if(page.length<pageSize)break;
+  }
+  return {count,sha256:chain};
+ }
+ for(const table of selected)if(canonical(await tableDigest(source,table))!==canonical(await tableDigest(target,table)))throw new Error('Native owner attribution continuity differs: '+table);
+}
 async function sourceContext(db:SqlDatabase,owner:string,now:string){
  const current=await readCurrent(db,owner,now),epoch=await db.prepare('SELECT epoch FROM workspace_execution_state WHERE user_id=?').bind(owner).first<{epoch:number}>();
  return sourceContextSchema.parse({workspaceRevision:current.revision,executionEpoch:epoch?.epoch??0,operationalWatermarks:await readOperationalWatermarks(db,owner)});
@@ -135,11 +192,12 @@ export async function captureRecoveryPrivateContinuity(db:SqlDatabase,owner:stri
  async function scan(table:Table,onRow:(row:Row,index:number)=>void){
   const columns=Object.keys(schemas[table].shape),physical=(await db.prepare('PRAGMA table_info('+table+')').all<{name:string}>()).results.map(row=>row.name).sort();
   if(canonical(physical)!==canonical(['user_id',...columns].sort()))throw new Error('Unsupported private continuity table schema: '+table);
+  const pageSize=['workspace_backups','workspace_recovery','backup_archives','workspace_drafts'].includes(table)?1:PRIVATE_CONTINUITY_LIMITS.page;
   let after:Row|null=null,index=0;
   for(;;){
    const where=after?' AND ('+keys[table].join(',')+')>('+keys[table].map(()=>'?').join(',')+')':'',bindings=after?keys[table].map(key=>after![key]):[];
-   const page=(await db.prepare('SELECT '+columns.join(',')+' FROM '+table+' WHERE user_id=?'+where+' ORDER BY '+keys[table].join(',')+' LIMIT ?').bind(owner,...bindings,PRIVATE_CONTINUITY_LIMITS.page).all<Row>()).results;
-   for(const raw of page){const row=schemas[table].parse(raw) as unknown as Row;onRow(row,index++);after=row;}if(page.length<PRIVATE_CONTINUITY_LIMITS.page)break;
+   const page=(await db.prepare('SELECT '+columns.join(',')+' FROM '+table+' WHERE user_id=?'+where+' ORDER BY '+keys[table].join(',')+' LIMIT ?').bind(owner,...bindings,pageSize).all<Row>()).results;
+   for(const raw of page){if(index>=PRIVATE_CONTINUITY_LIMITS.tableRows)throw new Error('Private continuity table row limit exceeded.');const row=schemas[table].parse(raw) as unknown as Row;onRow(row,index++);after=row;}if(page.length<pageSize)break;
   }
   return index;
  }
@@ -159,6 +217,7 @@ export async function captureRecoveryPrivateContinuity(db:SqlDatabase,owner:stri
  const value=await validateRecoveryPrivateContinuity({...body,sha256},{...request,sha256,ownerId:owner});
  for(const table of PRIVATE_CONTINUITY_TABLES){const original=value.tables[table] as unknown as Row[];const count=await scan(table,(row,index)=>{if(canonical(row)!==canonical(original[index]))throw new Error('Private source rows changed during capture.');});if(count!==original.length)throw new Error('Private source rows changed during capture.');}
  const removalCount=await removals((row,index)=>{if(canonical(row)!==canonical(baselineRemovalFences[index]))throw new Error('Private deletion source changed during capture.');});
+ await verifyNativeOwnerAttribution(db,owner,value);
  const finalNamespaces=await db.prepare('SELECT audit_namespace,blob_namespace FROM workspace_source_namespaces WHERE user_id=?').bind(owner).first();
  if(removalCount!==baselineRemovalFences.length||canonical(finalNamespaces)!==canonical(namespaces)||canonical(await sourceContext(db,owner,now))!==canonical(request.sourceContext))throw new Error('Source context changed during capture.');
  return value;

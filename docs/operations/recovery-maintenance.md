@@ -2,7 +2,7 @@
 
 The maintenance helper is privileged offline tooling, not an app route. It changes no hosted Site in the test suite and does not infer authority from a recovery JSON file. Every operation receives an authenticated operator's injected SqlDatabase binding and independently trusted manifest/context/schema identities. Keep its token in a controlled private operator journal before invoking freeze; never put it in portable data, logs or release evidence.
 
-The fixed profile covers 96 actual application tables from the reviewed 25-migration source, including global/private records and both backup archive tables. Unknown/missing tables, changed SQL schema, altered/missing maintenance triggers and changed control columns fail explicitly. The optional platform bookkeeping names are only _cf_KV, d1_migrations and __drizzle_migrations; they are not application recovery data.
+The fixed profile covers 97 actual application tables from the reviewed 27-migration source, including global/private records and the backup archive, cleanup and retained-generation tables. Unknown/missing tables, changed SQL schema, altered/missing maintenance triggers and changed control columns fail explicitly. The optional platform bookkeeping names are only _cf_METADATA, _cf_KV, d1_migrations and __drizzle_migrations; they are not application recovery data.
 
 prepareRecoveryMaintenance creates an operator control table and one BEFORE INSERT/UPDATE/DELETE guard on every closed application table. The scope is deliberately DB-wide. An owner-only predicate is insufficient: SQLite REPLACE can otherwise delete another owner's globally unique row without firing the expected DELETE trigger. No application credential is permitted to mutate the operator control table; access to the underlying privileged D1/SQL binding remains the operator trust boundary.
 
@@ -74,3 +74,42 @@ operator must use the reviewed metadata/reference/projection installer and
 verify every segment before installing any application row, retain the sealed
 private artifact and old-to-new namespace mapping, and perform a separately
 reviewed manual binding/unfence handoff only after all verification succeeds.
+
+The verified private profile is bounded to 200,000 rows globally, 100,000 per
+private table and 64 MiB. Target inventory is bounded to 300,000 application
+rows and 128 MiB. These are tool-format limits, not a claim that every future
+application write is admitted against this combined profile. A pre-existing
+owner beyond a format limit is refused without pruning and needs an explicit
+engineering/operator handoff.
+
+Operational stream heads retain both original revision and sequence, and final
+seal independently reads the resulting target vector. Reserved nonempty
+workspace_configuration is blocked until a typed recovery adapter exists.
+Backup archives with epochs ahead of the actual frozen source epoch are rejected
+even when a caller recomputes a JSON digest. Backup input is cloned before async
+verification. Old ready chunk identities enter the retained physical ledger,
+which grants no cleanup authority, before any new PUT. Old plus fresh physical
+bytes must fit the ordinary backup quota; old charges are never exempted.
+Attachment generations likewise require headroom including both old and new
+objects. A target with unsettled PUTs or excess physical quota cannot be sealed.
+
+A trusted same-owner frozen cutover preserves the original audit namespace as an
+identity, every native audit physical ID and nullable source column, immutable
+project links and existing import identity mappings. Its cursor secret is
+new, so old cursor MACs do not authorize the new binding. This policy does not
+change ordinary portable imports: imported history remains claims and cannot
+mint native grants.
+
+The closed private profile also preserves existing owner assessment/decision
+attribution, exact review acknowledgements, notification read state, active
+baseline head identity and unsubmitted server drafts. Source grants are checked
+against exact same-owner immutable body hashes. The target seal independently
+compares these actual source/target rows; an imported normalized record without
+an existing source grant never gains attribution. These are existing owner
+choices, not new acceptance, completion, execution or paid consent.
+
+Nonempty workspace_imports, workspace_import_chunks or attachment_archive_stages
+are refused before target writes with an explicit staging/blob handoff message.
+No staged original input, file path or expired draft is silently discarded.
+Execution credentials, provider grants/capabilities and paid consent remain
+excluded; pending jobs stay cancelled and unknown attempts remain fenced.

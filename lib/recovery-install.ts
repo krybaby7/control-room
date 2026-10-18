@@ -31,7 +31,7 @@ export function inactiveRecoveryDatabase(db:SqlDatabase,receipt:RecoveryMaintena
  };
 }
 
-import {PRIVATE_CONTINUITY_TABLES,validateRecoveryPrivateContinuity,type RecoveryPrivateContinuity} from './recovery-private-continuity.ts';
+import {PRIVATE_CONTINUITY_TABLES,verifyNativeOwnerAttribution,validateRecoveryPrivateContinuity,type RecoveryPrivateContinuity} from './recovery-private-continuity.ts';
 import {canonical} from './canonical-json.ts';
 type Scalar=string|number|null;
 /**
@@ -53,7 +53,7 @@ export async function installRecoveryPrivateContinuity(
   throw new Error('Source and inactive target recovery identities differ.');
  
  const db=inactiveRecoveryDatabase(target,targetReceipt),owner=sourceReceipt.ownerId,now=sourceReceipt.createdAt;
- const tables=PRIVATE_CONTINUITY_TABLES.filter(table=>!['backup_archives','backup_archive_objects','backup_archive_cleanup_claims','workspace_backups'].includes(table)),remaining=new Set(tables),order:string[]=[];
+ const tables=PRIVATE_CONTINUITY_TABLES.filter(table=>!['backup_archives','backup_archive_objects','backup_archive_cleanup_claims','backup_archive_retained_objects','workspace_backups'].includes(table)),remaining=new Set(tables),order:string[]=[];
  // FK order comes from the exact fingerprinted target schema, never package SQL.
  while(remaining.size){
   let progressed=false;
@@ -92,9 +92,10 @@ export async function installRecoveryPrivateContinuity(
  // These are independently recaptured native owner deletion fences from the
  // frozen database, not imported historical claims promoted to authority.
  for(const row of value.baselineRemovalFences){
-  await db.prepare("INSERT INTO audit_events(user_id,event_id,kind,entity_type,entity_id,occurred_at,payload_json,origin,actor_id) VALUES(?,?,?,?,?,?,?,'owner',?)")
-   .bind(owner,row.event_id,row.kind,row.entity_type,row.entity_id,row.occurred_at,row.payload_json,owner).run();
+  const actual=await target.prepare('SELECT kind,entity_type,entity_id,occurred_at,payload_json FROM audit_events WHERE user_id=? AND event_id=?').bind(owner,row.event_id).first<Record<string,Scalar>>();
+  if(!actual||canonical(actual)!==canonical({kind:row.kind,entity_type:row.entity_type,entity_id:row.entity_id,occurred_at:row.occurred_at,payload_json:row.payload_json}))throw new Error('Original native removal event was not preserved.');
  }
+ await verifyNativeOwnerAttribution(target,owner,value);
  const epoch=sourceReceipt.sourceContext.executionEpoch;
  if(!Number.isSafeInteger(epoch+1))throw new Error('Recovery execution epoch exhausted.');
  await db.prepare('INSERT INTO workspace_execution_state(user_id,epoch,restored_at) VALUES(?,?,?)').bind(owner,epoch+1,now).run();
