@@ -161,3 +161,5 @@ export const agentProtocolClaims=sqliteTable('agent_protocol_claims',{userId:tex
 export const agentArtifacts=sqliteTable('agent_artifacts',{userId:text('user_id').notNull(),attemptId:text('attempt_id').notNull(),artifactId:text('artifact_id').notNull(),logicalType:text('logical_type').notNull(),sha256:text('sha256').notNull(),bytes:integer('bytes').notNull(),createdAt:text('created_at').notNull()},t=>[primaryKey({columns:[t.userId,t.attemptId,t.artifactId]}),foreignKey({columns:[t.userId,t.attemptId],foreignColumns:[jobAttempts.userId,jobAttempts.id]})]);
 
 export const agentResults=sqliteTable('agent_results',{...moduleColumns(),jobId:text('job_id').notNull(),attemptId:text('attempt_id').notNull(),recordedAt:text('recorded_at').notNull(),streamSequence:integer('stream_sequence').notNull()},t=>[primaryKey({columns:[t.userId,t.id]}),uniqueIndex('agent_result_attempt').on(t.userId,t.attemptId),index('agent_result_job').on(t.userId,t.jobId)]);
+
+export {backupArchives,backupArchiveObjects} from '../lib/automations/backup-schema';
