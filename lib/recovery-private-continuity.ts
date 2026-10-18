@@ -2,6 +2,7 @@ import {z} from 'zod';
 import {canonical,contentHash} from './canonical-json.ts';
 import {readCurrent,type SqlDatabase} from './workspace-store.ts';
 import {readOperationalWatermarks} from './operational-watermarks.ts';
+import {agentFrozenAdmissionSchema} from './agents/store.ts';
 import {agentJobEventSchema,agentJobResultSchema,agentApprovalEnvelopeSchema} from './agents/contracts.ts';
 import {validateAgentJobRecord,validateAgentExecutionBinding} from './agents/policy.ts';
 import {acceptanceRecordSchema} from './acceptance.ts';
@@ -99,7 +100,14 @@ export async function validateRecoveryPrivateContinuity(raw:unknown,expected:Pri
  for(const attempt of attempts.values()){
   const state=states.get(attempt.job_id),approval=approvals.get(attempt.approval_id);
   if(!state||state.attempt_id!==attempt.id||state.execution_epoch!==attempt.execution_epoch||!approval||approval.job_id!==attempt.job_id||approval.device_id!==attempt.device_id||approval.consumed_at===null)throw new Error('Retained attempt/state/approval identity differs.');
-  const identity=z.object({record:z.unknown(),executionBinding:z.unknown(),budgetId:id}).strict().parse(parseJson(attempt.identity_json)),record=await validateAgentJobRecord(identity.record),binding=validateAgentExecutionBinding(record.spec,identity.executionBinding);
+  const legacyIdentity=z.object({record:z.unknown(),executionBinding:z.unknown(),budgetId:id}).strict();
+  const currentIdentity=z.object({record:z.unknown(),executionBinding:z.unknown(),budgetId:id,approvalEnvelope:agentApprovalEnvelopeSchema,taskInput:z.unknown(),frozenAdmission:agentFrozenAdmissionSchema}).strict().refine(value=>value.taskInput!==undefined,'Frozen task input is required.');
+  const identity=z.union([currentIdentity,legacyIdentity]).parse(parseJson(attempt.identity_json)),record=await validateAgentJobRecord(identity.record),binding=validateAgentExecutionBinding(record.spec,identity.executionBinding);
+  if('frozenAdmission' in identity){
+   const frozen=identity.frozenAdmission,root=frozen.dependencyRows.find(row=>row.id===record.id),envelope=identity.approvalEnvelope;
+   if(await contentHash(canonical(identity.taskInput))!==record.spec.taskSnapshotSha256||encoder.encode(canonical(identity.taskInput)).length+binding.artifactRefs.reduce((total,row)=>total+row.bytes,0)>binding.budget.inputBytesLimit||canonical(envelope.executionBinding)!==canonical(binding)||envelope.approval.jobId!==record.id||envelope.approval.deviceId!==attempt.device_id||envelope.approval.specSha256!==record.specSha256||envelope.reservationId!==identity.budgetId||canonical(envelope)!==canonical(agentApprovalEnvelopeSchema.parse(parseJson(approval.payload_json))))throw new Error('Retained current frozen lease input differs.');
+   if(frozen.ownerContextHash!==await contentHash(trusted.ownerId)||!root||root.status!=='queued'||canonical(root.dependsOnJobIds)!==canonical(record.spec.dependsOnJobIds)||canonical(frozen.artifactRefs)!==canonical(binding.artifactRefs))throw new Error('Retained frozen admission identity differs.');
+  }
   if(record.id!==attempt.job_id||record.intentId!==state.intent_id||record.specSha256!==approval.spec_hash||canonical(binding)!==canonical(agentApprovalEnvelopeSchema.parse(parseJson(approval.payload_json)).executionBinding)||record.specSha256!==state.spec_hash||record.spec.taskSnapshotSha256!==state.task_hash||!budgets.has(identity.budgetId)||binding.budget.timeoutSeconds!==approval.reserved_seconds)throw new Error('Retained journal execution identity differs.');
   identities.set(attempt.id,{budgetId:identity.budgetId,timeoutSeconds:record.spec.timeoutSeconds});
   if(attempt.result_json!==null){const result=agentJobResultSchema.parse(parseJson(attempt.result_json));if(result.attemptId!==attempt.id||result.epoch!==attempt.execution_epoch||state.result_json!==attempt.result_json)throw new Error('Retained terminal result differs.');}

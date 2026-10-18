@@ -71,13 +71,20 @@ try{
  }
  const project=(await readCurrent(source,OWNER,NOW)).workspace.projects[0];assert.ok(project);
  await send({type:'baseline.apply',projectId:project.id,baselineId:BASELINE_ID});
- const removedBaselineContextId=baselineRecordId(project.id,'context');
- assert.ok((await readCurrent(source,OWNER,NOW)).workspace.captures.some(capture=>capture.id===removedBaselineContextId));
- await send({type:'capture.bulk',ids:[removedBaselineContextId],patch:{status:'archived'}});
- const deletionBase=await readCurrent(source,OWNER,NOW),deletionReferences=await readReferenceSnapshot(ownerReader(source,OWNER),referenceRegistry);
- const deletion=await previewEntityDeletion(deletionBase.workspace,'capture',removedBaselineContextId,deletionBase.revision,deletionReferences);
+ const baselineContextId=baselineRecordId(project.id,'context');
+ assert.ok((await readCurrent(source,OWNER,NOW)).workspace.captures.some(capture=>capture.id===baselineContextId));
+ // Baseline context is referenced by normalized evidence; the real guard must
+ // keep refusing its removal. Exercise native deletion with an independent
+ // owner-created archived task that has no references.
+ const taskTemplate=(await readCurrent(source,OWNER,NOW)).workspace.tasks.find(task=>task.projectId===project.id);
+ assert.ok(taskTemplate);
+ const taskInput=Object.fromEntries(Object.entries(taskTemplate).filter(([key])=>!['id','createdAt','updatedAt','completedAt','weeklyWeek','archivedFromStatus'].includes(key)));
+ await send({type:'task.create',task:{...taskInput,title:'Synthetic unreferenced archived recovery fixture',milestoneId:null,status:'archived',weekly:false,dependsOn:[]}});
+ const deletionBase=await readCurrent(source,OWNER,NOW),removedOwnerTask=deletionBase.workspace.tasks.find(task=>task.title==='Synthetic unreferenced archived recovery fixture');assert.ok(removedOwnerTask);
+ const removedOwnerTaskId=removedOwnerTask.id,deletionReferences=await readReferenceSnapshot(ownerReader(source,OWNER),referenceRegistry);
+ const deletion=await previewEntityDeletion(deletionBase.workspace,'task',removedOwnerTaskId,deletionBase.revision,deletionReferences);
  assert.equal(deletion.canDelete,true,canonical(deletion.blockers));
- await send({type:'entity.delete',entityType:'capture',id:removedBaselineContextId,previewHash:deletion.previewHash,targetRevision:deletionBase.revision});
+ await send({type:'entity.delete',entityType:'task',id:removedOwnerTaskId,previewHash:deletion.previewHash,targetRevision:deletionBase.revision});
  await send({type:'decisions.create',value:{title:'Synthetic replacement decision',question:'Retain the exact draft?',options:[{id:'retain',label:'Retain',description:''}],selectedOptionId:null,rationale:'',reviewOn:null,subjects:[{type:'project',id:project.id}],evidenceRefs:[],sourceCaptureId:null,sourceUrl:null,supersedesDecisionId:null}});
  const nativeDecision=(await ownerReader(source,OWNER).list('decision_records'))[0];
  await send({type:'decisions.decide',id:nativeDecision.id,expectedVersion:1,choice:{selectedOptionId:'retain',rationale:'Explicit synthetic owner choice, with no execution or trading effect.'}});
@@ -378,7 +385,8 @@ try{
   assert.deepEqual(newHistory.entries.map(entry=>entry.id),oldHistory.entries.map(entry=>entry.id));
   await verifyHistoryCursor(OWNER,newHistory.nextCursor,{}, {secret:namespaces.cursorSecret,now:()=>NOW});
   assert.equal(continuityResult.retainedAttempts,1);assert.equal(continuityResult.retainedRemovalFences,1);
-  assert.ok((await readCurrent(rawTarget,OWNER,NOW)).baselineRemovedIds.includes(removedBaselineContextId));
+  assert.equal(privateContinuity.baselineRemovalFences[0].entity_id,removedOwnerTaskId);
+  assert.ok(await rawTarget.prepare("SELECT event_id FROM audit_events WHERE user_id=? AND entity_id=? AND kind='entity.delete'").bind(OWNER,removedOwnerTaskId).first());
   assert.equal((await rawTarget.prepare("SELECT status FROM agent_job_state WHERE user_id=? AND job_id='synthetic-private-job'").bind(OWNER).first()).status,'reconcile_required');
   assert.equal((await rawTarget.prepare("SELECT released_at FROM agent_device_slots WHERE user_id=? AND device_id='synthetic-private-device'").bind(OWNER).first()).released_at,null);
   assert.equal((await rawTarget.prepare("SELECT reserved_seconds,enabled FROM agent_budgets WHERE user_id=? AND id='synthetic-private-budget'").bind(OWNER).first()).reserved_seconds,120);

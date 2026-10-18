@@ -14,7 +14,7 @@ bindFrozenPrivateContinuity validates the independently expected private root an
 
 The fence does not pretend to prove that every old DELETE promise settled. Every exact attachment_blob_fences key and attachment_archive_cleanup_claims key is permanently excluded by assertRecoveryBlobCopyEligible. An eligible live file additionally needs current typed ready metadata plus matching verified unpurged physical identity. The assembler still must read and check actual bytes. New target files must use fresh target namespaces. A late DELETE of an excluded old key then cannot mutate a copied fresh key. Preserve all old exact-key fences and purged immutable identities; do not clear an ambiguous PUT by clock or silently drop an unresolved row.
 
-Archive chunks currently have write-ahead pending PUT tokens and no enabled physical DELETE path. A future chunk deletion feature must introduce and preserve its permanent exclusion/settlement ledger before the freeze/profile can support it. Backup archive source index/physical identities are private continuity data; their old keys are never advertised as fresh target byte authority.
+Archive chunks have write-ahead PUT tokens and explicit physical cleanup protected by permanent backup_archive_cleanup_claims. Every such exact old key is excluded from ready copies. The continuity artifact preserves those claims and the old physical ledger; retired imported epochs remain old and cannot authorize target cleanup. Ready chunks are verified from the frozen source and copied into fresh namespaces, with old generations retained and charged. Backup archive source index/physical identities are private continuity data; their old keys are never advertised as fresh target byte authority.
 
 ## Inactive target
 
@@ -52,7 +52,7 @@ fences, process journal and event receipt identities, occupied unknown slots and
 finite budget reservations. It cancels pending intents, changes uncertain
 attempt state to reconcile_required, revokes approval history, and disables
 budgets. Original source records remain in the sealed continuity artifact.
-Credentials, capabilities, grants and schedule dispatch authority are absent.
+Execution credentials, provider/paid grants, capabilities and schedule dispatch authority are absent. Existing nonexecution owner attribution and read-state records remain exact.
 
 The backup adapter preserves logical backup IDs, original metadata serialization,
 source timestamps and namespace-free index hashes. Ready archives undergo full
@@ -108,8 +108,10 @@ compares these actual source/target rows; an imported normalized record without
 an existing source grant never gains attribution. These are existing owner
 choices, not new acceptance, completion, execution or paid consent.
 
-Nonempty workspace_imports, workspace_import_chunks or attachment_archive_stages
+Nonempty workspace_imports, workspace_import_chunks, attachment_archive_stages or review_analysis_requests
 are refused before target writes with an explicit staging/blob handoff message.
 No staged original input, file path or expired draft is silently discarded.
 Execution credentials, provider grants/capabilities and paid consent remain
 excluded; pending jobs stay cancelled and unknown attempts remain fenced.
+
+Single-owner eligibility is checked before source maintenance DDL and again in the atomic freeze predicate and frozen-source verification. Foreign user rows are rejected; the explicitly inventoried global device rate buckets convey no owner data. Final readiness requires the actual source audit identity, a distinct target blob namespace and a fresh cursor secret. Current agent attempt identities retain their complete original approval envelope, task input and frozen admission bytes; a real claim fixture verifies preservation without restoring lease authority.

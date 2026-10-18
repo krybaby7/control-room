@@ -24,6 +24,14 @@ export async function runRecoveryMaintenanceFixture(source:SqlDatabase,target:Sq
  const profile=await inspectRecoveryMaintenanceSchema(source);assert.equal(profile.tables,RECOVERY_APPLICATION_TABLES.length);
  const expected={operationId:crypto.randomUUID(),token,ownerId:owner,manifestSha256:sha,ownerContextHash:await contentHash(owner),schemaFingerprint:profile.schemaFingerprint,sourceContext:{workspaceRevision:1,executionEpoch:0,operationalWatermarks:await readOperationalWatermarks(source,owner)},now};
  await prepareRecoveryMaintenance(source,profile.schemaFingerprint);
+ // A whole-binding cutover cannot freeze/export only one of two owners.
+ await source.prepare('INSERT INTO workspaces(user_id,content,revision,updated_at) VALUES(?,?,1,?)').bind(foreign,encodePlanning(original),now).run();
+ await assert.rejects(freezeRecoveryDatabase(source,expected),/Single-owner recovery source/);
+ assert.equal((await source.prepare('SELECT revision FROM workspaces WHERE user_id=?').bind(foreign).first<{revision:number}>())!.revision,1);
+ assert.equal((await source.prepare('SELECT COUNT(*) count FROM operator_recovery_maintenance').first<{count:number}>())!.count,0);
+ await source.prepare('UPDATE workspaces SET revision=2 WHERE user_id=?').bind(foreign).run();
+ // Explicit synthetic fixture teardown only, after proving refusal preserves it.
+ await source.prepare('DELETE FROM workspaces WHERE user_id=?').bind(foreign).run();
  // A pending PUT blocks the entire DB maintenance fence.
  const pending=crypto.randomUUID();
  await source.prepare('INSERT INTO attachment_upload_attempts(user_id,token,attachment_id,storage_key,created_at,settled_at) VALUES(?,?,?,?,?,NULL)').bind(owner,pending,attachmentId,oldKey,now).run();
@@ -46,7 +54,7 @@ export async function runRecoveryMaintenanceFixture(source:SqlDatabase,target:Sq
  const statements=[
   target.prepare('INSERT INTO workspaces(user_id,content,revision,updated_at) VALUES(?,?,1,?)').bind(owner,encodePlanning(original),now),
   target.prepare('INSERT INTO workspace_execution_state(user_id,epoch,restored_at) VALUES(?,1,?)').bind(owner,now),
-  target.prepare('INSERT INTO workspace_source_namespaces(user_id,audit_namespace,blob_namespace,cursor_secret) VALUES(?,?,?,?)').bind(owner,crypto.randomUUID(),crypto.randomUUID(),'e'.repeat(64)),
+  target.prepare('INSERT INTO workspace_source_namespaces(user_id,audit_namespace,blob_namespace,cursor_secret) VALUES(?,?,?,?)').bind(owner,privateValue.sourceNamespaces.audit_namespace,crypto.randomUUID(),'e'.repeat(64)),
  ];
  await assert.rejects(writeInactiveRecoveryTarget(target,inactive,[...statements,target.prepare('INSERT INTO workspace_assertions(user_id,mutation_id,valid) VALUES(?,?,0)').bind(owner,'synthetic-atomic-fault')]));
  assert.equal((await target.prepare('SELECT COUNT(*) n FROM workspaces').first<{n:number}>())!.n,0);
@@ -61,11 +69,22 @@ export async function runRecoveryMaintenanceFixture(source:SqlDatabase,target:Sq
   target.prepare('INSERT INTO workspace_mutations(user_id,mutation_id,command_hash,revision,committed_at) VALUES(?,?,?,?,?)').bind(owner,'retained-legacy-mutation',sha,1,now),
  ]);
  assert.deepEqual((await readCurrent(target,owner,now)).workspace,original);
+ const sourceNamespace=await source.prepare('SELECT audit_namespace,blob_namespace,cursor_secret FROM workspace_source_namespaces WHERE user_id=?').bind(owner).first<{audit_namespace:string;blob_namespace:string;cursor_secret:string}>();
+ const targetNamespace=await target.prepare('SELECT audit_namespace,blob_namespace,cursor_secret FROM workspace_source_namespaces WHERE user_id=?').bind(owner).first<{audit_namespace:string;blob_namespace:string;cursor_secret:string}>();assert.ok(sourceNamespace);assert.ok(targetNamespace);
+ const namespacePatches:Record<string,string>[]=[{audit_namespace:crypto.randomUUID()},{cursor_secret:sourceNamespace.cursor_secret},{blob_namespace:sourceNamespace.blob_namespace}];
+ for(const patch of namespacePatches){
+  const [column,value]=Object.entries(patch)[0];
+  await writeInactiveRecoveryTarget(target,inactive,[target.prepare('UPDATE workspace_source_namespaces SET '+column+'=? WHERE user_id=?').bind(value,owner)]);
+  const badNamespaceInventory=await recoveryTargetInventorySha256(target,inactive);
+  await assert.rejects(markRecoveryTargetReady(target,source,frozen,inactive,{privateSha256:privateValue.sha256,inventorySha256:badNamespaceInventory,actualInventorySha256:()=>recoveryTargetInventorySha256(target,inactive)}),/native identity|cursor|namespace/);
+  await writeInactiveRecoveryTarget(target,inactive,[target.prepare('UPDATE workspace_source_namespaces SET audit_namespace=?,blob_namespace=?,cursor_secret=? WHERE user_id=?').bind(targetNamespace.audit_namespace,targetNamespace.blob_namespace,targetNamespace.cursor_secret,owner)]);
+ }
  const inventory=await recoveryTargetInventorySha256(target,inactive);
  await assert.rejects(markRecoveryTargetReady(target,source,frozen,inactive,{privateSha256:privateValue.sha256,inventorySha256:'f'.repeat(64),actualInventorySha256:()=>recoveryTargetInventorySha256(target,inactive)}),/inventory differs/);
  // A concurrent trusted installer batch changes the CAS even if the verifier was
  // otherwise honest; the final marker cannot attest to an earlier target image.
- await assert.rejects(markRecoveryTargetReady(target,source,frozen,inactive,{privateSha256:privateValue.sha256,inventorySha256:inventory,actualInventorySha256:async()=>{await writeInactiveRecoveryTarget(target,inactive,[target.prepare('UPDATE workspaces SET revision=revision WHERE user_id=?').bind(owner)]);return inventory;}}),/changed during verification/);
+ await assert.rejects(markRecoveryTargetReady(target,source,frozen,inactive,{privateSha256:privateValue.sha256,inventorySha256:inventory,actualInventorySha256:async()=>{await writeInactiveRecoveryTarget(target,inactive,[target.prepare('UPDATE workspace_source_namespaces SET audit_namespace=? WHERE user_id=?').bind(crypto.randomUUID(),owner)]);return inventory;}}),/changed during verification/);
+ await writeInactiveRecoveryTarget(target,inactive,[target.prepare('UPDATE workspace_source_namespaces SET audit_namespace=? WHERE user_id=?').bind(sourceNamespace.audit_namespace,owner)]);
  const finalInventory=await recoveryTargetInventorySha256(target,inactive);
  await markRecoveryTargetReady(target,source,frozen,inactive,{privateSha256:privateValue.sha256,inventorySha256:finalInventory,actualInventorySha256:()=>recoveryTargetInventorySha256(target,inactive)});
  await assert.rejects(target.prepare('UPDATE workspaces SET revision=revision+1 WHERE user_id=?').bind(owner).run(),/operator_recovery_frozen/);

@@ -32,6 +32,7 @@ export function inactiveRecoveryDatabase(db:SqlDatabase,receipt:RecoveryMaintena
 }
 
 import {PRIVATE_CONTINUITY_TABLES,verifyNativeOwnerAttribution,validateRecoveryPrivateContinuity,type RecoveryPrivateContinuity} from './recovery-private-continuity.ts';
+import {getWorkspaceNamespaces} from './workspace-namespaces.ts';
 import {canonical} from './canonical-json.ts';
 type Scalar=string|number|null;
 /**
@@ -53,6 +54,9 @@ export async function installRecoveryPrivateContinuity(
   throw new Error('Source and inactive target recovery identities differ.');
  
  const db=inactiveRecoveryDatabase(target,targetReceipt),owner=sourceReceipt.ownerId,now=sourceReceipt.createdAt;
+ const sourceNamespaces=await getWorkspaceNamespaces(source,owner),targetNamespaces=await getWorkspaceNamespaces(target,owner);
+ if(!sourceNamespaces||!targetNamespaces||targetNamespaces.blobNamespace===sourceNamespaces.blobNamespace||targetNamespaces.blobNamespace===sourceNamespaces.auditNamespace||canonical(Array.from(targetNamespaces.cursorSecret))===canonical(Array.from(sourceNamespaces.cursorSecret)))throw new Error('Recovery requires fresh target blob/cursor authority.');
+ await db.prepare('UPDATE workspace_source_namespaces SET audit_namespace=? WHERE user_id=?').bind(sourceNamespaces.auditNamespace,owner).run();
  const tables=PRIVATE_CONTINUITY_TABLES.filter(table=>!['backup_archives','backup_archive_objects','backup_archive_cleanup_claims','backup_archive_retained_objects','workspace_backups'].includes(table)),remaining=new Set(tables),order:string[]=[];
  // FK order comes from the exact fingerprinted target schema, never package SQL.
  while(remaining.size){

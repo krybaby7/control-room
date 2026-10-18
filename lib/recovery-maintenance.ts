@@ -2,6 +2,7 @@ import {z} from 'zod';
 import {canonical,contentHash} from './canonical-json.ts';
 import type {SqlDatabase,SqlStatement} from './workspace-store.ts';
 import {readCurrent} from './workspace-store.ts';
+import {getWorkspaceNamespaces} from './workspace-namespaces.ts';
 import {attachmentRecordSchema} from './evidence-module.ts';
 import {readOperationalWatermarks} from './operational-watermarks.ts';
 import {verifyRecoveryOwnerAttributionContinuity,captureRecoveryPrivateContinuity,validateRecoveryPrivateContinuity,type RecoveryPrivateContinuity} from './recovery-private-continuity.ts';
@@ -60,24 +61,31 @@ async function authenticatedControl(db:SqlDatabase,value:RecoveryMaintenanceRece
  if(!row||row.operation_id!==value.operationId||row.token_hash!==await contentHash(value.token)||row.role!==value.role||!states.includes(row.state)||row.owner_id!==value.ownerId||row.manifest_hash!==value.manifestSha256||row.owner_context_hash!==value.ownerContextHash||row.schema_hash!==value.schemaFingerprint||row.source_context_json!==canonical(value.sourceContext)||row.created_at!==value.createdAt)throw new Error('Actual operator maintenance authority is unavailable.');
  return row;
 }
+async function assertSingleOwnerRecoverySource(db:SqlDatabase,owner:string){
+ for(const table of RECOVERY_APPLICATION_TABLES.filter(table=>table!=='device_rate_buckets'))
+  if(await db.prepare('SELECT 1 FROM "'+table+'" WHERE user_id IS NULL OR user_id<>? LIMIT 1').bind(owner).first())throw new Error('Single-owner recovery source contains another owner; no database freeze or cutover is permitted.');
+}
+function singleOwnerFreezeGuard():string{
+ return 'NOT EXISTS('+RECOVERY_APPLICATION_TABLES.filter(table=>table!=='device_rate_buckets').map(table=>'SELECT 1 FROM "'+table+'" foreign_row CROSS JOIN recovery_owner WHERE foreign_row.user_id IS NULL OR foreign_row.user_id<>recovery_owner.owner').join(' UNION ALL ')+')';
+}
 /** The caller must durably retain operationId/token before invocation; an exact retry
  * recovers the same DB freeze, while package JSON alone is never a receipt. */
 export async function freezeRecoveryDatabase(db:SqlDatabase,raw:RecoveryFreezeInput):Promise<RecoveryMaintenanceReceipt>{
- const value=input.parse(structuredClone(raw));await prepareRecoveryMaintenance(db,value.schemaFingerprint);
+ const value=input.parse(structuredClone(raw));await inspectRecoveryMaintenanceSchema(db);await assertSingleOwnerRecoverySource(db,value.ownerId);await prepareRecoveryMaintenance(db,value.schemaFingerprint);
  const existing=await db.prepare('SELECT * FROM '+CONTROL+' WHERE singleton=1').first<Control>();
  if(existing){await authenticatedControl(db,receipt(value,'source'),['source-frozen']);return receipt(value,'source');}
  if(canonical(await currentContext(db,value.ownerId,value.now))!==canonical(value.sourceContext))throw new Error('Source context differs before freeze.');
  const schemaRows=(await masters(db)).filter(row=>RECOVERY_APPLICATION_TABLES.includes(row.tbl_name)),vector=canonical(value.sourceContext.operationalWatermarks);
  // Guard each actual row and absence against concurrent DDL; expected SQL is one bounded parameter.
  const schema=canonical(schemaRows);if(new TextEncoder().encode(schema).length>1800000)throw new Error('Recovery schema guard is too large.');
- const insert=db.prepare("INSERT INTO "+CONTROL+"(singleton,operation_id,token_hash,role,state,owner_id,manifest_hash,owner_context_hash,schema_hash,source_context_json,created_at) SELECT 1,?,?,'source','source-frozen',?,?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM "+CONTROL+") AND EXISTS(SELECT 1 FROM workspaces WHERE user_id=? AND revision=?) AND COALESCE((SELECT epoch FROM workspace_execution_state WHERE user_id=?),0)=? AND NOT EXISTS(SELECT 1 FROM attachment_upload_attempts WHERE settled_at IS NULL) AND NOT EXISTS(SELECT 1 FROM backup_archive_objects WHERE pending_token IS NOT NULL AND settled_at IS NULL) AND NOT EXISTS(SELECT 1 FROM json_each(?) expected WHERE COALESCE((SELECT last_sequence FROM operational_stream_heads WHERE user_id=? AND stream_id=expected.key),0)<>expected.value) AND NOT EXISTS(SELECT 1 FROM operational_stream_heads actual WHERE actual.user_id=? AND NOT EXISTS(SELECT 1 FROM json_each(?) expected WHERE expected.key=actual.stream_id AND expected.value=actual.last_sequence)) AND (SELECT COUNT(*) FROM sqlite_master WHERE tbl_name IN(SELECT value FROM json_each(?)) AND name NOT LIKE 'sqlite_%')=? AND NOT EXISTS(SELECT type,name,tbl_name,sql FROM sqlite_master WHERE tbl_name IN(SELECT value FROM json_each(?)) AND name NOT LIKE 'sqlite_%' EXCEPT SELECT json_extract(value,'$.type'),json_extract(value,'$.name'),json_extract(value,'$.tbl_name'),json_extract(value,'$.sql') FROM json_each(?))");
- const result=await insert.bind(value.operationId,await contentHash(value.token),value.ownerId,value.manifestSha256,value.ownerContextHash,value.schemaFingerprint,canonical(value.sourceContext),value.now,value.ownerId,value.sourceContext.workspaceRevision,value.ownerId,value.sourceContext.executionEpoch,vector,value.ownerId,value.ownerId,vector,canonical(RECOVERY_APPLICATION_TABLES),schemaRows.length,canonical(RECOVERY_APPLICATION_TABLES),schema).run();
+ const insert=db.prepare("WITH recovery_owner(owner) AS MATERIALIZED(SELECT ?) INSERT INTO "+CONTROL+"(singleton,operation_id,token_hash,role,state,owner_id,manifest_hash,owner_context_hash,schema_hash,source_context_json,created_at) SELECT 1,?,?,'source','source-frozen',?,?,?,?,?,? WHERE "+singleOwnerFreezeGuard()+" AND NOT EXISTS(SELECT 1 FROM "+CONTROL+") AND EXISTS(SELECT 1 FROM workspaces WHERE user_id=? AND revision=?) AND COALESCE((SELECT epoch FROM workspace_execution_state WHERE user_id=?),0)=? AND NOT EXISTS(SELECT 1 FROM attachment_upload_attempts WHERE settled_at IS NULL) AND NOT EXISTS(SELECT 1 FROM backup_archive_objects WHERE pending_token IS NOT NULL AND settled_at IS NULL) AND NOT EXISTS(SELECT 1 FROM json_each(?) expected WHERE COALESCE((SELECT last_sequence FROM operational_stream_heads WHERE user_id=? AND stream_id=expected.key),0)<>expected.value) AND NOT EXISTS(SELECT 1 FROM operational_stream_heads actual WHERE actual.user_id=? AND NOT EXISTS(SELECT 1 FROM json_each(?) expected WHERE expected.key=actual.stream_id AND expected.value=actual.last_sequence)) AND (SELECT COUNT(*) FROM sqlite_master WHERE tbl_name IN(SELECT value FROM json_each(?)) AND name NOT LIKE 'sqlite_%')=? AND NOT EXISTS(SELECT type,name,tbl_name,sql FROM sqlite_master WHERE tbl_name IN(SELECT value FROM json_each(?)) AND name NOT LIKE 'sqlite_%' EXCEPT SELECT json_extract(value,'$.type'),json_extract(value,'$.name'),json_extract(value,'$.tbl_name'),json_extract(value,'$.sql') FROM json_each(?))");
+ const result=await insert.bind(value.ownerId,value.operationId,await contentHash(value.token),value.ownerId,value.manifestSha256,value.ownerContextHash,value.schemaFingerprint,canonical(value.sourceContext),value.now,value.ownerId,value.sourceContext.workspaceRevision,value.ownerId,value.sourceContext.executionEpoch,vector,value.ownerId,value.ownerId,vector,canonical(RECOVERY_APPLICATION_TABLES),schemaRows.length,canonical(RECOVERY_APPLICATION_TABLES),schema).run();
  if(result.meta.changes!==1)throw new Error('Source changed or unsettled writes prevent freeze.');
  await authenticatedControl(db,receipt(value,'source'),['source-frozen']);
  return receipt(value,'source');
 }
 export async function verifyFrozenRecoveryDatabase(db:SqlDatabase,value:RecoveryMaintenanceReceipt):Promise<void>{
- if(value.role!=='source')throw new Error('Source freeze authority is required.');await authenticatedControl(db,value,['source-frozen']);
+ if(value.role!=='source')throw new Error('Source freeze authority is required.');await assertSingleOwnerRecoverySource(db,value.ownerId);await authenticatedControl(db,value,['source-frozen']);
  if(canonical(await currentContext(db,value.ownerId,value.createdAt))!==canonical(value.sourceContext)||(await db.prepare('SELECT COUNT(*) n FROM attachment_upload_attempts WHERE settled_at IS NULL').first<{n:number}>())!.n!==0||(await db.prepare('SELECT COUNT(*) n FROM backup_archive_objects WHERE pending_token IS NOT NULL AND settled_at IS NULL').first<{n:number}>())!.n!==0)throw new Error('Frozen source continuity differs.');
 }
 export async function bindFrozenPrivateContinuity(db:SqlDatabase,value:RecoveryMaintenanceReceipt,raw:RecoveryPrivateContinuity,expectedPrivateSha256:string):Promise<void>{
@@ -101,8 +109,8 @@ export async function assertRecoveryBlobCopyEligible(db:SqlDatabase,value:Recove
 export async function prepareInactiveRecoveryTarget(target:SqlDatabase,source:SqlDatabase,sourceReceipt:RecoveryMaintenanceReceipt,options:{operationId:string;token:string;expectedPrivateSha256:string}):Promise<RecoveryMaintenanceReceipt>{
  await verifyFrozenRecoveryDatabase(source,sourceReceipt);const sourceRow=await authenticatedControl(source,sourceReceipt,['source-frozen']);
  if(sourceRow.private_hash!==hash.parse(options.expectedPrivateSha256))throw new Error('Actual frozen private root is required.');
- for(const table of RECOVERY_APPLICATION_TABLES.filter(table=>table!=='device_rate_buckets'))if(await source.prepare('SELECT 1 FROM "'+table+'" WHERE user_id<>? LIMIT 1').bind(sourceReceipt.ownerId).first())throw new Error('Multiple-owner replacement requires complete trusted owner manifests.');
- for(const table of ['workspace_imports','workspace_import_chunks','attachment_archive_stages'])if(await source.prepare('SELECT 1 FROM '+table+' LIMIT 1').first())throw new Error('Persistent '+table+' requires a reviewed staging/blob handoff; no owner inputs were discarded.');
+ for(const table of RECOVERY_APPLICATION_TABLES.filter(table=>table!=='device_rate_buckets'))if(await source.prepare('SELECT 1 FROM "'+table+'" WHERE user_id IS NULL OR user_id<>? LIMIT 1').bind(sourceReceipt.ownerId).first())throw new Error('Multiple-owner replacement requires complete trusted owner manifests.');
+ for(const table of ['workspace_imports','workspace_import_chunks','attachment_archive_stages','review_analysis_requests'])if(await source.prepare('SELECT 1 FROM '+table+' LIMIT 1').first())throw new Error('Persistent '+table+' requires a reviewed staging/blob handoff; no owner inputs were discarded.');
  if(await source.prepare('SELECT 1 FROM workspace_configuration LIMIT 1').first())throw new Error('Reserved workspace configuration requires a typed recovery adapter.');
  await prepareRecoveryMaintenance(target,sourceReceipt.schemaFingerprint);
  if(await target.prepare('SELECT 1 FROM '+CONTROL).first())throw new Error('Target has previous maintenance state; use a new empty inactive target.');
@@ -152,7 +160,9 @@ export async function markRecoveryTargetReady(target:SqlDatabase,source:SqlDatab
  await verifyFrozenRecoveryDatabase(source,sourceReceipt);
  const sourceRow=await authenticatedControl(source,sourceReceipt,['source-frozen']),targetRow=await authenticatedControl(target,value,['target-inactive']);
  if(sourceRow.private_hash!==hash.parse(expected.privateSha256)||targetRow.private_hash!==expected.privateSha256||value.manifestSha256!==sourceReceipt.manifestSha256||value.ownerContextHash!==sourceReceipt.ownerContextHash||value.schemaFingerprint!==sourceReceipt.schemaFingerprint||value.sourceContext.executionEpoch>=Number.MAX_SAFE_INTEGER)throw new Error('Recovery handoff roots differ.');
- for(const table of RECOVERY_APPLICATION_TABLES.filter(table=>table!=='device_rate_buckets'))if(await target.prepare('SELECT 1 FROM "'+table+'" WHERE user_id<>? LIMIT 1').bind(value.ownerId).first())throw new Error('Target contains an unreviewed foreign owner.');
+ for(const table of RECOVERY_APPLICATION_TABLES.filter(table=>table!=='device_rate_buckets'))if(await target.prepare('SELECT 1 FROM "'+table+'" WHERE user_id IS NULL OR user_id<>? LIMIT 1').bind(value.ownerId).first())throw new Error('Target contains an unreviewed foreign owner.');
+ const sourceNamespaces=await getWorkspaceNamespaces(source,sourceReceipt.ownerId),targetNamespaces=await getWorkspaceNamespaces(target,value.ownerId);
+ if(!sourceNamespaces||!targetNamespaces||targetNamespaces.auditNamespace!==sourceNamespaces.auditNamespace||targetNamespaces.blobNamespace===sourceNamespaces.blobNamespace||targetNamespaces.blobNamespace===sourceNamespaces.auditNamespace||canonical(Array.from(targetNamespaces.cursorSecret))===canonical(Array.from(sourceNamespaces.cursorSecret)))throw new Error('Target native identity or fresh cursor/blob namespace differs.');
  if(canonical(await readOperationalWatermarks(target,value.ownerId))!==canonical(value.sourceContext.operationalWatermarks))throw new Error('Target operational vector differs from the frozen source.');
  await verifyRecoveryOwnerAttributionContinuity(source,target,value.ownerId);
  // Caller is the trusted domain/refs/blob verifier, not JSON declaring itself valid.

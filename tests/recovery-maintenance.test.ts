@@ -21,7 +21,7 @@ test('source context races prevent freeze; application writes remain available a
   await loadWorkspace(source.db,owner,()=>createSeedWorkspace(now),now);const profile=await inspectRecoveryMaintenanceSchema(source.db);
   let changed=false;
   const raced={prepare(sql:string){
-   const statement=source.db.prepare(sql);if(!sql.startsWith('INSERT INTO operator_recovery_maintenance'))return statement;
+   const statement=source.db.prepare(sql);if(!sql.includes('INSERT INTO operator_recovery_maintenance'))return statement;
    const bind=statement.bind.bind(statement);
    return {...statement,bind(...values:(string|number|null)[]){const bound=bind(...values);return {...bound,async run(){if(!changed){changed=true;source.sqlite.prepare('UPDATE workspaces SET revision=2 WHERE user_id=?').run(owner);}return bound.run();},first:bound.first.bind(bound),all:bound.all.bind(bound),bind:bound.bind.bind(bound)};},first:statement.first.bind(statement),all:statement.all.bind(statement),run:statement.run.bind(statement)};
   },batch:source.db.batch.bind(source.db)};
