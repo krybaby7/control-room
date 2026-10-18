@@ -35,7 +35,7 @@ export function ExecutionEnrollment({disabled,onEnroll,onRefreshWorkspace,onDirt
  <p>Private ingress remains unavailable until independently verified. Enrollment does not enable a local execution policy, approve a job, authorize spending or establish a connection.</p>
  <form onSubmit={event=>{event.preventDefault();void enroll();}}><fieldset disabled={disabled||working||pending||ticket!==null}>
  <label>Execution device label<input required maxLength={200} value={label} onChange={event=>setLabel(event.target.value)}/></label>
- <label>Enrollment purpose<select required value={purpose} onChange={event=>{setPurpose(event.target.value);setConsent(false);}}><option value="">Choose a purpose</option><option value="jobs">Job polling and result reporting</option><option value="evaluations">Evaluation reporting only</option></select></label>
+ <label>Enrollment purpose<select aria-label="Enrollment purpose" required value={purpose} onChange={event=>{setPurpose(event.target.value);setConsent(false);}}><option value="">Choose a purpose</option><option value="jobs">Job polling and result reporting</option><option value="evaluations">Evaluation reporting only</option></select></label>
  <label><input type="checkbox" checked={consent} onChange={event=>setConsent(event.target.checked)}/>I authorize only the selected device reporting scopes. Local execution policy, job approval and budgets require separate explicit review.</label>
  <button className="button primary" disabled={!consent||!purpose}>Create scoped enrollment</button></fieldset>
  {pending&&<button type="button" className="button secondary" disabled={disabled||working} onClick={()=>void enroll()}>Retry original scoped enrollment</button>}</form>

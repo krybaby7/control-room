@@ -208,7 +208,7 @@
       ]
     }
   ],
-  "nextAction": "Inspect Actions for the new integration head; fix actual type/SQL/native failures, complete remaining staged-history and device-revocation funding, then run exact complete candidate gates and package.",
+  "nextAction": "Inspect new head Actions; integrate coherent46-table staging/paidjournal adapter, fundeddevicerevocation and schema-singleflight optimization; fix actual regressions, then freeze exactcandidate for complete gates/package.",
   "allowedStatuses": [
     "not_started",
     "in_progress",
@@ -235,18 +235,17 @@
     "evidence": "Explicit supported model selection accepted and worker IDs returned."
   },
   "checkpoint": {
-    "implementationHead": "0d5e7e3ac046902b3253194f06ce053fbd1fc7c7",
+    "implementationHead": "f9f54926e90c6e35bd239379a5e60a8988c89252",
     "executionMode": "Supported GitHub source APIs and actual GitHub Actions Node24 Linux/Windows cloud runners; exact selected gpt-6.1-sol workers retained. Workspace execution unavailable.",
-    "tests": "0d25 ande716 three-browser acceptance terminalsuccess;778/e716 isolated SSE14pass; e716 agents/runtime/artifact gates passed.60d full Node/bridge/type/lint/build/D1 gates passed but defaultChromium failed, terminal logs pending. New42-profile/capacity/operational-preservation source is under regression.",
+    "tests": "Actualf9 mobilefirstusable and200ms longtask gates pass;20HTTP semanticCAS/replay/isolation passes, savep953.93s exceeds2s. Isolatedmaintenance/SSE pass. Exact42-source fullgates remain pending.",
     "knownFailures": [
-      "Actual e716 performance fixtures had replay-status and missing-capture setup errors; corrections included in this checkpoint, actual rerun pending.",
-      "Actual controlled mobile firstusable p95 measured3026.7ms against3000ms; exact DOM-ready measurement and any required product optimization pending, gate unchanged.",
-      "Current recovery D1 single-owner compound SELECT limit corrected by zero-UNION balanced owner predicates; exact42-profile/independent-seal rerun pending.",
-      "60d full defaultChromium had at least one failure; inspect terminal native logs and correct product/fixture causes.",
-      "Real pinned upstream runtime/Windows process/sandbox, owner devices, renewable ingress/provider/SSE and supported private Sites publishing helper remain unavailable/unverified.",
-      "Central/epoch/draft, background schedule/source/review, runtime/device and physical/backup positive-growth guards plus first-cancel funding are integrated here; exact new Node/type/D1/browser/performance regressions pending.",
-      "Common staged-original/archive/paid-journal recovery adapters and first-device-revocation safety funding remain feasible source work underway."
+      "Actualf9 artifact D1 PUT still503 afterbindingcompaction; a materialized private-capacity proof is included here, fresh actualD1 rerun pending.",
+      "Actualf9 concurrentHTTP savep953931.61ms exceeds2000ms; actualschema-metadata singleflight optimization with atomic schemaCAS is underway, budget unchanged.",
+      "Source60d defaultChromium5failures diagnosed: staleAgents snapshot, physicallyshrunkBudget consent, Enrollment accessiblelabel and obsoleteAttention fixture. Corrections includedhere, native rerun pending.",
+      "Common staged-original/archive/paidjournal46-table adapter and first-device-revocation funding remain sourcework underway.",
+      "Finalcoherent Node/type/lint/build/D1/R2/HTTP/Windows/Chromium+browser/performance/package gates have not all passed. No newSite deployment.",
+      "Real pinned upstreamruntime/Windows process/sandbox, ownerdevices/passkeys, renewableingress/provider/SSE and supportedprivateSites publishinghelper remain unavailable/unverified."
     ],
-    "nextCommand": "Inspect Actions for the new integration head; fix actual type/SQL/native failures, complete remaining staged-history and device-revocation funding, then run exact complete candidate gates and package."
+    "nextCommand": "Inspect new head Actions; integrate coherent46-table staging/paidjournal adapter, fundeddevicerevocation and schema-singleflight optimization; fix actual regressions, then freeze exactcandidate for complete gates/package."
   }
 }
