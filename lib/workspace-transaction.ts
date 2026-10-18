@@ -106,7 +106,7 @@ export async function executeWorkspaceCommand(userId:string,input:{protocolVersi
   }
   const privateQuote=await workspacePrivateCapacityGrowth(db,userId,{plan,before,command,mutationId:id,commandHash:hash,now,preparedBackup,agentArtifact});
   let privateCapacity:Awaited<ReturnType<typeof requirePrivateCapacity>>;
-  try{privateCapacity=await requirePrivateCapacity(db,userId,{growth:privateQuote.growth,firstCancelAttemptIds:privateQuote.firstCancelAttemptIds});}
+  try{privateCapacity=await requirePrivateCapacity(db,userId,{growth:privateQuote.growth,firstCancelAttemptIds:privateQuote.firstCancelAttemptIds,firstRevokeDeviceIds:privateQuote.firstRevokeDeviceIds});}
   catch(error){
     if((await checkMutationEpoch(db,userId,id)).status==='retired')throw new RetiredMutationError('This mutation epoch is retired.');
     const concurrentReplay=await checkReceipt();if(concurrentReplay)return concurrentReplay;

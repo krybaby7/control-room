@@ -26,8 +26,8 @@ export async function deviceControlStatements(db:SqlDatabase,userId:string,plan:
  const epoch='COALESCE((SELECT epoch FROM workspace_execution_state WHERE user_id=?),0)';
  const invalidate=(id:string,reenroll:boolean)=>{
   for(const table of ['device_credentials','device_enrollments'])statements.push(db.prepare('UPDATE '+table+' SET revoked_at=COALESCE(revoked_at,?) WHERE user_id=? AND device_id=? AND '+claim).bind(now,userId,id,...guard));
-  statements.push(db.prepare('UPDATE device_sessions SET retired_at=COALESCE(retired_at,?) WHERE user_id=? AND device_id=? AND '+claim).bind(now,userId,id,...guard));
-  statements.push(db.prepare('UPDATE device_live_windows SET consumed_at=COALESCE(consumed_at,?),expires_at=MIN(expires_at,?) WHERE user_id=? AND device_id=? AND '+claim).bind(now,now,userId,id,...guard));
+  statements.push(db.prepare('UPDATE device_sessions SET retired_at=? WHERE user_id=? AND device_id=? AND retired_at IS NULL AND '+claim).bind(now,userId,id,...guard));
+  statements.push(db.prepare('UPDATE device_live_windows SET consumed_at=?,expires_at=MIN(expires_at,?) WHERE user_id=? AND device_id=? AND consumed_at IS NULL AND julianday(expires_at)>julianday(?) AND '+claim).bind(now,now,userId,id,now,...guard));
   assertion('device-generation-'+id,'NOT EXISTS(SELECT 1 FROM device_runtime WHERE user_id=? AND device_id=? AND (current_generation>=9007199254740991 OR operational_revision>=9007199254740991))',[userId,id]);
   statements.push(db.prepare('INSERT INTO device_runtime(user_id,device_id,operational_revision,execution_epoch,current_generation,current_boot_id,last_live_received_at,revoked_at,last_request_at) SELECT ?,?,1,'+epoch+',1,NULL,NULL,?,NULL WHERE '+claim+' ON CONFLICT(user_id,device_id) DO UPDATE SET operational_revision=device_runtime.operational_revision+1,execution_epoch=excluded.execution_epoch,current_generation=device_runtime.current_generation+1,current_boot_id=NULL,last_live_received_at=NULL,revoked_at=excluded.revoked_at,last_request_at=NULL').bind(userId,id,userId,reenroll?null:now,...guard));
  };

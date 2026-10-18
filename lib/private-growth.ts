@@ -1,3 +1,4 @@
+import {privateSchemaMetadata} from './private-schema.ts';
 import {getTableColumns,getTableName,is} from 'drizzle-orm';
 import {SQLiteTable} from 'drizzle-orm/sqlite-core';
 import * as schema from '../db/schema.ts';
@@ -20,7 +21,7 @@ function defaultValue(raw:unknown):string|number|null{
  * defaults or SQL. The actual DB schema must match the compiled closed profile. */
 export async function privateInsertGrowth(db:SqlDatabase,table:Table,values:PrivatePhysicalRow):Promise<PrivateGrowth>{
  if(!PRIVATE_PROFILE_TABLES.includes(table))fail();const definition=definitions.get(table);if(!definition)fail();
- const actual=(await db.prepare('PRAGMA table_info('+table+')').all<{name:string;notnull:number;dflt_value:string|null;type:string}>()).results;
+ const actual=(await privateSchemaMetadata(db)).tables[table];
  const expected=Object.values(getTableColumns(definition)).map(column=>column.name).sort(),names=actual.map(column=>column.name).sort();
  if(JSON.stringify(names)!==JSON.stringify(expected)||new Set(names).size!==names.length||Object.keys(values).some(name=>!names.includes(name))||Object.values(values).some(value=>!scalar(value)))fail();
  const compiled=Object.values(getTableColumns(definition));const row:PrivatePhysicalRow={};

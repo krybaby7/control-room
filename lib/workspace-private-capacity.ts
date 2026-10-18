@@ -20,7 +20,7 @@ export interface WorkspacePrivateCapacityInput {
   * is NEVER a request field. Their own count/row guards remain mandatory. */
  supplementalGrowth?:readonly PrivateGrowth[];
 }
-export interface WorkspacePrivateCapacityQuote {growth:PrivateGrowth[];guards:PrivateCapacityGuard[];firstCancelAttemptIds:string[]}
+export interface WorkspacePrivateCapacityQuote {growth:PrivateGrowth[];guards:PrivateCapacityGuard[];firstCancelAttemptIds:string[];firstRevokeDeviceIds:string[]}
 /** Quote growth only: this helper does not admit a command, consume a reservation,
  * create authority, or execute writes. All returned guards and the neutral
  * privateCapacityGuard MUST run inside the same transient compiler claim.
@@ -144,8 +144,8 @@ export async function workspacePrivateCapacityGrowth(db:SqlDatabase,owner:string
  if(plan.deviceControls&&!plan.restoreEpoch){
   const ids=[...new Set([...(plan.deviceControls.revokeIds??[]),...(plan.deviceControls.enrollment?[plan.deviceControls.enrollment.deviceId]:[])])];
   for(const deviceId of ids){
-   update('device_sessions',{retired_at:now},await count('device_sessions','device_id=?',[deviceId]));
-   update('device_live_windows',{consumed_at:now,expires_at:now},await count('device_live_windows','device_id=?',[deviceId]));
+   update('device_sessions',{retired_at:now},await count('device_sessions','device_id=? AND retired_at IS NULL',[deviceId]));
+   update('device_live_windows',{consumed_at:now,expires_at:now},await count('device_live_windows','device_id=? AND consumed_at IS NULL AND julianday(expires_at)>julianday(?)',[deviceId,now]));
    await upsert('device_runtime',{device_id:deviceId},{operational_revision:revisionMax,execution_epoch:epoch,current_generation:revisionMax,current_boot_id:null,last_live_received_at:null,revoked_at:now,last_request_at:null});
   }
  }
@@ -153,7 +153,7 @@ export async function workspacePrivateCapacityGrowth(db:SqlDatabase,owner:string
  // File retirement modifies private archive bookkeeping without deleting bytes.
  if(plan.fileBackupRemoval)update('backup_archives',{status:'retired',execution_epoch:revisionMax,updated_at:now});
  for(const value of input.supplementalGrowth??[])add(value);
- const growth=combinePrivateGrowth(...totals.values()),firstCancelAttemptIds:string[]=[];
+ const growth=combinePrivateGrowth(...totals.values()),firstCancelAttemptIds:string[]=[],firstRevokeDeviceIds:string[]=[];
  // This is a funded-reservation candidate only, NOT a quota exemption. The
  // neutral guard independently verifies unresolved ownership and absent cancel
  // fields; central agent state CAS must write this exact request ID/time.
@@ -161,5 +161,17 @@ export async function workspacePrivateCapacityGrowth(db:SqlDatabase,owner:string
   const candidate=await db.prepare('SELECT a.id FROM job_attempts a JOIN agent_job_state s ON s.user_id=a.user_id AND s.job_id=a.job_id AND s.attempt_id=a.id WHERE a.user_id=? AND a.job_id=? AND a.result_json IS NULL AND a.reconciled_at IS NULL AND s.cancel_request_id IS NULL AND s.cancel_requested_at IS NULL').bind(owner,controls.jobId).first<{id:string}>();
   if(candidate)firstCancelAttemptIds.push(candidate.id);
  }
- return {growth,guards,firstCancelAttemptIds};
+ if(command.type==='devices.revoke'&&plan.deviceControls?.revokeIds?.length===1&&command.id===plan.deviceControls.revokeIds[0]&&!plan.deviceControls.enrollment&&!plan.agentControls&&!plan.restoreEpoch&&growth.reduce((sum,row)=>sum+row.bytes,0)<=2048&&growth.reduce((sum,row)=>sum+row.rows,0)<=1){
+  const deviceId=plan.deviceControls.revokeIds[0],runtime=await db.prepare('SELECT operational_revision FROM device_runtime WHERE user_id=? AND device_id=? AND revoked_at IS NULL').bind(owner,deviceId).first<{operational_revision:number}>();
+  const sessions=await db.prepare('SELECT COUNT(*) n FROM device_sessions WHERE user_id=? AND device_id=? AND retired_at IS NULL').bind(owner,deviceId).first<{n:number}>();
+  const windows=await db.prepare('SELECT COUNT(*) n FROM device_live_windows WHERE user_id=? AND device_id=? AND consumed_at IS NULL AND julianday(expires_at)>julianday(?)').bind(owner,deviceId,now).first<{n:number}>();
+  const nativeRows=await db.prepare('SELECT COUNT(*) n FROM device_runtime WHERE user_id=?').bind(owner).first<{n:number}>();
+  if(runtime&&Number.isSafeInteger(runtime.operational_revision)&&runtime.operational_revision>0&&sessions&&sessions.n<=1&&windows&&windows.n<=1&&nativeRows&&nativeRows.n<=20){
+   guards.push({sql:'EXISTS(SELECT 1 FROM device_runtime WHERE user_id=? AND device_id=? AND operational_revision=? AND revoked_at IS NULL)',bindings:[owner,deviceId,runtime.operational_revision]});
+   guards.push({sql:'(SELECT COUNT(*) FROM device_sessions WHERE user_id=? AND device_id=? AND retired_at IS NULL)<=1',bindings:[owner,deviceId]});
+   guards.push({sql:'(SELECT COUNT(*) FROM device_live_windows WHERE user_id=? AND device_id=? AND consumed_at IS NULL AND julianday(expires_at)>julianday(?))<=1',bindings:[owner,deviceId,now]});
+   firstRevokeDeviceIds.push(deviceId);
+  }
+ }
+ return {growth,guards,firstCancelAttemptIds,firstRevokeDeviceIds};
 }

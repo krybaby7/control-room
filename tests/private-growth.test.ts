@@ -1,3 +1,4 @@
+import {PRIVATE_PROFILE_TABLES} from '../lib/private-profile.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {database} from './helpers/sqlite.ts';
@@ -28,4 +29,15 @@ test('update quotes conservative full after rows, rejects absence, and combines 
  await assert.rejects(()=>privateUpdateGrowth(f.db,'foreign','workspace_drafts','id=?',['draft'],{payload_json:'x'}));
  assert.deepEqual(combinePrivateGrowth(quote,quote),[{table:'workspace_drafts',bytes:quote.bytes*2,rows:0}]);
  assert.throws(()=>combinePrivateGrowth({...quote,bytes:-1}));assert.throws(()=>combinePrivateGrowth({...quote,rows:Number.MAX_SAFE_INTEGER},{...quote,rows:1}));
+});
+
+test('growth hydration reuses only immutable schema metadata and invalidates it when actual schema changes',async t=>{
+ const f=database();t.after(()=>f.sqlite.close());let pragmas=0;
+ const db={...f.db,prepare(sql:string){if(sql.startsWith('PRAGMA table_info('))pragmas++;return f.db.prepare(sql);}};
+ const input={id:'synthetic-draft',row_revision:1,payload_json:'{}',expires_at:'later'};
+ const one=await privateInsertGrowth(db,'workspace_drafts',input),loaded=pragmas;assert.equal(loaded,PRIVATE_PROFILE_TABLES.length);
+ const two=await privateInsertGrowth(db,'workspace_drafts',input);assert.deepEqual(two,one);assert.equal(pragmas,loaded);
+ f.sqlite.exec('ALTER TABLE workspace_drafts ADD COLUMN unexpected_cache_change TEXT');
+ await assert.rejects(()=>privateInsertGrowth(db,'workspace_drafts',input));assert.ok(pragmas>loaded);
+ assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM workspace_drafts').get()!.n,0);
 });
