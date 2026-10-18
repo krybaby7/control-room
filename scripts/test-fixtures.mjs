@@ -22,7 +22,7 @@ export function fixtureConfig(source){
  return {name:'control-room-local-fixture',main:path.join(ROOT,'dist/server/index.js'),compatibility_date:source.compatibility_date,compatibility_flags:['nodejs_compat'],no_bundle:true,rules:[{type:'ESModule',globs:['**/*.js','**/*.mjs']}],base_dir:path.join(ROOT,'dist/server'),assets:{directory:path.join(ROOT,'dist/client')},d1_databases:[{binding:'DB',database_name:'control-room-synthetic',database_id:SYNTHETIC_DB_ID}],dev:{ip:'127.0.0.1',port:4174,local_protocol:'http'},observability:{enabled:false}};
 }
 export function fixtureEnvironment(directory){
- return {PATH:process.env.PATH??'',HOME:path.join(directory,'home'),TMPDIR:directory,WRANGLER_SEND_METRICS:'false',CI:'true',NO_COLOR:'1',NODE_ENV:'test'};
+ return {PATH:process.env.PATH??'',XDG_CONFIG_HOME:path.join(directory,'config'),XDG_CACHE_HOME:path.join(directory,'cache'),TMPDIR:directory,WRANGLER_SEND_METRICS:'false',CI:'true',NO_COLOR:'1',NODE_ENV:'test'};
 }
 const fixtureChildren=new Set();
 export async function runLocal(executable,args,options={}){
@@ -33,7 +33,7 @@ export async function prepareFixtures(){
  const interrupted=()=>{for(const child of fixtureChildren)child.kill('SIGKILL');void rm(directory,{recursive:true,force:true}).finally(()=>process.exit(1));};
  process.once('SIGTERM',interrupted);process.once('SIGINT',interrupted);
  try{
-  await mkdir(path.join(directory,'home'));const configPath=path.join(directory,'wrangler.json');const source=JSON.parse(await readFile(path.join(ROOT,'dist/server/wrangler.json'),'utf8'));await writeFile(configPath,JSON.stringify(fixtureConfig(source)));
+  await mkdir(path.join(directory,'config'));const configPath=path.join(directory,'wrangler.json');const source=JSON.parse(await readFile(path.join(ROOT,'dist/server/wrangler.json'),'utf8'));await writeFile(configPath,JSON.stringify(fixtureConfig(source)));
   const statePath=path.join(directory,'state');const environment=fixtureEnvironment(directory);const wrangler=path.join(ROOT,'node_modules/wrangler/bin/wrangler.js');
   const execute=async file=>runLocal(process.execPath,[wrangler,'d1','execute','DB','--local','--config',configPath,'--persist-to',statePath,'--file',file],{env:environment});
   const migrations=(await readdir(path.join(ROOT,'drizzle'))).filter(name=>/^\d+_[a-z0-9_]+\.sql$/.test(name)).sort();if(!migrations.length)throw new Error('No actual migrations found.');

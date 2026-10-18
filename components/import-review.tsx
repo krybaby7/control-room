@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Command, Workspace } from '@/lib/types';
 import type { ImportDiagnostic, ImportPreview } from '@/lib/import-quarantine';
+import type { PlanningRepairOperation, PlanningRepairReport } from '@/lib/import-repair';
 import type { PlanningCollection, PlanningMergePreview, PlanningMergeSelection } from '@/lib/workspace-merge';
 import { boundedRequest } from '@/lib/save-controller';
 import { SessionExpiredError } from '@/lib/workspace-client';
@@ -12,7 +13,7 @@ const collections: PlanningCollection[] = ['projects', 'milestones', 'tasks', 'c
 const emptySelection = (): PlanningMergeSelection => ({ projects: [], milestones: [], tasks: [], captures: [], activity: [] });
 const PAGE_SIZE = 100;
 interface StagedFile { id: string; hash: string; bytes: number; diagnostics: ImportDiagnostic[]; expiresAt: number | string }
-interface Review { preview: ImportPreview; planningBefore: Workspace; planningIncoming: Workspace | null; mergePreview?: PlanningMergePreview }
+interface Review { repairReports?: PlanningRepairReport[]; lineage?: {parentId:string;parentHash:string;steps:number}; preview: ImportPreview; planningBefore: Workspace; planningIncoming: Workspace | null; mergePreview?: PlanningMergePreview }
 async function request<T>(url: string, init: RequestInit = {}, decode?: (response: Response) => Promise<T>): Promise<T> {
   try {
     return await boundedRequest(url, { credentials: 'same-origin', cache: 'no-store', ...init }, async response => {
@@ -53,6 +54,12 @@ export function ImportReview({ revision, busy, onImport }: { revision: number; b
   const [stage, setStage] = useState<StagedFile | null>(null);
   const [review, setReview] = useState<Review | null>(null);
   const [filename, setFilename] = useState('');
+  const [originalId,setOriginalId]=useState<string|null>(null);
+  const [repairType,setRepairType]=useState<PlanningRepairOperation['type']>('map-project');
+  const [repairCollection,setRepairCollection]=useState<PlanningCollection>('tasks');
+  const [repairId,setRepairId]=useState('');
+  const [repairTarget,setRepairTarget]=useState('');
+  const [repairIndex,setRepairIndex]=useState('0');
   const [selection, setSelection] = useState<PlanningMergeSelection>(emptySelection);
   const [collection, setCollection] = useState<PlanningCollection>('projects');
   const [page, setPage] = useState(0);
@@ -83,7 +90,7 @@ export function ImportReview({ revision, busy, onImport }: { revision: number; b
       // Send the original bytes, including invalid JSON, for diagnostics and retrieval.
       const staged = await request<StagedFile>('/api/workspace/imports', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: file });
       if (generation.current !== epoch) return;
-      setStage(staged); setFilename(file.name); setSelection(emptySelection()); setAccepted(false); setMergeKey(null);
+      setStage(staged); setOriginalId(staged.id); setFilename(file.name); setSelection(emptySelection()); setAccepted(false); setMergeKey(null);
       const result = await request<Review>(`/api/workspace/imports/${encodeURIComponent(staged.id)}`);
       if (generation.current === epoch) setReview(result);
     } catch (cause) { if (generation.current === epoch) setError(cause instanceof Error ? cause.message : 'The file could not be staged.'); }
@@ -101,13 +108,13 @@ export function ImportReview({ revision, busy, onImport }: { revision: number; b
     } catch (cause) { if (generation.current === epoch) setError(cause instanceof Error ? cause.message : 'The review could not be prepared.'); }
     finally { if (generation.current === epoch) setWorking(''); }
   };
-  const original = async () => {
-    if (!stage) return;
+  const original = async (id=stage?.id) => {
+    if (!id) return;
     const epoch = generation.current;
     setWorking('download'); setError('');
     try {
-      const bytes = await request(endpoint + '?download=1', {}, response => response.arrayBuffer());
-      if (generation.current === epoch) downloadOriginal(bytes, stage.id);
+      const bytes = await request(`/api/workspace/imports/${encodeURIComponent(id)}?download=1`, {}, response => response.arrayBuffer());
+      if (generation.current === epoch) downloadOriginal(bytes, id);
     } catch (cause) { if (generation.current === epoch) setError(cause instanceof Error ? cause.message : 'The original file could not be downloaded.'); }
     finally { if (generation.current === epoch) setWorking(''); }
   };
@@ -118,7 +125,7 @@ export function ImportReview({ revision, busy, onImport }: { revision: number; b
     try {
       await request(endpoint, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: '{}' });
       if (generation.current !== epoch) return;
-      setStage(null); setReview(null); setFilename(''); setSelection(emptySelection()); setMergeKey(null); setAccepted(false); setMessage('Staged file discarded. Your workspace has not changed.');
+      setStage(null); setOriginalId(null); setReview(null); setFilename(''); setSelection(emptySelection()); setMergeKey(null); setAccepted(false); setMessage('Staged file discarded. Your workspace has not changed.');
     } catch (cause) { if (generation.current === epoch) setError(cause instanceof Error ? cause.message : 'The staged file could not be discarded.'); }
     finally { if (generation.current === epoch) setWorking(''); }
   };
@@ -133,6 +140,31 @@ export function ImportReview({ revision, busy, onImport }: { revision: number; b
     } catch (cause) { if (generation.current === epoch) setError(cause instanceof Error ? cause.message : 'Import could not be confirmed. Keep this review open.'); }
     finally { if (generation.current === epoch) setWorking(''); }
   };
+  const repair = async () => {
+    if (!stage || disabled) return;
+    const epoch=generation.current;
+    setWorking('repair');setError('');setMessage('');setAccepted(false);setMergeKey(null);
+    try {
+      let operation:PlanningRepairOperation;
+      if(repairType==='migrate')operation={type:'migrate'};
+      else if(repairType==='map-project'){
+        if(!['tasks','milestones','captures'].includes(repairCollection))throw new Error('Choose tasks, milestones or captures for a project mapping.');
+        operation={type:repairType,collection:repairCollection as 'tasks'|'milestones'|'captures',id:repairId,projectId:repairTarget};
+      }else if(repairType==='remove-dependency')operation={type:repairType,taskId:repairId,dependencyId:repairTarget};
+      else if(repairType==='exclude-record')operation={type:repairType,collection:repairCollection,id:repairId};
+      else {
+        if(!/^\d+$/.test(repairIndex)||!Number.isSafeInteger(Number(repairIndex)))throw new Error('Enter the exact zero-based occurrence index.');
+        operation={type:repairType,collection:repairCollection,occurrenceIndex:Number(repairIndex),newId:repairTarget};
+      }
+      const child=await request<StagedFile>(endpoint+'/repair',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({operation})});
+      if(generation.current!==epoch)return;
+      setStage(child);setReview(null);setSelection(emptySelection());setPage(0);
+      setMessage('A separate repaired file is ready for review. The earlier file is retained. Your workspace has not changed.');
+      const result=await request<Review>(`/api/workspace/imports/${encodeURIComponent(child.id)}`);
+      if(generation.current===epoch)setReview(result);
+    }catch(cause){if(generation.current===epoch)setError(cause instanceof Error?cause.message:'This repair could not be prepared.');}
+    finally{if(generation.current===epoch)setWorking('');}
+  };
   const toggle = (id: string, checked: boolean) => {
     setSelection(previous => ({ ...previous, [collection]: checked ? [...previous[collection], id] : previous[collection].filter(value => value !== id) }));
     setMergeKey(null); setAccepted(false);
@@ -140,8 +172,21 @@ export function ImportReview({ revision, busy, onImport }: { revision: number; b
 
   return <section className="panel data-panel" aria-labelledby="import-review-heading"><h2 id="import-review-heading">Review an import</h2><p>Choose Planning JSON or a complete bundle. The original file is held separately for review; choosing it does not change your workspace. No automatic repair, acceptance or completion is performed.</p>
     <input type="file" accept=".json,application/json" aria-label="Choose file for import review" disabled={disabled || !!stage} onChange={event => { void choose(event.target.files?.[0]); event.target.value = ''; }} />
-    {stage && <div className="restore-section"><h3>{filename}</h3><p>{stage.bytes.toLocaleString()} original bytes · Review expires {dateLabel(new Date(stage.expiresAt).toISOString(), true)}</p><p className="field-hint" style={{ overflowWrap: 'anywhere' }}>File digest: {stage.hash}</p><div className="data-actions"><button type="button" className="button secondary" disabled={disabled} onClick={() => void original()}>Download original file</button><button type="button" className="button secondary" disabled={disabled} onClick={() => void discard()}>Discard staged file</button><button type="button" className="button secondary" disabled={disabled} onClick={() => void preview(false)}>Refresh review</button></div>
+    {stage && <div className="restore-section"><h3>{filename}</h3><p>{stage.bytes.toLocaleString()} staged bytes · Review expires {dateLabel(new Date(stage.expiresAt).toISOString(), true)}</p><p className="field-hint" style={{ overflowWrap: 'anywhere' }}>File digest: {stage.hash}</p><div className="data-actions"><button type="button" className="button secondary" disabled={disabled} onClick={() => void original()}>{originalId===stage.id?'Download original file':'Download repaired file'}</button>{originalId && originalId!==stage.id && <button type="button" className="button secondary" disabled={disabled} onClick={() => void original(originalId)}>Download unchanged original</button>}{review?.lineage && review.lineage.parentId!==originalId && <button type="button" className="button secondary" disabled={disabled} onClick={() => void original(review.lineage!.parentId)}>Download previous repair source</button>}<button type="button" className="button secondary" disabled={disabled} onClick={() => void discard()}>Discard staged file</button><button type="button" className="button secondary" disabled={disabled} onClick={() => void preview(false)}>Refresh review</button></div>
       {diagnostics.length > 0 && <div role="alert"><h3>This file needs attention</h3><p>It remains separate from your workspace. Download the unchanged original for correction.</p><ul>{diagnostics.map((item, index) => <li key={index}>{item.path}: {item.code}</li>)}</ul></div>}
+      <details><summary>Prepare an explicit repair</summary><p>Choose one exact change to the staged bytes. A new file and change report will be created for a fresh review. The original is retained until its expiry. Unknown versions, unsupported fields and invalid references still prevent importing.</p>
+        <form onSubmit={event=>{event.preventDefault();void repair();}}>
+          <label className="field"><span className="field-label">Repair operation</span><select value={repairType} disabled={disabled} onChange={event=>{const next=event.target.value as PlanningRepairOperation['type'];setRepairType(next);if(next==='map-project'&&!['tasks','milestones','captures'].includes(repairCollection))setRepairCollection('tasks');}}><option value="map-project">Map one record to a project</option><option value="remove-dependency">Remove one task dependency</option><option value="rename-duplicate">Rename an exact duplicate occurrence</option><option value="exclude-record">Exclude one record and retain its content in the report</option><option value="migrate">Migrate a supported planning schema</option></select></label>
+          {['map-project','rename-duplicate','exclude-record'].includes(repairType) && <label className="field"><span className="field-label">Repair collection</span><select value={repairCollection} disabled={disabled} onChange={event=>setRepairCollection(event.target.value as PlanningCollection)}>{collections.filter(key=>repairType!=='map-project'||['tasks','milestones','captures'].includes(key)).map(key=><option key={key} value={key}>{key}</option>)}</select></label>}
+          {['map-project','remove-dependency','exclude-record'].includes(repairType) && <label className="field"><span className="field-label">Exact source record ID</span><input required maxLength={128} disabled={disabled} value={repairId} onChange={event=>setRepairId(event.target.value)} /></label>}
+          {repairType==='rename-duplicate' && <label className="field"><span className="field-label">Exact source occurrence index, starting at zero</span><input required type="number" min="0" step="1" disabled={disabled} value={repairIndex} onChange={event=>setRepairIndex(event.target.value)} /></label>}
+          {['map-project','remove-dependency','rename-duplicate'].includes(repairType) && <label className="field"><span className="field-label">{repairType==='map-project'?'Target project ID':repairType==='remove-dependency'?'Dependency ID to remove':'New globally unique record ID'}</span><input required maxLength={128} disabled={disabled} value={repairTarget} onChange={event=>setRepairTarget(event.target.value)} /></label>}
+          {repairType==='rename-duplicate' && <p>Inspect the downloaded source to identify the exact collection index. Ambiguous references are refused.</p>}
+          {repairType==='exclude-record' && <p role="alert">The selected record will be absent from the repaired file. Its full content is retained in the repair report. References are preserved and may need another explicit repair.</p>}
+          <button type="submit" className="button secondary" disabled={disabled || (review?.repairReports?.length??0)>=8}>{working==='repair'?'Preparing repaired review…':'Create separate repaired review'}</button>
+        </form>
+      </details>
+      {!!review?.repairReports?.length && <div className="restore-preview"><h3>Repair history for this file</h3><p>{review.repairReports.length} explicit repair operations. Review the original source claims, changes and any excluded content before importing. These reports do not approve or complete any work.</p><ReviewRecords title="Repair operations and source hashes" records={review.repairReports.map(report=>({sourceHash:report.sourceHash,operation:report.operation,warnings:report.warnings}))} /><ReviewRecords title="Repair changes, before and after" records={review.repairReports.flatMap(report=>report.changes)} /><ReviewRecords title="Excluded records retained for recovery" records={review.repairReports.flatMap(report=>report.excludedRecords)} /></div>}
       {review && diagnostics.length === 0 && review.planningIncoming && <><p>Reviewed against saved revision {review.preview.targetRevision}. Attachment completeness: {review.preview.attachmentCompleteness}.</p><p>Module versions: {Object.entries(review.preview.moduleVersions).map(([name, version]) => `${name} v${version}`).join(', ') || 'Planning only'}. {review.preview.backupAvailable ? 'A previous recovery export is available.' : 'No previous recovery export was reported.'}</p>
         <div style={{ overflowX: 'auto' }}><table><thead><tr><th scope="col">Collection</th><th scope="col">Current</th><th scope="col">Incoming</th><th scope="col">Added</th><th scope="col">Absent from incoming</th><th scope="col">Changed</th></tr></thead><tbody>{Object.entries(review.preview.diff).map(([key, diff]) => <tr key={key}><th scope="row">{key}</th><td>{diff.before}</td><td>{diff.after}</td><td>{diff.added.length}</td><td>{diff.deleted.length}</td><td>{diff.changed.length}</td></tr>)}</tbody></table></div>
         <label className="field"><span className="field-label">Import mode</span><select value={mode} disabled={disabled} onChange={event => { setMode(event.target.value as 'merge' | 'replace'); setAccepted(false); }}><option value="merge">Merge selected planning records</option><option value="replace">Replace entire workspace</option></select></label>

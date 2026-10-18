@@ -114,3 +114,14 @@ for(const field of ['actorId','origin','occurredAt'] as const)test(`untrusted ev
   const {db,sqlite}=await setup();const registry:CommandHandlerRegistry=new Map([['fixture.change',{prepare:async context=>{const prepared=plan(context);Object.assign(prepared.events[0],{[field]:field==='origin'?'connector':'foreign'});return prepared;}}]]);
   await assert.rejects(executeWorkspaceCommand('a',input(),deps(db,registry)),/authority/);assertClean(sqlite);
 });
+
+for(const race of ['insert','update','delete'] as const)test(`complete normalized reference snapshot rejects ${race} race atomically`,async()=>{
+ const {db,sqlite}=await setup();const hash='a'.repeat(64);
+ if(race!=='insert')sqlite.prepare('INSERT INTO decisions VALUES (?,?,?,?,?)').run('a','decision',1,'{}',hash);
+ const snapshot={coveredModules:[...OWNER_TABLES],digest:'synthetic',rows:race==='insert'?[]:[{module:'decisions' as const,id:'decision',rowRevision:1,contentHash:hash,references:[]}]};
+ const registry:CommandHandlerRegistry=new Map([['fixture.change',{prepare:async context=>({...plan(context),referenceSnapshot:snapshot})}]]);
+ const raced=intercept(db,()=>{if(race==='insert')sqlite.prepare('INSERT INTO decisions VALUES (?,?,?,?,?)').run('a','decision',1,'{}',hash);else if(race==='update')sqlite.prepare('UPDATE decisions SET row_revision=2 WHERE user_id=?').run('a');else sqlite.prepare('DELETE FROM decisions WHERE user_id=?').run('a');});
+ await assert.rejects(executeWorkspaceCommand('a',input(),deps(raced,registry)),ModuleConflictError);
+ for(const table of ['workspace_mutations','workspace_command_guards','workspace_assertions','evidence_records','audit_events','workspace_job_intents'])assert.equal(count(sqlite,table),0,table);
+ assert.equal((await readCurrent(db,'a')).revision,1);sqlite.close();
+});

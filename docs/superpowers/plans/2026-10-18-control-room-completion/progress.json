@@ -14,7 +14,6 @@
         "Baseline: 71 tests, typecheck, lint, build passed",
         "Shared contracts and independent architecture review",
         "Synthetic migration rehearsal and owner A/B failure fixtures",
-        "CI workflow added; hosted CI result not yet observed",
         "GitHub CI run39127618834/job117675962970 at ea075cda6d0631491d1aceb51702ea1087502961: clean locked install,169 tests,typecheck,lint,build all passed"
       ],
       "blockers": []
@@ -39,20 +38,29 @@
         "Strict portable metadata schemas and pseudonymized exported audit actors",
         "Server-issued namespaced submission IDs integrated; no new client UUID fallback",
         "Pinned Playwright1.64.1 added via verified cloud lock artifact; existing locked dependencies unchanged",
-        "Expanded Node checkpoint243 tests passed;typecheck/lint/build passed; actual isolated built-worker HTTP fixture smoke passed"
+        "Expanded Node checkpoint243 tests passed;typecheck/lint/build passed; actual isolated built-worker HTTP fixture smoke passed",
+        "GitHub CI39129127677/job117680467946 at b8467872047538bf9a67f59766c10e3714c50279 passed clean locked install,243 Node tests,typecheck,lint,build,isolated Wrangler fixture and3 Chromium Playwright recovery tests",
+        "Immutable repair child staging with parent ownership/hash/expiry guards and full source reports; focused tests pass",
+        "Trusted-device explicit unlock/provider integration and versioned IndexedDB CAS core; expanded browser tests prepared but not yet executed",
+        "Disabled-by-default Cairo/DST backup policy and narrow shared-intent runner contract; six synthetic adapter tests pass; production adapter/runner/R2 absent",
+        "Integrated working tree305 Node tests pass (including11 independent selector groundwork tests),zero failures/skips; three complete-reference-set transaction races and concurrent backup preparation conflict covered",
+        "Read-only owner usage API/UI separates receipts,epochs,modules,snapshots,drafts,staging and logical capacity",
+        "Internal explicit retired-epoch detail compaction guarded by permanent tombstone plus unchanged unexpired server-draft schema/rowset; no automatic maintenance",
+        "Typed reference descriptor foundation integrated into deletion preview/transaction with full module-set CAS; future schemas must register actual descriptors"
       ],
       "blockers": [
-        "Prepared Playwright suite awaits actual Chromium cloud CI execution",
-        "Selected repair operations/normalized selective merge and typed cross-module reference cleanup remain pending",
-        "Trusted-device outbox browser opt-in/integration/real IndexedDB acceptance pending",
-        "Scheduled backup policy/runner provisioning, receipt compaction policy/usage UI and real R2 acceptance pending",
+        "Expanded device Chromium browser cases await cloud CI; local Chromium binary unavailable",
+        "Normalized selective merge and feature-specific reference/repair adapters await the owning Phase2/3 schemas; unknown populated modules fail closed",
+        "Backup policy reports disabled/unavailable defaults; persistence/activation and concrete job-store adapter await registered renewable runner and verified private R2 storage",
         "Authenticated hosted gateway/device session acceptance remains separate from synthetic fixtures"
       ]
     },
     {
       "id": 2,
       "status": "not_started",
-      "evidence": [],
+      "evidence": [
+        "Independent pure selector groundwork only: stable links,complete paginated search and attention with11 tests; not integrated or accepted"
+      ],
       "blockers": []
     },
     {

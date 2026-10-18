@@ -10,6 +10,8 @@ import { dateLabel, ProjectIcon } from './ui';
 import { BackupHistory, CompleteBundleExport } from './backup-history';
 import { ImportReview } from './import-review';
 import { ArchivedRecordCleanup } from './delete-record-dialog';
+import { DeviceDraftSettings } from './device-drafts';
+import { WorkspaceUsagePanel } from './workspace-usage';
 
 type RestoreBase = { revision: number; submission?: Submission | null };
 type RestorePreview = { workspace: Workspace; filename: string; date: string | null; sourceVersion: number; base: RestoreBase };
@@ -67,6 +69,8 @@ export function SourcesView({ envelope, busy, onRefresh, onRestore, onPreviousBa
         {error && <p className="form-error" role="alert"><AlertCircle size={17} /><span>{error}</span></p>}{message && <p className="restore-message" role="status">{message}</p>}
       </div>
     </section>
+    <WorkspaceUsagePanel busy={disabled} />
+    <DeviceDraftSettings />
     <ImportReview revision={envelope.revision} busy={disabled} onImport={onImport} />
     <BackupHistory busy={disabled} onBackup={onBackup} targetRevision={envelope.revision} onBackupRemove={onBackupRemove} />
     <ArchivedRecordCleanup workspace={envelope.workspace} revision={envelope.revision} busy={disabled} onDelete={onDelete} />

@@ -12,7 +12,7 @@ type Context={params:Promise<{id:string}>};
 async function preview(userId:string,id:string,selection?:PlanningMergeSelection){
  const staged=await readStagedImport(env.DB!,userId,id);const current=await readCurrent(env.DB!,userId);const bundle=await exportWorkspaceBundle(env.DB!,userId);
  if(current.revision!==bundle.source.workspaceRevision)throw new Error('Concurrent edit.');
- return {preview:staged.preview(current,bundle.modules),planningBefore:current.workspace,planningIncoming:staged.stage.bundle?.planning??null,...(selection&&staged.stage.bundle?{mergePreview:previewPlanningMerge(current.workspace,staged.stage.bundle.planning,selection)}:{})};
+ return {repairReports:(staged.provenance?.reports??[]).map(report=>JSON.parse(report)),...(staged.provenance?{lineage:{parentId:staged.provenance.parentId,parentHash:staged.provenance.parentHash,steps:staged.provenance.reports.length}}:{}),preview:staged.preview(current,bundle.modules),planningBefore:current.workspace,planningIncoming:staged.stage.bundle?.planning??null,...(selection&&staged.stage.bundle?{mergePreview:previewPlanningMerge(current.workspace,staged.stage.bundle.planning,selection)}:{})};
 }
 export async function GET(request:Request,context:Context){
  const user=await getChatGPTUser();if(!user)return Response.json({error:'Sign in again.'},{status:401,headers});

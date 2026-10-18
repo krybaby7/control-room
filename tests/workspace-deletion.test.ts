@@ -5,6 +5,8 @@ import { parsePlanningImport } from '../lib/workspace-codec.ts';
 import { previewEntityDeletion, entityDeleteHandler } from '../lib/workspace-deletion.ts';
 import type { PrepareContext } from '../lib/workspace-transaction.ts';
 import type { Workspace } from '../lib/types.ts';
+import {referenceRegistry,readReferenceSnapshot,type TypedReference} from '../lib/workspace-references.ts';
+import {canonical,contentHash} from '../lib/workspace-export.ts';
 const at='2026-10-17T12:00:00.000Z';
 function seed(){const workspace=parsePlanningImport(createSeedWorkspace(at));workspace.tasks[0]={...workspace.tasks[0],status:'archived',archivedFromStatus:'todo',weekly:false};for(const task of workspace.tasks)task.dependsOn=[];for(const capture of workspace.captures)capture.convertedTaskId=null;return workspace;}
 async function context(workspace:Workspace,kind:'task'|'capture'='task',id=workspace.tasks[0].id):Promise<PrepareContext>{const preview=await previewEntityDeletion(workspace,kind,id,9);return {userId:'owner',before:{workspace,revision:9,updatedAt:at},command:{type:'entity.delete',entityType:kind,id,previewHash:preview.previewHash,targetRevision:9},now:at,query:{async get(){return null;},async list(){return [];}},async readImport(){throw new Error('Not an import');}};}
@@ -42,7 +44,19 @@ test('revision, record content, and strict command validation invalidate stale p
 test('any owner normalized module row fails closed until typed references exist',async()=>{
   const workspace=seed(),ctx=await context(workspace);
   for(const populated of ['weekly_plans','evidence_links','attachments','workspace_configuration']) {
-    const planContext={...ctx,query:{...ctx.query,async list(table:string){return table===populated?[{id:'opaque',row_revision:1,payload_json:'{}',content_hash:'hash'}]:[];}}};
-    await assert.rejects(entityDeleteHandler.prepare(planContext),/typed reference adapter/);
+    const planContext={...ctx,query:{...ctx.query,async list(table:string){return table===populated?[{id:'opaque',row_revision:1,payload_json:'{}',content_hash:await contentHash('{}')}]:[];}}};
+    await assert.rejects(entityDeleteHandler.prepare(planContext),/Missing typed reference descriptor/);
   }
+});
+test('registered unrelated normalized rows permit deletion; exact references and dangling references block',async()=>{
+  referenceRegistry.register({key:'evidence_records',schemaVersion:1,entityKind:'evidence',parse:value=>{
+    if(!value||typeof value!=='object'||!Array.isArray((value as {refs:unknown}).refs))throw new Error('Invalid synthetic evidence');return value;
+  },references:value=>(value as {refs:TypedReference[]}).refs});
+  const workspace=seed(),ctx=await context(workspace);let refs:TypedReference[]=[];
+  const query={...ctx.query,async list(table:string){const value={refs};return table==='evidence_records'?[{id:'ev',row_revision:1,payload_json:JSON.stringify(value),content_hash:await contentHash(canonical(value))}]:[];}};
+  const reviewed=async()=>{const snapshot=await readReferenceSnapshot(query,referenceRegistry),preview=await previewEntityDeletion(workspace,'task',workspace.tasks[0].id,9,snapshot);return {...ctx,query,command:{...ctx.command,previewHash:preview.previewHash}};};
+  const plan=await entityDeleteHandler.prepare(await reviewed());assert.equal(plan.referenceSnapshot?.rows.length,1);assert.equal(plan.planningAfter.tasks.length,workspace.tasks.length-1);
+  const old=await reviewed();refs=[{kind:'task',id:workspace.tasks[0].id,path:['refs',0]}];await assert.rejects(entityDeleteHandler.prepare(old),/changed/);
+  await assert.rejects(entityDeleteHandler.prepare(await reviewed()),/Normalized records still reference/);
+  refs=[{kind:'task',id:'missing-task',path:['refs',0]}];await assert.rejects(entityDeleteHandler.prepare(await reviewed()),/dangling references/);
 });

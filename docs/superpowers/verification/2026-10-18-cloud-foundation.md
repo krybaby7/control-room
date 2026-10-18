@@ -31,3 +31,20 @@ Run `git status --short` and `npm test` when resuming; inspect progress.json and
 - Permanent removal requires archived/unreferenced records, exact impact digest/revision and a full pre-change backup. Snapshot retention never automatically evicts manual/pinned generations; explicit removal requires a newer verified recovery point under the same transaction guard.
 - Standard Playwright tests now exist for response loss after real commit, server draft reload/owner isolation and expired-session hiding. The actual browser result is not yet claimed; cloud CI will run Chromium against the isolated fixture.
 - Remaining Phase1 work is recorded in progress.json. Later phases remain unstarted; no private deployment, provider/device execution or paid inference is claimed.
+
+## Subsequent cloud evidence
+
+- Source b8467872047538bf9a67f59766c10e3714c50279 has tree02394565a6020f9715fd8954c1cdea065a2a7eac. [CI39129127677](https://github.com/krybaby7/control-room/actions/runs/39129127677), job117680467946, passed a real clean locked install,243 Node tests, typecheck, lint, build, isolated Wrangler smoke and three Chromium Playwright journeys. This supersedes the earlier pending browser and installation limitations above.
+- Browser journeys proved synthetic response-loss reconciliation exactly once, server draft reload/owner isolation and session-expiry hiding. They do not prove the private gateway, live provider, Windows device or real R2 execution.
+- New uncommitted slice adds immutable repair lineage, explicit trusted-device unlock and CAS-safe device storage, plus disabled backup policy/runner contracts. Focused tests pass; integrated checks and expanded browser CI are next. Private hosted v2 remains unchanged.
+- Resume with `git status --short`, `npm test`, then `npm run typecheck`. Review active worker changes before editing. The rejected inspection commit remains excluded.
+
+## Device, repair and retention integration checkpoint
+
+Parent source b8467872047538bf9a67f59766c10e3714c50279. Working-tree Node regression:305 tests pass, zero failures/skips (includes11 independent, unintegrated Phase2 selector tests). Complete normalized reference-set insert/update/delete races roll back effects. Concurrent recovery preparation now returns authoritative revision conflicts; retirement is rechecked before replay. Independent review found no data-loss blocker after that fix.
+
+Device storage stays unopened by default. Explicit unlock verifies current owner scope. Native IndexedDB uses CAS, exact draft discard and empty revision tombstones; locked reload Forget reauthenticates before clearing only that namespace. If expiry occurs before a namespace was unlocked, clearance cannot be claimed; same-account reauthentication and explicit Forget remain required. Three new browser journeys are prepared, not yet executed.
+
+Receipt usage is read-only; compaction is internal, explicit, retired-epoch-only and atomically blocked by unexpired draft references or schema/rowset changes. No automatic retirement or pruning occurs. Backup policy exposes disabled/unavailable defaults with exact provisioning requirements; a persisted active policy or live scheduled execution is not claimed.
+
+Next: run cloud CI for this source and resolve any native device recovery failures. Then integrate Phase2 schema/workflows after foundation gates; feature-specific module merge/reference schemas remain with their owning phases. No deployment occurred.

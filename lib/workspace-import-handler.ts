@@ -12,7 +12,7 @@ export const reviewedImportHandler:CommandHandler={async prepare(context){
  const command=commandSchema.parse(context.command);
  if(context.before.revision!==command.targetRevision)throw new Error('Import preview is stale.');
  if(command.mode==='replace'&&command.selection)throw new Error('Selection applies only to merge.');
- const {stage}=await context.readImport(command.importId);
+ const {stage,provenance}=await context.readImport(command.importId);
  if(stage.hash!==command.hash||!stage.bundle||stage.diagnostics.length)throw new Error('Import is invalid or its digest changed.');
  const bundle=stage.bundle;const replacements:NonNullable<MutationPlan['replacements']>=[];
  for(const [key,incomingModule]of Object.entries(bundle.modules)) {
@@ -36,6 +36,10 @@ export const reviewedImportHandler:CommandHandler={async prepare(context){
  const history=bundle.modules.audit_events?.records??[];
  if(history.length>BUNDLE_LIMITS.rows||new TextEncoder().encode(JSON.stringify(history)).byteLength>1_800_000)throw new Error('Imported history exceeds transaction limit.');
  const historyImports=history.map((source,index)=>{assertPortable(source);return {id:`import_${stage.hash}_${index}`,source:source as JsonValue,importHash:stage.hash};});
+ for(const [index,report] of (provenance?.reports??[]).entries()){
+  const source={kind:'import-repair',parentHash:provenance!.parentHash,report:JSON.parse(report)};assertPortable(source);
+  historyImports.push({id:`import_${stage.hash}_repair_${index}`,source:source as JsonValue,importHash:stage.hash});
+ }
  let planningAfter=bundle.planning;
  if(command.mode==='merge'){
   if(!command.selection)throw new Error('Explicit merge selection is required.');

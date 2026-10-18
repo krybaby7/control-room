@@ -2,14 +2,14 @@ import type { Workspace, WorkspaceEnvelope } from './types.ts';
 import { readCurrent, type SqlDatabase, type SqlStatement } from './workspace-store.ts';
 import { parseWorkspaceExport } from './workspace-validation.ts';
 import { encodePlanning } from './workspace-codec.ts';
-import { ownerReader, ownerTable, type GuardedWrite, type RowPrecondition, type OwnerScopedReader, type RegisteredOwnerTable, type ModuleRow } from './workspace-modules.ts';
+import { OWNER_TABLES, ownerReader, ownerTable, type GuardedWrite, type RowPrecondition, type OwnerScopedReader, type RegisteredOwnerTable, type ModuleRow } from './workspace-modules.ts';
 import type { AuditEventDraft, CommandResult, JobIntent, MutationOutcome, WorkspaceCommand } from './workspace-protocol.ts';
 import { readStagedImport } from './import-staging.ts';
 import { prepareWorkspaceBackup, readWorkspaceBackup, listWorkspaceBackups, BACKUP_LIMITS } from './workspace-backups.ts';
 import { checkMutationEpoch } from './idempotency-retention.ts';
 import { RetiredMutationError, CommandValidationError, MutationIdReuseError, ModuleConflictError, WorkspaceStorageError } from './workspace-errors.ts';
 export interface ModuleReplacement {table:RegisteredOwnerTable;beforeRows:ModuleRow[];records:Array<{id:string;value:import('./workspace-protocol.ts').JsonValue}>;}
-export interface MutationPlan { backupRemoval?:{id:string;sha256:string;newerId:string;newerSha256:string};emptyModules?:RegisteredOwnerTable[];importSource?:{id:string;hash:string};replacements?:ModuleReplacement[];restoreEpoch?:boolean;historyImports?:Array<{id:string;source:import('./workspace-protocol.ts').JsonValue;importHash:string}>; planningAfter: Workspace; writes: GuardedWrite[]; preconditions?: RowPrecondition[]; events: AuditEventDraft[]; backup?: {reason:'restore'|'delete'|'repair'|'manual'}; jobs: JobIntent[]; }
+export interface MutationPlan { referenceSnapshot?:import('./workspace-references.ts').ReferenceSnapshot; backupRemoval?:{id:string;sha256:string;newerId:string;newerSha256:string};emptyModules?:RegisteredOwnerTable[];importSource?:{id:string;hash:string};replacements?:ModuleReplacement[];restoreEpoch?:boolean;historyImports?:Array<{id:string;source:import('./workspace-protocol.ts').JsonValue;importHash:string}>; planningAfter: Workspace; writes: GuardedWrite[]; preconditions?: RowPrecondition[]; events: AuditEventDraft[]; backup?: {reason:'restore'|'delete'|'repair'|'manual'}; jobs: JobIntent[]; }
 export interface PrepareContext { userId: string; before: WorkspaceEnvelope; command: WorkspaceCommand; now: string; query: OwnerScopedReader; backups?:{get:(id:string)=>ReturnType<typeof readWorkspaceBackup>;list:()=>ReturnType<typeof listWorkspaceBackups>};readImport:(id:string)=>ReturnType<typeof readStagedImport>; }
 export interface CommandHandler { prepare(context: PrepareContext): Promise<MutationPlan>; }
 export type CommandHandlerRegistry = ReadonlyMap<string, CommandHandler>;
@@ -54,11 +54,28 @@ export async function executeWorkspaceCommand(userId:string,input:{protocolVersi
   if(plan.restoreEpoch && (!plan.backup || plan.jobs.length))throw new CommandValidationError('Recovery must retain a backup and cannot dispatch new jobs.');
   if(new Set((plan.replacements??[]).map(replacement=>replacement.table)).size!==(plan.replacements??[]).length)throw new CommandValidationError('Duplicate replacement module.');
   for(const replacement of plan.replacements??[]){ownerTable(replacement.table);if(plan.writes.some(write=>write.table===replacement.table) || replacement.beforeRows.length>10000 || replacement.records.length>10000)throw new CommandValidationError('Invalid replacement scope.');}
-  const preparedBackup=plan.backup?await prepareWorkspaceBackup(db,userId,before,plan.backup.reason,now):null;
+  let preparedBackup:Awaited<ReturnType<typeof prepareWorkspaceBackup>>|null=null;
+  try { if(plan.backup)preparedBackup=await prepareWorkspaceBackup(db,userId,before,plan.backup.reason,now); }
+  catch(error){
+    if((await checkMutationEpoch(db,userId,id)).status==='retired')throw new RetiredMutationError('This mutation epoch is retired.');
+    const concurrentReplay=await checkReceipt();if(concurrentReplay)return concurrentReplay;
+    const current=await readCurrent(db,userId);if(current.revision!==revision)return {status:'conflict',currentRevision:current.revision};
+    throw error;
+  }
   const claim='EXISTS (SELECT 1 FROM workspace_command_guards WHERE user_id = ? AND mutation_id = ? AND claim_token = ?)';
   const token=crypto.randomUUID(),guard=[userId,id,token];
   const statements:SqlStatement[]=[db.prepare(`INSERT INTO workspace_command_guards (user_id,mutation_id,claim_token,valid) SELECT ?,?,?,1 FROM workspaces WHERE user_id = ? AND revision = ? AND NOT EXISTS (SELECT 1 FROM workspace_mutations WHERE user_id = ? AND mutation_id = ?)${epoch.status==='active'?" AND EXISTS (SELECT 1 FROM workspace_mutation_epochs WHERE user_id = ? AND epoch = ? AND status = 'active')":''}`).bind(...guard,userId,revision,userId,id,...(epoch.status==='active'?[userId,epoch.epoch]:[]))];
   const assertion=(condition:string,values:(string|number|null)[])=>statements.push(db.prepare(`INSERT INTO workspace_assertions (user_id,mutation_id,valid) SELECT ?,?,CASE WHEN ${condition} THEN 1 ELSE 0 END WHERE ${claim}`).bind(userId,id,...values,...guard));
+  if(plan.referenceSnapshot){
+    const snapshot=plan.referenceSnapshot;
+    if(snapshot.coveredModules.length!==OWNER_TABLES.length || new Set(snapshot.coveredModules).size!==OWNER_TABLES.length)throw new CommandValidationError('Incomplete reference snapshot.');
+    for(const table of snapshot.coveredModules){
+      ownerTable(table);const rows=snapshot.rows.filter(row=>row.module===table).map(row=>({id:row.id,row_revision:row.rowRevision,content_hash:row.contentHash}));
+      if(rows.length>10000 || new Set(rows.map(row=>row.id)).size!==rows.length)throw new CommandValidationError('Invalid reference snapshot.');
+      const payload=canonicalJson(rows);if(new TextEncoder().encode(payload).length>1_800_000)throw new CommandValidationError('Reference assertions exceed atomic statement limit.');
+      assertion(`(SELECT COUNT(*) FROM ${table} WHERE user_id=?) = ? AND NOT EXISTS (SELECT id,row_revision,content_hash FROM ${table} WHERE user_id=? EXCEPT SELECT json_extract(value,'$.id'),json_extract(value,'$.row_revision'),json_extract(value,'$.content_hash') FROM json_each(?))`,[userId,rows.length,userId,payload]);
+    }
+  }
   for(const pre of plan.preconditions??[]){const table=ownerTable(pre.table);assertion(`EXISTS (SELECT 1 FROM ${table} WHERE user_id = ? AND id = ? AND row_revision = ?${pre.expectedHash===undefined?'':' AND content_hash = ?'})`,[userId,pre.id,pre.expectedRowRevision,...(pre.expectedHash===undefined?[]:[pre.expectedHash])]);}
   if(plan.backupRemoval){const removal=plan.backupRemoval;assertion(`EXISTS (SELECT 1 FROM workspace_backups old JOIN workspace_backups newer ON newer.user_id=old.user_id WHERE old.user_id=? AND old.id=? AND old.sha256=? AND old.status='ready' AND newer.id=? AND newer.sha256=? AND newer.status='ready' AND (newer.source_revision>old.source_revision OR (newer.source_revision=old.source_revision AND newer.created_at>old.created_at)))`,[userId,removal.id,removal.sha256,removal.newerId,removal.newerSha256]);}
   for(const table of plan.emptyModules??[])assertion(`NOT EXISTS (SELECT 1 FROM ${ownerTable(table)} WHERE user_id=?)`,[userId]);
@@ -134,6 +151,13 @@ export async function executeWorkspaceCommand(userId:string,input:{protocolVersi
     // Only classify a row conflict when an authoritative reread proves it; otherwise storage remains uncertain.
     if(plan.importSource){const source=await db.prepare('SELECT id FROM workspace_imports WHERE user_id=? AND id=? AND content_hash=? AND expires_at>?').bind(userId,plan.importSource.id,plan.importSource.hash,now).first<{id:string}>();if(!source)throw new ModuleConflictError('The staged import changed or expired. Review a new preview.');}
     const reader=ownerReader(db,userId);
+    if(plan.referenceSnapshot){
+      for(const table of plan.referenceSnapshot.coveredModules){
+        const rows=[];let after='';for(;;){const page=await reader.list(table,{after,limit:200});for(const row of page){rows.push({id:row.id,rowRevision:row.row_revision,contentHash:row.content_hash});after=row.id;}if(page.length<200)break;if(rows.length>10000)throw new ModuleConflictError('Related records changed.');}
+        const expected=plan.referenceSnapshot.rows.filter(row=>row.module===table).map(({id,rowRevision,contentHash})=>({id,rowRevision,contentHash}));
+        if(canonicalJson(rows)!==canonicalJson(expected))throw new ModuleConflictError('Related records changed. Review deletion again.');
+      }
+    }
     for(const pre of plan.preconditions??[]){const row=await reader.get(pre.table,pre.id);if(!row || row.row_revision!==pre.expectedRowRevision || pre.expectedHash!==undefined && row.content_hash!==pre.expectedHash)throw new ModuleConflictError('An accepted source changed. Refresh and review again.');}
     for(const write of plan.writes){const row=await reader.get(write.table,write.id);if(write.operation==='insert'?Boolean(row):!row || row.row_revision!==write.expectedRowRevision)throw new ModuleConflictError('A related record changed. Refresh and review again.');}
     throw new WorkspaceStorageError('The change could not be confirmed. Reconcile its mutation ID before retrying.');

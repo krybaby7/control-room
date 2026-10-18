@@ -75,7 +75,8 @@ test('receipts are owner scoped and stale writers do not reserve mutation IDs', 
   await storage.loadWorkspace(db,'a',seed,at); await storage.loadWorkspace(db,'b',seed,at);
   const [a,b] = await Promise.all([storage.mutateWorkspace(db,'a',1,'mutation-00000001',command,at),storage.mutateWorkspace(db,'a',1,'mutation-00000002',command,at)]);
   assert.equal([a,b].filter(Boolean).length,1);
-  assert.equal((await storage.mutateWorkspace(db,'a',2,'mutation-00000002',command,at))?.revision,3);
+  const losingId=a?'mutation-00000002':'mutation-00000001';
+  assert.equal((await storage.mutateWorkspace(db,'a',2,losingId,command,at))?.revision,3);
   assert.equal((await storage.mutateWorkspace(db,'b',1,'mutation-00000001',command,at))?.revision,2);
 });
 test('restore protects revision and retains exact previous workspace atomically using real migration SQL', async () => {

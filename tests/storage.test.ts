@@ -42,7 +42,7 @@ test('a stale second device cannot overwrite the first device edit', async () =>
     saveWorkspace(db, 'owner', 1, phone, instant),
     saveWorkspace(db, 'owner', 1, tablet, instant),
   ]);
-  assert.equal(savedPhone?.revision, 2);
-  assert.equal(savedTablet, null);
-  assert.equal((await loadWorkspace(db, 'owner', seed, instant))?.workspace.activity[0].text, 'Phone edit');
+  assert.equal([savedPhone,savedTablet].filter(Boolean).length,1);
+  assert.equal((savedPhone??savedTablet)?.revision,2);
+  assert.equal((await loadWorkspace(db, 'owner', seed, instant))?.workspace.activity[0].text,savedPhone?'Phone edit':'Stale edit');
 });

@@ -31,3 +31,13 @@ test('audit source claims append as namespaced provenance and normalized replace
  const bundle={format:'control-room',bundleVersion:1,exportedAt:now,source:{workspaceRevision:2,planningSchemaVersion:context.before.workspace.schemaVersion,moduleWatermarks:{},sourceHashes:{}},planning:context.before.workspace,modules:{audit_events:{schemaVersion:1,records:[source]},evidence_records:{schemaVersion:1,records:[{id:'ev-new',rowRevision:1,contentHash:await contentHash(canonical(value)),value}]}},attachments:[],completeness:'metadata-only'};
  sqlite.prepare('INSERT INTO evidence_records(user_id,id,row_revision,payload_json,content_hash) VALUES(?,?,1,?,?)').run('a','ev-old','{}','oldhash');const stage=await stageImport(db,'a',new TextEncoder().encode(JSON.stringify(bundle)),now);assert.deepEqual(stage.diagnostics,[]);const command={...context.command,importId:stage.id,hash:stage.hash};const plan=await reviewedImportHandler.prepare({...context,command});assert.deepEqual(plan.historyImports,[{id:`import_${stage.hash}_0`,source,importHash:stage.hash}]);assert.deepEqual(plan.replacements?.[0].records,[{id:'ev-new',value}]);assert.equal(plan.replacements?.[0].beforeRows[0].id,'ev-old');assert.equal(sqlite.prepare('SELECT id FROM evidence_records').get()!.id,'ev-old');await assert.rejects(reviewedImportHandler.prepare({...context,command:{...command,mode:'merge',selection:{projects:[],milestones:[],tasks:[],captures:[],activity:[]}}}),/Normalized module merge/);assert.equal((await readStagedImport(db,'a',stage.id,now)).stage.hash,stage.hash);sqlite.close();
 });
+
+test('reviewed repaired import retains full source repair as untrusted provenance',async()=>{
+ const {db,sqlite,context,stage:parent}=await fixture();
+ const report={sourceHash:parent.hash,operation:{type:'migrate'},changes:[],excludedRecords:[],warnings:['Review original source']};
+ const repaired=await stageImport(db,'a',new TextEncoder().encode(JSON.stringify(context.before.workspace)),now,{parentId:parent.id,parentHash:parent.hash,reports:[JSON.stringify(report)]});
+ const plan=await reviewedImportHandler.prepare({...context,command:{...context.command,importId:repaired.id,hash:repaired.hash}});
+ assert.ok(plan.historyImports?.some(item=>(item.source as {kind?:string}).kind==='import-repair'));
+ assert.equal((plan.historyImports?.find(item=>(item.source as {kind?:string}).kind==='import-repair')?.source as {report:unknown}).report!==undefined,true);
+ assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM workspace_mutations').get()!.n,0);sqlite.close();
+});
