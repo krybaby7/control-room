@@ -26,6 +26,9 @@ export async function readAgentJobEvents(db:SqlDatabase,owner:string,jobId:strin
  return jobEventPageSchema.parse({jobId,attemptId,epoch:before.execution_epoch,specSha256:frozen.specSha256,generatedAt:now,afterSequence,lastAppliedSequence:before.last_applied_sequence,items,nextAfterSequence:rows.length>50?items.at(-1)!.event.sequence:null});
 }
 export async function readAgentJobDetail(db:SqlDatabase,owner:string,jobId:string,now:string):Promise<JobDetailRead|null>{
+ agentIdSchema.parse(jobId);if(!owner)throw new Error('An authenticated owner is required.');
+ const owned=await db.prepare('SELECT 1 FROM agent_jobs WHERE user_id=? AND id=? UNION ALL SELECT 1 FROM agent_results WHERE user_id=? AND job_id=? UNION ALL SELECT 1 FROM job_attempts WHERE user_id=? AND job_id=? LIMIT 1').bind(owner,jobId,owner,jobId,owner,jobId).first();
+ if(!owned)return null;
  const model=await readAgentJobs(db,owner,now,{jobId});const job=model.jobs.find(row=>row.record.id===jobId);if(!job)return null;
  const artifacts:JobDetailRead['artifacts']=[];
  const actual=job.result?await attempt(db,owner,jobId,job.result.attemptId):null;
@@ -47,7 +50,7 @@ export async function readAgentJobDetail(db:SqlDatabase,owner:string,jobId:strin
  if(provenanceAttempt){const identity=JSON.parse(provenanceAttempt.identity_json),parsedBinding=agentExecutionBindingSchema.safeParse(identity.executionBinding),envelope=agentApprovalEnvelopeSchema.safeParse(identity.approvalEnvelope);
  if(parsedBinding.success&&envelope.success){const prior=await validateAgentJobRecord(identity.record);if(prior.id!==jobId||canonical(parsedBinding.data)!==canonical(envelope.data.executionBinding)||await contentHash(canonical(identity.taskInput))!==prior.spec.taskSnapshotSha256)throw new Error('Frozen input identity differs.');
  const current=await readCurrent(db,owner,now),task=current.workspace.tasks.find(row=>row.id===prior.spec.taskId);let currentTaskMatches:boolean|null=null;if(task){const projection=agentTaskSemanticProjection(task,await ownerAgentContext(db,owner,now).taskInputs(task.id));currentTaskMatches=await contentHash(canonical(projection))===prior.spec.taskSnapshotSha256;}
- provenance={runtime:parsedBinding.data.runtime,provider:parsedBinding.data.provider,capabilityHash:parsedBinding.data.capabilitySha256,taskInputHash:prior.spec.taskSnapshotSha256,currentTaskMatches};}}
+ provenance={specSha256:prior.specSha256,baseCommit:prior.spec.baseCommit,repositoryKey:prior.spec.repositoryKey,inputArtifacts:parsedBinding.data.artifactRefs,configurationHash:parsedBinding.data.configurationSha256,allowedPathsHash:parsedBinding.data.allowedPathsSha256,runtime:parsedBinding.data.runtime,provider:parsedBinding.data.provider,capabilityHash:parsedBinding.data.capabilitySha256,taskInputHash:prior.spec.taskSnapshotSha256,currentTaskMatches};}}
  const events=job.attempt?await readAgentJobEvents(db,owner,jobId,job.attempt.id,now):null;
  const fresh=await readAgentJobs(db,owner,now,{jobId}),freshJob=fresh.jobs.find(row=>row.record.id===jobId);
  if(fresh.revision!==model.revision||canonical(freshJob??null)!==canonical(job))throw new Error('Job detail changed during read.');

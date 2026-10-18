@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {database} from './helpers/sqlite.ts';
-import {loadWorkspace,readCurrent} from '../lib/workspace-store.ts';
+import {loadWorkspace,readCurrent,type SqlDatabase,type SqlStatement} from '../lib/workspace-store.ts';
 import {createSeedWorkspace} from '../lib/seed.ts';
 import {workspaceHandlers} from '../lib/workspace-handlers.ts';
 import {executeWorkspaceCommand} from '../lib/workspace-transaction.ts';
@@ -75,5 +75,14 @@ test('actual owner artifact projection links only bound ready verified ledger me
   const purged=await readAgentJobDetail(f.db,owner,f.record.id,now);assert.equal(purged!.artifacts[0].status,'unavailable');assert.equal(purged!.artifacts[0].href,null);assert.equal(purged!.artifacts[0].filename,null);
   f.sqlite.prepare('DELETE FROM agent_artifacts WHERE user_id=?').run(owner);
   assert.equal((await readAgentJobDetail(f.db,owner,f.record.id,now))!.artifacts[0].status,'unavailable');
+ }finally{f.sqlite.close();}
+});
+
+test('late operational attempt revision changes reject the event page atomically read from an older view',async()=>{
+ const f=await fixture();try{
+ let injected=false;
+ function wrap(statement:SqlStatement):SqlStatement{return {bind(...values){return wrap(statement.bind(...values));},first:<T>()=>statement.first<T>(),run:()=>statement.run(),all:async<T>()=>{const result=await statement.all<T>();if(!injected){injected=true;f.sqlite.prepare('UPDATE job_attempts SET operational_revision=operational_revision+1 WHERE user_id=? AND id=?').run(owner,attemptId);}return result;}};}
+ const raced:SqlDatabase={...f.db,prepare(sql){const statement=f.db.prepare(sql);return sql.startsWith('SELECT sequence,payload_json')?wrap(statement):statement;}};
+ await assert.rejects(readAgentJobEvents(raced,owner,f.record.id,attemptId,now),/changed during read/);assert.equal(injected,true);
  }finally{f.sqlite.close();}
 });
