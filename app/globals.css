@@ -45,3 +45,10 @@
 /* Fixed desktop navigation must retain access to capture and account controls as
    navigation grows or the viewport becomes shorter. */
 @media(min-width:701px){.sidebar{min-height:0;max-height:100dvh;overflow-y:auto;overflow-x:hidden;overscroll-behavior-y:contain}.sidebar>*{flex-shrink:0}}
+
+/* Accessible foregrounds on white and pale workspace surfaces. Keep secondary
+   information readable without changing controls, content or status semantics. */
+.brand small,.workspace-caption,.nav-item,.sidebar-capture,.private-label,.account-copy small,.breadcrumb,.breadcrumb strong,.sync-indicator,.date-line>span,.equal-priority,.button.secondary,.empty-state h3,.app-footer,.field-label,.form-details summary,.search-field input,.status-filter select,.project-card-footer b{color:#59677d}
+.nav-item.active{color:#5047a8}.text-button,.text-button.muted{color:#514a99}
+.field input::placeholder,.field textarea::placeholder{color:#59677d;opacity:1}
+.review-panel h3{color:#625174}.review-panel .text-button,.review-link{color:#594478}

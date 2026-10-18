@@ -8,7 +8,7 @@ const commands=[
  ['node-tests',['test']],['bridge-tests',['run','test:bridge']],['typecheck',['run','typecheck']],['lint',['run','lint']],['build',['run','build']],
  ['generation-d1',['run','test:generation-d1']],['d1-recovery',['run','test:workspace-d1']],['sources-d1',['run','test:sources-d1']],
  ['reviews-migration-d1',['run','test:reviews-migration-d1']],['reviews-d1',['run','test:reviews-d1']],['scheduled-backup-d1',['run','test:scheduled-backup-d1']],
- ['scheduled-source-d1',['run','test:scheduled-source-d1']],['runtime-d1',['run','test:runtime-d1']],['worker-fixture',['run','test:fixture']],
+ ['scheduled-source-d1',['run','test:scheduled-source-d1']],['runtime-d1',['run','test:runtime-d1']],['agents-d1',['exec','--','node','--experimental-strip-types','scripts/test-agents-d1.mjs']],['segmented-recovery',['exec','--','node','--experimental-strip-types','scripts/test-recovery-segments-d1.mjs']],['worker-fixture',['run','test:fixture']],
  ['attachment-r2',['run','test:attachments-r2']],['r2-recovery',['run','test:attachment-recovery-r2']],['chromium',['run','test:e2e']],
  ['r2-chromium',['run','test:e2e:r2']],['attachment-http',['run','test:attachments-http']]
 ];
