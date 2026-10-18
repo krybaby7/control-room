@@ -1,3 +1,5 @@
+import {buildAgentJobSpec,agentJobSpecSha256} from '../lib/agents/policy.ts';
+import {normalizeEvaluationSummary} from '../lib/agents/evaluation-import.ts';
 import {decodePlanning} from '../lib/workspace-codec.ts';
 import {exportWorkspaceBundle} from '../lib/workspace-export.ts';
 import {createHash} from 'node:crypto';
@@ -105,6 +107,19 @@ async function seedRestoreModule(sqlite:ReturnType<typeof database>['sqlite'],ta
  const subject={type:'task',id:currentPlanning.tasks[0].id};
  const head={id:'preserved',currentVersion:1,archivedAt:null};
  const add=(name:string,value:unknown,columns:string[]=[],values:(string|number|null)[]=[],rowId='preserved')=>sqlite.prepare(`INSERT INTO ${name} (user_id,id,row_revision,payload_json,content_hash${columns.length?','+columns.join(','):''}) VALUES (${Array.from({length:5+columns.length},()=>'?').join(',')})`).run('a',rowId,1,JSON.stringify(value),fixtureHash(value),...values);
+ if(['agent_jobs','agent_results','evaluation_runs'].includes(table)){
+  // These are typed historical records only: no queue, approval, capability,
+  // budget reservation or live process authority is seeded by this fixture.
+  const task=currentPlanning.tasks.find(row=>row.status!=='archived'&&currentPlanning.projects.some(project=>project.id===row.projectId&&!project.archivedAt));assert.ok(task);
+  const spec=await buildAgentJobSpec({operation:'project.inspect',projectId:task.projectId,taskId:task.id,repositoryKey:'retained-fixture',baseCommit:'b'.repeat(40),inputArtifactIds:[],requestedModel:'synthetic-fixture-model',effort:'medium',timeoutSeconds:30,outputBytesLimit:4096,dependsOnJobIds:[]},{workspace:currentPlanning,workspaceRevision:1,acceptanceInputs:[]});
+  const job={id:table==='agent_jobs'?'preserved':'retained-parent-job',intentId:'historical-intent',spec,specSha256:await agentJobSpecSha256(spec),createdAt:now,retryOfJobId:null,historical:true};
+  const result={attemptId:'retained-attempt',epoch:1,disposition:'blocked',requestedModel:spec.requestedModel,observedModel:null,modelVerified:false,terminalProtocolObserved:false,processExitConfirmed:true,terminationUnconfirmed:false,artifactIds:[],usage:null,diagnostic:'not_installed'};
+  const insert=async(name:typeof OWNER_TABLES[number],raw:unknown)=>{const value=raw as {id:string},columns=moduleColumnNames(name),projection=await moduleProjection(name,value.id,value as unknown as JsonValue);add(name,value,[...columns],columns.map(column=>projection[column]),value.id);};
+  if(table==='agent_jobs'){await insert(table,job);return;}
+  if(table==='agent_results'){await insert('agent_jobs',job);await insert(table,{id:'preserved',jobId:job.id,attemptId:result.attemptId,recordedAt:now,result,resultSha256:fixtureHash(result),frozenJob:{...job,historical:true},historical:true});return;}
+  const device={id:'retained-evaluation-device',label:'Retained evaluation source context',createdAt:now,archivedAt:null};await insert('devices',device);
+  const [evaluation]=await normalizeEvaluationSummary({version:'0.1.0',runs:[{id:'retained-run',taskId:'synthetic-lab-fixture',taskVersion:1,fixtureHash:'a'.repeat(64),status:'blocked',createdAt:now,finishedAt:null}]},{ownerId:'a',deviceId:device.id,sourceInstance:'agent-lab',observedAt:now,sourceFormatVersion:1});await insert(table,evaluation);return;
+ }
  if(['devices','runtime_adapter_configurations','runtime_evidence'].includes(table)){
   const device={id:table==='devices'?'preserved':'runtime-device',label:'Retained disconnected device',createdAt:now,archivedAt:null};
   const observation={source:'pc-command-center',instanceId:'retained-pc',observedAt:null,reportedAgeSeconds:null,state:'unavailable',diagnostic:'source_unreachable',metrics:null};
@@ -155,6 +170,7 @@ async function seedRestoreModule(sqlite:ReturnType<typeof database>['sqlite'],ta
 for(const table of OWNER_TABLES)test(`planning restore refuses to omit ${table} data`,async()=>{
   const {db,sqlite}=await setup();await seedRestoreModule(sqlite,table);
   if(table==='project_baseline_revisions'){const bundle=await exportWorkspaceBundle(db,'a',{now:()=>now});assert.equal(bundle.modules.project_baseline_revisions.records.length,1);assert.equal(bundle.modules.review_snapshots.records.length,1);}
+  if(['agent_jobs','agent_results','evaluation_runs'].includes(table)){const bundle=await exportWorkspaceBundle(db,'a',{now:()=>now});assert.equal(bundle.modules[table].records.length,1,'typed historical fixture must export before testing guarded restore');if(table==='agent_results')assert.equal(bundle.modules.agent_jobs.records.length,1);if(table==='evaluation_runs')assert.equal(bundle.modules.devices.records.length,1);}
   const originals=new Map(OWNER_TABLES.map(name=>[name,sqlite.prepare(`SELECT * FROM ${name} ORDER BY user_id,id`).all()]));
   await assert.rejects(executeWorkspaceCommand('a',{protocolVersion:1,expectedRevision:1,mutationId:id,command:{type:'workspace.restore',workspace:createSeedWorkspace(now)}},deps(db,workspaceHandlers)));
   assert.equal(count(sqlite,table),1);for(const name of OWNER_TABLES)assert.deepEqual(sqlite.prepare(`SELECT * FROM ${name} ORDER BY user_id,id`).all(),originals.get(name),name);for(const affected of ['workspace_mutations','workspace_recovery','audit_events','workspace_job_intents','workspace_command_guards','workspace_assertions'])assert.equal(count(sqlite,affected),0,affected);

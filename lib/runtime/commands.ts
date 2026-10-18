@@ -2,7 +2,7 @@ import {z} from 'zod';
 import {canonical,contentHash} from '../canonical-json.ts';
 import {parseAuditEvent} from '../audit-events.ts';
 import {evidenceDateSchema} from '../evidence-validation.ts';
-import {deviceDisplaySchema,deviceIdSchema,enrollmentInputSchema,opaqueRuntimeAliasSchema} from '../devices/validation.ts';
+import {deviceDisplaySchema,deviceIdSchema,deviceEnrollmentScopesSchema,enrollmentInputSchema,opaqueRuntimeAliasSchema} from '../devices/validation.ts';
 import {DEVICE_LIMITS} from '../devices/contracts.ts';
 import {RUNTIME_LIMITS,type SelectedRuntimeEvidence} from './contracts.ts';
 import {runtimeAdapterConfigurationSchema,runtimeObservationSchema,runtimeSourceSchema,selectedRuntimeEvidenceSchema} from './validation.ts';
@@ -10,7 +10,7 @@ import type {CommandHandler,PrepareContext,MutationPlan} from '../workspace-tran
 import type {ModuleRow,RegisteredOwnerTable} from '../workspace-modules.ts';
 import type {JsonValue} from '../workspace-protocol.ts';
 const positive=z.number().int().positive().safe(),hash=z.string().regex(/^[a-f0-9]{64}$/);
-export const enrollmentMaterialSchema=z.object({id:deviceIdSchema,deviceId:deviceIdSchema,secretHash:hash,expiresAt:evidenceDateSchema,scopes:z.tuple([z.literal('telemetry:write')])}).strict();
+export const enrollmentMaterialSchema=z.object({id:deviceIdSchema,deviceId:deviceIdSchema,secretHash:hash,expiresAt:evidenceDateSchema,scopes:deviceEnrollmentScopesSchema}).strict();
 export const enrollmentCommandSchema=z.object({type:z.literal('devices.enrollment.create'),value:enrollmentInputSchema.extend({deviceId:deviceIdSchema.optional()}).strict()}).strict();
 export const revokeDeviceCommandSchema=z.object({type:z.literal('devices.revoke'),id:deviceIdSchema,expectedRowRevision:positive}).strict();
 export const configureAdapterCommandSchema=z.object({type:z.literal('runtime.adapter.configure'),id:deviceIdSchema.optional(),expectedRowRevision:positive.optional(),value:runtimeAdapterConfigurationSchema.omit({id:true})}).strict().refine(v=>(v.id===undefined)===(v.expectedRowRevision===undefined),'An update requires its exact row revision.');
@@ -43,7 +43,7 @@ export const enrollmentCommandHandler:CommandHandler={async prepare(context){
  }
  plan.deviceControls={enrollment:material};
  // The enrollment digest and plaintext never enter the immutable public ledger.
- audit(context,plan,command.type,'device',material.deviceId,null,{deviceId:material.deviceId,label:command.value.label,expiresAt:material.expiresAt,scopes:['telemetry:write']},['device-enrollment',material.deviceId]);
+ audit(context,plan,command.type,'device',material.deviceId,null,{deviceId:material.deviceId,label:command.value.label,expiresAt:material.expiresAt,scopes:material.scopes},['device-enrollment',material.deviceId]);
  return plan;
 }};
 export const revokeDeviceCommandHandler:CommandHandler={async prepare(context){

@@ -48,15 +48,19 @@ import { SourcesView } from './sources-view';
 import {ReviewCenter} from './review-center';
 import {z} from 'zod';
 import {canonical,contentHash} from '@/lib/canonical-json';
+import {ExecutionEnrollmentDialog} from './execution-enrollment-dialog';
+import type {GenericDeviceEnrollmentInput} from '@/lib/devices/validation';
 import {AgentsView} from './agents-view';
+import {JobBudgetEditor} from './job-budget-editor';
+import type {JobBudgetDisplay} from '@/lib/agents/read-model';
 import {JobEditor} from './job-editor';
-import {RuntimeView,EnrollmentSecretUnavailableError,EnrollmentNotStartedError,type RuntimeEnrollmentInput,type RuntimeEnrollmentResult} from './runtime-view';
+import {RuntimeView,EnrollmentSecretUnavailableError,EnrollmentNotStartedError,type RuntimeEnrollmentResult} from './runtime-view';
 import {BaselineRevisionEditor} from './baseline-revision-editor';
 import type {ReviewSnapshot} from '@/lib/reviews/contracts';
 
 type View = 'today' | 'projects' | 'inbox' | 'sources' | 'reviews' | 'search' | 'attention' | 'weekly' | 'evidence' | 'history' | 'runtime' | 'agents';
 type SaveBase = { revision: number; submission?: Submission | null };
-type Editor = {type:'agent-job';projectId?:string;taskId?:string}|{type:'baseline-revision';projectId:string;snapshot:ReviewSnapshot;snapshotHash:string}|{type:'attachment-reserve';snapshot:EvidenceSnapshot}|{type:'attachment-upload';attachment:AttachmentSnapshot;snapshot:EvidenceSnapshot}|{type:'attachment-lifecycle';attachment:AttachmentSnapshot;snapshot:EvidenceSnapshot;action:'finalize'|'retire'}|{type:'evidence';evidence?:EvidenceVersion;snapshot?:EvidenceSnapshot}|{type:'decision';decision?:DecisionVersion;snapshot?:EvidenceSnapshot}|{type:'evidence-link';evidence:EvidenceVersion;snapshot:EvidenceSnapshot;subject?:EvidenceSubject}|{type:'requirement';requirement?:{value:EvidenceRequirement;rowRevision:number};snapshot:EvidenceSnapshot;subject?:EvidenceSubject}|{type:'acceptance';snapshot:EvidenceSnapshot;subject?:EvidenceSubject}|{type:'decision-action';decision:DecisionVersion;snapshot:EvidenceSnapshot;action:'decide'|'supersede'}|{ type: 'task'; task?: Task; projectId: string; milestoneId?:string } | { type: 'milestone'; milestone?: Milestone; project: Project } | { type: 'project'; project?: Project } | { type: 'capture'; capture?: Capture } | { type: 'convert'; capture: Capture } | {type:'recurrence';rule?:{value:RecurrenceRule;rowRevision:number}} | {type:'weekly-review';draft:WeeklyReviewDraft};
+type Editor = {type:'agent-budget';budget?:JobBudgetDisplay}|{type:'execution-enrollment'}|{type:'agent-job';projectId?:string;taskId?:string}|{type:'baseline-revision';projectId:string;snapshot:ReviewSnapshot;snapshotHash:string}|{type:'attachment-reserve';snapshot:EvidenceSnapshot}|{type:'attachment-upload';attachment:AttachmentSnapshot;snapshot:EvidenceSnapshot}|{type:'attachment-lifecycle';attachment:AttachmentSnapshot;snapshot:EvidenceSnapshot;action:'finalize'|'retire'}|{type:'evidence';evidence?:EvidenceVersion;snapshot?:EvidenceSnapshot}|{type:'decision';decision?:DecisionVersion;snapshot?:EvidenceSnapshot}|{type:'evidence-link';evidence:EvidenceVersion;snapshot:EvidenceSnapshot;subject?:EvidenceSubject}|{type:'requirement';requirement?:{value:EvidenceRequirement;rowRevision:number};snapshot:EvidenceSnapshot;subject?:EvidenceSubject}|{type:'acceptance';snapshot:EvidenceSnapshot;subject?:EvidenceSubject}|{type:'decision-action';decision:DecisionVersion;snapshot:EvidenceSnapshot;action:'decide'|'supersede'}|{ type: 'task'; task?: Task; projectId: string; milestoneId?:string } | { type: 'milestone'; milestone?: Milestone; project: Project } | { type: 'project'; project?: Project } | { type: 'capture'; capture?: Capture } | { type: 'convert'; capture: Capture } | {type:'recurrence';rule?:{value:RecurrenceRule;rowRevision:number}} | {type:'weekly-review';draft:WeeklyReviewDraft};
 const navItems = [{ id: 'today', label: 'Today', icon: Sun }, { id: 'projects', label: 'Projects', icon: LayoutGrid }, { id: 'inbox', label: 'Inbox', icon: Inbox }, {id:'weekly',label:'Weekly planning',icon:CalendarDays}, { id: 'search', label: 'Search', icon: Search }, { id: 'attention', label: 'Attention', icon: ListChecks }, { id: 'history', label: 'History', icon: FolderOpen }, { id: 'evidence', label: 'Evidence & decisions', icon: ListChecks }, { id: 'sources', label: 'Sources', icon: FolderOpen },{id:'reviews',label:'Briefs & automations',icon:Radio},{id:'runtime',label:'Runtime',icon:Radio},{id:'agents',label:'Agents',icon:Radio}] as const;
 
 export default function ControlCenter({ userName }: { userName: string }) {
@@ -70,6 +74,8 @@ export default function ControlCenter({ userName }: { userName: string }) {
   const busyRef = useRef(false);
   const sourcePendingRef=useRef(false);
   const sourceDirtyRef=useRef(false);
+  const agentPanelGuards=useRef({jobsDirty:false,jobsPending:false,enrollmentDirty:false,enrollmentPending:false});
+  const agentGuard=(key:'jobsDirty'|'jobsPending'|'enrollmentDirty'|'enrollmentPending',value:boolean)=>{agentPanelGuards.current[key]=value;sourceDirtyRef.current=agentPanelGuards.current.jobsDirty||agentPanelGuards.current.enrollmentDirty;sourcePendingRef.current=agentPanelGuards.current.jobsPending||agentPanelGuards.current.enrollmentPending;polling.current?.setBusy(sourcePendingRef.current||busyRef.current);};
   useEffect(()=>{const leave=(event:BeforeUnloadEvent)=>{if(sourceDirtyRef.current||sourcePendingRef.current)event.preventDefault();};window.addEventListener('beforeunload',leave);return()=>window.removeEventListener('beforeunload',leave);},[]);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -176,12 +182,12 @@ export default function ControlCenter({ userName }: { userName: string }) {
       setNotice('Saved to your workspace');
     } finally { busyRef.current = false;polling.current?.setBusy(false);setBusy(false); }
   }
-  async function enrollRuntimeDevice(input:RuntimeEnrollmentInput):Promise<RuntimeEnrollmentResult>{
+  async function enrollRuntimeDevice(input:GenericDeviceEnrollmentInput):Promise<RuntimeEnrollmentResult>{
     if(expiredRef.current)throw new SessionExpiredError();
     if(!envelopeRef.current)throw new EnrollmentNotStartedError('Load the saved workspace before enrollment.');
     if(busyRef.current)throw new EnrollmentNotStartedError('Wait for the current owner change before enrollment.');
     if(directSubmission.current||editorBaseRef.current?.submission)throw new EnrollmentNotStartedError('Resolve the original owner change before enrollment.');
-    const command={type:'devices.enrollment.create',value:{label:input.label,...(input.deviceId?{deviceId:input.deviceId}:{}),scopes:['telemetry:write']}};
+    const command={type:'devices.enrollment.create',value:{label:input.label,...(input.deviceId?{deviceId:input.deviceId}:{}),scopes:[...input.scopes]}};
     const key=canonical(command);
     if(runtimeEnrollment.current&&runtimeEnrollment.current.key!==key)throw new Error('Retry the original enrollment request before starting another.');
     busyRef.current=true;polling.current?.setBusy(true);setBusy(true);
@@ -320,7 +326,7 @@ export default function ControlCenter({ userName }: { userName: string }) {
         {!unavailableTarget && view==='projects' && !milestone && <TaskBulkActions key={`task-bulk:${project?.id??'portfolio'}`} workspace={workspace} revision={envelope!.revision} projectId={project?.id} onTask={openTask} onCommand={(command,revision)=>mutate(command,undefined,revision)} />}
         {view === 'inbox' && <InboxView revision={envelope!.revision} onBulkCommand={(command,revision)=>mutate(command,undefined,revision)} workspace={workspace} busy={busy} onCreate={() => openEditor({ type: 'capture' })} onEdit={capture => openEditor({ type: 'capture', capture })} onConvert={capture => openEditor({ type: 'convert', capture })} onTask={openTask} onCommand={run} />}
         {view === 'reviews' && envelope && <ReviewCenter envelope={envelope} busy={busy||loading} onBaselineRevision={(projectId,snapshot,snapshotHash)=>{if(mayNavigate())openEditor({type:'baseline-revision',projectId,snapshot,snapshotHash});}} onCommand={command=>mutate(command as Command)} onRefreshWorkspace={()=>void refresh()} onDirtyChange={dirty=>{sourceDirtyRef.current=dirty;}} onPendingChange={pending=>{sourcePendingRef.current=pending;polling.current?.setBusy(pending||busyRef.current);}} />}
-        {view === 'agents' && envelope && <AgentsView envelope={envelope} busy={busy||loading||editor!==null} onCommand={command=>mutate(command as Command)} onRefreshWorkspace={()=>void refresh()} onOpenJob={()=>{if(mayNavigate())openEditor({type:'agent-job'});}} onDirtyChange={dirty=>{sourceDirtyRef.current=dirty;}} onPendingChange={pending=>{sourcePendingRef.current=pending;polling.current?.setBusy(pending||busyRef.current);}} />}
+        {view === 'agents' && envelope && <AgentsView envelope={envelope} busy={busy||loading||editor!==null} onCommand={command=>mutate(command as Command)} onRefreshWorkspace={()=>void refresh()} onOpenJob={()=>{if(mayNavigate())openEditor({type:'agent-job'});}} onOpenBudget={budget=>{if(mayNavigate())openEditor({type:'agent-budget',budget});}} onOpenEnrollment={()=>{if(mayNavigate())openEditor({type:'execution-enrollment'});}} onDirtyChange={dirty=>agentGuard('jobsDirty',dirty)} onPendingChange={pending=>agentGuard('jobsPending',pending)} />}
         {view === 'runtime' && envelope && <RuntimeView envelope={envelope} busy={busy||loading} onCommand={command=>mutate(command as Command)} onEnroll={enrollRuntimeDevice} onRefreshWorkspace={()=>void refresh()} onDirtyChange={dirty=>{sourceDirtyRef.current=dirty;}} onPendingChange={pending=>{sourcePendingRef.current=pending;polling.current?.setBusy(pending||busyRef.current);}} />}
         {view === 'sources' && envelope && <SourcesView onDirtyChange={dirty=>{sourceDirtyRef.current=dirty;}} onPendingChange={pending=>{sourcePendingRef.current=pending;polling.current?.setBusy(pending||busyRef.current);}} envelope={envelope} busy={busy || loading} onRefresh={() => void refresh()} onRestore={restoreWorkspace} onPreviousBackup={loadPreviousBackup} onBackup={()=>mutate({type:'workspace.backup'})} onImport={command=>mutate(command)} onDelete={command=>mutate(command)} onBackupRemove={command=>mutate(command)} />}
       </>}
@@ -328,6 +334,8 @@ export default function ControlCenter({ userName }: { userName: string }) {
     {notice && <div className="save-toast" role="status"><Check size={16} />{notice}</div>}
     <OriginalSaveContext.Provider value={{check:unresolved.find(item=>item.submission.mutationId===editorSubmissionId)?()=>checkOriginal(unresolved.find(item=>item.submission.mutationId===editorSubmissionId)!):undefined}}>
     <DurableDraftProvider baseRevision={editorRevision} controllerRef={editorDraftController} onRecover={recoverSubmission}>
+    {envelope && editor?.type==='agent-budget' && <JobBudgetEditor key={`agent-budget:${editor.budget?.id??'new'}`} budget={editor.budget} onSave={command=>saveEditor(command as Command)} onClose={closeEditor} />}
+    {envelope && editor?.type==='execution-enrollment' && <ExecutionEnrollmentDialog disabled={busy||loading} onEnroll={enrollRuntimeDevice} onClose={()=>{if(mayNavigate())closeEditor();}} onRefreshWorkspace={()=>void refresh()} onDirtyChange={dirty=>agentGuard('enrollmentDirty',dirty)} onPendingChange={pending=>agentGuard('enrollmentPending',pending)} />}
     {envelope && editor?.type==='agent-job' && <JobEditor key={`agent-job:${editor.taskId??editor.projectId??'new'}`} envelope={envelope} projectId={editor.projectId} taskId={editor.taskId} onSave={command=>saveEditor(command as Command)} onClose={closeEditor} />}
     {envelope && editor?.type==='baseline-revision' && <BaselineRevisionEditor key={`baseline-revision:${editor.projectId}:${editor.snapshot.id}:${editor.snapshotHash}`} projectId={editor.projectId} snapshot={editor.snapshot} snapshotHash={editor.snapshotHash} onSave={command=>saveEditor(command as Command)} onClose={closeEditor} />}
     {envelope && editor?.type === 'task' && <TaskEditor revision={envelope.revision} key={`task:${editor.task?.id??`new:${editor.projectId}:${editor.milestoneId??''}`}`} task={editor.task} projectId={editor.projectId} initialMilestoneId={editor.milestoneId} workspace={envelope!.workspace} onSave={saveEditor} onClose={closeEditor} />}
