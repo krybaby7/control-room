@@ -1,3 +1,4 @@
+import {getOrCreateWorkspaceNamespaces} from './workspace-namespaces.ts';
 import {currentWeek} from './calendar.ts';
 import {weeklyPlanSchema,hydrateCurrentWeeklyPins} from './weekly-planning.ts';
 import {getProjectBaseline,baselineRecordId} from './project-baselines.ts';
@@ -37,6 +38,7 @@ export async function loadWorkspace(db: SqlDatabase, userId: string, seed: () =>
     const initial = parseWorkspaceExport(seed(),now);
     await db.prepare('INSERT INTO workspaces (user_id, content, revision, updated_at) VALUES (?, ?, 1, ?) ON CONFLICT(user_id) DO NOTHING').bind(userId, encodePlanning(initial), now).run();
   }
+  await getOrCreateWorkspaceNamespaces(db,userId);
   // Existing content is migrated in memory and saved at the next successful mutation, never reseeded.
   return readCurrent(db,userId,now);
 }
@@ -46,9 +48,9 @@ export async function loadPreviousWorkspace(db:SqlDatabase,userId:string):Promis
   return row ? envelope(row) : null;
 }
 /** Legacy adapter; all production commands now reach the shared executor. */
-export async function mutateWorkspace(db:SqlDatabase,userId:string,revision:number,mutationId:string,command:unknown,now:string):Promise<WorkspaceEnvelope|null> {
+export async function mutateWorkspace(db:SqlDatabase,userId:string,revision:number,mutationId:string,command:unknown,now:string,services:Pick<import('./workspace-transaction.ts').WorkspaceTransactionDeps,'attachmentAccess'|'verifyAttachment'>={}):Promise<WorkspaceEnvelope|null> {
   const { executeWorkspaceCommand } = await import('./workspace-transaction.ts');
   const { workspaceHandlers } = await import('./workspace-handlers.ts');
-  const result = await executeWorkspaceCommand(userId,{protocolVersion:1,expectedRevision:revision,mutationId,command}, {db,now:()=>now,handlers:workspaceHandlers});
+  const result = await executeWorkspaceCommand(userId,{protocolVersion:1,expectedRevision:revision,mutationId,command}, {db,now:()=>now,handlers:workspaceHandlers,...services});
   return result.status === 'conflict' ? null : result.envelope;
 }

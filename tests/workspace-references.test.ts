@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {z} from 'zod';
 import {database} from './helpers/sqlite.ts';
 import {createSeedWorkspace} from '../lib/seed.ts';
-import {ownerReader,type OwnerScopedReader} from '../lib/workspace-modules.ts';
+import {OWNER_TABLES,ownerReader,type OwnerScopedReader} from '../lib/workspace-modules.ts';
 import {canonical,contentHash} from '../lib/workspace-export.ts';
 import {ReferenceRegistry,readReferenceSnapshot,referenceImpact,type TypedReference} from '../lib/workspace-references.ts';
 const schema=z.object({text:z.string(),refs:z.array(z.object({kind:z.enum(['project','milestone','task','capture','evidence','decision','attachment']),id:z.string(),path:z.array(z.union([z.string(),z.number()]))}).strict())}).strict();
@@ -21,7 +21,7 @@ test('missing or unknown descriptors fail closed without inventing schemas',asyn
 });
 test('owner-scoped traversal crosses pages and never reads another owner',async()=>{
  const f=await fixture();for(let n=0;n<205;n++){await f.put('a',String(n).padStart(4,'0'));await f.put('b',String(n).padStart(4,'0'),[{kind:'task',id:'private-b',path:['target']}]);}
- const snapshot=await readReferenceSnapshot(ownerReader(f.db,'a'),registry());assert.equal(snapshot.rows.length,205);assert.ok(snapshot.rows.every(row=>row.references.length===0));assert.equal(snapshot.coveredModules.length,9);
+ const snapshot=await readReferenceSnapshot(ownerReader(f.db,'a'),registry());assert.equal(snapshot.rows.length,205);assert.ok(snapshot.rows.every(row=>row.references.length===0));assert.equal(snapshot.coveredModules.length,OWNER_TABLES.length);
  const other=await readReferenceSnapshot(ownerReader(f.db,'b'),registry());assert.notEqual(snapshot.digest,other.digest);f.sqlite.close();
 });
 test('reference validation closes declared kinds and preserves unresolved future kinds',async()=>{

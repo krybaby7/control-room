@@ -5,7 +5,7 @@ import { parsePlanningImport } from '../lib/workspace-codec.ts';
 import { previewEntityDeletion, entityDeleteHandler } from '../lib/workspace-deletion.ts';
 import type { PrepareContext } from '../lib/workspace-transaction.ts';
 import type { Workspace } from '../lib/types.ts';
-import {referenceRegistry,readReferenceSnapshot,type TypedReference} from '../lib/workspace-references.ts';
+import {referenceRegistry,readReferenceSnapshot} from '../lib/workspace-references.ts';
 import {database} from './helpers/sqlite.ts';
 import {loadWorkspace,readCurrent} from '../lib/workspace-store.ts';
 import {executeWorkspaceCommand} from '../lib/workspace-transaction.ts';
@@ -52,16 +52,13 @@ test('unknown or invalid normalized module rows fail closed without typed valid 
   }
 });
 test('registered unrelated normalized rows permit deletion; exact references and dangling references block',async()=>{
-  referenceRegistry.register({key:'evidence_records',schemaVersion:1,entityKind:'evidence',parse:value=>{
-    if(!value||typeof value!=='object'||!Array.isArray((value as {refs:unknown}).refs))throw new Error('Invalid synthetic evidence');return value;
-  },references:value=>(value as {refs:TypedReference[]}).refs});
-  const workspace=seed(),ctx=await context(workspace);let refs:TypedReference[]=[];
-  const query={...ctx.query,async list(table:string){const value={refs};return table==='evidence_records'?[{id:'ev',row_revision:1,payload_json:JSON.stringify(value),content_hash:await contentHash(canonical(value))}]:[];}};
+  const workspace=seed(),ctx=await context(workspace);let subject:{type:'project'|'task';id:string}={type:'project',id:workspace.projects[0].id};
+  const query={...ctx.query,async list(table:string){const value={id:'requirement',subject,label:'Synthetic deletion reference',scope:'implementation',required:true,maxAgeDays:null,candidate:null,requireAttachment:false,archivedAt:null};return table==='evidence_requirements'?[{id:'requirement',row_revision:1,payload_json:JSON.stringify(value),content_hash:await contentHash(canonical(value))}]:[];}};
   const reviewed=async()=>{const snapshot=await readReferenceSnapshot(query,referenceRegistry),preview=await previewEntityDeletion(workspace,'task',workspace.tasks[0].id,9,snapshot);return {...ctx,query,command:{...ctx.command,previewHash:preview.previewHash}};};
   const plan=await entityDeleteHandler.prepare(await reviewed());assert.equal(plan.referenceSnapshot?.rows.length,1);assert.equal(plan.planningAfter.tasks.length,workspace.tasks.length-1);
-  const old=await reviewed();refs=[{kind:'task',id:workspace.tasks[0].id,path:['refs',0]}];await assert.rejects(entityDeleteHandler.prepare(old),/changed/);
+  const old=await reviewed();subject={type:'task',id:workspace.tasks[0].id};await assert.rejects(entityDeleteHandler.prepare(old),/changed/);
   await assert.rejects(entityDeleteHandler.prepare(await reviewed()),/Normalized records still reference/);
-  refs=[{kind:'task',id:'missing-task',path:['refs',0]}];await assert.rejects(entityDeleteHandler.prepare(await reviewed()),/dangling references/);
+  subject={type:'task',id:'missing-task'};await assert.rejects(entityDeleteHandler.prepare(await reviewed()),/dangling references/);
 });
 
 test('archived empty project removal retains historical activity text and audits the cleared link',async()=>{

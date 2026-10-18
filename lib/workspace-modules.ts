@@ -1,7 +1,7 @@
 import type { SqlDatabase } from './workspace-store.ts';
 import type { JsonValue } from './workspace-protocol.ts';
 // Closed server registry. Each payload is JSON data; SQL identifiers never come from requests.
-export const OWNER_TABLES = ['weekly_plans', 'weekly_reviews', 'recurrence_rules', 'recurrence_occurrences', 'evidence_records', 'evidence_links', 'decisions', 'attachments', 'workspace_configuration'] as const;
+export const OWNER_TABLES = ['weekly_plans', 'weekly_reviews', 'recurrence_rules', 'recurrence_occurrences', 'evidence_records', 'evidence_versions', 'evidence_mappings', 'evidence_links', 'evidence_requirements', 'acceptance_records', 'decisions', 'decision_records', 'decision_versions', 'attachments', 'attachment_usage', 'workspace_configuration'] as const;
 export type RegisteredOwnerTable = typeof OWNER_TABLES[number];
 export interface ModuleRow { id: string; row_revision: number; payload_json: string; content_hash: string; }
 export interface GuardedWrite { table: RegisteredOwnerTable; operation: 'insert' | 'update' | 'delete'; id: string; value?: JsonValue; expectedRowRevision: number | null; }

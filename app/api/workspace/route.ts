@@ -1,3 +1,5 @@
+import {getWorkspaceNamespaces} from '../../../lib/workspace-namespaces';
+import {createR2BlobStore,readReadyAttachment} from '../../../lib/attachments';
 import { env } from 'cloudflare:workers';
 import { getChatGPTUser } from '../../chatgpt-auth';
 import { readMutation, RequestError } from '../../../lib/api-guards';
@@ -42,7 +44,12 @@ export async function handleWorkspacePOST(request:Request,importId?:string) {
     const { revision, mutationId, command } = await readMutation(request,{importId});
     const now = new Date().toISOString();
     await loadWorkspace(env.DB,user.userId,() => createSeedWorkspace(now),now);
-    const saved = await mutateWorkspace(env.DB,user.userId,revision,mutationId,command,now);
+    const namespaces=await getWorkspaceNamespaces(env.DB,user.userId),store=createR2BlobStore(env.BUCKET);
+    const services:Pick<import('../../../lib/workspace-transaction').WorkspaceTransactionDeps,'attachmentAccess'|'verifyAttachment'>=namespaces?{
+      attachmentAccess:{ownerNamespace:namespaces.blobNamespace,store},
+      verifyAttachment:async record=>{if(!store.available)return null;const proof=await readReadyAttachment(user.userId,record,store,{ownerNamespace:namespaces.blobNamespace,now});return {record,verifiedSha256:proof.metadata.sha256,verifiedBytes:proof.bytes.length,signatureVerified:true};},
+    }:{};
+    const saved = await mutateWorkspace(env.DB,user.userId,revision,mutationId,command,now,services);
     if (!saved) return failure('Your plan changed on another tab or device. Review the refreshed plan and save your draft again.','revision_conflict',requestId,409);
     return json(saved,requestId);
   } catch (error) {

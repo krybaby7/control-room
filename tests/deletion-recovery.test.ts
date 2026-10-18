@@ -6,10 +6,7 @@ import { loadWorkspace, readCurrent, type SqlDatabase } from '../lib/workspace-s
 import { executeWorkspaceCommand, hashJson, type CommandHandlerRegistry } from '../lib/workspace-transaction.ts';
 import { workspaceHandlers } from '../lib/workspace-handlers.ts';
 import { readWorkspaceBackup, listWorkspaceBackups, BACKUP_LIMITS } from '../lib/workspace-backups.ts';
-import { exportRegistry, ownerExportModule } from '../lib/workspace-export.ts';
 import { ModuleConflictError, WorkspaceStorageError } from '../lib/workspace-errors.ts';
-// A synthetic module adapter permits protected deletion to exercise the real bundle boundary.
-exportRegistry.register(ownerExportModule('decisions',value=>{if(!value || typeof value!=='object')throw new Error('Invalid synthetic decision');}));
 const now='2026-10-18T12:00:00.000Z';
 const input=(mutationId='manual-backup-0001',expectedRevision=1,command:unknown={type:'workspace.backup'})=>({protocolVersion:1,mutationId,expectedRevision,command});
 const deps=(db:SqlDatabase,handlers=workspaceHandlers)=>({db,handlers,now:()=>now});

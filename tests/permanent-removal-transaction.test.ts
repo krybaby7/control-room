@@ -38,7 +38,7 @@ test('full pinned manual backup quota blocks deletion without evicting an existi
 });
 
 test('normalized record inserted after deletion preview blocks deletion and its snapshot atomically',async()=>{
- const {db,sqlite}=await setup();const input=await deletion(db);const before=state(sqlite);const raced=intercept(db,()=>{sqlite.prepare('INSERT INTO evidence_links VALUES (?,?,?,?,?)').run('a','race',1,'{}','synthetic');});await assert.rejects(executeWorkspaceCommand('a',input,deps(raced)));assert.deepEqual(state(sqlite),before);assert.equal(sqlite.prepare('SELECT count(*) AS n FROM evidence_links WHERE user_id=?').get('a')!.n,1);
+ const {db,sqlite}=await setup();const input=await deletion(db);const before=state(sqlite);const raced=intercept(db,()=>{sqlite.prepare('INSERT INTO evidence_links (user_id,id,row_revision,payload_json,content_hash) VALUES (?,?,?,?,?)').run('a','race',1,'{}','synthetic');});await assert.rejects(executeWorkspaceCommand('a',input,deps(raced)));assert.deepEqual(state(sqlite),before);assert.equal(sqlite.prepare('SELECT count(*) AS n FROM evidence_links WHERE user_id=?').get('a')!.n,1);
 });
 
 test('planning storage failure after deletion snapshot rolls snapshot, receipt and audit back',async()=>{

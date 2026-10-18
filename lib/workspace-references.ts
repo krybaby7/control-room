@@ -1,3 +1,4 @@
+import {evidenceReferenceDescriptors} from './evidence-module.ts';
 import {planningReferenceDescriptors} from './planning-module.ts';
 import {z} from 'zod';
 import type {Workspace} from './types.ts';
@@ -71,4 +72,4 @@ export function referenceImpact(planning:Workspace,snapshot:ReferenceSnapshot,re
   result.canDelete=result.references.length===0;return result;
 }
 
-for(const descriptor of planningReferenceDescriptors)referenceRegistry.register(descriptor);
+for(const descriptor of [...planningReferenceDescriptors,...evidenceReferenceDescriptors])referenceRegistry.register(descriptor);

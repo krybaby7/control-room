@@ -1,0 +1,63 @@
+import { z } from 'zod';
+import { ownerTable, type RegisteredOwnerTable } from './workspace-modules.ts';
+import type { JsonValue } from './workspace-protocol.ts';
+import { evidenceHeadSchema, evidenceVersionSchema, evidenceLinkSchema, evidenceDateSchema, evidenceIdSchema } from './evidence-validation.ts';
+import { decisionVersionSchema } from './decisions.ts';
+import { evidenceRequirementSchema } from './evidence-requirements.ts';
+import { acceptanceRecordSchema } from './acceptance.ts';
+import { versionRowId } from './version-identity.ts';
+import { ATTACHMENT_POLICY, validateAttachmentMetadata } from './attachment-policy.ts';
+const columns={
+ weekly_plans:[],weekly_reviews:[],recurrence_rules:[],recurrence_occurrences:[],
+ evidence_records:['current_version','archived_at'],
+ evidence_versions:['evidence_id','version','recorded_at'],evidence_mappings:[],
+ evidence_links:['evidence_id','evidence_version','subject_type','subject_id','requirement_id','relation'],
+ evidence_requirements:['subject_type','subject_id','label','scope','required','max_age_days','candidate','require_attachment','archived_at'],
+ acceptance_records:['subject_type','subject_id','decision','statement','candidate','criteria_hash','evidence_refs_json','recorded_at','supersedes_id'],
+ decisions:[],decision_records:['current_version','archived_at'],
+ decision_versions:['decision_id','version','recorded_at','status','review_on','source_capture_id','supersedes_decision_id'],
+ attachments:['status','filename','mime_type','expected_bytes','actual_bytes','sha256','storage_key','created_at','expires_at','ready_at','upload_mutation_id','quarantine_reason'],attachment_usage:[],workspace_configuration:[],
+} satisfies Record<RegisteredOwnerTable,string[]>;
+for(const names of Object.values(columns))Object.freeze(names);
+Object.freeze(columns);
+export const IMMUTABLE_MODULE_TABLES:ReadonlySet<RegisteredOwnerTable>=new Set(['evidence_versions','decision_versions','acceptance_records']);
+/** Only these server-owned identifiers may be interpolated by the transaction compiler. */
+export function moduleColumnNames(table:RegisteredOwnerTable):readonly string[]{return columns[ownerTable(table)];}
+const attachmentSchema=z.object({
+ id:evidenceIdSchema,status:z.enum(['reserved','ready','quarantined','deleted']),filename:z.string(),mimeType:z.string(),expectedBytes:z.number().int().nonnegative().max(ATTACHMENT_POLICY.fileBytes),actualBytes:z.number().int().nonnegative().max(ATTACHMENT_POLICY.fileBytes).nullable(),sha256:z.string().regex(/^[a-f0-9]{64}$/).nullable(),storageKey:z.string().min(1).max(512),createdAt:evidenceDateSchema,expiresAt:evidenceDateSchema,readyAt:evidenceDateSchema.nullable(),uploadMutationId:evidenceIdSchema,quarantineReason:z.string().max(1000).nullable(),
+}).strict().superRefine((value,ctx)=>{
+ try{validateAttachmentMetadata(value);}catch{ctx.addIssue({code:'custom',message:'Invalid attachment metadata.'});}
+ if(value.status==='ready'&&(value.actualBytes!==value.expectedBytes||value.sha256===null||value.readyAt===null))ctx.addIssue({code:'custom',message:'Ready attachment metadata is incomplete.'});
+});
+type Projection=Record<string,string|number|null>;
+function matchingId(physical:string,logical:string):void{if(physical!==logical)throw new Error('Module physical ID differs from its logical record.');}
+/** Mirrors index typed payloads; a nullable legacy placeholder never becomes typed authority. */
+export async function moduleProjection(table:RegisteredOwnerTable,id:string,value:JsonValue):Promise<Projection>{
+ const names=moduleColumnNames(table);evidenceIdSchema.parse(id);
+ const empty=()=>Object.fromEntries(names.map(name=>[name,null]));
+ switch(table){
+ case 'evidence_records':case 'decision_records':{
+  const parsed=table==='decision_records'?{success:true as const,data:evidenceHeadSchema.parse(value)}:evidenceHeadSchema.safeParse(value);
+  if(!parsed.success)return empty();matchingId(id,parsed.data.id);return {current_version:parsed.data.currentVersion,archived_at:parsed.data.archivedAt};
+ }
+ case 'evidence_versions':{
+  const record=evidenceVersionSchema.parse(value);matchingId(id,await versionRowId(record.id,record.version));return {evidence_id:record.id,version:record.version,recorded_at:record.recordedAt};
+ }
+ case 'decision_versions':{
+  const record=decisionVersionSchema.parse(value);matchingId(id,await versionRowId(record.id,record.version));return {decision_id:record.id,version:record.version,recorded_at:record.recordedAt,status:record.status,review_on:record.reviewOn,source_capture_id:record.sourceCaptureId,supersedes_decision_id:record.supersedesDecisionId};
+ }
+ case 'evidence_links':{
+  const parsed=evidenceLinkSchema.safeParse(value);if(!parsed.success)return empty();const record=parsed.data;matchingId(id,record.id);return {evidence_id:record.evidenceId,evidence_version:record.evidenceVersion,subject_type:record.subject.type,subject_id:record.subject.id,requirement_id:record.requirementId,relation:record.relation};
+ }
+ case 'evidence_requirements':{
+  const record=evidenceRequirementSchema.parse(value);matchingId(id,record.id);return {subject_type:record.subject.type,subject_id:record.subject.id,label:record.label,scope:record.scope,required:record.required?1:0,max_age_days:record.maxAgeDays,candidate:record.candidate,require_attachment:record.requireAttachment?1:0,archived_at:record.archivedAt};
+ }
+ case 'acceptance_records':{
+  const record=acceptanceRecordSchema.parse(value);matchingId(id,record.id);return {subject_type:record.subject.type,subject_id:record.subject.id,decision:record.decision,statement:record.statement,candidate:record.candidate,criteria_hash:record.criteriaHash,evidence_refs_json:JSON.stringify(record.evidenceRefs),recorded_at:record.recordedAt,supersedes_id:record.supersedesId};
+ }
+ case 'attachments':{
+  const parsed=attachmentSchema.safeParse(value);if(!parsed.success)return empty();const record=parsed.data;matchingId(id,record.id);return {status:record.status,filename:record.filename,mime_type:record.mimeType,expected_bytes:record.expectedBytes,actual_bytes:record.actualBytes,sha256:record.sha256,storage_key:record.storageKey,created_at:record.createdAt,expires_at:record.expiresAt,ready_at:record.readyAt,upload_mutation_id:record.uploadMutationId,quarantine_reason:record.quarantineReason};
+ }
+ default:return empty();
+ }
+}

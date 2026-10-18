@@ -61,7 +61,7 @@
     },
     {
       "id": 2,
-      "status": "in_progress",
+      "status": "implemented_external_acceptance_pending",
       "evidence": [
         "Independent pure selector groundwork only: stable links,complete paginated search and attention with11 tests; not integrated or accepted",
         "Independent unintegrated taskgraph16 tests and polling8 fake-clock tests pass; no shared schema/workflow integration yet",
@@ -78,18 +78,30 @@
         "Cloud CI39134562558/job117696330430 at3311f935 passed cleanlockedinstall,414 Node,typecheck,lint,build,actualfixture; Chromium15/19passed. All5 native navigation/focus/proxy408/receiptacknowledgement and foundationrecovery/device journeys pass. Portfolio duplicateDOM revealed duplicate siblingReactkeys; namespace fixprepared. Otherfailures mobilehidden readinesslocator and noncanonicalweeklytaskURL corrected/preparing.",
         "Follow-up stable source:423 Node tests,zero failures/skips;typecheck,lint,production build andisolatedfixturepass. SearchURL/history,canonicalweeklyattentionwithAllentitydedupandallweekactions,allreadyworkandzero-readyexplanations completed;24native journeys discovered awaitingrerun.",
         "CI39135303830/job117698492413 atce462f21 passed cleaninstall,423Node,type/lint/build/fixture and20/24Chromium. Fullnormalizedrestore,truev2proposalimport,searchURL/history,durableweekly409review,recurrence,allreadywork andall5saveidentity journeys passed. Portfolio tests reach milestonearchive/reorder but regex template incorrectly consumed whitespaceescape; testfixprepared. Two capture recovery failures under trace investigation (saved-draft interference possible,not yetproven).",
-        "Trace investigation proved capture failures were an initialrecovery-ref readinessrace:boundedloadcompleted beforepassive guardrefs caughtup,sofirstsaveblocked beforeworkspacePOST andcreatedlaterautosave;nexttestinheritedthatdraft. Preparedfix awaits boundedloadwithgenerationcheck andupdatesguardrefs synchronously. Twoheld-real-GET native regressions added;no sleeps/discardsweakenrecovery."
+        "Trace investigation proved capture failures were an initialrecovery-ref readinessrace:boundedloadcompleted beforepassive guardrefs caughtup,sofirstsaveblocked beforeworkspacePOST andcreatedlaterautosave;nexttestinheritedthatdraft. Preparedfix awaits boundedloadwithgenerationcheck andupdatesguardrefs synchronously. Twoheld-real-GET native regressions added;no sleeps/discardsweakenrecovery.",
+        "Final planning cloud gate CI39136249732/job117701249535 atac17e4ba2d5d55b4fe6f0e16c1638ffc78ed6a8f passed cleanlockedinstall,423Node,typecheck,lint,productionbuild,actualisolatedfixture andall26Chromiumjourneys(1.1m),includingheldreadiness,recoveryprivacy,390/1280portfolio,fullnormalizedrestore,truev2imports,searchhistory,weeklyconflict andmanualrecurrence."
       ],
       "blockers": [
-        "Rerun expandedChromium after duplicateReactkey/mobilehelper/deeplink corrections.",
-        "Finish searchURLstate,canonicalweekly attention,allready work and addedbrowser fullrestore/legacy/durableweekly acceptance."
+        "Hostedgateway/passkey andactualphone/tablet acceptance remain separate fromsyntheticChromiumfixtures.",
+        "Manualrecurrencecommandworks;unattendedjobdispatcheractivation remains owningPhase5 andrenewablerunneracceptance."
       ]
     },
     {
       "id": 3,
-      "status": "not_started",
-      "evidence": [],
-      "blockers": []
+      "status": "in_progress",
+      "evidence": [
+        "Phase2sourcegatepassed;integrator establishingmulti-tableportablemodule/typedversioncontracts beforeleafimplementation.",
+        "Uncommitted Phase3 storage integration: typed immutable evidence/decision versions, explicit requirements/acceptance, stable audit import identities, owner-private namespaces, physical multi-table restore adapters and SQL mirror projections.",
+        "Working-tree checkpoint:568 Node tests passed,zero failures/skips; includes real SQLite ownership, immutable version/acceptance, foreign-key restore rollback, criterion/contradiction/grant races, stable audit import and scope history tests. Subsequent attachment/undo route integration and new migration changes require a fresh complete gate.",
+        "Independent exact-model workers completed focused validation, attachment policy, decisions, acceptance, history, composite module and migration reviews; no live provider/R2/device execution inferred.",
+        "Coherent Phase3 source checkpoint:604 Node tests passed,zero failures/skips; typecheck,lint,production build pass;31 Chromium journeys discovered including5new evidence/history tests, execution pending cloud CI. Protected evidence/decision editors and history/whole-command undo review integrated; attachment manifests explicitly exclude ready-file bytes and report missing files.",
+        "Actual isolated built-worker HTTP GET/POST/replay/CSRF fixture passed on the coherent604-test source. Private Site identity unchanged; rejected inspection commit excluded from implementation ancestry."
+      ],
+      "blockers": [
+        "Private R2 provisioning and actual hosted upload/download/restore acceptance remain unverified; optional BUCKET availability must be established through supported Sites release workflow.",
+        "Protected UI/browser journeys, complete undo families, attachment cleanup/recovery and full file archive remain in progress.",
+        "Portable attachment metadata currently retains source object keys; full file restore must rekey and verify bytes in the target private namespace before availability. Persistent SQL cleanup fencing/runner activation and acceptance/requirements/linking/decision-action UI remain open."
+      ]
     },
     {
       "id": 4,
@@ -122,7 +134,7 @@
       "blockers": []
     }
   ],
-  "nextAction": "Publishreadinessfix;complete26nativejourneysbeforePhase3.",
+  "nextAction": "Finish Phase3 integrated attachment/undo handlers and protected UI; run full Node/type/lint/build/fixture gates, then Chromium evidence/history journeys before source acceptance. Continue Phases4\u20138 in order.",
   "allowedStatuses": [
     "not_started",
     "in_progress",
@@ -130,7 +142,8 @@
     "verified_local",
     "verified_hosted",
     "complete",
-    "externally_blocked"
+    "externally_blocked",
+    "implemented_external_acceptance_pending"
   ],
   "sourceImportCommit": "8d0bc78a6e557734b571a435546812fec382006a",
   "launchInstructionsCommit": "c08e8a15dc7291c4f68fa5edebaf2fa8c583d820",
@@ -148,21 +161,17 @@
     "evidence": "Explicit supported model selection accepted and worker IDs returned."
   },
   "checkpoint": {
-    "publishedCommit": "ce462f21ecbae66cc439d21931e331e481d01ac0",
-    "workingTree": "Readinessracefix andportfolio regexcorrection readyforreviewablecommit",
-    "tests": "423Node,typecheck,lint,productionbuild andactualisolatedfixturepass;26Chromiumjourneysdiscovered,rerunpending",
-    "knownFailures": [
-      "Publishedce462f21portfolio2tests havewhitespace-templateescapeerror;correctionprepared.",
-      "Publishedcapture2failures camefromprovenrecovery-readinessrace,notpreexistingownerdata;boundedawait/synchronousreffixprepared.",
-      "26-journeyrerunnotexecutedyet."
-    ],
+    "publishedCommit": "ac17e4ba2d5d55b4fe6f0e16c1638ffc78ed6a8f",
+    "workingTree": "Coherent Phase3 source checkpoint ready for reviewable commit;604 Node tests/typecheck/lint/build pass. New31-test browser suite awaits cloud execution. Preserve current source and all worker files.",
+    "tests": "Published ac17e4ba:423 Node+26 Chromium+all gates. New Phase3 source:604 Node,zero failures/skips,typecheck/lint/production build pass;31 Chromium journeys discovered,not yet executed on this source. Actual isolated built-worker HTTP fixture also passed.",
+    "knownFailures": [],
     "unfinished": [
-      "Phase2 browser/acceptance reconciliation",
-      "Phases3\u20138",
-      "External hosted/provider/device and renewable runner/private object storage acceptance"
+      "Phase3 coherent integration, guarded attachment lifecycle, protected UI and real-browser evidence/history regression; explicit private blob gate",
+      "Phases4\u20138",
+      "External hosted/provider/device/renewable runner/private blob acceptance"
     ],
-    "nextCommand": "Publishreviewedreadinessfixandobserveterminal26-journeycloudCI",
-    "publishedTree": "523f068a976552b89659b9e46852cdea7c1fa2ab",
-    "cloudRun": "39135303830 terminalfailure:20/24Chromium,allprebrowserchecks passed"
+    "nextCommand": "Publish the committed sanitized Phase3 tree to existing draft branch; run cloud CI31 Chromium journeys, fix observed failures, then finish Phase3 open UI/cleanup/file recovery before Phases4\u20138.",
+    "publishedTree": "1d09e43e923e1a06a06d8a5e2bc49882870ca82e",
+    "cloudRun": "39136249732 terminalsuccess:423Node+all26Chromium(1.1m)"
   }
 }

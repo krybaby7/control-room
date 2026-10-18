@@ -15,6 +15,13 @@ export interface Activity { id: string; text: string; at: string; projectId: str
 export interface Workspace { schemaVersion: 1 | 2 | 3 | 4; projects: Project[]; milestones: Milestone[]; tasks: Task[]; captures: Capture[]; activity: Activity[]; }
 export interface WorkspaceEnvelope { workspace: Workspace; revision: number; updatedAt: string; previousBackupAvailable?: boolean; baselineRemovedIds?:string[]; }
 export type Command =
+  | {type:'attachment.reserve';value:{filename:string;mimeType:string;expectedBytes:number}}
+  | {type:'attachment.finalize';id:string}
+  | {type:'attachment.retire';id:string;reason:'owner-delete'|'expired-reservation'}
+  | {type:'history.undo';eventId:string;sourceMutationId:string;previewHash:string;targetRevision:number}
+  | import('./evidence-contract.ts').EvidenceCommand
+  | import('zod').infer<typeof import('./decision-handlers.ts').decisionCommandSchema>
+  | import('zod').infer<typeof import('./acceptance-handlers.ts').acceptanceCommandSchema>
   | import('./planning-contract.ts').PlanningWorkflowCommand
   | import('./weekly-planning.ts').WeeklyCommand
   | {type:'recurrence.create';rule:Omit<import('./recurrence.ts').RecurrenceRule,'id'>}

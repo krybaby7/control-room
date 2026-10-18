@@ -16,7 +16,7 @@ function fixtures(){
   for(const [id,expiry]of [['active-draft',future],['expired-draft',now]])sqlite.prepare('INSERT INTO workspace_drafts VALUES (?,?,?,?,?)').run(owner,id,1,JSON.stringify({text:'مرحبا 👋'}),expiry);
   for(const [id,expiry,rawBytes]of [['active-import',future,3],['expired-import',now,5]] as const){sqlite.prepare('INSERT INTO workspace_imports VALUES (?,?,?,?,?,?,?)').run(owner,id,'c'.repeat(64),old,expiry,rawBytes,'{}');sqlite.prepare('INSERT INTO workspace_import_chunks VALUES (?,?,?,?)').run(owner,id,0,'YWJj');}
   sqlite.prepare('INSERT INTO workspace_backups VALUES (?,?,?,?,?,?,?,?,?,?)').run(owner,'snapshot',1,now,'manual',123,'c'.repeat(64),'{}','ready',1);
-  sqlite.prepare('INSERT INTO evidence_records VALUES (?,?,?,?,?)').run(owner,'evidence',1,JSON.stringify({text:'é🙂'}),'c'.repeat(64));
+  sqlite.prepare('INSERT INTO evidence_records (user_id,id,row_revision,payload_json,content_hash) VALUES (?,?,?,?,?)').run(owner,'evidence',1,JSON.stringify({text:'é🙂'}),'c'.repeat(64));
   sqlite.prepare("INSERT INTO audit_events (user_id,event_id,workspace_revision,ordinal,kind,entity_type,occurred_at,payload_json) VALUES (?, ?,1,0,'fixture','workspace',?,?)").run(owner,'event',now,'{}');
  }
  sqlite.prepare('INSERT INTO workspace_mutations VALUES (?,?,?,?,?)').run('private-owner-b','foreign-extra-receipt','d'.repeat(64),3,now);

@@ -6,6 +6,7 @@ import { loadWorkspace, readCurrent, type SqlDatabase } from '../lib/workspace-s
 import { executeWorkspaceCommand, hashJson, type CommandHandlerRegistry, type MutationPlan, type PrepareContext } from '../lib/workspace-transaction.ts';
 import { ownerReader, OWNER_TABLES } from '../lib/workspace-modules.ts';
 import { ModuleConflictError, MutationIdReuseError, WorkspaceStorageError } from '../lib/workspace-errors.ts';
+import {versionRowId} from '../lib/version-identity.ts';
 import { workspaceHandlers } from '../lib/workspace-handlers.ts';
 const now='2026-10-18T12:00:00.000Z';
 const id='synthetic-mutation-0001';
@@ -40,16 +41,16 @@ test('lost workspace CAS between preparation and batch leaves no receipt or modu
 });
 
 for(const mismatch of ['row-revision','content-hash','missing-row'] as const)test(`module source precondition ${mismatch} aborts all effects`,async()=>{
-  const {db,sqlite}=await setup();sqlite.prepare('INSERT INTO decisions VALUES (?,?,?,?,?)').run('a','source',1,'{}','original');
+  const {db,sqlite}=await setup();sqlite.prepare('INSERT INTO decisions (user_id,id,row_revision,payload_json,content_hash) VALUES (?,?,?,?,?)').run('a','source',1,'{}','original');
   const registry:CommandHandlerRegistry=new Map([['fixture.change',{prepare:async context=>({...plan(context),preconditions:[{table:'decisions',id:'source',expectedRowRevision:1,expectedHash:'original'}]})}]]);
   const raced=intercept(db,()=>{if(mismatch==='missing-row')sqlite.prepare('DELETE FROM decisions WHERE user_id=?').run('a');else sqlite.prepare(`UPDATE decisions SET ${mismatch==='row-revision'?'row_revision=2':"content_hash='new'"} WHERE user_id=?`).run('a');});
   await assert.rejects(executeWorkspaceCommand('a',input(),deps(raced,registry)),ModuleConflictError);assertClean(sqlite);
 });
 
 for(const operation of ['insert','update','delete'] as const)test(`module ${operation} lost CAS rolls back receipt and planning`,async()=>{
-  const {db,sqlite}=await setup();if(operation!=='insert')sqlite.prepare('INSERT INTO evidence_records VALUES (?,?,?,?,?)').run('a','record',1,'{}','old');
+  const {db,sqlite}=await setup();if(operation!=='insert')sqlite.prepare('INSERT INTO evidence_records (user_id,id,row_revision,payload_json,content_hash) VALUES (?,?,?,?,?)').run('a','record',1,'{}','old');
   const registry:CommandHandlerRegistry=new Map([['fixture.change',{prepare:async context=>({...plan(context),writes:[{table:'evidence_records',id:'record',operation,value:{text:'replacement'},expectedRowRevision:operation==='insert'?null:1}]})}]]);
-  const raced=intercept(db,()=>{if(operation==='insert')sqlite.prepare('INSERT INTO evidence_records VALUES (?,?,?,?,?)').run('a','record',1,'{}','racer');else sqlite.prepare('UPDATE evidence_records SET row_revision=2 WHERE user_id=?').run('a');});
+  const raced=intercept(db,()=>{if(operation==='insert')sqlite.prepare('INSERT INTO evidence_records (user_id,id,row_revision,payload_json,content_hash) VALUES (?,?,?,?,?)').run('a','record',1,'{}','racer');else sqlite.prepare('UPDATE evidence_records SET row_revision=2 WHERE user_id=?').run('a');});
   await assert.rejects(executeWorkspaceCommand('a',input(),deps(raced,registry)),ModuleConflictError);
   for(const table of ['workspace_mutations','workspace_command_guards','workspace_assertions','audit_events','workspace_job_intents'])assert.equal(count(sqlite,table),0,table);
   assert.equal((await readCurrent(db,'a')).revision,1);assert.equal(count(sqlite,'evidence_records'),1);
@@ -64,7 +65,7 @@ for(const [operation,table] of [['INSERT','workspace_command_guards'],['INSERT',
 });
 
 test('owner scoped get, pages, preconditions and row updates never borrow foreign records',async()=>{
-  const {db,sqlite}=await setup();sqlite.prepare('INSERT INTO evidence_records VALUES (?,?,?,?,?)').run('b','foreign',1,'{}','hash');
+  const {db,sqlite}=await setup();sqlite.prepare('INSERT INTO evidence_records (user_id,id,row_revision,payload_json,content_hash) VALUES (?,?,?,?,?)').run('b','foreign',1,'{}','hash');
   const reader=ownerReader(db,'a');assert.equal(await reader.get('evidence_records','foreign'),null);assert.deepEqual(await reader.list('evidence_records'),[]);
   const registry:CommandHandlerRegistry=new Map([['fixture.change',{prepare:async context=>({...plan(context),writes:[{table:'evidence_records',id:'foreign',operation:'update',value:{text:'forbidden'},expectedRowRevision:1}]})}]]);
   await assert.rejects(executeWorkspaceCommand('a',input(),deps(db,registry)),ModuleConflictError);assertClean(sqlite);assert.equal(count(sqlite,'evidence_records','b'),1);
@@ -92,15 +93,34 @@ for(const sameHash of [false,true])test(`racing receipt with ${sameHash?'same':'
   for(const table of ['workspace_command_guards','workspace_assertions','evidence_records','audit_events','workspace_job_intents'])assert.equal(count(sqlite,table),0,table);
 });
 
+async function seedRestoreModule(sqlite:ReturnType<typeof database>['sqlite'],table:typeof OWNER_TABLES[number]):Promise<void>{
+ const subject={type:'task',id:createSeedWorkspace(now).tasks[0].id};
+ const head={id:'preserved',currentVersion:1,archivedAt:null};
+ const add=(name:string,value:unknown,columns:string[]=[],values:(string|number|null)[]=[],rowId='preserved')=>sqlite.prepare(`INSERT INTO ${name} (user_id,id,row_revision,payload_json,content_hash${columns.length?','+columns.join(','):''}) VALUES (${Array.from({length:5+columns.length},()=>'?').join(',')})`).run('a',rowId,1,JSON.stringify(value),'hash',...values);
+ if(table==='evidence_versions'){
+  add('evidence_records',head,['current_version'],[1]);
+  add(table,{id:'preserved',version:1,basis:'owner-statement',scope:'implementation',title:'Synthetic preserved evidence',statement:'Original content retained',observedAt:null,recordedAt:now,candidate:null,environment:null,sourceUrl:null,sourceRevision:null,sourceRecordId:null,attachmentIds:[],supersedesVersion:null},['evidence_id','version','recorded_at'],['preserved',1,now],await versionRowId('preserved',1));return;
+ }
+ if(table==='decision_records'){add(table,head,['current_version'],[1]);return;}
+ if(table==='decision_versions'){
+  add('decision_records',head,['current_version'],[1]);
+  add(table,{id:'preserved',version:1,title:'Synthetic draft decision',question:'Retain the original?',options:[],selectedOptionId:null,rationale:'',status:'draft',decidedAt:null,reviewOn:null,subjects:[],evidenceRefs:[],sourceCaptureId:null,sourceUrl:null,supersedesDecisionId:null,supersedesVersion:null,recordedAt:now,exception:null},['decision_id','version','recorded_at','status'],['preserved',1,now,'draft'],await versionRowId('preserved',1));return;
+ }
+ if(table==='evidence_requirements'){add(table,{id:'preserved',subject,label:'Retained requirement',scope:'implementation',required:true,maxAgeDays:null,candidate:null,requireAttachment:false,archivedAt:null},['subject_type','subject_id','label','scope','required','require_attachment'],[subject.type,subject.id,'Retained requirement','implementation',1,0]);return;}
+ if(table==='acceptance_records'){add(table,{id:'preserved',subject,decision:'needs-review',statement:'Retained review',candidate:null,criteriaHash:'a'.repeat(64),evidenceRefs:[],recordedAt:now,supersedesId:null,exceptions:[]},['subject_type','subject_id','decision','statement','criteria_hash','evidence_refs_json','recorded_at'],[subject.type,subject.id,'needs-review','Retained review','a'.repeat(64),'[]',now]);return;}
+ if(table==='evidence_mappings'){add(table,{subject,evidenceId:'preserved-evidence',sourceTextHash:'a'.repeat(64),evidenceVersion:1});return;}
+ add(table,{});
+}
 for(const table of OWNER_TABLES)test(`planning restore refuses to omit ${table} data`,async()=>{
-  const {db,sqlite}=await setup();sqlite.prepare(`INSERT INTO ${table} VALUES (?,?,?,?,?)`).run('a','preserved',1,'{}','hash');
+  const {db,sqlite}=await setup();await seedRestoreModule(sqlite,table);
+  const originals=new Map(OWNER_TABLES.map(name=>[name,sqlite.prepare(`SELECT * FROM ${name} ORDER BY user_id,id`).all()]));
   await assert.rejects(executeWorkspaceCommand('a',{protocolVersion:1,expectedRevision:1,mutationId:id,command:{type:'workspace.restore',workspace:createSeedWorkspace(now)}},deps(db,workspaceHandlers)));
-  assert.equal(count(sqlite,table),1);for(const affected of ['workspace_mutations','workspace_recovery','audit_events','workspace_job_intents','workspace_command_guards','workspace_assertions'])assert.equal(count(sqlite,affected),0,affected);
+  assert.equal(count(sqlite,table),1);for(const name of OWNER_TABLES)assert.deepEqual(sqlite.prepare(`SELECT * FROM ${name} ORDER BY user_id,id`).all(),originals.get(name),name);for(const affected of ['workspace_mutations','workspace_recovery','audit_events','workspace_job_intents','workspace_command_guards','workspace_assertions'])assert.equal(count(sqlite,affected),0,affected);
   assert.equal((await readCurrent(db,'a')).revision,1);
 });
 
 test('module updates and deletes advance only their owner row revision inside shared command revision',async()=>{
-  const {db,sqlite}=await setup();for(const owner of ['a','b'])sqlite.prepare('INSERT INTO evidence_records VALUES (?,?,?,?,?)').run(owner,'record',4,'{}','old');
+  const {db,sqlite}=await setup();for(const owner of ['a','b'])sqlite.prepare('INSERT INTO evidence_records (user_id,id,row_revision,payload_json,content_hash) VALUES (?,?,?,?,?)').run(owner,'record',4,'{}','old');
   const registry=(operation:'update'|'delete',expectedRowRevision:number):CommandHandlerRegistry=>new Map([['fixture.change',{prepare:async context=>({...plan(context),writes:[{table:'evidence_records',id:'record',operation,value:{text:'new'},expectedRowRevision}],events:[],jobs:[]})}]]);
   assert.equal((await executeWorkspaceCommand('a',input(),deps(db,registry('update',4)))).status,'committed');
   const changed=await ownerReader(db,'a').get('evidence_records','record');assert.equal(changed?.row_revision,5);assert.equal(changed?.content_hash,await hashJson({text:'new'}));
@@ -117,10 +137,10 @@ for(const field of ['actorId','origin','occurredAt'] as const)test(`untrusted ev
 
 for(const race of ['insert','update','delete'] as const)test(`complete normalized reference snapshot rejects ${race} race atomically`,async()=>{
  const {db,sqlite}=await setup();const hash='a'.repeat(64);
- if(race!=='insert')sqlite.prepare('INSERT INTO decisions VALUES (?,?,?,?,?)').run('a','decision',1,'{}',hash);
+ if(race!=='insert')sqlite.prepare('INSERT INTO decisions (user_id,id,row_revision,payload_json,content_hash) VALUES (?,?,?,?,?)').run('a','decision',1,'{}',hash);
  const snapshot={coveredModules:[...OWNER_TABLES],digest:'synthetic',rows:race==='insert'?[]:[{module:'decisions' as const,id:'decision',rowRevision:1,contentHash:hash,references:[]}]};
  const registry:CommandHandlerRegistry=new Map([['fixture.change',{prepare:async context=>({...plan(context),referenceSnapshot:snapshot})}]]);
- const raced=intercept(db,()=>{if(race==='insert')sqlite.prepare('INSERT INTO decisions VALUES (?,?,?,?,?)').run('a','decision',1,'{}',hash);else if(race==='update')sqlite.prepare('UPDATE decisions SET row_revision=2 WHERE user_id=?').run('a');else sqlite.prepare('DELETE FROM decisions WHERE user_id=?').run('a');});
+ const raced=intercept(db,()=>{if(race==='insert')sqlite.prepare('INSERT INTO decisions (user_id,id,row_revision,payload_json,content_hash) VALUES (?,?,?,?,?)').run('a','decision',1,'{}',hash);else if(race==='update')sqlite.prepare('UPDATE decisions SET row_revision=2 WHERE user_id=?').run('a');else sqlite.prepare('DELETE FROM decisions WHERE user_id=?').run('a');});
  await assert.rejects(executeWorkspaceCommand('a',input(),deps(raced,registry)),ModuleConflictError);
  for(const table of ['workspace_mutations','workspace_command_guards','workspace_assertions','evidence_records','audit_events','workspace_job_intents'])assert.equal(count(sqlite,table),0,table);
  assert.equal((await readCurrent(db,'a')).revision,1);sqlite.close();

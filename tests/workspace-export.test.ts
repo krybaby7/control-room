@@ -23,7 +23,7 @@ test('unknown modules and unsafe payloads fail closed; audit provenance is appen
  bundle.modules.audit_events.records=[{id:'source',actorId:'untrusted'}];const rows=historicalAuditRows(bundle,'a'.repeat(64)) as {id:string;sourceClaim:unknown}[];assert.match(rows[0].id,/^import:/);assert.deepEqual(rows[0].sourceClaim,bundle.modules.audit_events.records[0]);sqlite.close();
 });
 test('populated unregistered owner modules cannot be silently omitted',async()=>{
- const {db,sqlite}=database();await loadWorkspace(db,'a',()=>createSeedWorkspace(now),now);sqlite.prepare('INSERT INTO decisions (user_id,id,row_revision,payload_json,content_hash) VALUES (?,?,1,?,?)').run('a','decision','{}','hash');await assert.rejects(exportWorkspaceBundle(db,'a'),/no export adapter/);sqlite.close();
+ const {db,sqlite}=database();await loadWorkspace(db,'a',()=>createSeedWorkspace(now),now);sqlite.prepare('INSERT INTO workspace_configuration (user_id,id,row_revision,payload_json,content_hash) VALUES (?,?,1,?,?)').run('a','decision','{}','hash');await assert.rejects(exportWorkspaceBundle(db,'a'),/no export adapter/);sqlite.close();
 });
 test('owner revision races retry; module versions, authority module names, and row bounds fail closed',async()=>{
  const {db,sqlite}=database();await loadWorkspace(db,'a',()=>createSeedWorkspace(now),now);let calls=0;const registry=new ExportRegistry();registry.register({key:'fixture',schemaVersion:1,policy:'replace',exportRows:async()=>{if(calls++===0)sqlite.prepare('UPDATE workspaces SET revision=revision+1 WHERE user_id=?').run('a');return [];},parseAndMigrate:input=>{if(input.schemaVersion!==1)throw new Error('Unknown module version.');return input.records;}});

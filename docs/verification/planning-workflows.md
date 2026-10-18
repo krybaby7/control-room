@@ -41,3 +41,9 @@ CI39135303830/job117698492413 atce462f21 is terminal:cleanlockedinstall,423Node,
 Trace analysis disproved prior-test pollution as the initial capture cause. Its first recovery response had no new-capture draft;Save raced the passive guard refs after load,so no workspace POST occurred. The same failed test later autosaved its text,which correctly blocked the next test until explicit recovery. The fix awaits the existing bounded recovery-load promise with a generation check and updates readiness,recovery,current draft and baseline refs synchronously. It never discards a saved version or submits automatically. Editor mutations require an installed recovery controller,and Back/navigation cannot replace an in-flight save's editor/base.
 
 423Node,typecheck,lint,production build andactual isolatedfixture pass. Twenty-six native journeys include two held-real-GET readiness cases and the corrected dependency-label regex. Their cloud rerun is pending;Phase2 is not yet accepted.
+
+Published readiness fix `ac17e4ba2d5d55b4fe6f0e16c1638ffc78ed6a8f`,tree `1d09e43e923e1a06a06d8a5e2bc49882870ca82e`,exactly matches verified423-test source. CI39136249732 is in progress for26Chromium journeys. Only resume checkpoint text is uncommitted. Next:inspect terminal run/job logs,fix exact native failures,reconcile Phase2 and begin Phase3 shared registry/typed version contracts.
+
+## Final cloud gate
+
+CI39136249732/job117701249535 at `ac17e4ba2d5d55b4fe6f0e16c1638ffc78ed6a8f` completed successfully:cleanlockedinstall,423Node,typecheck,lint,productionbuild,isolatedbuilt-workerfixture andall26Chromiumjourneys(1.1m). Both held-recovery regressions and390/1280portfolio journeys passed. Phase2sourceacceptance now passes;physicaldevice/privategatewaypasskey checks remain external. Manualrecurrenceisverified;unattendedjobactivation stayswithPhase5andrenewablerunneracceptance. Next:Phase3typedmulti-tableportablemodules andimmutableversions,thenboundedleafimplementation.

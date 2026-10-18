@@ -1,3 +1,6 @@
+import {readAuditCommandGroup} from './history-command-group.ts';
+import {auditProjectIds} from './audit-projects.ts';
+import {moduleProjection,moduleColumnNames,IMMUTABLE_MODULE_TABLES} from './module-columns.ts';
 import type { Workspace, WorkspaceEnvelope } from './types.ts';
 import { readCurrent, type SqlDatabase, type SqlStatement } from './workspace-store.ts';
 import { parseWorkspaceExport } from './workspace-validation.ts';
@@ -10,11 +13,11 @@ import { RECEIPT_CAPACITY, WorkspaceCapacityError, receiptCount } from './worksp
 import { checkMutationEpoch } from './idempotency-retention.ts';
 import { RetiredMutationError, CommandValidationError, MutationIdReuseError, ModuleConflictError, WorkspaceStorageError } from './workspace-errors.ts';
 export interface ModuleReplacement {table:RegisteredOwnerTable;beforeRows:ModuleRow[];records:Array<{id:string;value:import('./workspace-protocol.ts').JsonValue}>;}
-export interface MutationPlan { referenceSnapshot?:import('./workspace-references.ts').ReferenceSnapshot; backupRemoval?:{id:string;sha256:string;newerId:string;newerSha256:string};emptyModules?:RegisteredOwnerTable[];importSource?:{id:string;hash:string};replacements?:ModuleReplacement[];restoreEpoch?:boolean;historyImports?:Array<{id:string;source:import('./workspace-protocol.ts').JsonValue;importHash:string}>; planningAfter: Workspace; writes: GuardedWrite[]; preconditions?: RowPrecondition[]; events: AuditEventDraft[]; backup?: {reason:'restore'|'delete'|'repair'|'manual'}; jobs: JobIntent[]; }
-export interface PrepareContext { userId: string; before: WorkspaceEnvelope; command: WorkspaceCommand; now: string; query: OwnerScopedReader; backups?:{get:(id:string)=>ReturnType<typeof readWorkspaceBackup>;list:()=>ReturnType<typeof listWorkspaceBackups>};readImport:(id:string)=>ReturnType<typeof readStagedImport>; }
+export interface MutationPlan { decisionGrants?:Array<{id:string;version:number;hash:string}>; referenceSnapshot?:import('./workspace-references.ts').ReferenceSnapshot; backupRemoval?:{id:string;sha256:string;newerId:string;newerSha256:string};emptyModules?:RegisteredOwnerTable[];importSource?:{id:string;hash:string};replacements?:ModuleReplacement[];restoreEpoch?:boolean;historyImports?:Array<{id:string;source:import('./workspace-protocol.ts').JsonValue;importHash:string;sourceIdentity?:string;sourceHash?:string}>; planningAfter: Workspace; writes: GuardedWrite[]; preconditions?: RowPrecondition[]; events: AuditEventDraft[]; backup?: {reason:'restore'|'delete'|'repair'|'manual'}; jobs: JobIntent[]; }
+export interface PrepareContext { mutationId?:string; userId: string; before: WorkspaceEnvelope; command: WorkspaceCommand; now: string; query: OwnerScopedReader; backups?:{get:(id:string)=>ReturnType<typeof readWorkspaceBackup>;list:()=>ReturnType<typeof listWorkspaceBackups>};readAuditGroup?:(eventId:string)=>Promise<import('./history-command-group.ts').AuditCommandGroup|null>;trustedDecisionVersion?:(id:string,version:number,hash:string)=>Promise<boolean>;attachmentAccess?:{ownerNamespace:string;store:import('./attachments.ts').BlobStore};verifyAttachment?:(record:import('./evidence-contract.ts').AttachmentRecord)=>Promise<import('./evidence-requirements.ts').VerifiedAttachment|null>;readImport:(id:string)=>ReturnType<typeof readStagedImport>; }
 export interface CommandHandler { prepare(context: PrepareContext): Promise<MutationPlan>; }
 export type CommandHandlerRegistry = ReadonlyMap<string, CommandHandler>;
-export interface WorkspaceTransactionDeps { db: SqlDatabase; now:()=>string; handlers: CommandHandlerRegistry; }
+export interface WorkspaceTransactionDeps { db: SqlDatabase; now:()=>string; handlers: CommandHandlerRegistry; verifyAttachment?:PrepareContext['verifyAttachment'];attachmentAccess?:PrepareContext['attachmentAccess']; }
 export function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
   if (value && typeof value === 'object') return `{${Object.entries(value).sort(([a],[b])=>a < b ? -1 : a > b ? 1 : 0).map(([key,item])=>`${JSON.stringify(key)}:${canonicalJson(item)}`).join(',')}}`;
@@ -49,13 +52,13 @@ export async function executeWorkspaceCommand(userId:string,input:{protocolVersi
   if(await receiptCount(db,userId)>=RECEIPT_CAPACITY.hard)throw new WorkspaceCapacityError();
   const handler=deps.handlers.get(command.type);if(!handler)throw new CommandValidationError('Unknown command.');
   let plan:MutationPlan;
-  try {plan=await handler.prepare({userId,before,command,now,query:ownerReader(db,userId),readImport:id=>readStagedImport(db,userId,id,now),backups:{get:id=>readWorkspaceBackup(db,userId,id),list:()=>listWorkspaceBackups(db,userId)}});plan.planningAfter=parseWorkspaceExport(plan.planningAfter,now);}
+  try {plan=await handler.prepare({mutationId:id,userId,before,command,now,query:ownerReader(db,userId),verifyAttachment:deps.verifyAttachment,attachmentAccess:deps.attachmentAccess,readAuditGroup:eventId=>readAuditCommandGroup(db,userId,eventId),trustedDecisionVersion:async(decisionId,version,hash)=>Boolean(await db.prepare('SELECT decision_id FROM decision_owner_grants WHERE user_id=? AND decision_id=? AND version=? AND content_hash=?').bind(userId,decisionId,version,hash).first()),readImport:id=>readStagedImport(db,userId,id,now),backups:{get:id=>readWorkspaceBackup(db,userId,id),list:()=>listWorkspaceBackups(db,userId)}});plan.planningAfter=parseWorkspaceExport(plan.planningAfter,now);}
   catch(error){throw new CommandValidationError(error instanceof Error?error.message:'This change is invalid.');}
-  if(plan.backup?.reason==='restore'){const query=ownerReader(db,userId);for(const table of ['weekly_plans','weekly_reviews','recurrence_rules','recurrence_occurrences','evidence_records','evidence_links','decisions','attachments','workspace_configuration'] as const)if((await query.list(table,{limit:1})).length && !plan.replacements?.some(replacement=>replacement.table===table))throw new CommandValidationError('This restore requires a complete normalized bundle. Export all modules before replacing planning records.');}
+  if(plan.backup?.reason==='restore'){const query=ownerReader(db,userId);for(const table of OWNER_TABLES)if((await query.list(table,{limit:1})).length && !plan.replacements?.some(replacement=>replacement.table===table))throw new CommandValidationError('This restore requires a complete normalized bundle. Export all modules before replacing planning records.');}
   if(plan.writes.length>200 || plan.events.length>200 || plan.jobs.length>50)throw new CommandValidationError('Command batch is too large.');
   if(plan.restoreEpoch && (!plan.backup || plan.jobs.length))throw new CommandValidationError('Recovery must retain a backup and cannot dispatch new jobs.');
   if(new Set((plan.replacements??[]).map(replacement=>replacement.table)).size!==(plan.replacements??[]).length)throw new CommandValidationError('Duplicate replacement module.');
-  for(const replacement of plan.replacements??[]){ownerTable(replacement.table);if(plan.writes.some(write=>write.table===replacement.table) || replacement.beforeRows.length>10000 || replacement.records.length>10000)throw new CommandValidationError('Invalid replacement scope.');}
+  for(const replacement of plan.replacements??[]){ownerTable(replacement.table);if(plan.backup?.reason!=='restore' || !plan.restoreEpoch)throw new CommandValidationError('Module replacement requires reviewed recovery authority.');if(plan.writes.some(write=>write.table===replacement.table) || replacement.beforeRows.length>10000 || replacement.records.length>10000)throw new CommandValidationError('Invalid replacement scope.');}
   let preparedBackup:Awaited<ReturnType<typeof prepareWorkspaceBackup>>|null=null;
   try { if(plan.backup)preparedBackup=await prepareWorkspaceBackup(db,userId,before,plan.backup.reason,now); }
   catch(error){
@@ -80,6 +83,7 @@ export async function executeWorkspaceCommand(userId:string,input:{protocolVersi
     }
   }
   for(const pre of plan.preconditions??[]){const table=ownerTable(pre.table);assertion(`EXISTS (SELECT 1 FROM ${table} WHERE user_id = ? AND id = ? AND row_revision = ?${pre.expectedHash===undefined?'':' AND content_hash = ?'})`,[userId,pre.id,pre.expectedRowRevision,...(pre.expectedHash===undefined?[]:[pre.expectedHash])]);}
+  for(const grant of plan.decisionGrants??[])assertion('EXISTS (SELECT 1 FROM decision_owner_grants WHERE user_id=? AND decision_id=? AND version=? AND content_hash=?)',[userId,grant.id,grant.version,grant.hash]);
   if(plan.backupRemoval){const removal=plan.backupRemoval;assertion(`EXISTS (SELECT 1 FROM workspace_backups old JOIN workspace_backups newer ON newer.user_id=old.user_id WHERE old.user_id=? AND old.id=? AND old.sha256=? AND old.status='ready' AND newer.id=? AND newer.sha256=? AND newer.status='ready' AND (newer.source_revision>old.source_revision OR (newer.source_revision=old.source_revision AND newer.created_at>old.created_at)))`,[userId,removal.id,removal.sha256,removal.newerId,removal.newerSha256]);}
   for(const table of plan.emptyModules??[])assertion(`NOT EXISTS (SELECT 1 FROM ${ownerTable(table)} WHERE user_id=?)`,[userId]);
   if(plan.importSource)assertion('EXISTS (SELECT 1 FROM workspace_imports WHERE user_id=? AND id=? AND content_hash=? AND expires_at>?)',[userId,plan.importSource.id,plan.importSource.hash,now]);
@@ -92,10 +96,10 @@ export async function executeWorkspaceCommand(userId:string,input:{protocolVersi
     assertion(`(SELECT COUNT(*) FROM ${table} WHERE user_id=?) = ? AND NOT EXISTS (SELECT id,row_revision,content_hash FROM ${table} WHERE user_id=? EXCEPT SELECT json_extract(value,'$.id'),json_extract(value,'$.row_revision'),json_extract(value,'$.content_hash') FROM json_each(?))`,[userId,replacement.beforeRows.length,userId,beforeRows]);
     const beforeIndex=new Map(replacement.beforeRows.map(row=>[row.id,row.row_revision]));
     const rows=[];
-    for(const row of replacement.records){if(!row.id || row.id.length>128)throw new CommandValidationError('Invalid imported module identity.');rows.push({id:row.id,row_revision:(beforeIndex.get(row.id)??0)+1,payload_json:canonicalJson(row.value),content_hash:await hashJson(row.value)});}
+    for(const row of replacement.records){if(!row.id || row.id.length>128)throw new CommandValidationError('Invalid imported module identity.');rows.push({id:row.id,row_revision:(beforeIndex.get(row.id)??0)+1,payload_json:canonicalJson(row.value),content_hash:await hashJson(row.value),...await moduleProjection(table,row.id,row.value)});}
     const payload=canonicalJson(rows);if(new TextEncoder().encode(payload).length>1_800_000)throw new CommandValidationError('Replacement rows exceed the atomic statement limit.');replacementPayloads.set(table,payload);
   }
-  for(const write of plan.writes){const table=ownerTable(write.table);if(!write.id || write.id.length>128)throw new CommandValidationError('Invalid module record ID.');
+  for(const write of plan.writes){const table=ownerTable(write.table);if(IMMUTABLE_MODULE_TABLES.has(table)&&write.operation!=='insert')throw new CommandValidationError('Immutable versions and acceptance records cannot be rewritten.');if(!write.id || write.id.length>128)throw new CommandValidationError('Invalid module record ID.');
     if(write.operation==='insert'){if(write.expectedRowRevision!==null)throw new CommandValidationError('Insert must require an absent row.');assertion(`NOT EXISTS (SELECT 1 FROM ${table} WHERE user_id = ? AND id = ?)`,[userId,write.id]);}
     else {if(!Number.isSafeInteger(write.expectedRowRevision) || (write.expectedRowRevision??0)<1)throw new CommandValidationError('Module revision is required.');assertion(`EXISTS (SELECT 1 FROM ${table} WHERE user_id = ? AND id = ? AND row_revision = ?)`,[userId,write.id,write.expectedRowRevision]);}
   }
@@ -109,30 +113,51 @@ export async function executeWorkspaceCommand(userId:string,input:{protocolVersi
   }
   if(plan.backup?.reason==='restore'){
     // Until normalized restore is enabled, reject snapshots that would omit normalized records.
-    for(const table of ['weekly_plans','weekly_reviews','recurrence_rules','recurrence_occurrences','evidence_records','evidence_links','decisions','attachments','workspace_configuration'])if(!plan.replacements?.some(replacement=>replacement.table===table))assertion(`NOT EXISTS (SELECT 1 FROM ${table} WHERE user_id = ?)`,[userId]);
+    for(const table of OWNER_TABLES)if(!plan.replacements?.some(replacement=>replacement.table===table))assertion(`NOT EXISTS (SELECT 1 FROM ${table} WHERE user_id = ?)`,[userId]);
     statements.push(db.prepare(`INSERT INTO workspace_recovery (user_id,content,revision,updated_at) SELECT user_id,content,revision,updated_at FROM workspaces WHERE user_id = ? AND ${claim} ON CONFLICT(user_id) DO UPDATE SET content=excluded.content,revision=excluded.revision,updated_at=excluded.updated_at`).bind(userId,...guard));
   }
   if(plan.backupRemoval)statements.push(db.prepare(`DELETE FROM workspace_backups WHERE user_id=? AND id=? AND sha256=? AND ${claim}`).bind(userId,plan.backupRemoval.id,plan.backupRemoval.sha256,...guard));
-  for(const [table,payload] of replacementPayloads){
-    statements.push(db.prepare(`DELETE FROM ${table} WHERE user_id=? AND ${claim}`).bind(userId,...guard));
-    statements.push(db.prepare(`INSERT INTO ${table} (user_id,id,row_revision,payload_json,content_hash) SELECT ?,json_extract(value,'$.id'),json_extract(value,'$.row_revision'),json_extract(value,'$.payload_json'),json_extract(value,'$.content_hash') FROM json_each(?) WHERE ${claim}`).bind(userId,payload,...guard));
+  // Delete children first, then restore parents first. Each statement shares the claim.
+  for(const table of [...OWNER_TABLES].reverse())if(replacementPayloads.has(table))statements.push(db.prepare(`DELETE FROM ${table} WHERE user_id=? AND ${claim}`).bind(userId,...guard));
+  for(const table of OWNER_TABLES){const payload=replacementPayloads.get(table);if(payload===undefined)continue;
+    const columns=['id','row_revision','payload_json','content_hash',...moduleColumnNames(table)];
+    statements.push(db.prepare(`INSERT INTO ${table} (user_id,${columns.join(',')}) SELECT ?,${columns.map(column=>`json_extract(value,'$.${column}')`).join(',')} FROM json_each(?) WHERE ${claim}`).bind(userId,payload,...guard));
   }
   if(plan.restoreEpoch){
+    // Restored decision history is a claim, never a resurrected current exception grant.
+    statements.push(db.prepare(`DELETE FROM decision_owner_grants WHERE user_id=? AND ${claim}`).bind(userId,...guard));
     statements.push(db.prepare(`INSERT INTO workspace_execution_state (user_id,epoch,restored_at) SELECT ?,1,? WHERE ${claim} ON CONFLICT(user_id) DO UPDATE SET epoch=workspace_execution_state.epoch+1,restored_at=excluded.restored_at`).bind(userId,now,...guard));
     statements.push(db.prepare(`UPDATE workspace_job_intents SET status=CASE WHEN status='pending' THEN 'cancelled' ELSE status END,cancel_requested=CASE WHEN status IN ('running','claimed') THEN 1 ELSE cancel_requested END WHERE user_id=? AND ${claim}`).bind(userId,...guard));
   }
-  for(const write of plan.writes){const table=ownerTable(write.table);
-    if(write.operation==='insert')statements.push(db.prepare(`INSERT INTO ${table} (user_id,id,row_revision,payload_json,content_hash) SELECT ?,?,1,?,? WHERE ${claim}`).bind(userId,write.id,canonicalJson(write.value),await hashJson(write.value),...guard));
-    else if(write.operation==='update')statements.push(db.prepare(`UPDATE ${table} SET row_revision=row_revision+1,payload_json=?,content_hash=? WHERE user_id=? AND id=? AND row_revision=? AND ${claim}`).bind(canonicalJson(write.value),await hashJson(write.value),userId,write.id,write.expectedRowRevision,...guard));
+  // Dependency ordering for inserts is fixed by the closed registry; requests never choose SQL order.
+  for(const write of [...plan.writes].sort((a,b)=>OWNER_TABLES.indexOf(a.table)-OWNER_TABLES.indexOf(b.table))){const table=ownerTable(write.table);
+    if(write.operation==='insert'||write.operation==='update'){
+      const projection=await moduleProjection(table,write.id,write.value!);const names=moduleColumnNames(table);const values=names.map(name=>projection[name]);
+      if(write.operation==='insert')statements.push(db.prepare(`INSERT INTO ${table} (user_id,id,row_revision,payload_json,content_hash${names.length?','+names.join(','):''}) SELECT ?,?,1,?,?${names.map(()=>',?').join('')} WHERE ${claim}`).bind(userId,write.id,canonicalJson(write.value),await hashJson(write.value),...values,...guard));
+      else statements.push(db.prepare(`UPDATE ${table} SET row_revision=row_revision+1,payload_json=?,content_hash=?${names.map(name=>`,${name}=?`).join('')} WHERE user_id=? AND id=? AND row_revision=? AND ${claim}`).bind(canonicalJson(write.value),await hashJson(write.value),...values,userId,write.id,write.expectedRowRevision,...guard));
+    }
     else if(write.operation==='delete')statements.push(db.prepare(`DELETE FROM ${table} WHERE user_id=? AND id=? AND row_revision=? AND ${claim}`).bind(userId,write.id,write.expectedRowRevision,...guard));
     else throw new CommandValidationError('Unknown module operation.');
   }
+  if(command.type==='decisions.decide'||command.type==='decisions.supersede')for(const write of plan.writes)if(write.table==='decision_versions'&&write.operation==='insert'){
+    const value=write.value as unknown as import('./evidence-contract.ts').DecisionVersion;
+    if(value.status==='decided'&&value.decidedAt===now&&value.recordedAt===now)statements.push(db.prepare(`INSERT INTO decision_owner_grants(user_id,decision_id,version,content_hash) SELECT ?,?,?,? WHERE ${claim}`).bind(userId,value.id,value.version,await hashJson(value),...guard));
+  }
   for(const [ordinal,event] of plan.events.entries()){
     if(event.actorId!==userId || event.origin!=='owner' || event.occurredAt!==now)throw new CommandValidationError('Owner event authority is invalid.');
-    statements.push(db.prepare(`INSERT INTO audit_events (user_id,event_id,workspace_revision,ordinal,stream_id,stream_sequence,kind,entity_type,entity_id,occurred_at,payload_json) SELECT ?,?,?,?,NULL,NULL,?,?,?,?,? WHERE ${claim}`).bind(userId,event.id,revision+1,ordinal,event.kind,event.entityType,event.entityId,now,canonicalJson(event),...guard));
+    statements.push(db.prepare(`INSERT INTO audit_events (user_id,event_id,workspace_revision,ordinal,stream_id,stream_sequence,kind,entity_type,entity_id,occurred_at,payload_json,origin,actor_id,source_ref,undo_of) SELECT ?,?,?,?,NULL,NULL,?,?,?,?,?,?,?,?,? WHERE ${claim}`).bind(userId,event.id,revision+1,ordinal,event.kind,event.entityType,event.entityId,now,canonicalJson(event),event.origin,event.actorId,event.sourceRef,event.undoOf,...guard));
+    for(const projectId of auditProjectIds(event,before.workspace,plan.planningAfter))statements.push(db.prepare(`INSERT INTO audit_project_links(user_id,event_id,project_id) SELECT ?,?,? WHERE ${claim}`).bind(userId,event.id,projectId,...guard));
   }
   if(plan.historyImports?.length){
     if(plan.historyImports.length>10000)throw new CommandValidationError('Imported history exceeds row limits.');
+    for(const entry of plan.historyImports){
+      if(entry.sourceIdentity!==undefined||entry.sourceHash!==undefined){
+        if(!entry.sourceIdentity||entry.sourceIdentity.length>256||!entry.sourceHash||!/^[a-f0-9]{64}$/.test(entry.sourceHash))throw new CommandValidationError('Invalid stable imported history identity.');
+        assertion('NOT EXISTS (SELECT 1 FROM audit_import_identities WHERE user_id=? AND source_identity=? AND (source_hash<>? OR event_id<>?))',[userId,entry.sourceIdentity,entry.sourceHash,entry.id]);
+        assertion('NOT EXISTS (SELECT 1 FROM audit_events WHERE user_id=? AND event_id=?) OR EXISTS (SELECT 1 FROM audit_import_identities WHERE user_id=? AND source_identity=? AND source_hash=? AND event_id=?)',[userId,entry.id,userId,entry.sourceIdentity,entry.sourceHash,entry.id]);
+        statements.push(db.prepare(`INSERT INTO audit_import_identities(user_id,source_identity,source_hash,event_id) SELECT ?,?,?,? WHERE ${claim} ON CONFLICT(user_id,source_identity) DO NOTHING`).bind(userId,entry.sourceIdentity,entry.sourceHash,entry.id,...guard));
+      }
+    }
     const history=plan.historyImports.map((entry,index)=>{
       if(!/^[a-f0-9]{64}$/.test(entry.importHash) || !entry.id)throw new CommandValidationError('Invalid imported history provenance.');
       const event:AuditEventDraft={id:entry.id,kind:'imported-history',entityType:'historical-claim',entityId:null,changes:[{path:['sourceClaim'],before:{exists:false,value:null},after:{exists:true,value:entry.source}}],origin:'owner',actorId:userId,occurredAt:now,sourceRef:entry.importHash,undoOf:null};
