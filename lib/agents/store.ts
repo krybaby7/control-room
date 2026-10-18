@@ -80,7 +80,9 @@ async function active(db:SqlDatabase,p:DevicePrincipal,jobId:string,options:Agen
  const candidate=await options.context.candidate(record,p.deviceId,envelope.reservationId);
  if(!candidate||candidate.capabilityHash!==envelope.approval.capabilitySha256||candidate.bindingHash!==envelope.bindingSha256||candidate.budgetId!==envelope.reservationId||canonical(candidate.binding)!==canonical(envelope.executionBinding))fail('execution_binding_changed');
  const budget=await one(db,'agent_budgets',p.ownerId,'id',envelope.reservationId);if(!budget||budget.enabled!==1||integer(budget,'reserved_jobs')<1||integer(budget,'reserved_seconds')<record.spec.timeoutSeconds||integer(budget,'reserved_jobs')>integer(budget,'maximum_jobs')||integer(budget,'reserved_seconds')+integer(budget,'charged_seconds')>integer(budget,'maximum_seconds'))fail('finite_budget_unavailable');
- const dependencies=await options.context.dependencies(record);validateAgentDependencyGraph(record.id,p.ownerId,dependencies,true);
+ const dependencies=await options.context.dependencies(record),root={id:record.id,ownerId:p.ownerId,dependsOnJobIds:record.spec.dependsOnJobIds,status:'queued' as const};
+ for(const entry of dependencies.filter(row=>row.id===record.id))if(entry.ownerId!==p.ownerId||canonical(entry.dependsOnJobIds)!==canonical(root.dependsOnJobIds))fail('dependency_root_identity_differs');
+ validateAgentDependencyGraph(record.id,p.ownerId,[...dependencies.filter(row=>row.id!==record.id),root],true);
  const artifacts=await options.context.artifacts(record.spec.inputArtifactIds);if(canonical([...artifacts].sort((a,b)=>a.id.localeCompare(b.id)))!==canonical([...envelope.executionBinding.artifactRefs].sort((a,b)=>a.id.localeCompare(b.id))))fail('input_artifacts_changed');
  const intent=await one(db,'workspace_job_intents',p.ownerId,'id',record.intentId);
  if(!intent||intent.kind!=='agent.execute'||intent.cancel_requested!==0||!['pending','claimed','running'].includes(text(intent,'status'))||intent.execution_epoch!==state.execution_epoch||Date.parse(text(intent,'not_before'))>Date.parse(options.now)||canonical(JSON.parse(text(intent,'payload_json')))!==canonical({jobId:record.id,specSha256:record.specSha256}))fail('job_intent_unavailable');
@@ -167,9 +169,9 @@ function protocol(events:Map<number,{row:Row;event:AgentJobEventV1}>,record:Agen
  }
  return {sequence,accepted,started,exited,completed,blocked,cancelled,exitCode,observedModel,artifactIds,resultHash};
 }
-export async function reportAgentEvents(db:SqlDatabase,p:DevicePrincipal,raw:unknown,options:AgentStoreOptions):Promise<{receipts:AgentEventReceipt[];lastAppliedSequence:number}>{
+async function persistAgentEvents(db:SqlDatabase,p:DevicePrincipal,raw:unknown,options:AgentStoreOptions,reconciliation?:{attempt:Row;auth:DeviceSqlGuard}):Promise<{receipts:AgentEventReceipt[];lastAppliedSequence:number}>{
  const proofs=await snapshot(db,p.ownerId,['job_attempts','job_events','agent_job_state','workspace_job_intents']);
- const input=z.object({attemptId:agentIdSchema,leaseToken:z.string().regex(/^[a-f0-9]{64}$/u),events:z.unknown()}).strict().parse(raw),a=await ownedAttempt(db,p,input,options.now,true),incoming=parseAgentEventBatch(input.events),events=await eventsFor(db,p,a.attempt),identity=JSON.parse(text(a.attempt,'identity_json')) as {record:AgentJobRecordV1;executionBinding:AgentExecutionBindingV1};
+ const input=z.object({attemptId:agentIdSchema,leaseToken:z.string().regex(/^[a-f0-9]{64}$/u),events:z.unknown()}).strict().parse(raw),a=reconciliation??await ownedAttempt(db,p,input,options.now,true),incoming=parseAgentEventBatch(input.events),events=await eventsFor(db,p,a.attempt),identity=JSON.parse(text(a.attempt,'identity_json')) as {record:AgentJobRecordV1;executionBinding:AgentExecutionBindingV1};
  const record=await validateAgentJobRecord(identity.record),state=await one(db,'agent_job_state',p.ownerId,'job_id',record.id);if(!state||state.attempt_id!==a.attempt.id)fail('attempt_state_unavailable');
  const receipts:AgentEventReceipt[]=[],inserts:Row[]=[];
  for(const event of incoming){
@@ -183,14 +185,15 @@ export async function reportAgentEvents(db:SqlDatabase,p:DevicePrincipal,raw:unk
  const applied=protocol(events,record,identity.executionBinding,a.attempt,state);
  if(!inserts.length){if(!await db.prepare('SELECT 1 WHERE '+a.auth.sql).bind(...a.auth.bindings).first())fail('device_authority_unavailable',401);return {receipts,lastAppliedSequence:integer(a.attempt,'last_applied_sequence')};}
  if(events.size>1024||[...events.values()].reduce((n,e)=>n+new TextEncoder().encode(text(e.row,'payload_json')).length,0)>2097152)fail('attempt_event_capacity');
- if(!await atomic(db,p,attemptGuard(a.auth,p,a.attempt,options.now),proofs,(gate,b)=>[
+ if(!await atomic(db,p,attemptGuard(a.auth,p,a.attempt,options.now,!!reconciliation),proofs,(gate,b)=>[
   ...inserts.map(row=>db.prepare('INSERT INTO job_events(user_id,attempt_id,epoch,sequence,payload_hash,payload_json,receipt_json,received_at) SELECT ?,?,?,?,?,?,?,? WHERE '+gate).bind(p.ownerId,row.attempt_id,row.epoch,row.sequence,row.payload_hash,row.payload_json,row.receipt_json,row.received_at,...b)),
   db.prepare('UPDATE job_events SET applied_at=COALESCE(applied_at,?) WHERE user_id=? AND attempt_id=? AND sequence<=? AND '+gate).bind(options.now,p.ownerId,a.attempt.id,applied.sequence,...b),
   db.prepare('UPDATE job_attempts SET last_applied_sequence=?,launched_at=CASE WHEN ? THEN COALESCE(launched_at,?) ELSE launched_at END,exited_at=CASE WHEN ? THEN COALESCE(exited_at,?) ELSE exited_at END,cancel_acknowledged_at=CASE WHEN ? THEN COALESCE(cancel_acknowledged_at,?) ELSE cancel_acknowledged_at END,operational_revision=operational_revision+1 WHERE user_id=? AND id=? AND '+gate).bind(applied.sequence,applied.started?1:0,options.now,applied.exited?1:0,options.now,applied.cancelled?1:0,options.now,p.ownerId,a.attempt.id,...b),
-  db.prepare("UPDATE agent_job_state SET status=CASE WHEN cancel_requested_at IS NOT NULL THEN 'cancelling' WHEN ? THEN 'running' ELSE status END,operational_revision=operational_revision+1,updated_at=? WHERE user_id=? AND job_id=? AND "+gate).bind(applied.started?1:0,options.now,p.ownerId,record.id,...b)
+  db.prepare("UPDATE agent_job_state SET status=CASE WHEN ? THEN 'reconcile_required' WHEN cancel_requested_at IS NOT NULL THEN 'cancelling' WHEN ? THEN 'running' ELSE status END,operational_revision=operational_revision+1,updated_at=? WHERE user_id=? AND job_id=? AND "+gate).bind(reconciliation?1:0,applied.started?1:0,options.now,p.ownerId,record.id,...b)
  ]))fail('event_commit_conflict');
  return {receipts,lastAppliedSequence:applied.sequence};
 }
+export async function reportAgentEvents(db:SqlDatabase,p:DevicePrincipal,raw:unknown,options:AgentStoreOptions){return persistAgentEvents(db,p,raw,options);}
 /** Expiry is uncertainty, never evidence of exit and never permission to retry. */
 export async function expireAgentAttempts(db:SqlDatabase,owner:string,now:string):Promise<number>{
  time(now);if(typeof owner!=='string'||!owner||owner.length>256)fail('owner_required');
@@ -256,18 +259,23 @@ export async function completeAgentAttempt(db:SqlDatabase,p:DevicePrincipal,raw:
 /** Current authenticated device authority can attest retained journal proof, but a
  * retired execution epoch is never turned back into permission to run a process. */
 export async function reconcileAgentAttempt(db:SqlDatabase,p:DevicePrincipal,raw:unknown,options:AgentStoreOptions){
- const input=z.object({attemptId:agentIdSchema,journalNonce:z.string().min(32).max(128).regex(/^[A-Za-z0-9_-]+$/u),proof:z.enum(['no-launch','exited']),result:agentJobResultSchema.optional()}).strict().parse(raw),auth=await authority(db,p,options.now),a=await one(db,'job_attempts',p.ownerId,'id',input.attemptId);
+ const input=z.object({attemptId:agentIdSchema,journalNonce:z.string().min(32).max(128).regex(/^[A-Za-z0-9_-]+$/u),proof:z.enum(['no-launch','exited']),events:z.unknown().optional(),result:agentJobResultSchema.optional()}).strict().parse(raw),auth=await authority(db,p,options.now),a=await one(db,'job_attempts',p.ownerId,'id',input.attemptId);
  if(!a||a.device_id!==p.deviceId||a.journal_nonce_hash!==await contentHash(input.journalNonce))fail('journal_identity_differs',403);
  if(a.result_json!==null){if(input.result&&canonical(input.result)!==a.result_json)fail('terminal_result_immutable');return {result:agentJobResultSchema.parse(JSON.parse(text(a,'result_json'))),recordId:'result:'+input.attemptId};}
  if(a.reconciled_at!==null)return {result:null,recordId:null};
  if(input.proof==='exited'){
   if(!input.result)fail('reconciliation_result_required');
+  let current=a;
+  if(input.events!==undefined){
+   await persistAgentEvents(db,p,{attemptId:input.attemptId,leaseToken:text(a,'lease_token_hash'),events:input.events},options,{attempt:a,auth});
+   const reread=await one(db,'job_attempts',p.ownerId,'id',input.attemptId);if(!reread)fail('retained_attempt_missing');current=reread;
+  }
   // The credential/epoch authenticates this report; the retained attempt epoch
   // remains immutable and completion never creates a lease or runnable intent.
-  const reportGuard:DeviceSqlGuard={sql:auth.sql+' AND EXISTS(SELECT 1 FROM job_attempts WHERE user_id=? AND id=? AND operational_revision=? AND journal_nonce_hash=? AND result_json IS NULL)',bindings:[...auth.bindings,p.ownerId,a.id,a.operational_revision,a.journal_nonce_hash]};
-  return finish(db,p,a,reportGuard,input.result,options,true);
+  const reportGuard:DeviceSqlGuard={sql:auth.sql+' AND EXISTS(SELECT 1 FROM job_attempts WHERE user_id=? AND id=? AND operational_revision=? AND journal_nonce_hash=? AND result_json IS NULL)',bindings:[...auth.bindings,p.ownerId,current.id,current.operational_revision,current.journal_nonce_hash]};
+  return finish(db,p,current,reportGuard,input.result,options,true);
  }
- if(a.launched_at!==null||a.exited_at!==null||input.result)fail('no_launch_proof_contradicts_process');
+ if(a.launched_at!==null||a.exited_at!==null||input.result||input.events!==undefined)fail('no_launch_proof_contradicts_process');
  const proof=await options.verifyNoLaunch?.({principal:p,attemptId:input.attemptId,journalNonce:input.journalNonce});if(!proof)fail('no_launch_proof_unavailable');
  const identity=JSON.parse(text(a,'identity_json')) as {record:AgentJobRecordV1;budgetId:string},record=await validateAgentJobRecord(identity.record),proofs=await snapshot(db,p.ownerId,['job_attempts','job_events','agent_job_state','agent_device_slots','agent_budgets','workspace_job_intents']);
  proofs.push(proof);

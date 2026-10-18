@@ -52,7 +52,7 @@ function portableAudit(value:unknown):unknown {
 export class ExportRegistry {
   private modules = new Map<string,ExportModule>();
   register(adapter:ExportModule):void {
-    if (!/^[a-z][a-z0-9_]{0,63}$/.test(adapter.key) || forbiddenModule.test(adapter.key) || this.modules.has(adapter.key) || !Number.isSafeInteger(adapter.schemaVersion) || adapter.schemaVersion<1) throw new Error('Invalid or duplicate export adapter.');
+    if (!/^[a-z][a-z0-9_]{0,63}$/.test(adapter.key) || (forbiddenModule.test(adapter.key)&&!['agent_jobs','agent_results'].includes(adapter.key)) || this.modules.has(adapter.key) || !Number.isSafeInteger(adapter.schemaVersion) || adapter.schemaVersion<1) throw new Error('Invalid or duplicate export adapter.');
     const tables=moduleTables(adapter);for(const table of tables)ownerTable(table);
     if(new Set(tables).size!==tables.length||tables.some(table=>this.entries().some(other=>moduleTables(other).includes(table))))throw new Error('Duplicate physical module coverage.');
     this.modules.set(adapter.key,Object.freeze({...adapter,...(adapter.tables?{tables:Object.freeze([...tables])}:{})}));

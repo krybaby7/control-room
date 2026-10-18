@@ -1,3 +1,4 @@
+import {ownerJobCommand} from './owner-command';
 import {env} from 'cloudflare:workers';
 import {getChatGPTUser} from '../../chatgpt-auth';
 import {readAgentJobs} from '../../../lib/agents/read-store';
@@ -10,3 +11,5 @@ export async function GET(request:Request){
  try{return Response.json(await readAgentJobs(env.DB,user.userId,new Date().toISOString(),{afterJob:url.searchParams.get('afterJob')??undefined,afterEvaluation:url.searchParams.get('afterEvaluation')??undefined}),{headers});}
  catch{return Response.json({error:'Agent records are unavailable. Refresh again.'},{status:503,headers});}
 }
+
+export async function POST(request:Request){return ownerJobCommand(request,'jobs.create');}

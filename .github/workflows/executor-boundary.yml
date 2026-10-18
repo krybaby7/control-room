@@ -1,0 +1,30 @@
+name: Executor boundary checks
+
+on:
+  push:
+    paths:
+      - 'bridge/executor/**'
+      - 'bridge/src/execution-policy.mjs'
+      - 'bridge/src/config.mjs'
+      - 'bridge/test/execution-policy.test.mjs'
+      - 'bridge/test/executor-*.test.mjs'
+      - 'bridge/test/fixtures/executor.mjs'
+      - '.github/workflows/executor-boundary.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  executor-boundary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Run synthetic executor boundary checks
+        run: node --test bridge/test/execution-policy.test.mjs bridge/test/executor-*.test.mjs

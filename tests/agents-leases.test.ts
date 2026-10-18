@@ -32,7 +32,7 @@ async function fixture(timeoutSeconds=120){
  f.sqlite.prepare('INSERT INTO job_approvals(user_id,id,job_id,device_id,spec_hash,binding_hash,payload_json,created_at,expires_at,reserved_seconds) VALUES(?,?,?,?,?,?,?,?,?,?)').run(owner,'approval-1',jobId,deviceId,specSha256,bindingHash,canonical(envelope),now,later(86400),timeoutSeconds);
  f.sqlite.prepare('INSERT INTO agent_budgets(user_id,id,operational_revision,payload_json,maximum_jobs,maximum_seconds,reserved_jobs,reserved_seconds,charged_seconds,enabled,updated_at) VALUES(?,?,1,?,1,600,1,?,0,1,?)').run(owner,'budget-1',canonical({maximumJobs:1,maximumSeconds:600,enabled:true}),timeoutSeconds,now);
  const candidate={deviceId,capabilityHash,bindingHash,budgetId:'budget-1',expiresAt:later(300),binding};
- const context:AgentCommandContext={async taskInputs(){return {};},async state(){return null;},async candidate(){return candidate;},async artifacts(){return [];},async dependencies(){return [{id:jobId,ownerId:owner,dependsOnJobIds:[],status:'queued'}];}};
+ const context:AgentCommandContext={async taskInputs(){return {};},async state(){return null;},async candidate(){return candidate;},async artifacts(){return [];},async dependencies(){return [];}};
  const options:AgentStoreOptions={now,context};
  return {...f,owner,principal,jobId,intentId,record,binding,capability,context,options};
 }
@@ -135,4 +135,15 @@ test('capability private CAS rejects foreign body and stale revision without por
  await assert.rejects(reportAgentCapability(f.db,f.principal,{capability:f.capability,expectedOperationalRevision:null},{now}));
  const value=await reportAgentCapability(f.db,f.principal,{capability:{...f.capability,observedAt:later(1),expiresAt:later(301)},expectedOperationalRevision:1},{now:later(1)});assert.equal(value.operationalRevision,2);
  assert.equal(count(f,'audit_events'),0);assert.equal(f.sqlite.prepare('SELECT revision FROM workspaces').get()!.revision,1);
+}finally{f.sqlite.close();}});
+
+test('late journal exit proof reconciles expired lease without a new attempt or executable queue',async()=>{const f=await fixture();try{
+ const lease=await claim(f),value=result(lease),events=await proofEvents(lease,value);
+ assert.equal(await expireAgentAttempts(f.db,f.owner,later(61)),1);
+ await assert.rejects(reportAgentEvents(f.db,f.principal,{attemptId:lease.attemptId,leaseToken:lease.leaseToken,events},{...f.options,now:later(62)}));
+ assert.equal(count(f,'job_events'),0);
+ const terminal=await reconcileAgentAttempt(f.db,f.principal,{attemptId:lease.attemptId,journalNonce:nonce,proof:'exited',events,result:value},{...f.options,now:later(63),verifyResult:async()=>({adapterChecksPassed:true})});
+ assert.equal(terminal.result?.disposition,'succeeded');assert.equal(count(f,'job_attempts'),1);assert.equal(count(f,'agent_results'),1);
+ assert.equal(f.sqlite.prepare('SELECT status FROM workspace_job_intents').get()!.status,'completed');assert.notEqual(f.sqlite.prepare('SELECT released_at FROM agent_device_slots').get()!.released_at,null);
+ assert.equal(f.sqlite.prepare('SELECT charged_seconds FROM agent_budgets').get()!.charged_seconds,120);
 }finally{f.sqlite.close();}});
