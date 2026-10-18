@@ -13,11 +13,17 @@ export interface CaptureInput { title: string; body: string; projectId: string |
 export interface Capture extends CaptureInput { id: string; status: 'inbox' | 'filed' | 'archived'; createdAt: string; convertedTaskId: string | null; }
 export interface Activity { id: string; text: string; at: string; projectId: string | null; }
 export interface Workspace { schemaVersion: 1 | 2 | 3 | 4; projects: Project[]; milestones: Milestone[]; tasks: Task[]; captures: Capture[]; activity: Activity[]; }
-export interface WorkspaceEnvelope { workspace: Workspace; revision: number; updatedAt: string; previousBackupAvailable?: boolean; }
+export interface WorkspaceEnvelope { workspace: Workspace; revision: number; updatedAt: string; previousBackupAvailable?: boolean; baselineRemovedIds?:string[]; }
 export type Command =
+  | import('./planning-contract.ts').PlanningWorkflowCommand
+  | import('./weekly-planning.ts').WeeklyCommand
+  | {type:'recurrence.create';rule:Omit<import('./recurrence.ts').RecurrenceRule,'id'>}
+  | {type:'recurrence.update';id:string;expectedRuleRevision:number;rule:Omit<import('./recurrence.ts').RecurrenceRule,'id'>}
+  | {type:'recurrence.materialize';id:string;from:string;through:string}
+  | {type:'recurrence.occurrence.remove';ruleId:string;occurrenceDate:string;taskId:string;expectedOccurrenceRevision:number;targetRevision:number;previewHash:string}
   | { type: 'workspace.backup' }
   | {type:'workspace.backup.remove';id:string;sha256:string;targetRevision:number}
-  | { type:'entity.delete';entityType:'task'|'capture';id:string;previewHash:string;targetRevision:number }
+  | { type:'entity.delete';entityType:'task'|'capture'|'project'|'milestone';id:string;previewHash:string;targetRevision:number }
   | { type: 'workspace.import.commit'; importId:string;hash:string;targetRevision:number;mode:'replace'|'merge';selection?:{projects:string[];milestones:string[];tasks:string[];captures:string[];activity:string[]} }
   | { type: 'baseline.apply'; projectId: string; baselineId: '2026-10-17' }
   | { type: 'workspace.restore'; workspace: Workspace }

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { applyCommand } from '../lib/planning.ts';
 import { createSeedWorkspace } from '../lib/seed.ts';
 import { parseWorkspaceExport } from '../lib/workspace-validation.ts';
-import { baselineApplicationState, getProjectBaseline, PROJECT_BASELINES } from '../lib/project-baselines.ts';
+import { baselineApplicationState, getProjectBaseline, previewProjectBaseline, applyProjectBaseline, PROJECT_BASELINES } from '../lib/project-baselines.ts';
 import type { Workspace } from '../lib/types.ts';
 
 const AT = '2026-10-17T16:20:30.000Z';
@@ -131,11 +131,10 @@ test('baseline command rejects malformed payloads and deterministic ID collision
     { type: 'baseline.apply', projectId: seed.projects[0].id, baselineId: '2026-10-17', tasks: [] },
   ]) assert.throws(() => applyCommand(seed, command, AT), /baseline|project|field/i);
   const result = apply(seed);
-  for (const kind of ['task', 'capture', 'cross-type']) {
+  for (const kind of ['task-id-as-capture', 'context-id-as-task']) {
     const collision = structuredClone(seed);
-    if (kind === 'task') collision.tasks.push({ ...result.tasks.at(-1)!, projectId: seed.projects[1].id, milestoneId: null });
-    if (kind === 'capture') collision.captures.push({ ...result.captures.at(-1)!, projectId: seed.projects[1].id });
-    if (kind === 'cross-type') collision.captures.push({ ...result.captures.at(-1)!, id: result.tasks.at(-1)!.id });
+    if (kind === 'task-id-as-capture') collision.captures.push({ ...result.captures.at(-1)!, id: result.tasks.at(-1)!.id });
+    if (kind === 'context-id-as-task') collision.tasks.push({ ...result.tasks.at(-1)!, id: result.captures.at(-1)!.id });
     const before = structuredClone(collision);
     assert.throws(() => apply(collision), /collision|another project|conflict/i);
     assert.deepEqual(collision, before);
@@ -211,3 +210,56 @@ test('bundled source context stays dated and portable, and installation is prepa
   assert.match(trade.status, /dated report says not installed; current runtime is unverified/);
 });
 
+
+
+test('moved deterministic baseline tasks remain consumed with current-project links and unchanged source lineage',()=>{
+  const seed=createSeedWorkspace(AT),full=apply(seed),projectId=seed.projects[0].id;
+  const moved=full.tasks.at(-1)!;moved.projectId=seed.projects[1].id;moved.milestoneId=null;moved.title='Owner moved and renamed work';
+  const original=structuredClone(moved);
+  const proposal=previewProjectBaseline(full,projectId).find(row=>row.id===moved.id)!;
+  assert.equal(proposal.exists,true);assert.equal(proposal.removed,false);assert.equal(proposal.currentProjectId,seed.projects[1].id);
+  assert.equal(baselineApplicationState(full,projectId).status,'applied');
+  const replayed=apply(full);assert.deepEqual(replayed.tasks.find(row=>row.id===moved.id),original);assert.deepEqual(replayed,full);
+  const partial=structuredClone(seed);partial.tasks.push(structuredClone(moved));
+  const completed=apply(partial);assert.equal(completed.tasks.filter(row=>row.id===moved.id).length,1);assert.deepEqual(completed.tasks.find(row=>row.id===moved.id),original);
+});
+test('owner task and context deletion tombstones prevent resurrection even when the context marker is absent',()=>{
+  const seed=createSeedWorkspace(AT),full=apply(seed),projectId=seed.projects[0].id;
+  const task=full.tasks.at(-1)!,marker=full.captures.at(-1)!;full.tasks.pop();full.captures.pop();
+  const removed=[task.id,marker.id],before=structuredClone(full);
+  const state=baselineApplicationState(full,projectId,removed);
+  assert.equal(state.status,'applied');assert.equal(state.missingCount,0);assert.match(state.message,/previously applied; task removed/i);assert.match(state.message,/tombstone/i);
+  const proposal=previewProjectBaseline(full,projectId,removed).find(row=>row.id===task.id)!;assert.equal(proposal.removed,true);assert.equal(proposal.exists,false);
+  const replayed=applyProjectBaseline(full,projectId,'2026-10-17',LATER,removed);assert.deepEqual(replayed,before);assert.deepEqual(full,before);
+});
+test('removed context and proposals are skipped while genuinely new missing proposals can still be added',()=>{
+  const seed=createSeedWorkspace(AT),full=apply(seed),projectId=seed.projects[0].id;
+  const removedTask=full.tasks.at(-1)!,removedContext=full.captures.at(-1)!;
+  const partial=structuredClone(seed),removed=[removedTask.id,removedContext.id];
+  const result=applyProjectBaseline(partial,projectId,'2026-10-17',LATER,removed);
+  assert.equal(result.tasks.length,seed.tasks.length+4);assert.equal(result.captures.length,seed.captures.length);
+  assert.equal(result.tasks.some(row=>row.id===removedTask.id),false);assert.equal(result.captures.some(row=>row.id===removedContext.id),false);
+  assert.equal(baselineApplicationState(result,projectId,removed).status,'applied');
+});
+test('tombstone claims never suppress a live foreign-kind ID collision',()=>{
+  const seed=createSeedWorkspace(AT),full=apply(seed),projectId=seed.projects[0].id,id=full.tasks.at(-1)!.id;
+  seed.captures.push({...seed.captures[0],id});
+  assert.throws(()=>applyProjectBaseline(seed,projectId,'2026-10-17',LATER,[id]),/collision/);
+});
+
+test('archived project rejects new baseline records while an already-applied baseline remains a lossless no-op',()=>{
+  const source=createSeedWorkspace(AT);source.projects[0].archivedAt=AT;const before=structuredClone(source);
+  assert.throws(()=>apply(source),/Restore this project/);assert.deepEqual(source,before);
+  const full=apply(createSeedWorkspace(AT));full.projects[0].archivedAt=AT;
+  assert.deepEqual(apply(full),full);
+  // Existing task IDs alone do not authorize adding a context into an archived project.
+  full.captures.pop();assert.throws(()=>apply(full),/Restore this project/);
+});
+test('new baseline proposals skip archived milestone assignments but keep original title/source lineage',()=>{
+  const source=createSeedWorkspace(AT),projectId=source.projects[0].id;source.milestones[0].archivedAt=AT;
+  const preview=previewProjectBaseline(source,projectId);assert.equal(preview[0].milestoneId,null);assert.match(preview[0].milestoneNote,/archived/);
+  const next=apply(source),added=next.tasks.slice(source.tasks.length);assert.equal(added[0].milestoneId,null);assert.match(added[0].notes,/original milestone/);assert.match(added[0].notes,/Source evidence/);
+  assert.equal(added[0].title,PROJECT_BASELINES[0].actions[0].title);
+  const existing=apply(createSeedWorkspace(AT));existing.milestones[0].archivedAt=AT;const original=structuredClone(existing.tasks);
+  assert.deepEqual(apply(existing).tasks,original);
+});

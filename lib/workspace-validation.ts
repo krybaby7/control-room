@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { validateTaskGraph } from './task-graph.ts';
 import { migratePlanningV3ToV4 } from './planning-migration.ts';
 import { currentWeek } from './calendar.ts';
 import type { Workspace } from './types.ts';
@@ -69,7 +70,7 @@ export function parseWorkspaceExport(value: unknown, savedAt?: string, options: 
     project(task.projectId);
     if (task.milestoneId !== null && milestones.get(task.milestoneId)?.projectId !== task.projectId) fail('Task milestone belongs to a missing or different project.');
     if (new Set(task.dependsOn).size !== task.dependsOn.length) fail('Duplicate dependencies are invalid.');
-    for (const dependencyId of task.dependsOn) if (tasks.get(dependencyId)?.projectId !== task.projectId) fail('Dependency belongs to a missing or different project.');
+    for (const dependencyId of task.dependsOn) if (!tasks.has(dependencyId)) fail('Dependency refers to a missing task.');
     if (task.weeklyWeek !== null && currentWeek(task.weeklyWeek!) !== task.weeklyWeek) fail('Weekly commitment must identify a Monday.');
     if (task.weekly && !task.weeklyWeek) fail('Weekly commitment requires its saved week.');
     if (task.status === 'archived' && (task.weekly || !task.archivedFromStatus)) fail('Archived tasks require their previous status and cannot be pinned.');
@@ -77,18 +78,7 @@ export function parseWorkspaceExport(value: unknown, savedAt?: string, options: 
     const completed = task.status === 'done' || task.status === 'archived' && task.archivedFromStatus === 'done';
     if (completed !== Boolean(task.completedAt)) fail('Task completion history must agree with its status.');
   }
-  const visiting = new Set<string>(), visited = new Set<string>();
-  function visit(id:string):void {
-    if (visiting.has(id)) fail('Dependencies cannot form a cycle.');
-    if (visited.has(id)) return;
-    visiting.add(id); for (const d of tasks.get(id)!.dependsOn) visit(d); visiting.delete(id); visited.add(id);
-  }
-  for (const task of ws.tasks) {
-    visit(task.id);
-    if (task.status === 'done' || task.status === 'archived' && task.archivedFromStatus === 'done') {
-      if (task.blocker.trim() || task.dependsOn.some(id => { const d = tasks.get(id)!; return d.status !== 'done' && !(d.status === 'archived' && d.archivedFromStatus === 'done'); })) fail('Completed tasks cannot have unfinished dependencies or blockers.');
-    }
-  }
+  try{validateTaskGraph(ws);}catch(error){fail(error instanceof Error?error.message:'Invalid dependency graph.');}
   const measured = measurePlanning(ws);
   if (measured.contentBytes > WORKSPACE_LIMITS.bytes) fail('Workspace exceeds the 1 MB user-content storage limit.');
   if (measured.serializedBytes > WORKSPACE_LIMITS.serializedBytes) fail('Workspace exceeds the 1.25 MB serialized storage limit.');

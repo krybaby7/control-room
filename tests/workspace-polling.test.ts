@@ -50,3 +50,9 @@ test('a read finishing during save is deferred and a timed-out read is retried a
  f.polling.start();await flush();f.polling.setBusy(true);first.resolve({revision:2});await flush();assert.deepEqual(f.accepted,[]);assert.equal(f.polling.snapshot().pending,true);assert.equal(f.clock.timers.size,0);
  f.polling.observeRevision(7);f.polling.setBusy(false);await flush();assert.equal(calls,2);assert.equal(f.clock.delay(),30000);f.clock.advance(30000);await flush();assert.deepEqual(f.accepted,[8]);assert.equal(f.polling.snapshot().failures,0);f.polling.dispose();
 });
+
+test('a refresh failure during save waits for an immediate fresh read instead of surfacing a stale error',async()=>{
+ const first=deferred<{revision:number}>();let calls=0;const f=fixture(()=>++calls===1?first.promise:Promise.resolve({revision:9}));
+ f.polling.start();await flush();f.polling.setBusy(true);first.reject(new Error('stale read transport failed'));await flush();assert.equal(f.polling.snapshot().pending,true);assert.equal(f.polling.snapshot().failures,0);assert.equal(f.clock.timers.size,0);
+ f.polling.observeRevision(8);f.polling.setBusy(false);await flush();assert.equal(calls,2);assert.deepEqual(f.accepted,[9]);assert.equal(f.polling.snapshot().pending,false);f.polling.dispose();
+});

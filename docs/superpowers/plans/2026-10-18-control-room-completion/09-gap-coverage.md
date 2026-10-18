@@ -68,3 +68,9 @@ This ledger defines what “complete the things it cannot do” means. Every aud
 ## Acceptance recording rule
 
 For every row record: status, implementation commit, automated tests, local browser proof, hosted/provider/device proof when applicable, remaining external dependency and next action. “Complete” means its stated criterion passed. A missing live provider should block only its own row and dependent enabled feature, not prevent the rest of the cloud implementation from progressing.
+
+## Phase2 integration checkpoint — acceptance pending
+
+Published schema contract72c182b7070df61fdc42e772a2a52923a340efcf passed cloud CI39132767626. Current uncommitted implementation addresses G01–G14 with owner-scoped domain/SQLite checks and integrated views;384 integrated Node tests and build/type/lint passed before subsequent reviewed corrections. These rows remain pending expanded Chromium and full normalized export/restore acceptance. Current-week compatibility versus future plans, durable weekly review recovery and bounded planning reads are under correction. Later evidence/source/job findings remain dependent on their owning phases; no provider freshness or live scheduling is inferred. Full normalized restore is supported; selective merge of populated normalized modules remains explicitly rejected to avoid silent commitments or trusted historical claims.
+
+Stable follow-up:414 Node tests,type/lint/build pass;19 Chromium journeys prepared,execution pending. Full normalized replacement/history/tombstone/legacy compatibility regressions now pass actual SQLite. Reviewed weekly/polling/editor/rejection/import-order defects are corrected; no provider/device/publication claim is added. G01–G14 remain under Phase2 acceptance reconciliation until browser results are recorded.

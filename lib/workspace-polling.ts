@@ -74,6 +74,7 @@ export class WorkspacePolling<T extends {revision:number}> {
   }).catch(error=>{
    if(generation!==this.generation||!this.running||!this.signedIn||this.disposed)return;
    if(error instanceof SessionExpiredError){this.setSignedIn(false);this.deps.onExpire();return;}
+   if(this.busy){this.pending=true;return;}
    this.failures++;this.deps.onError?.(error);
   }).finally(()=>{
    this.inFlight=null;

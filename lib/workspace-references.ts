@@ -1,3 +1,4 @@
+import {planningReferenceDescriptors} from './planning-module.ts';
 import {z} from 'zod';
 import type {Workspace} from './types.ts';
 import {OWNER_TABLES,ownerTable,type RegisteredOwnerTable,type OwnerScopedReader} from './workspace-modules.ts';
@@ -45,7 +46,7 @@ export async function readReferenceSnapshot(query:OwnerScopedReader,registry:Ref
     for(;;){const page=await query.list(table,{after,limit:REFERENCE_LIMITS.pageSize});if(page.length>REFERENCE_LIMITS.pageSize)throw new Error('Reference page exceeds limit.');
       for(const raw of page){const row=rowSchema.parse(raw);if(row.id<=after)throw new Error('Invalid reference pagination.');after=row.id;
         bytes+=new TextEncoder().encode(row.payload_json).byteLength;if(bytes>REFERENCE_LIMITS.bytes||rows.length>=REFERENCE_LIMITS.rows)throw new Error('Reference snapshot exceeds limit.');
-        const descriptor=registry.get(table),value=descriptor.parse(JSON.parse(row.payload_json));assertPortable(value);
+        const descriptor=registry.get(table);let value:unknown;try{value=descriptor.parse(JSON.parse(row.payload_json));}catch{throw new Error('Invalid normalized reference payload.');}assertPortable(value);
         // Hash the stored payload, not a parser's possibly transformed representation.
         if(await contentHash(canonical(JSON.parse(row.payload_json)))!==row.content_hash)throw new Error('Reference row digest mismatch.');
         const refs=z.array(referenceSchema).parse(descriptor.references(value));references+=refs.length;if(references>REFERENCE_LIMITS.references)throw new Error('Reference snapshot exceeds limit.');
@@ -69,3 +70,5 @@ export function referenceImpact(planning:Workspace,snapshot:ReferenceSnapshot,re
   for(const row of snapshot.rows)for(const ref of row.references){const source={...ref,module:row.module,sourceId:row.id};if(ref.kind===target.kind&&ref.id===target.id)result.references.push(source);if(targets.has(ref.kind)&&!targets.get(ref.kind)!.has(ref.id))result.dangling.push(source);}
   result.canDelete=result.references.length===0;return result;
 }
+
+for(const descriptor of planningReferenceDescriptors)referenceRegistry.register(descriptor);

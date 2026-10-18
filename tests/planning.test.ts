@@ -71,14 +71,31 @@ test('milestone references must exist and belong to the task project', () => {
   }
 });
 
-test('missing, foreign, self and cyclic dependencies are rejected without mutation', () => {
+test('missing, self and cyclic dependencies are rejected without mutation', () => {
   const original = workspace();
-  original.tasks = [task('a'), task('b', { dependsOn: ['a'] }), task('foreign', { projectId: 'p2' })];
+  original.tasks = [task('a'), task('b', { dependsOn: ['a'] }), task('cross-project', { projectId: 'p2' })];
   const before = structuredClone(original);
-  for (const dependsOn of [['missing'], ['foreign'], ['a'], ['b']]) {
+  for (const dependsOn of [['missing'], ['a'], ['b']]) {
     assert.throws(() => applyCommand(original, { type: 'task.update', id: 'a', patch: { dependsOn } }, NOW), /depend|cycle/i);
     assert.deepEqual(original, before);
   }
+});
+
+test('ordinary task create and update allow same-owner cross-project prerequisites and reject cross-project cycles', () => {
+  const original=workspace();
+  original.tasks=[task('a'),task('p2-prerequisite',{projectId:'p2'})];
+  const before=structuredClone(original);
+  const updated=applyCommand(original,{type:'task.update',id:'a',patch:{dependsOn:['p2-prerequisite']}},NOW);
+  assert.deepEqual(updated.tasks[0].dependsOn,['p2-prerequisite']);
+  assert.equal(updated.tasks[0].projectId,'p1');
+  assert.deepEqual(original,before);
+  const created=applyCommand(updated,{type:'task.create',task:input({title:'Cross-project follow-up',dependsOn:['p2-prerequisite']})},LATER);
+  assert.deepEqual(created.tasks.at(-1)!.dependsOn,['p2-prerequisite']);
+  assert.equal(created.tasks.at(-1)!.projectId,'p1');
+  assert.ok(getBlockers(created.tasks.at(-1)!,created).some(message=>message.includes('Review acceptance criteria')));
+  assert.throws(()=>applyCommand(updated,{type:'task.update',id:'p2-prerequisite',patch:{dependsOn:['a']}},LATER),/cycle/i);
+  assert.throws(()=>applyCommand(updated,{type:'task.create',task:input({projectId:'p2',dependsOn:['outside-owner-scope']})},LATER),/depend|missing|unavailable/i);
+  assert.deepEqual(updated.tasks[1].dependsOn,[]);
 });
 
 test('duplicate dependency references are rejected', () => {
@@ -124,7 +141,7 @@ test('editing a done task preserves its completion date and reopening clears it'
 
 test('reopening a completed predecessor cannot invalidate completed dependents; archive preserves completion', () => {
   const original = workspace();
-  original.tasks = [task('a', { title: 'Operating review', status: 'done' }), task('b', { title: 'Profit evaluation', status: 'done', dependsOn: ['a'] })];
+  original.tasks = [task('a', { title: 'Operating review', status: 'done' }), task('b', { title: 'Profit evaluation', projectId:'p2', status: 'done', dependsOn: ['a'] })];
   for (const status of ['todo']) {
     assert.throws(() => applyCommand(original, { type: 'task.update', id: 'a', patch: { status } }, LATER), /Profit evaluation|dependent/i);
   }
@@ -290,8 +307,8 @@ test('recommendations interleave projects for equal exposure even when scores di
     ...Array.from({ length: 5 }, (_, i) => task(`p2-${i}`, { projectId: 'p2', priority: 'low', horizon: 'later' })),
   ];
   const picks = getRecommendations(original, '2026-10-17');
-  assert.equal(picks.length, 6);
-  assert.deepEqual(picks.map((item) => item.taskId.slice(0, 2)), ['p1', 'p2', 'p1', 'p2', 'p1', 'p2']);
+  assert.equal(picks.length, 10);
+  assert.deepEqual(picks.map((item) => item.taskId.slice(0, 2)), ['p1', 'p2', 'p1', 'p2', 'p1', 'p2', 'p1', 'p2', 'p1', 'p2']);
 });
 
 test('ranking reflects weekly commitments, priority, pending review, horizon and near dates', () => {
@@ -347,4 +364,13 @@ test('seed expresses editable suggestions, equal projects and dated historical e
   assert.ok(getBlockers(profitability, seed).length > 0);
   assert.equal(seed.activity.length > 0, true);
   assert.notEqual(createSeedWorkspace(NOW), seed);
+});
+
+test('milestone creation normalizes project identity before rejecting archived destinations',()=>{
+  const original=workspace();original.projects[0].archivedAt=NOW;const before=structuredClone(original);
+  for(const projectId of ['p1',' p1 ','\tp1\n'])assert.throws(()=>applyCommand(original,{type:'milestone.create',milestone:milestone({projectId})},NOW),/active project/);
+  assert.deepEqual(original,before);
+  // Existing archived-project records stay editable without moving or inventing acceptance.
+  original.milestones=[milestoneFixture()];const edited=applyCommand(original,{type:'milestone.update',id:original.milestones[0].id,patch:{description:'Historical clarification'}},LATER);
+  assert.equal(edited.milestones[0].description,'Historical clarification');assert.equal(edited.milestones[0].projectId,'p1');assert.equal(edited.milestones[0].status,'planned');
 });

@@ -66,9 +66,20 @@
         "Independent pure selector groundwork only: stable links,complete paginated search and attention with11 tests; not integrated or accepted",
         "Independent unintegrated taskgraph16 tests and polling8 fake-clock tests pass; no shared schema/workflow integration yet",
         "Uncommitted schema-v4 migration and typed legacy fixture preparation:336 Node tests and typecheck/lint pass; production build checking. Dependent workflows not enabled before final foundation browser gate.",
-        "Task1 schema-v4 clone/default migration,strict estimates/archive/order validation,compact codec,typed real-legacy fixtures pass337 Node tests before later domain groundwork; targeted migration/reliability acceptance and typecheck/lint/build pass."
+        "Task1 schema-v4 clone/default migration,strict estimates/archive/order validation,compact codec,typed real-legacy fixtures pass337 Node tests before later domain groundwork; targeted migration/reliability acceptance and typecheck/lint/build pass.",
+        "Schema-contract cloud CI39132767626 at72c182b7070df61fdc42e772a2a52923a340efcf completed successfully; dependent UI not included in that revision.",
+        "Integrated uncommitted Phase2 checkpoint:384 Node tests pass, typecheck/lint/production build pass; typed weekly/recurrence export/reference adapters, compound archived occurrence removal, portfolio/milestone/search/attention/bulk/inbox/deep-link/polling UI integrated. Expanded browser tests prepared; not yet run.",
+        "Independent review reproduced archive baseline/milestone and URL query normalization defects; fixes with57 focused tests passed. Three additional actual SQLite baseline tombstone/provenance tests pass.",
+        "Stable Phase2 integrated source:414 Node tests pass,zero failures/skips; typecheck,lint,production build pass. Nineteen Chromium journeys discovered; execution pending cloud CI.",
+        "Independent review corrections: archived baseline/milestone guards,URL query preservation,current-week canonical hydration and rollover,future-week carry isolation,durable weekly review editor,scoped bounded planning reads independent of10,001 audit records,explicit >50 missing-occurrence rejection,fresh-process import-order tests.",
+        "Actual SQLite full bundle replacement preserves two weeks,frozen review corrections,rule identities,removed occurrence tombstone and pre-restore recovery point; standalone truev2 and omitted legacy modules accepted; unknown modules rejected.",
+        "Save/privacy review corrections: stable entity editor keys,trusted correlated typed rejection whitelist,original submission retained through manual receipt confirmation,in-modal outcome action,poll read failures deferred during save; new native journeys await CI.",
+        "Actual isolated built-worker HTTP GET/POST/replay/CSRF fixture smoke passed on the stable414-test integration."
       ],
-      "blockers": []
+      "blockers": [
+        "Expanded19-journey Chromium execution and phase acceptance reconciliation pending.",
+        "Authenticated hosted gateway and physical-device acceptance remain distinct from synthetic browser fixtures."
+      ]
     },
     {
       "id": 3,
@@ -107,7 +118,7 @@
       "blockers": []
     }
   ],
-  "nextAction": "Run and fix cloud Playwright recovery acceptance; complete remaining Phase1 policy/privacy/repair gates before Phase2 prerequisites. Preserve original owner records and disabled effects.",
+  "nextAction": "Commit and publish the sanitized Phase2 integration checkpoint to existing draft PR; observe expanded19-journey cloud Chromium run,fix failures,finish remaining Phase2 acceptance and continuePhase3.",
   "allowedStatuses": [
     "not_started",
     "in_progress",
@@ -127,8 +138,24 @@
       "/root/codec",
       "/root/save_client",
       "/root/export_registry",
-      "/root/drafts"
+      "/root/drafts",
+      "/root/runtime_probe"
     ],
     "evidence": "Explicit supported model selection accepted and worker IDs returned."
+  },
+  "checkpoint": {
+    "publishedCommit": "72c182b7070df61fdc42e772a2a52923a340efcf",
+    "workingTree": "Phase2 stable source ready for reviewable commit; preserve all edits",
+    "tests": "414 Node tests,typecheck,lint,production build passed;19 browser journeys discovered but not executed at this checkpoint; isolated real-worker fixture smoke passed",
+    "knownFailures": [
+      "No failing authoring Node/type/lint/build check.",
+      "Expanded Phase2 Chromium acceptance not yet executed."
+    ],
+    "unfinished": [
+      "Phase2 browser/acceptance reconciliation",
+      "Phases3\u20138",
+      "External hosted/provider/device and renewable runner/private object storage acceptance"
+    ],
+    "nextCommand": "git status --short; git diff --check; publish reviewed source tree and observe cloud CI"
   }
 }

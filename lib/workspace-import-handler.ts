@@ -31,7 +31,7 @@ export const reviewedImportHandler:CommandHandler={async prepare(context){
   if(table==='workspace_configuration')throw new Error('Configuration authority cannot be imported.');
   const records=[];
   for(const raw of incomingModule.records){const record=recordSchema.parse(raw);assertPortable(record.value);if(await contentHash(canonical(record.value))!==record.contentHash)throw new Error('Module value digest mismatch.');records.push({id:record.id,value:record.value as JsonValue});}
-  replacements.push({table,beforeRows,records});
+  if(beforeRows.length||records.length)replacements.push({table,beforeRows,records});
  }
  const history=bundle.modules.audit_events?.records??[];
  if(history.length>BUNDLE_LIMITS.rows||new TextEncoder().encode(JSON.stringify(history)).byteLength>1_800_000)throw new Error('Imported history exceeds transaction limit.');

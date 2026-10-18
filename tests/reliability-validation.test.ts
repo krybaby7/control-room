@@ -24,7 +24,8 @@ test('legacy pins use last saved week and retain all content; future schemas fai
 });
 test('weekly carry-forward is explicit and unrelated edits preserve prior week', () => {
   let ws = createSeedWorkspace(at); const id = ws.tasks[0].id;
-  ws = applyCommand(ws, { type: 'task.update', id, patch: { weekly:true } }, at);
+  assert.throws(()=>applyCommand(ws,{type:'task.update',id,patch:{weekly:true}},at),/Accept a proposed task/);
+  ws = applyCommand(ws, { type: 'task.update', id, patch: { status:'todo', weekly:true } }, at);
   ws = applyCommand(ws, { type: 'task.update', id, patch: { notes:'Unrelated update' } }, '2026-10-19T12:00:00Z');
   assert.equal(ws.tasks[0].weeklyWeek,'2026-10-12');
   assert.equal(calendar.isCurrentWeek(ws.tasks[0],'2026-10-19'),false);

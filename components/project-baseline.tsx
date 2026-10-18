@@ -2,6 +2,7 @@
 
 import { useId } from 'react';
 import { BookOpen, CheckCircle2, Plus } from 'lucide-react';
+import { entityHref } from '@/lib/entity-links';
 import type { Project, Workspace } from '@/lib/types';
 import { baselineApplicationState, getProjectBaseline, previewProjectBaseline, type BaselineId, type EvidenceBasis } from '@/lib/project-baselines';
 
@@ -9,6 +10,7 @@ export interface ProjectBaselineProps {
   project: Project;
   workspace: Workspace;
   busy: boolean;
+  removedIds?:readonly string[];
   onApply?: (project: Project, baselineId: BaselineId) => void;
 }
 
@@ -18,12 +20,12 @@ const basisLabels: Record<EvidenceBasis, string> = {
   'owner-decision': 'Recorded owner decision',
 };
 
-export function ProjectBaseline({ project, workspace, busy, onApply }: ProjectBaselineProps) {
+export function ProjectBaseline({ project, workspace, busy, onApply, removedIds=[] }: ProjectBaselineProps) {
   const headingId = useId();
   const baseline = getProjectBaseline(project);
   if (!baseline) return null;
-  const state = baselineApplicationState(workspace, project.id);
-  const proposals = previewProjectBaseline(workspace, project.id);
+  const state = baselineApplicationState(workspace, project.id, removedIds);
+  const proposals = previewProjectBaseline(workspace, project.id, removedIds);
   const applied = state.status === 'applied';
   const available = state.status === 'available';
   const additions = state.missingCount;
@@ -54,14 +56,15 @@ export function ProjectBaseline({ project, workspace, busy, onApply }: ProjectBa
       <p className="baseline-help">These suggestions add detail to the existing plan. Review and edit them before accepting work; they carry no deadline or weekly commitment.</p>
       <ol className="baseline-proposals">{proposals.map(proposal => <li key={proposal.key}>
         <strong>{proposal.title}</strong>
-        <span className="baseline-milestone">{proposal.milestoneNote}{proposal.exists ? ' · Record already saved; your edits are preserved.' : ''}</span>
+        <span className="baseline-milestone">{proposal.milestoneNote}{proposal.removed ? ' · Previously applied; task removed. Owner deletion tombstone prevents recreation.' : proposal.exists ? ' · Record already saved; your edits are preserved.' : ''}</span>
+        {proposal.exists && <p><a href={entityHref({kind:'task',id:proposal.id})}>Open saved task{proposal.currentProjectId!==project.id ? ` in ${workspace.projects.find(row=>row.id===proposal.currentProjectId)?.name??'its current project'}` : ''}</a></p>}
         <details><summary>Acceptance and existing work</summary><p className="baseline-meta">{proposal.existingWork}</p><p>{proposal.acceptance}</p></details>
       </li>)}</ol>
     </details>
     <div className="baseline-actions">
       <button className="button primary" disabled={busy || !available || !onApply} onClick={() => onApply?.(project, baseline.id)}>
         {applied ? <CheckCircle2 size={15} /> : <Plus size={15} />}
-        {applied ? 'Baseline saved' : available ? `Add ${additions} proposed task${additions === 1 ? '' : 's'} + dated context` : 'Baseline needs review'}
+        {applied ? 'Baseline saved' : available ? `Add ${additions} proposed task${additions === 1 ? '' : 's'}${state.markerId&&removedIds.includes(state.markerId)?'':' + dated context'}` : 'Baseline needs review'}
       </button>
       <p className="baseline-help" role={state.status === 'conflict' || state.status === 'incomplete' ? 'status' : undefined}>{state.message}</p>
     </div>

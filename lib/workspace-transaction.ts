@@ -35,20 +35,20 @@ export async function mutationOutcome(db:SqlDatabase,user:string,id:string):Prom
 /** Every side effect is guarded by a transient transaction claim, never merely a historical receipt. */
 export async function executeWorkspaceCommand(userId:string,input:{protocolVersion:number;expectedRevision:number;mutationId:string;command:unknown},deps:WorkspaceTransactionDeps):Promise<CommandResult> {
   if (!userId || input.protocolVersion!==1 || !Number.isSafeInteger(input.expectedRevision) || input.expectedRevision<1 || !validId(input.mutationId)) throw new CommandValidationError('A valid command envelope is required.');
-  const {db}=deps,revision=input.expectedRevision,id=input.mutationId;
+  const {db}=deps,revision=input.expectedRevision,id=input.mutationId,now=deps.now();
   if (!input.command || typeof input.command!=='object' || Array.isArray(input.command) || typeof (input.command as {type?:unknown}).type!=='string') throw new CommandValidationError('A command type is required.');
   const command=input.command as WorkspaceCommand;
   const hash=await hashJson({protocolVersion:1,command});
   // Existing v2 receipts used the command-only hash; preserve their replay semantics.
   const legacyHash=await hashJson(command);
-  const checkReceipt=async ():Promise<CommandResult|null>=>{const prior=await receipt(db,userId,id);if(!prior)return null;if(prior.command_hash!==hash && prior.command_hash!==legacyHash)throw new MutationIdReuseError('This mutation ID was reused for a different change.');return {status:'replayed',envelope:await readCurrent(db,userId),receipt:{mutationId:id,commandHash:prior.command_hash,appliedRevision:prior.revision}};};
+  const checkReceipt=async ():Promise<CommandResult|null>=>{const prior=await receipt(db,userId,id);if(!prior)return null;if(prior.command_hash!==hash && prior.command_hash!==legacyHash)throw new MutationIdReuseError('This mutation ID was reused for a different change.');return {status:'replayed',envelope:await readCurrent(db,userId,now),receipt:{mutationId:id,commandHash:prior.command_hash,appliedRevision:prior.revision}};};
   const epoch=await checkMutationEpoch(db,userId,id);
   if(epoch.status==='retired')throw new RetiredMutationError('This mutation epoch is retired.');
   const replay=await checkReceipt();if(replay)return replay;
-  const before=await readCurrent(db,userId);if(before.revision!==revision)return {status:'conflict',currentRevision:before.revision};
+  const before=await readCurrent(db,userId,now);if(before.revision!==revision)return {status:'conflict',currentRevision:before.revision};
   if(await receiptCount(db,userId)>=RECEIPT_CAPACITY.hard)throw new WorkspaceCapacityError();
   const handler=deps.handlers.get(command.type);if(!handler)throw new CommandValidationError('Unknown command.');
-  const now=deps.now();let plan:MutationPlan;
+  let plan:MutationPlan;
   try {plan=await handler.prepare({userId,before,command,now,query:ownerReader(db,userId),readImport:id=>readStagedImport(db,userId,id,now),backups:{get:id=>readWorkspaceBackup(db,userId,id),list:()=>listWorkspaceBackups(db,userId)}});plan.planningAfter=parseWorkspaceExport(plan.planningAfter,now);}
   catch(error){throw new CommandValidationError(error instanceof Error?error.message:'This change is invalid.');}
   if(plan.backup?.reason==='restore'){const query=ownerReader(db,userId);for(const table of ['weekly_plans','weekly_reviews','recurrence_rules','recurrence_occurrences','evidence_records','evidence_links','decisions','attachments','workspace_configuration'] as const)if((await query.list(table,{limit:1})).length && !plan.replacements?.some(replacement=>replacement.table===table))throw new CommandValidationError('This restore requires a complete normalized bundle. Export all modules before replacing planning records.');}
@@ -61,7 +61,7 @@ export async function executeWorkspaceCommand(userId:string,input:{protocolVersi
   catch(error){
     if((await checkMutationEpoch(db,userId,id)).status==='retired')throw new RetiredMutationError('This mutation epoch is retired.');
     const concurrentReplay=await checkReceipt();if(concurrentReplay)return concurrentReplay;
-    const current=await readCurrent(db,userId);if(current.revision!==revision)return {status:'conflict',currentRevision:current.revision};
+    const current=await readCurrent(db,userId,now);if(current.revision!==revision)return {status:'conflict',currentRevision:current.revision};
     throw error;
   }
   const claim='EXISTS (SELECT 1 FROM workspace_command_guards WHERE user_id = ? AND mutation_id = ? AND claim_token = ?)';
@@ -150,7 +150,7 @@ export async function executeWorkspaceCommand(userId:string,input:{protocolVersi
   try {const results=await db.batch(statements);acquired=results[0]?.meta.changes===1;}catch {
     const currentEpoch=await checkMutationEpoch(db,userId,id);if(currentEpoch.status==='retired')throw new RetiredMutationError('This mutation epoch is retired.');
     const replay=await checkReceipt();if(replay)return replay;
-    const current=await readCurrent(db,userId);if(current.revision!==revision)return {status:'conflict',currentRevision:current.revision};
+    const current=await readCurrent(db,userId,now);if(current.revision!==revision)return {status:'conflict',currentRevision:current.revision};
     // Only classify a row conflict when an authoritative reread proves it; otherwise storage remains uncertain.
     if(plan.importSource){const source=await db.prepare('SELECT id FROM workspace_imports WHERE user_id=? AND id=? AND content_hash=? AND expires_at>?').bind(userId,plan.importSource.id,plan.importSource.hash,now).first<{id:string}>();if(!source)throw new ModuleConflictError('The staged import changed or expired. Review a new preview.');}
     if(await receiptCount(db,userId)>=RECEIPT_CAPACITY.hard)throw new WorkspaceCapacityError();
@@ -167,7 +167,7 @@ export async function executeWorkspaceCommand(userId:string,input:{protocolVersi
     throw new WorkspaceStorageError('The change could not be confirmed. Reconcile its mutation ID before retrying.');
   }
   const finalEpoch=await checkMutationEpoch(db,userId,id);if(finalEpoch.status==='retired')throw new RetiredMutationError('This mutation epoch is retired.');
-  const committed=await receipt(db,userId,id);if(!committed)return {status:'conflict',currentRevision:(await readCurrent(db,userId)).revision};
+  const committed=await receipt(db,userId,id);if(!committed)return {status:'conflict',currentRevision:(await readCurrent(db,userId,now)).revision};
   if(committed.command_hash!==hash) return (await checkReceipt())!;
-  return {status:acquired?'committed':'replayed',envelope:await readCurrent(db,userId),receipt:{mutationId:id,commandHash:hash,appliedRevision:committed.revision}};
+  return {status:acquired?'committed':'replayed',envelope:await readCurrent(db,userId,now),receipt:{mutationId:id,commandHash:hash,appliedRevision:committed.revision}};
 }

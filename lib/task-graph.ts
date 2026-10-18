@@ -38,7 +38,7 @@ function validate(workspace:TaskGraphWorkspace):Index {
   if(visited.has(root))continue;const stack=[{id:root,next:0}];visiting.add(root);
   while(stack.length){const frame=stack[stack.length-1];const next=index.tasks.get(frame.id)!.dependsOn[frame.next++];if(next===undefined){visiting.delete(frame.id);visited.add(frame.id);stack.pop();continue;}if(visiting.has(next)){const cycle=[...stack.slice(stack.findIndex(item=>item.id===next)).map(item=>item.id),next];throw new TaskGraphError([{code:'cycle',taskId:frame.id,prerequisiteId:next,cycle,message:'Task prerequisites cannot form a cycle across the owner workspace.'}]);}if(!visited.has(next)){visiting.add(next);stack.push({id:next,next:0});}}
  }
- const issues:TaskGraphIssue[]=[];for(const task of index.tasks.values())if(taskGraphFulfilled(task)){const blocked=blockers(task,index);if(blocked.length)issues.push({code:'completed-blocked',taskId:task.id,blockers:blocked,message:`Completed task “${task.title}” has unfinished prerequisites or an explicit blocker. Clear its blockers or reopen it first.`});}
+ const issues:TaskGraphIssue[]=[];for(const task of index.tasks.values())if(taskGraphFulfilled(task)){const blocked=blockers(task,index);if(blocked.length)issues.push({code:'completed-blocked',taskId:task.id,blockers:blocked,message:`Completed task “${task.title}” is blocked by unfinished dependencies or an explicit blocker. Clear its blockers or reopen the dependent task first.`});}
  if(issues.length)throw new TaskGraphError(issues);return index;
 }
 /** Allows cross-project edges; validates the final whole graph, independent of command order. */

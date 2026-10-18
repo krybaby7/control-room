@@ -33,7 +33,7 @@ export async function prepareWorkspaceBackup(db:SqlDatabase,userId:string,before
  const content=JSON.stringify(bundle);const bytes=new TextEncoder().encode(content).length;
  if(bytes>BACKUP_LIMITS.d1BundleBytes)throw new BackupCapacityError('Backup exceeds the 1.8 MB D1 fallback bound; configure object storage.');
  if(usage.bytes+bytes>BACKUP_LIMITS.ownerBytes)throw new BackupCapacityError('Owner backup byte budget exceeded; existing snapshots were retained.');
- const current=await readCurrent(db,userId);if(current.revision!==before.revision || canonical(current.workspace)!==canonical(before.workspace))throw new Error('Workspace changed during backup preparation.');
+ const current=await readCurrent(db,userId,now);if(current.revision!==before.revision || canonical(current.workspace)!==canonical(before.workspace))throw new Error('Workspace changed during backup preparation.');
  const id=crypto.randomUUID();const sha256=await contentHash(content);
  return {manifest:{id,ownerScope:userId,sourceRevision:before.revision,reason,createdAt:now,formatVersion:1,bytes,sha256,storageKind:'d1',storageKey:id,status:'ready',expiresAt:null,completeModules:['planning',...Object.keys(bundle.modules).sort()],missingAttachments:[]},content};
 }

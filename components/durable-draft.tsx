@@ -8,7 +8,7 @@ import { SessionExpiredContext } from './session-state';
 import { useDeviceDrafts } from './device-drafts';
 
 export interface RecoveredSubmission { baseRevision: number; command?: Record<string, unknown>; mutationId?: string }
-export interface DurableDraftController { preserveSubmission(command: unknown, mutationId: string): Promise<void>; releaseSubmission(): Promise<void> }
+export interface DurableDraftController { isDirty():boolean; preserveSubmission(command: unknown, mutationId: string): Promise<void>; releaseSubmission(): Promise<void> }
 interface DraftContextValue { baseRevision: number; expired: boolean; controllerRef?: MutableRefObject<DurableDraftController | null>; onRecover?: (submission: RecoveredSubmission) => void }
 const DraftContext = createContext<DraftContextValue>({ baseRevision: 0, expired: false });
 export function DurableDraftProvider({ baseRevision, children, controllerRef, onRecover }: Omit<DraftContextValue, 'expired'> & { children: ReactNode }) {
@@ -129,6 +129,7 @@ export function useDurableDraft<T extends object>(entityType: string, entityId: 
   useEffect(() => {
     if (!controllerRef) return;
     const controller: DurableDraftController = {
+      isDirty:()=>JSON.stringify(current.current)!==JSON.stringify(base.current),
       async preserveSubmission(command, mutationId) {
         if (!readyRef.current || recoveryRef.current || localRecoveryRef.current.length || (deviceRef.current.enabled && !deviceCheckedRef.current)) throw new Error('Review the saved draft recovery options before saving.');
         const epoch = generation.current;
