@@ -64,3 +64,20 @@ test('proxy bounds an unresponsive upstream and destroys orphan upstream respons
  const controller=new AbortController();const body=await fixtureFetch(`${FIXTURE_ORIGIN}/hung-body`,{signal:controller.signal},1500);const reading=body.text();controller.abort();await assert.rejects(reading);await waitClosed('/hung-body',400);
  }finally{proxy.closeAllConnections();upstream.closeAllConnections();await Promise.all([new Promise<void>(resolve=>proxy.close(()=>resolve())),new Promise<void>(resolve=>upstream.close(()=>resolve()))]);}
 });
+
+test('declared build BUCKET is stripped or replaced by an independent explicitly local R2 fixture',()=>{
+ const declared={...source,r2_buckets:[{binding:'BUCKET',bucket_name:'site-creator-r2'}]};
+ const before=JSON.stringify(declared),plain=fixtureConfig(declared),enabled=fixtureConfig(declared,{withR2:true});
+ assert.equal('r2_buckets' in plain,false);
+ assert.deepEqual(enabled.r2_buckets,[{binding:'BUCKET',bucket_name:'control-room-synthetic-local-attachments',remote:false}]);
+ const {r2_buckets,...rest}=enabled;void r2_buckets;assert.deepEqual(rest,plain);
+ assert.equal(JSON.stringify(declared),before,'source build bindings remain unchanged');
+ assert.equal(JSON.stringify(plain).includes('site-creator-r2'),false);assert.equal(JSON.stringify(enabled).includes('site-creator-r2'),false);
+});
+test('R2 fixture rejects every source declaration beyond the exact one-BUCKET public build placeholder',()=>{
+ const declaration={binding:'BUCKET',bucket_name:'site-creator-r2'};
+ for(const buckets of [null,{},'BUCKET',[null],[{}],[{binding:'BUCKET'}],[{bucket_name:'site-creator-r2'}],[{...declaration,binding:'OTHER'}],[{...declaration,bucket_name:'another-bucket'}],[{...declaration,remote:true}],[{...declaration,remote:false}],[{...declaration,preview_bucket_name:'preview-bucket'}],[{...declaration,jurisdiction:'eu'}],[{...declaration,bucket_id:'synthetic-id'}],[{...declaration,executable:'synthetic.js'}],[declaration,declaration],[declaration,{binding:'OTHER',bucket_name:'other-bucket'}],[Object.assign(Object.create({}),{binding:'BUCKET',bucket_name:'site-creator-r2'})]]){
+  for(const withR2 of [false,true])assert.throws(()=>fixtureConfig({...source,r2_buckets:buckets},{withR2}),/R2 declaration/);
+ }
+ for(const patch of [{services:[{binding:'SERVICE',service:'synthetic-service'}]},{unsafe:{bindings:[{name:'EXECUTABLE',type:'service'}]}},{durable_objects:{bindings:[{name:'EXECUTABLE',class_name:'Synthetic'}]}},{queues:{producers:[{binding:'QUEUE',queue:'synthetic-queue'}]}}])for(const withR2 of [false,true])assert.throws(()=>fixtureConfig({...source,r2_buckets:[declaration],...patch},{withR2}));
+});

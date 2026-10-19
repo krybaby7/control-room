@@ -1,5 +1,5 @@
 import {spawnSync} from 'node:child_process';
-import {fileURLToPath} from 'node:url';
+import {cliUnitChildArguments} from './fixtures/cli-unit-child.mjs';
 import {canonicalMkdtemp as mkdtemp} from './fixtures/private-state.mjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
@@ -12,7 +12,7 @@ function runWindowsCliUnitCase(name){
  if(process.platform!=='win32'||process.env.CONTROL_ROOM_UNIT_CLI_STATE==='synthetic-only')return false;
  const pattern='^'+name.replace(/[.*+?^${}()|[\]\\]/gu,'\\$&')+'$';
  const unitEnvironment={...process.env,CONTROL_ROOM_UNIT_CLI_STATE:'synthetic-only'};delete unitEnvironment.NODE_TEST_CONTEXT;
- const child=spawnSync(process.execPath,['--import',fileURLToPath(new URL('./fixtures/cli-windows-state-loader.mjs',import.meta.url)),'--test','--test-name-pattern',pattern,fileURLToPath(import.meta.url)],{env:unitEnvironment,encoding:'utf8',timeout:30000,maxBuffer:65536});
+ const child=spawnSync(process.execPath,cliUnitChildArguments(import.meta.url,pattern),{env:unitEnvironment,encoding:'utf8',timeout:30000,maxBuffer:65536});
  assert.equal(child.status,0,child.stdout+'\n'+child.stderr);assert.equal(child.error,undefined);return true;
 }
 function canonical(v){if(Array.isArray(v))return '['+v.map(canonical).join(',')+']';if(v&&typeof v==='object')return '{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+canonical(v[k])).join(',')+'}';return JSON.stringify(v);}

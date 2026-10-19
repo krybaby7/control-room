@@ -61,11 +61,11 @@
     "external alerts"
   ],
   "deployed": false,
-  "nextCommand": "Finish native HTTP recovery and Windows portable fixture tests; review isolated transport batching proof; commit/publish coherent candidate before final canonical gates.",
-  "currentCommit": "4df3e07e861b23cccb2db40c995e31bda454bfdb",
+  "nextCommand": "Publish reviewed R2 fixture and Windows file-URL harness fixes, preserve earlier CI failures, run exact-source gates. Create isolated Phase7 plus measured performance aggregate for first canonical-environment verification; do not promote without evidence.",
+  "currentCommit": "876f4617590b9301e2113b945899f5efe8b501ed",
   "tests": {
     "proxy": "Dedicated regression passed; original negative control fails as expected; existing harness/typecheck pass. Original pre-header hang remains unexplained.",
-    "privateRuntime": "51/51 on actual Linux and Windows Actions; separate private draft PR and source-only artifact exist. No real provider call.",
+    "privateRuntime": "51/51 actual Linux/Windows; original cloud artifact outerSHA, innerarchiveSHA, immutable source pin and all five actual reviewed files now verified against authorized source. Zero provider calls.",
     "nativeSupervisor": "Windows bd2ad00cb738f640fa9d3e31edf71634488b6fc7 run39241765240/job118024024712: native lifecycle/scoped ACL10pass/0fail/1platformskip, including300nestedfiles and junction refusal. Subsequent old portable executor fixtures failed noncanonical temporary paths; fixture-only corrections pending. Overall workflow failed; no helper package from this run.",
     "digestReuseExperiment": "39 focused tests passed; one working-candidate normal D1savep95=2543.508383ms failed. Isolated branch, not integrated.",
     "serverDigestExperiment": "42 focused/parity/client-closure/type/build checks passed; exact local source9753fddb65b15f7edc1a010588d41ce43b4919bc normal D1savep95=2837.936316ms failed. Isolated branch, not integrated.",
@@ -94,7 +94,18 @@
       "bytes": 92156,
       "sha256": "c2e4815a9c5f312c9480d8c2fa70a769f8626be922860069397401e1e9e2a4fd",
       "acceptance": "Source-bound review package only; release performance gate still failed."
-    }
+    },
+    "phase7Canonical": "6939 exact-source workflows underway. Native10pass/1platformskip; portableWindows188pass/3CLIloader URL failures/8skips. Browser fixture startup rejects newly declared R2. Both harness-only defects corrected with regressions; new source validation pending. Original jobs-read cause remains unknown; its trace preceding response has3jobs and31.738ms normal GET, failed GET15.004s/empty502.",
+    "phase7CanonicalPerformance": {
+      "source": "6939d4575dc4a933f5f035e1795c699fd8f945b1",
+      "run": 39243158846,
+      "D1saveP95Ms": 2071.47182,
+      "limitMs": 2000,
+      "passed": false
+    },
+    "readBatchingExperiment": "Isolated79ef4714d3725620aa01482ff3e72ac50991ad0e:206 correctness tests/type/lint/build/clientgraph pass; actualsteady RPC12/11 vs16/14 with finalnamespace/race/CAS guarantees retained. ONE local normal failed p95=2861.940452ms; not integrated. First exact aggregate GitHub canonical verification proposed on separate experiment branch; all local failures retained."
   },
-  "uncommittedWork": "Sanitized ledger/checkpoint only; coherent Phase7 source committed, isolated performance experiment separate."
+  "uncommittedWork": "Sanitized ledger/checkpoint only; coherent Phase7 source committed, isolated performance experiment separate.",
+  "publicSource": "6939d4575dc4a933f5f035e1795c699fd8f945b1",
+  "publicPr": "https://github.com/krybaby7/control-room/pull/1"
 }

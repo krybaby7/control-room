@@ -341,9 +341,9 @@
       "scope": "Before pending Phase 7 integration; original timeout cause unproven"
     },
     "performanceCheckpoint": {
-      "source": "a55dc09dfda1c6e8d66f4eb4260250c3dd8de272",
-      "run": 39239122694,
-      "D1saveP95Ms": 2467.045102,
+      "source": "6939d4575dc4a933f5f035e1795c699fd8f945b1",
+      "run": 39243158846,
+      "D1saveP95Ms": 2071.47182,
       "limitMs": 2000,
       "passed": false
     },
@@ -371,6 +371,8 @@
       "operational/trading effects",
       "external alerts"
     ],
-    "storage": "Existing Site identity and DB preserved; logical BUCKET declaration added without deployment or owner data writes."
+    "storage": "Existing Site identity and DB preserved; logical BUCKET declaration added without deployment or owner data writes.",
+    "publicSource": "6939d4575dc4a933f5f035e1795c699fd8f945b1",
+    "draftPr": 1
   }
 }

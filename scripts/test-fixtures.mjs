@@ -17,7 +17,11 @@ export function parseFixtureArgs(args){
 export function fixtureConfig(source,{withR2=false}={}){
  if(typeof withR2!=='boolean')throw new Error('withR2 must be boolean.');
  if(source.d1_databases?.some(db=>db.database_id!==SYNTHETIC_DB_ID||db.remote))throw new Error('Refusing a real or remote database identifier.');
- for(const key of ['r2_buckets','services','kv_namespaces','hyperdrive','workflows','vectorize','pipelines','mtls_certificates'])if(source[key]?.length)throw new Error(`Refusing fixture config with ${key}.`);
+ // The build declares this public placeholder, never a fixture storage target.
+ // Match its exact closed shape; copy none of its bucket metadata below.
+ const buckets=source.r2_buckets;
+ if(buckets!==undefined&&(!Array.isArray(buckets)||buckets.length>1||buckets.length===1&&(!buckets[0]||Object.getPrototypeOf(buckets[0])!==Object.prototype||Object.keys(buckets[0]).length!==2||buckets[0].binding!=='BUCKET'||buckets[0].bucket_name!=='site-creator-r2'||!Object.hasOwn(buckets[0],'binding')||!Object.hasOwn(buckets[0],'bucket_name'))))throw new Error('Refusing unexpected source R2 declaration.');
+ for(const key of ['services','kv_namespaces','hyperdrive','workflows','vectorize','pipelines','mtls_certificates'])if(source[key]?.length)throw new Error(`Refusing fixture config with ${key}.`);
  if(source.ai||source.browser||source.unsafe?.bindings?.length||source.durable_objects?.bindings?.length||source.queues?.producers?.length||source.queues?.consumers?.length)throw new Error('Refusing remote or executable fixture bindings.');
  if(source.main!=='index.js'||source.assets?.directory!=='../client')throw new Error('Unexpected built worker entry points.');
  return {...(withR2?{r2_buckets:[{binding:'BUCKET',bucket_name:'control-room-synthetic-local-attachments',remote:false}]}:{}),name:'control-room-local-fixture',main:path.join(ROOT,'dist/server/index.js'),compatibility_date:source.compatibility_date,compatibility_flags:['nodejs_compat'],no_bundle:true,rules:[{type:'ESModule',globs:['**/*.js','**/*.mjs']}],base_dir:path.join(ROOT,'dist/server'),assets:{directory:path.join(ROOT,'dist/client')},d1_databases:[{binding:'DB',database_name:'control-room-synthetic',database_id:SYNTHETIC_DB_ID}],dev:{ip:'127.0.0.1',port:4174,local_protocol:'http'},observability:{enabled:false}};
