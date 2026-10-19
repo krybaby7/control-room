@@ -55,6 +55,7 @@ test('the already captured first read is reused, while a fresh final owner read 
  let currentReads=0;
  const db:SqlDatabase={prepare(sql){if(sql.startsWith('SELECT w.content,w.revision,w.updated_at,'))currentReads++;return f.db.prepare(sql);},batch:statements=>f.db.batch(statements)};
  await loadWorkspace(db,owner,workspaceFixture,now);
+ currentReads=0;
  await readCurrent(db,owner,now);
  await measureProspectiveRecoverability(db,owner,{now});
  assert.equal(currentReads,3);
@@ -73,7 +74,7 @@ test('a caller cannot retag the validated operation scope while the owner read i
  const db:SqlDatabase={prepare(sql){
  const native=f.db.prepare(sql);
  if(!sql.startsWith('SELECT w.content,w.revision,w.updated_at,'))return native;
- return {bind(...values){native.bind(...values);return this;},async first<T>(){started();await pending;return native.first<T>();},all:()=>native.all(),run:()=>native.run()};
+ return {bind(...values){native.bind(...values);return this;},async first<T>(){started();await pending;return native.first<T>();},async all<T>(){return native.all<T>();},run:()=>native.run()};
  },batch:statements=>f.db.batch(statements)};
  const mutable={...scope},original={...mutable},work=capturePlanningForRecoverability(db,owner,mutable);
  await reading;
