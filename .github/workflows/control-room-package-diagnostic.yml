@@ -1,0 +1,103 @@
+name: UNVALIDATED Control Room diagnostic packaging
+on:
+  workflow_dispatch:
+  push:
+    branches: ['diag/**']
+    paths: ['.github/workflows/control-room-package-diagnostic.yml']
+concurrency:
+  group: control-room-package-diagnostic-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  diagnostic-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CONTROL_ROOM_SOURCE_COMMIT: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm run install:ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test:bridge
+      - name: Verify packaging policy and actual Git/npm identity fixtures
+        run: node --experimental-strip-types --test tests/release-package-policy.test.ts tests/package-bridge-source-identity.test.ts tests/package-candidate-generated-output.test.ts
+      - run: npm run build
+      - run: npm run package:bridge
+      - name: Package exact-source candidate for diagnostic inspection only
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import {spawnSync} from 'node:child_process';
+          import {readdir,lstat} from 'node:fs/promises';
+          import {join} from 'node:path';
+          import {validateCandidateBuildPath} from './lib/release-package-policy.ts';
+          const result=spawnSync(process.execPath,['scripts/package-candidate.mjs'],{stdio:'inherit',timeout:180000,shell:false});
+          if(result.status!==0){
+            let visited=0;const rejectedPaths=[];
+            const safe=value=>value.replace(/[^A-Za-z0-9_.@+(), /-]/gu,'?').slice(0,1024);
+            async function inspect(path,relative){
+              if(++visited>20000)throw new Error('Diagnostic build inventory exceeds its finite bound.');
+              const stat=await lstat(path);
+              if(stat.isSymbolicLink()){if(rejectedPaths.length<20)rejectedPaths.push({path:safe(relative),reason:'symlink'});return;}
+              if(stat.isDirectory()){
+                for(const name of (await readdir(path)).sort()){
+                  if(relative==='dist'&&name==='.openai')continue;
+                  await inspect(join(path,name),relative+'/'+name);
+                }
+              }else if(stat.isFile()){
+                try{validateCandidateBuildPath(relative);}catch{if(rejectedPaths.length<20)rejectedPaths.push({path:safe(relative),pathUtf8Base64:Buffer.from(relative,'utf8').toString('base64'),reason:'build-path-policy'});}
+              }
+            }
+            try{await inspect('dist','dist');console.log('UNVALIDATED_BUILD_PATH_DIAGNOSTIC '+JSON.stringify({sourceCommit:process.env.CONTROL_ROOM_SOURCE_COMMIT,visited,rejectedPaths,maximumReportedPaths:20}));}
+            catch{console.log('UNVALIDATED_BUILD_PATH_DIAGNOSTIC inventory-unavailable-or-bounded');}
+            process.exitCode=result.status??1;
+          }
+          NODE
+      - name: Record explicit unvalidated diagnostic status
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFile,writeFile,mkdir,appendFile} from 'node:fs/promises';
+          import {createHash} from 'node:crypto';
+          import {execFileSync} from 'node:child_process';
+          const sourceCommit=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8',timeout:10000}).trim();
+          if(!/^[a-f0-9]{40}$/.test(sourceCommit)||sourceCommit!==process.env.CONTROL_ROOM_SOURCE_COMMIT)throw new Error('Diagnostic checkout identity differs.');
+          const manifests={};
+          for(const kind of ['candidate','bridge']){
+            const bytes=await readFile('release/'+kind+'/manifest.json'),manifest=JSON.parse(bytes);
+            if(manifest.sourceCommit!==sourceCommit)throw new Error('Diagnostic manifest source differs.');
+            manifests[kind]={sha256:createHash('sha256').update(bytes).digest('hex'),bytes:bytes.length};
+          }
+          const status={format:'control-room-unvalidated-diagnostic-package',version:1,sourceCommit,runId:process.env.GITHUB_RUN_ID,runAttempt:process.env.GITHUB_RUN_ATTEMPT,verifiedHere:['typecheck','lint','bridge-tests','packaging-policy-and-identity-fixtures','production-build','source-and-build-packaging'],fullSuite:'not-verified-by-this-workflow',nativeD1R2:'not-verified-by-this-workflow',browserAcceptance:'not-verified-by-this-workflow',hostedPrivateAcceptance:'unavailable',ownerDeviceAcceptance:'not-run',releaseAccepted:false,deployed:false,manifests};
+          await mkdir('release/diagnostic',{recursive:true});
+          await writeFile('release/diagnostic/diagnostic-status.json',JSON.stringify(status,null,2)+'\n',{flag:'wx'});
+          await appendFile(process.env.GITHUB_STEP_SUMMARY,'## UNVALIDATED diagnostic package\n\nExact source: '+sourceCommit+'\n\nThis workflow does not run the full Node suite, native D1/R2 recovery, browser acceptance, private hosted acceptance or owner-device acceptance. These artifacts are for inspection only; no release acceptance or deployment is claimed.\n');
+          console.log(JSON.stringify(status));
+          NODE
+      - name: Upload UNVALIDATED diagnostic candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: UNVALIDATED-diagnostic-candidate-${{ github.sha }}
+          path: |
+            release/candidate/
+            release/diagnostic/diagnostic-status.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload UNVALIDATED diagnostic bridge
+        uses: actions/upload-artifact@v4
+        with:
+          name: UNVALIDATED-diagnostic-bridge-${{ github.sha }}
+          path: |
+            release/bridge/
+            release/diagnostic/diagnostic-status.json
+          if-no-files-found: error
+          retention-days: 14
