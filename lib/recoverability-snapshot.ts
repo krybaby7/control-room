@@ -1,3 +1,4 @@
+import type {ScopedPlanningCapture} from './recoverability-planning-capture.ts';
 import {readRecoveryReadPages} from './recoverability-read-pages.ts';
 import {createSerializationHashContext,closeSerializationHashContext} from './serialization-hash.ts';
 import {verifyRecoverabilityRowHashes} from './recoverability-row-hashes.ts';
@@ -59,6 +60,7 @@ async function readPhysicalImage(db:SqlDatabase,owner:string,auditWatermarks:Rec
 }
 
 export interface ProspectiveRecoverabilityInput {
+ planningCapture?:ScopedPlanningCapture;
  agentTerminalReserveDelta?:number;
  now:string;planningAfter?:Workspace;writes?:GuardedWrite[];replacements?:ModuleReplacement[];
  events?:AuditEventDraft[];historyImports?:MutationPlan['historyImports'];
@@ -77,7 +79,7 @@ export async function measureProspectiveRecoverability(db:SqlDatabase,owner:stri
  if(!owner||!Number.isFinite(Date.parse(input.now)))throw new Error('An owner and valid measurement timestamp are required.');
  if(REFERENCE_LIMITS.rows!==BUNDLE_LIMITS.rows)throw new Error('Reference and recovery row bounds require an explicit serializer update.');
  if((input.writes?.length??0)>200||(input.events?.length??0)>2000||(input.replacements?.length??0)>OWNER_TABLES.length||(input.historyImports?.length??0)>BUNDLE_LIMITS.rows||(input.operationalWrites?.length??0)>BUNDLE_LIMITS.rows||(input.operationalEvents?.length??0)>BUNDLE_LIMITS.rows)throw new Error('Prospective operation count exceeds its bounded serializer scope.');
- const auxiliary=await readRecoverabilityAuxiliary(db,owner,input.now,{includeTerminalReserve:true}),terminalReserveRows=auxiliary.terminalReserveRows;
+ const auxiliary=await readRecoverabilityAuxiliary(db,owner,input.now,{includeTerminalReserve:true,planningCapture:input.planningCapture}),terminalReserveRows=auxiliary.terminalReserveRows;
  if(terminalReserveRows.length>12||!Number.isSafeInteger(input.agentTerminalReserveDelta??0)||Math.abs(input.agentTerminalReserveDelta??0)>12)throw new Error('Invalid finite terminal reserve.');
  const terminalReserveCount=terminalReserveRows.length+(input.agentTerminalReserveDelta??0);if(terminalReserveCount<0||terminalReserveCount>12)throw new Error('Terminal reserve exceeds the finite batch.');
  const captured=auxiliary.current,namespaces=auxiliary.namespaces;
@@ -178,7 +180,7 @@ export async function measureProspectiveRecoverability(db:SqlDatabase,owner:stri
  finishMeasure();
  const finishFinalReads=startRecoverabilityPhase(db,'finalreads');
  const latestAuxiliary=await readRecoverabilityAuxiliary(db,owner,input.now,{includeNamespaces:false}),current=latestAuxiliary.current;
- if(current.revision!==boundaryRevision||canonical(current.workspace)!==canonical(original.planning)||canonical(latestAuxiliary.watermarks)!==canonical(boundaryWatermarks))throw new Error('Workspace boundary changed during recoverability measurement.');
+ if(current.revision!==boundaryRevision||canonical(current.workspace)!==canonical(original.planning)||canonical(current.baselineRemovedIds??[])!==canonical(captured.baselineRemovedIds??[])||canonical(latestAuxiliary.watermarks)!==canonical(boundaryWatermarks))throw new Error('Workspace boundary changed during recoverability measurement.');
  // Re-read all physical sets: the returned revision/vector alone does not detect an
  // unguarded same-revision mutation, and must never certify a stale normalized set.
  const latestRows=await readPhysicalImage(db,owner,boundaryWatermarks),latestPhysical=latestRows.physical;
