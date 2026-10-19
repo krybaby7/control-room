@@ -1,0 +1,24 @@
+name: Control Room native history scope verification
+on:
+  push:
+    branches: ['diagnostics/control-room-native-history*']
+permissions:
+  contents: read
+jobs:
+  native-history:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm run install:ci
+      - run: node --experimental-strip-types --test tests/history-entity-scope-d1.test.ts
+      - run: npm run typecheck
+        if: always()
+      - run: npm run lint
+        if: always()
