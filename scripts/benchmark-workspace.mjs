@@ -1,3 +1,4 @@
+import {registerHashWorkDiagnostics} from '../lib/hash-work-diagnostics.ts';
 // Actual isolated SQLite and Miniflare D1 benchmark. Synthetic owner data only.
 // No production latency, private ingress, provider, model or physical-device claim.
 import assert from 'node:assert/strict';
@@ -40,6 +41,29 @@ const commandProfiling=process.env.CONTROL_ROOM_PROFILE_COMMANDS==='1';
 report.method.commandProfiling={enabled:commandProfiling,activation:'CONTROL_ROOM_PROFILE_COMMANDS=1',scope:'Node benchmark only; one stable DB wrapper per engine',limits:{commandFrames:100,intervalsPerCommand:1024,sequenceEntriesPerCommand:128,recoveryPhasesPerCommand:64},interpretation:'Binding await durations overlap. Union is used for coverage; outside-observed-await wall includes admission waiting, JS/hash/validation and all other unobserved awaits, and is not a CPU attribution. No SQL, parameters, owner IDs, command bodies or result rows are recorded.'};
 
 const commandProfileContext=new AsyncLocalStorage();
+
+const hashWorkProfiling=commandProfiling&&process.env.CONTROL_ROOM_PROFILE_HASH_WORK==='1';
+report.method.hashWorkProfiling={enabled:hashWorkProfiling,synchronousCpu:'current Node thread CPU when process.threadCpuUsage exists; null otherwise',nativeAwait:'SHA Promise interval includes native queue, native service and event-loop resume; those cannot be separated by the public Promise API',limits:{shaIntervals:4096,syncIntervals:16384,phaseStageRows:80},interpretation:'Profiling overhead is not an acceptance result. Sync wall/CPU stage sums may nest; interval unions avoid double counting wall coverage. Bytes count native SHA input bytes, not owner content.'};
+function threadCpu(){try{return typeof process.threadCpuUsage==='function'?process.threadCpuUsage():null;}catch{return null;}}
+function intervalUnion(intervals){let total=0,end=0;for(const[start,stop]of [...intervals].sort((a,b)=>a[0]-b[0])){total+=Math.max(0,stop-Math.max(start,end));end=Math.max(end,stop);}return total;}
+function hashWorkSummary(frame,wall){
+ if(!hashWorkProfiling)return null;
+ const work=frame.hashWork,all=[...frame.intervals,...work.shaIntervals,...work.syncIntervals];
+ return {stages:work.stages,shaAwaitUnionMilliseconds:work.shaTruncated?null:intervalUnion(work.shaIntervals),syncWallUnionMilliseconds:work.syncTruncated?null:intervalUnion(work.syncIntervals),observedSqlShaSyncUnionMilliseconds:frame.intervalsTruncated||work.shaTruncated||work.syncTruncated?null:intervalUnion(all),residualWallMilliseconds:frame.intervalsTruncated||work.shaTruncated||work.syncTruncated?null:Math.max(0,wall-intervalUnion(all)),shaIntervalsTruncated:work.shaTruncated,syncIntervalsTruncated:work.syncTruncated};
+}
+const stopHashWorkDiagnostics=hashWorkProfiling?registerHashWorkDiagnostics(stage=>{
+ const frame=commandProfileContext.getStore();if(!frame)return;
+ const phase=frame.currentRecoveryPhase??'outside-recovery',started=performance.now(),cpu=stage==='sha-await'?null:threadCpu();
+ return bytes=>{
+ const stopped=performance.now(),elapsed=Math.max(0,stopped-started),after=cpu?threadCpu():null,key=phase+':'+stage;
+ const work=frame.hashWork,stat=work.stages[key]??={phase,stage,calls:0,bytes:0,sumWallMilliseconds:0,maximumWallMilliseconds:0,sumThreadCpuMilliseconds:cpu?0:null};
+ stat.calls++;stat.bytes+=bytes;stat.sumWallMilliseconds+=elapsed;stat.maximumWallMilliseconds=Math.max(stat.maximumWallMilliseconds,elapsed);
+ if(cpu&&after&&stat.sumThreadCpuMilliseconds!==null)stat.sumThreadCpuMilliseconds+=Math.max(0,after.user+after.system-cpu.user-cpu.system)/1000;else stat.sumThreadCpuMilliseconds=null;
+ const intervals=stage==='sha-await'?work.shaIntervals:work.syncIntervals,limit=stage==='sha-await'?4096:16384;
+ if(intervals.length<limit)intervals.push([started-frame.startedAt,stopped-frame.startedAt]);else if(stage==='sha-await')work.shaTruncated=true;else work.syncTruncated=true;
+ };
+}):()=>{};
+
 function sqlClass(sql){
  const upper=sql.toUpperCase(),read=/^\s*(SELECT|PRAGMA|EXPLAIN)\b/u.test(upper)||/^\s*WITH PRIVATE_CAPACITY_OWNER\b/u.test(upper);
  // Closed, compile-time categories only. Priority prevents composed quota and
@@ -83,11 +107,11 @@ function profileDatabase(base){
 }
 function profileSummary(frame,wallMilliseconds,status){
  let covered=0,end=0;for(const [start,stop]of frame.intervals.sort((left,right)=>left[0]-right[0])){covered+=Math.max(0,stop-Math.max(start,end));end=Math.max(end,stop);}
- return {wave:frame.wave,session:frame.session,ownerClass:frame.ownerClass,status,wallMilliseconds,rpcCount:frame.rpcCount,statementCount:frame.statementCount,calls:frame.calls,classes:frame.classes,sumObservedBindingAwaitMilliseconds:frame.sumAwaitMilliseconds,observedAwaitUnionMilliseconds:frame.intervalsTruncated?null:covered,wallOutsideObservedBindingAwaitMilliseconds:frame.intervalsTruncated?null:Math.max(0,wallMilliseconds-covered),intervalsTruncated:frame.intervalsTruncated,sequence:frame.sequence,sequenceTruncated:frame.sequenceTruncated,recoveryPhases:frame.recoveryPhases,recoveryPhasesTruncated:frame.recoveryPhasesTruncated};
+ return {wave:frame.wave,session:frame.session,ownerClass:frame.ownerClass,status,wallMilliseconds,rpcCount:frame.rpcCount,statementCount:frame.statementCount,calls:frame.calls,classes:frame.classes,sumObservedBindingAwaitMilliseconds:frame.sumAwaitMilliseconds,observedAwaitUnionMilliseconds:frame.intervalsTruncated?null:covered,wallOutsideObservedBindingAwaitMilliseconds:frame.intervalsTruncated?null:Math.max(0,wallMilliseconds-covered),intervalsTruncated:frame.intervalsTruncated,sequence:frame.sequence,sequenceTruncated:frame.sequenceTruncated,recoveryPhases:frame.recoveryPhases,recoveryPhasesTruncated:frame.recoveryPhasesTruncated,hashWork:hashWorkSummary(frame,wallMilliseconds)};
 }
 async function profiledCommand(engine,session,wave,operation){
  if(!commandProfiling)return operation();
- const frame={startedAt:performance.now(),wave,session:session.index,ownerClass:session.index<10?'contended_near_bound':'independent_small',rpcCount:0,statementCount:0,calls:{},classes:{},sumAwaitMilliseconds:0,intervals:[],intervalsTruncated:false,sequence:[],sequenceTruncated:false,recoveryPhases:[],recoveryPhasesTruncated:false};
+ const frame={startedAt:performance.now(),wave,session:session.index,ownerClass:session.index<10?'contended_near_bound':'independent_small',rpcCount:0,statementCount:0,calls:{},classes:{},sumAwaitMilliseconds:0,intervals:[],intervalsTruncated:false,sequence:[],sequenceTruncated:false,recoveryPhases:[],recoveryPhasesTruncated:false,currentRecoveryPhase:null,hashWork:{stages:{},shaIntervals:[],syncIntervals:[],shaTruncated:false,syncTruncated:false}};
  let status='threw';try{const value=await commandProfileContext.run(frame,operation);status=value.status;return value;}
  finally{engine.commandProfiles??=[];if(engine.commandProfiles.length<100){const row=profileSummary(frame,performance.now()-frame.startedAt,status);engine.commandProfiles.push(row);console.log(JSON.stringify({event:'controlled_command_profile',engine:engine.name,...row}));}}
 }
@@ -220,8 +244,8 @@ async function runEngine(name,db,model,migrations){
   const stopRecoveryDiagnostics=commandProfiling?registerRecoverabilityDiagnostics(db,phase=>{
    const frame=commandProfileContext.getStore();if(!frame)return;
    if(frame.recoveryPhases.length>=64){frame.recoveryPhasesTruncated=true;return;}
-   const entry={phase,startedMilliseconds:performance.now()-frame.startedAt,elapsedMilliseconds:null};frame.recoveryPhases.push(entry);
-   return elapsedMilliseconds=>{entry.elapsedMilliseconds=elapsedMilliseconds;};
+   const entry={phase,startedMilliseconds:performance.now()-frame.startedAt,elapsedMilliseconds:null};frame.recoveryPhases.push(entry);frame.currentRecoveryPhase=phase;
+   return elapsedMilliseconds=>{entry.elapsedMilliseconds=elapsedMilliseconds;if(frame.currentRecoveryPhase===phase)frame.currentRecoveryPhase=null;};
   }):()=>{};
   try{await concurrentSessions(engine,db);}finally{stopRecoveryDiagnostics();}
   engine.finalRevision=(await readCurrent(db,owner,now)).revision;
@@ -237,6 +261,7 @@ try{
  await seed(db,model);try{await runEngine('miniflareD1',db,model,migrations.length);}catch(error){report.errors.push({engine:'miniflareD1',...failure(error)});}
 }catch(error){report.errors.push({engine:'setup',...failure(error)});}
 finally{
+ stopHashWorkDiagnostics();
  sqlite?.sqlite.close();if(mf)await mf.dispose();report.finishedAt=new Date().toISOString();report.environment.endingNodeMemoryBytes=process.memoryUsage();report.status=report.errors.length||failures.length?'failed':'passed';report.regressionFailures=failures;
  await mkdir(new URL('../benchmark-results/',import.meta.url),{recursive:true});await writeFile(output,JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify({source,status:report.status,engines:report.engines.map(engine=>({engine:engine.name,status:engine.status,fixture:engine.fixture,confirmedRestores:engine.confirmedRestores??null,failureStage:engine.failureStage??null,error:engine.error??null})),errors:report.errors,regressionFailures:failures}));
  if(report.status!=='passed')process.exitCode=1;

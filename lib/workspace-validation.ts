@@ -1,3 +1,4 @@
+import {startHashWork} from './hash-work-diagnostics.ts';
 import { z } from 'zod';
 import { validateTaskGraph } from './task-graph.ts';
 import { migratePlanningV3ToV4 } from './planning-migration.ts';
@@ -28,7 +29,7 @@ const workspaceSchema = z.object({
 }).strict();
 function fail(message: string): never { throw new WorkspaceValidationError(message); }
 /** Strict import and storage boundary. The saved timestamp anchors legacy weekly commitments. */
-export function parseWorkspaceExport(value: unknown, savedAt?: string, options: { allowLegacyMigrationOverflow?: boolean } = {}): Workspace {
+function parseWorkspaceExportInternal(value: unknown, savedAt?: string, options: { allowLegacyMigrationOverflow?: boolean } = {}): Workspace {
   if (!value || typeof value !== 'object' || Array.isArray(value)) fail('Workspace export must be an object.');
   const wrapper = value as Record<string,unknown>;
   const raw = 'workspace' in wrapper ? wrapper.workspace : value;
@@ -84,3 +85,5 @@ export function parseWorkspaceExport(value: unknown, savedAt?: string, options: 
   if (measured.serializedBytes > WORKSPACE_LIMITS.serializedBytes) fail('Workspace exceeds the 1.25 MB serialized storage limit.');
   return ws;
 }
+
+export function parseWorkspaceExport(value:unknown,savedAt?:string,options:{allowLegacyMigrationOverflow?:boolean}={}):Workspace{const finish=startHashWork('planning-schema');try{return parseWorkspaceExportInternal(value,savedAt,options);}finally{finish();}}

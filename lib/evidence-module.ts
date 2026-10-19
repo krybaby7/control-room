@@ -1,3 +1,4 @@
+import {startHashWork} from './hash-work-diagnostics.ts';
 import {sourceObservationSchema} from './sources/validation.ts';
 import {z} from 'zod';
 import type {ExportModule,ImportContext,PhysicalImportRows} from './workspace-export.ts';
@@ -25,9 +26,10 @@ const wrapperSchema=z.object({id,rowRevision:z.number().int().positive().safe(),
 type Envelope=z.infer<typeof envelopeSchema>;type Wrapper=z.infer<typeof wrapperSchema>;
 type Spec={table:RegisteredOwnerTable;kind:Envelope['kind'];parse:(value:unknown)=>unknown;legacy?:boolean;marker?:string};
 function object(value:unknown):value is Record<string,unknown>{return !!value&&typeof value==='object'&&!Array.isArray(value);}
-function parseOrLegacy(spec:Spec,value:unknown):{kind:Envelope['kind'];record:unknown}{
+function parseOrLegacyInternal(spec:Spec,value:unknown):{kind:Envelope['kind'];record:unknown}{
  assertPortable(value);if(spec.legacy&&(!spec.marker||!object(value)||!Object.hasOwn(value,spec.marker)))return {kind:'legacy',record:value};return {kind:spec.kind,record:spec.parse(value)};
 }
+function parseOrLegacy(spec:Spec,value:unknown):{kind:Envelope['kind'];record:unknown}{const finish=startHashWork('composite-schema');try{return parseOrLegacyInternal(spec,value);}finally{finish();}}
 const evidenceSpecs:Spec[]=[{table:'evidence_records',kind:'head',parse:v=>evidenceHeadSchema.parse(v),legacy:true,marker:'currentVersion'},{table:'evidence_versions',kind:'version',parse:v=>evidenceVersionSchema.parse(v)},{table:'evidence_mappings',kind:'mapping',parse:v=>legacyEvidenceMappingSchema.parse(v)}];
 const decisionSpecs:Spec[]=[{table:'decision_records',kind:'head',parse:v=>evidenceHeadSchema.parse(v)},{table:'decision_versions',kind:'version',parse:v=>decisionVersionSchema.parse(v)},{table:'decisions',kind:'legacy',parse:v=>v,legacy:true}];
 function specFor(specs:Spec[],value:Envelope):Spec{const spec=specs.find(item=>item.kind===value.kind&&!(value.kind==='legacy'&&item.table==='decision_records'))??(value.kind==='legacy'?specs.find(item=>item.legacy):undefined);if(!spec)throw new Error('Unknown composite record kind.');return spec;}
@@ -36,7 +38,8 @@ async function portableId(spec:Spec,kind:Envelope['kind'],physicalId:string,reco
  if(kind==='version')return versionRowId((record as {id:string}).id,(record as {version:number}).version,serializationHashContext);
  return `${kind==='mapping'?'m':'l'}:${await serializationHash(canonical([spec.table,physicalId]),serializationHashContext)}`;
 }
-function parsedComposite(specs:Spec[],raw:unknown):Wrapper&{value:Envelope}{const row=wrapperSchema.parse(raw),value=envelopeSchema.parse(row.value),spec=specFor(specs,value);assertPortable(value.record);if(value.kind!=='legacy')spec.parse(value.record);else if(!spec.legacy||parseOrLegacy(spec,value.record).kind!=='legacy')throw new Error('Unsupported or downgraded legacy record.');if(value.kind==='head'&&(value.record as {id:string}).id!==value.physicalId)throw new Error('Head physical identity differs.');return {...row,value};}
+function parsedCompositeInternal(specs:Spec[],raw:unknown):Wrapper&{value:Envelope}{const row=wrapperSchema.parse(raw),value=envelopeSchema.parse(row.value),spec=specFor(specs,value);assertPortable(value.record);if(value.kind!=='legacy')spec.parse(value.record);else if(!spec.legacy||parseOrLegacy(spec,value.record).kind!=='legacy')throw new Error('Unsupported or downgraded legacy record.');if(value.kind==='head'&&(value.record as {id:string}).id!==value.physicalId)throw new Error('Head physical identity differs.');return {...row,value};}
+function parsedComposite(specs:Spec[],raw:unknown):Wrapper&{value:Envelope}{const finish=startHashWork('composite-schema');try{return parsedCompositeInternal(specs,raw);}finally{finish();}}
 async function exactIdentity(specs:Spec[],row:Wrapper&{value:Envelope},serializationHashContext?:SerializationHashContext):Promise<void>{const spec=specFor(specs,row.value);if(row.id!==await portableId(spec,row.value.kind,row.value.physicalId,row.value.record,serializationHashContext))throw new Error('Portable composite identity differs.');if(row.value.kind==='version'&&row.value.physicalId!==row.id)throw new Error('Version physical identity differs.');}
 /** Per-call ordered pool; every portable identity comparison and schema check
  * runs on every row. Exact SHA digests may be reused only inside an explicit
