@@ -54,8 +54,9 @@ export async function copyRecoveryBackupArchives(source:SqlDatabase,sourceReceip
     throw new Error('Fenced source backup object cannot be advertised as ready.');
   }
   const verified=await readReadyFileBackup(source,owner,original.id,services.source,services.signal);
-  if(!verified||verified.indexHash!==original.index_sha256)throw new Error('Ready source archive is unavailable or differs.');
+  if(!verified)throw new Error('Ready source archive is unavailable or differs.');
   await verified.stream.cancel();
+  if(verified.indexHash!==original.index_sha256)throw new Error('Ready source archive is unavailable or differs.');
   const namespace=crypto.randomUUID(),row={...original,namespace,status:'preparing'};
   await insert('backup_archives',row);
   for(const descriptor of verified.index.chunks){
@@ -76,8 +77,9 @@ export async function copyRecoveryBackupArchives(source:SqlDatabase,sourceReceip
   }
   await db.prepare("UPDATE backup_archives SET status='ready' WHERE user_id=? AND id=? AND status='preparing'").bind(owner,original.id).run();
   const checked=await readReadyFileBackup(target,owner,original.id,{...services.source,bucket:services.targetBucket},services.signal);
-  if(!checked||checked.indexHash!==verified.indexHash)throw new Error('Target native archive verification failed.');
+  if(!checked)throw new Error('Target native archive verification failed.');
   await checked.stream.cancel();
+  if(checked.indexHash!==verified.indexHash)throw new Error('Target native archive verification failed.');
   mappings.push({archiveId:original.id,sourceNamespace:original.namespace,targetNamespace:namespace,indexSha256:verified.indexHash});
  }
  const targetUsage=await readBackupQuotaUsage(target,owner);

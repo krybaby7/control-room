@@ -29,7 +29,7 @@ export async function runScheduledBackup(db:SqlDatabase,principal:AutomationServ
   const result=JSON.parse(row.payload_json).changes?.[0]?.after?.value;
   if(!result||result.backupId!==job!.subject_id||typeof result.sha256!=='string')return {status:'uncertain',reason:'receipt_unverified'};
   const backup=await readWorkspaceBackup(db,owner,result.backupId);if(!backup||backup.manifest.sha256!==result.sha256||backup.manifest.reason!=='scheduled')return {status:'uncertain',reason:'receipt_unverified'};
-  if(fileMode){const full=await readReadyFileBackup(db,owner,result.backupId,options.files!,options.signal);if(!full||result.archiveIndexHash!==full.indexHash)return {status:'uncertain',reason:'receipt_unverified'};void full.stream.cancel().catch(()=>{});}return {status:'replayed'};
+  if(fileMode){const full=await readReadyFileBackup(db,owner,result.backupId,options.files!,options.signal);if(!full)return {status:'uncertain',reason:'receipt_unverified'};await full.stream.cancel();if(result.archiveIndexHash!==full.indexHash)return {status:'uncertain',reason:'receipt_unverified'};}return {status:'replayed'};
  }
  try{const prior=await replay();if(prior)return prior;}catch{return {status:'uncertain',reason:'receipt_unverified'};}
  let plannedBytes=0;
