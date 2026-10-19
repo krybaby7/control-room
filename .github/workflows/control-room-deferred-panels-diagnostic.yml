@@ -1,0 +1,53 @@
+name: Control Room deferred-panel native verification
+on:
+  push:
+    branches: ['diagnostics/control-room-deferred-panels*']
+    paths: ['.github/workflows/control-room-deferred-panels-diagnostic.yml']
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm run install:ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - run: npm run test:e2e:r2
+  mobile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CONTROL_ROOM_SOURCE_COMMIT: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm run install:ci
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test --config playwright.performance.config.ts
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: synthetic-deferred-panels-performance
+          path: |
+            benchmark-results/browser*.json
+            browser-performance-results.json
+            test-results-performance/
+          if-no-files-found: error
+          retention-days: 7

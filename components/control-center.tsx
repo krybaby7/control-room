@@ -1,31 +1,20 @@
 'use client';
-import {AttachmentReserveEditor,AttachmentUploadDialog,AttachmentLifecycleDialog} from './attachment-dialogs';
-import {EvidenceLinkEditor} from './evidence-link-editor';
-import {RequirementEditor} from './requirement-editor';
-import {AcceptanceDialog} from './acceptance-dialog';
-import {DecisionActionDialog} from './decision-action-dialog';
 import type {AttachmentSnapshot,EvidenceSnapshot} from '@/lib/evidence-store';
-import {HistoryView} from './history-view';
 import {parseHistorySubjectLink} from '@/lib/history-subject-links';
-import {EvidenceWorkspace} from './evidence-workspace';
-import {EvidenceEditor} from './evidence-editor';
-import {DecisionEditor} from './decision-editor';
 import type {EvidenceVersion,DecisionVersion,EvidenceRequirement,EvidenceSubject} from '@/lib/evidence-contract';
 import {DEFAULT_SEARCH_STATE,encodeSearchState,parseSearchState,type SearchState} from '@/lib/planning-search-state';
 import {weekStartSchema} from '@/lib/weekly-planning';
 import {OriginalSaveContext} from './form-dialog';
 import {TaskBulkActions} from './task-bulk-actions';
 
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { Component, createContext, createElement, lazy, Suspense, useCallback, useContext, useEffect, useRef, useState, type ComponentType, type ReactNode } from 'react';
+import type {WeeklyReviewDraft} from './weekly-review-editor';
 import { AlertCircle, ArrowRight, Check, ChevronDown, FolderOpen, Inbox, LayoutGrid, LoaderCircle, LogOut, Plus, Radio, RefreshCw, Search, ListChecks, CalendarDays, Sun, X } from 'lucide-react';
 import type { Capture, Command, Milestone, Project, Task, Workspace, WorkspaceEnvelope } from '@/lib/types';
 import { isCurrentWeek } from '@/lib/calendar';
 import { readWorkspaceResponse, SessionExpiredError, WorkspaceRequestError, isConclusiveWorkspaceRejection, submissionFor, type Submission } from '@/lib/workspace-client';
 import { boundedRequest, issueSubmissionId, sendCommand, reconcileSubmission, SaveSessionGeneration, StaleSessionError } from '@/lib/save-controller';
 import { DurableDraftProvider, type DurableDraftController, type RecoveredSubmission } from './durable-draft';
-import {WeeklyReviewEditor,type WeeklyReviewDraft} from './weekly-review-editor';
-import { WeeklyPlanningView } from './weekly-planning-view';
-import { RecurrenceEditor } from './recurrence-editor';
 import type { RecurrenceRule } from '@/lib/recurrence';
 import { WorkspacePolling } from '@/lib/workspace-polling';
 import {WorkspaceStreamClient,type WorkspaceStreamStatus} from '@/lib/workspace-stream-client';
@@ -39,7 +28,6 @@ import {ReviewAttentionResults} from './review-attention-results';
 import { AttentionView } from './attention-view';
 import { entityHref, parseEntityLink, type EntityTarget } from '@/lib/entity-links';
 import {parseReviewLink,reviewHref,type ReviewTarget} from '@/lib/review-links';
-import {ReviewCitation} from './review-citation';
 import {parseEvidenceSubjectLink,resolveEvidenceSubject} from '@/lib/evidence-subject-links';
 import { MilestoneEditor } from './planning-editors';
 import { CaptureEditor, ConvertEditor } from './capture-editors';
@@ -48,20 +36,63 @@ import { ProjectDetail, ProjectsView } from './projects-view';
 import { InboxView } from './inbox-view';
 import {z} from 'zod';
 import {canonical,contentHash} from '@/lib/canonical-json';
-import {ExecutionEnrollmentDialog} from './execution-enrollment-dialog';
 import type {GenericDeviceEnrollmentInput} from '@/lib/devices/validation';
-import {JobBudgetEditor} from './job-budget-editor';
 import type {JobBudgetDisplay} from '@/lib/agents/read-model';
-import {JobEditor} from './job-editor';
 import {RuntimeView,EnrollmentSecretUnavailableError,EnrollmentNotStartedError,type RuntimeEnrollmentResult} from './runtime-view';
-import {BaselineRevisionEditor} from './baseline-revision-editor';
 import type {ReviewSnapshot} from '@/lib/reviews/contracts';
 
-// Defer noninitial screens so Today can become usable on a slow connection.
-const SourcesView=lazy(()=>import('./sources-view').then(module=>({default:module.SourcesView})));
-const ReviewCenter=lazy(()=>import('./review-center').then(module=>({default:module.ReviewCenter})));
-const AgentsView=lazy(()=>import('./agents-view').then(module=>({default:module.AgentsView})));
+// Load noninitial panels only when selected; no private data or fetch is cached.
+class PanelModuleLoadError extends Error{constructor(){super('The selected panel module could not be loaded.');this.name='PanelModuleLoadError';}}
+async function boundedPanelModule<T>(load:()=>Promise<T>):Promise<T>{
+ let timer:ReturnType<typeof setTimeout>|undefined;
+ try{return await Promise.race([load(),new Promise<never>((_,reject)=>{timer=setTimeout(()=>reject(new Error('Panel module load deadline exceeded.')),15000);})]);}
+ catch{throw new PanelModuleLoadError();}
+ finally{if(timer!==undefined)clearTimeout(timer);}
+}
+// Module definitions only: no owner data, requests or authorization is retained.
+const panelModuleFactories=new Map<symbol,()=>unknown>();
+const PanelRetryContext=createContext<ReadonlyMap<symbol,unknown>|null>(null);
+function deferredPanel<P extends object>(load:()=>Promise<{default:ComponentType<P>}>):ComponentType<P>{
+ const id=Symbol(),create=()=>lazy(()=>boundedPanelModule(load)),Initial=create();
+ panelModuleFactories.set(id,create);
+ return function DeferredComponent(props:P){
+  const resources=useContext(PanelRetryContext),Selected=(resources?.get(id)??Initial) as ComponentType<P>;
+  return createElement(Selected,props);
+ };
+}
+const AttachmentReserveEditor=deferredPanel(()=>import('./attachment-dialogs').then(module=>({default:module.AttachmentReserveEditor})));
+const AttachmentUploadDialog=deferredPanel(()=>import('./attachment-dialogs').then(module=>({default:module.AttachmentUploadDialog})));
+const AttachmentLifecycleDialog=deferredPanel(()=>import('./attachment-dialogs').then(module=>({default:module.AttachmentLifecycleDialog})));
+const EvidenceLinkEditor=deferredPanel(()=>import('./evidence-link-editor').then(module=>({default:module.EvidenceLinkEditor})));
+const RequirementEditor=deferredPanel(()=>import('./requirement-editor').then(module=>({default:module.RequirementEditor})));
+const AcceptanceDialog=deferredPanel(()=>import('./acceptance-dialog').then(module=>({default:module.AcceptanceDialog})));
+const DecisionActionDialog=deferredPanel(()=>import('./decision-action-dialog').then(module=>({default:module.DecisionActionDialog})));
+const HistoryView=deferredPanel(()=>import('./history-view').then(module=>({default:module.HistoryView})));
+const EvidenceWorkspace=deferredPanel(()=>import('./evidence-workspace').then(module=>({default:module.EvidenceWorkspace})));
+const EvidenceEditor=deferredPanel(()=>import('./evidence-editor').then(module=>({default:module.EvidenceEditor})));
+const DecisionEditor=deferredPanel(()=>import('./decision-editor').then(module=>({default:module.DecisionEditor})));
+const WeeklyReviewEditor=deferredPanel(()=>import('./weekly-review-editor').then(module=>({default:module.WeeklyReviewEditor})));
+const WeeklyPlanningView=deferredPanel(()=>import('./weekly-planning-view').then(module=>({default:module.WeeklyPlanningView})));
+const RecurrenceEditor=deferredPanel(()=>import('./recurrence-editor').then(module=>({default:module.RecurrenceEditor})));
+const ReviewCitation=deferredPanel(()=>import('./review-citation').then(module=>({default:module.ReviewCitation})));
+const ExecutionEnrollmentDialog=deferredPanel(()=>import('./execution-enrollment-dialog').then(module=>({default:module.ExecutionEnrollmentDialog})));
+const JobBudgetEditor=deferredPanel(()=>import('./job-budget-editor').then(module=>({default:module.JobBudgetEditor})));
+const JobEditor=deferredPanel(()=>import('./job-editor').then(module=>({default:module.JobEditor})));
+const BaselineRevisionEditor=deferredPanel(()=>import('./baseline-revision-editor').then(module=>({default:module.BaselineRevisionEditor})));
+const SourcesView=deferredPanel(()=>import('./sources-view').then(module=>({default:module.SourcesView})));
+const ReviewCenter=deferredPanel(()=>import('./review-center').then(module=>({default:module.ReviewCenter})));
+const AgentsView=deferredPanel(()=>import('./agents-view').then(module=>({default:module.AgentsView})));
 function ViewLoading({label}:{label:string}){return <p role="status" className="muted">Loading {label}…</p>;}
+class PanelLoadBoundary extends Component<{label:string;children:ReactNode;onRetry:()=>void;onBack:()=>void},{failed:boolean}>{
+ state={failed:false};
+ static getDerivedStateFromError(error:unknown){if(!(error instanceof PanelModuleLoadError))throw error;return {failed:true};}
+ render(){return this.state.failed?<section className="panel" role="alert"><h2>{this.props.label} could not be loaded.</h2><p>The selected panel did not finish loading. Retry loading it or return to Today. Review any pending save outcome before retrying a change; saved draft recovery remains available.</p><div className="data-actions"><button type="button" className="button secondary" onClick={this.props.onRetry}>Retry loading panel</button><button type="button" className="button secondary" onClick={this.props.onBack}>Return to Today</button></div></section>:this.props.children;}
+}
+function DeferredPanel({label,children,canRetry,onBack}:{label:string;children:ReactNode;canRetry:()=>boolean;onBack:()=>void}){
+ const [retry,setRetry]=useState<{attempt:number;resources:ReadonlyMap<symbol,unknown>|null}>({attempt:0,resources:null});
+ const retryModule=()=>{if(!canRetry())return;const resources=new Map<symbol,unknown>();for(const [id,create]of panelModuleFactories)resources.set(id,create());setRetry(value=>({attempt:value.attempt+1,resources}));};
+ return <PanelRetryContext.Provider value={retry.resources}><PanelLoadBoundary key={retry.attempt} label={label} onRetry={retryModule} onBack={onBack}><Suspense fallback={<ViewLoading label={label}/>}>{children}</Suspense></PanelLoadBoundary></PanelRetryContext.Provider>;
+}
 
 type View = 'today' | 'projects' | 'inbox' | 'sources' | 'reviews' | 'search' | 'attention' | 'weekly' | 'evidence' | 'history' | 'runtime' | 'agents';
 type SaveBase = { revision: number; submission?: Submission | null };
@@ -325,24 +356,25 @@ export default function ControlCenter({ userName }: { userName: string }) {
       {expired ? <div className="loading-screen" role="alert"><AlertCircle size={30} /><h1>Your session has expired.</h1><p>Sign in again to open your private workspace. Private content has been closed. Server drafts remain recoverable after sign-in. Active device drafts are cleared on expiry; copies locked since an earlier visit may require signing in to the same account and choosing Forget device drafts.</p><a className="button primary" href="/signin-with-chatgpt?return_to=%2F">Sign in again<ArrowRight size={16} /></a></div> : !workspace ? <div className="loading-screen">{loading ? <><LoaderCircle size={30} className="spinning" /><h1>A little clarity is on its way.</h1><p>Loading your private workspace…</p></> : <><AlertCircle size={30} /><h1>Your workspace is waiting.</h1><p>We couldn’t load it. Your saved work has not been changed.</p><button className="button primary" onClick={() => void refresh()}>Try again<ArrowRight size={16} /></button></>}</div> : <>
         {view === 'today' && <TodayView workspace={workspace} onProject={openProject} onTask={openTask} onPin={pinTask} onProjects={() => navigate('projects')} onAttention={()=>navigate('attention')} onOpenReviews={()=>navigate('reviews')} onCapture={() => openEditor({ type: 'capture' })} busy={busy} />}
         {unavailableTarget && <div className="panel" role="status"><h2>This item is unavailable.</h2><p>It may be missing or unavailable in this workspace.</p><button className="button secondary" onClick={()=>navigate('today')}>Go home</button></div>}
-        {!unavailableTarget && reviewTarget && <ReviewCitation key={reviewHref(reviewTarget)} target={reviewTarget} revision={envelope!.revision}/>}
-        {!unavailableTarget && !reviewTarget && view==='history' && <HistoryView key={evidenceSubject?`history:${evidenceSubject.type}:${evidenceSubject.id}`:'history:all'} subject={evidenceSubject} revision={envelope!.revision} onCommand={(command,revision)=>mutate(command as Command,undefined,revision)} />}
-        {!unavailableTarget && !reviewTarget && view==='evidence' && <EvidenceWorkspace subject={evidenceSubject} onClearSubject={()=>{setEvidenceSubject(undefined);writeLocation('/?view=evidence');}} workspace={workspace} revision={envelope!.revision} onEvidence={(evidence,revision,snapshot)=>{if(!evidence&&evidenceSubject){setEvidenceSubject(undefined);writeLocation('/?view=evidence');}openEditor({type:'evidence',evidence,snapshot},revision);}} onAttachmentReserve={snapshot=>openEditor({type:'attachment-reserve',snapshot},snapshot.revision)} onAttachmentUpload={(attachment,snapshot)=>openEditor({type:'attachment-upload',attachment,snapshot},snapshot.revision)} onAttachmentLifecycle={(attachment,snapshot,action)=>openEditor({type:'attachment-lifecycle',attachment,snapshot,action},snapshot.revision)} onDecision={(decision,revision,snapshot)=>{if(!decision&&evidenceSubject){setEvidenceSubject(undefined);writeLocation('/?view=evidence');}openEditor({type:'decision',decision,snapshot},revision);}} onLink={(evidence,snapshot)=>openEditor({type:'evidence-link',evidence,snapshot,subject:evidenceSubject},snapshot.revision)} onRequirement={(requirement,snapshot)=>openEditor({type:'requirement',requirement,snapshot,subject:evidenceSubject},snapshot.revision)} onAssessment={(snapshot,subject)=>openEditor({type:'acceptance',snapshot,subject:subject??evidenceSubject},snapshot.revision)} onDecisionAction={(decision,snapshot,action)=>openEditor({type:'decision-action',decision,snapshot,action},snapshot.revision)} onCommand={(command,revision)=>mutate(command as Command,undefined,revision)} />}
-        {!unavailableTarget && view==='weekly' && <WeeklyPlanningView key={weeklyWeek??'current'} initialWeek={weeklyWeek} onReview={(draft,revision)=>openEditor({type:'weekly-review',draft},revision)} workspace={workspace} revision={envelope!.revision} onCommand={(command,revision)=>mutate(command,undefined,revision)} onTask={openTask} onRecurrenceEdit={rule=>openEditor({type:'recurrence',rule})} />}
+        {!unavailableTarget && reviewTarget && <DeferredPanel label="Exact review citation" canRetry={mayNavigate} onBack={()=>navigate('today')}><ReviewCitation key={reviewHref(reviewTarget)} target={reviewTarget} revision={envelope!.revision}/></DeferredPanel>}
+        {!unavailableTarget && !reviewTarget && view==='history' && <DeferredPanel label="History" canRetry={mayNavigate} onBack={()=>navigate('today')}><HistoryView key={evidenceSubject?`history:${evidenceSubject.type}:${evidenceSubject.id}`:'history:all'} subject={evidenceSubject} revision={envelope!.revision} onCommand={(command,revision)=>mutate(command as Command,undefined,revision)} /></DeferredPanel>}
+        {!unavailableTarget && !reviewTarget && view==='evidence' && <DeferredPanel label="Evidence and decisions" canRetry={mayNavigate} onBack={()=>navigate('today')}><EvidenceWorkspace subject={evidenceSubject} onClearSubject={()=>{setEvidenceSubject(undefined);writeLocation('/?view=evidence');}} workspace={workspace} revision={envelope!.revision} onEvidence={(evidence,revision,snapshot)=>{if(!evidence&&evidenceSubject){setEvidenceSubject(undefined);writeLocation('/?view=evidence');}openEditor({type:'evidence',evidence,snapshot},revision);}} onAttachmentReserve={snapshot=>openEditor({type:'attachment-reserve',snapshot},snapshot.revision)} onAttachmentUpload={(attachment,snapshot)=>openEditor({type:'attachment-upload',attachment,snapshot},snapshot.revision)} onAttachmentLifecycle={(attachment,snapshot,action)=>openEditor({type:'attachment-lifecycle',attachment,snapshot,action},snapshot.revision)} onDecision={(decision,revision,snapshot)=>{if(!decision&&evidenceSubject){setEvidenceSubject(undefined);writeLocation('/?view=evidence');}openEditor({type:'decision',decision,snapshot},revision);}} onLink={(evidence,snapshot)=>openEditor({type:'evidence-link',evidence,snapshot,subject:evidenceSubject},snapshot.revision)} onRequirement={(requirement,snapshot)=>openEditor({type:'requirement',requirement,snapshot,subject:evidenceSubject},snapshot.revision)} onAssessment={(snapshot,subject)=>openEditor({type:'acceptance',snapshot,subject:subject??evidenceSubject},snapshot.revision)} onDecisionAction={(decision,snapshot,action)=>openEditor({type:'decision-action',decision,snapshot,action},snapshot.revision)} onCommand={(command,revision)=>mutate(command as Command,undefined,revision)} /></DeferredPanel>}
+        {!unavailableTarget && view==='weekly' && <DeferredPanel label="Weekly planning" canRetry={mayNavigate} onBack={()=>navigate('today')}><WeeklyPlanningView key={weeklyWeek??'current'} initialWeek={weeklyWeek} onReview={(draft,revision)=>openEditor({type:'weekly-review',draft},revision)} workspace={workspace} revision={envelope!.revision} onCommand={(command,revision)=>mutate(command,undefined,revision)} onTask={openTask} onRecurrenceEdit={rule=>openEditor({type:'recurrence',rule})} /></DeferredPanel>}
         {!unavailableTarget && view === 'search' && <SearchView revision={envelope!.revision} value={searchState} onStateChange={(state,mode)=>{setSearchState(state);const url=encodeSearchState(state);if(mode==='replace'){window.history.replaceState({},'',url);locationKey.current=window.location.search;}else writeLocation(url);}} workspace={workspace} onOpen={openEntity} />}
         {!unavailableTarget && view === 'attention' && <AttentionView revision={envelope!.revision} workspace={workspace} onOpen={openEntity} busy={busy||loading||editor!==null} />}
         {!unavailableTarget && view === 'projects' && (milestone ? <MilestoneWorkspace revision={envelope!.revision} workspace={workspace} milestone={milestone} onTask={openTask} onEdit={row=>openEditor({type:'milestone',milestone:row,project:workspace.projects.find(project=>project.id===row.projectId)!})} onNewTask={row=>openEditor({type:'task',projectId:row.projectId,milestoneId:row.id})} onCapture={row=>openEditor({type:'capture',capture:row})} onCommand={command=>mutate(command)} onBack={()=>project?openProject(project):navigate('projects')} /> : project ? <ProjectDetail baselineRemovedIds={envelope?.baselineRemovedIds} key={`project-detail:${project.id}`} project={project} workspace={workspace} busy={busy} onBack={() => navigate('projects')} onProjectEdit={() => openEditor({ type: 'project', project })} onProjectLifecycle={(row,action)=>run({type:action==='archive'?'project.archive':'project.restore',id:row.id})} onMilestone={openMilestone} onNewMilestone={() => openEditor({ type: 'milestone', project })} onTask={openTask} onNewTask={() => openEditor({ type: 'task', projectId: project.id })} onPin={pinTask} onApplyBaseline={(project, baselineId) => run({ type: 'baseline.apply', projectId: project.id, baselineId })} /> : <ProjectsView workspace={workspace} onProject={openProject} onCreate={()=>openEditor({type:'project'})} />)}
         {!unavailableTarget && view==='projects' && !milestone && <TaskBulkActions key={`task-bulk:${project?.id??'portfolio'}`} workspace={workspace} revision={envelope!.revision} projectId={project?.id} onTask={openTask} onCommand={(command,revision)=>mutate(command,undefined,revision)} />}
         {view === 'inbox' && <InboxView revision={envelope!.revision} onBulkCommand={(command,revision)=>mutate(command,undefined,revision)} workspace={workspace} busy={busy} onCreate={() => openEditor({ type: 'capture' })} onEdit={capture => openEditor({ type: 'capture', capture })} onConvert={capture => openEditor({ type: 'convert', capture })} onTask={openTask} onCommand={run} />}
-        {view === 'reviews' && envelope && <Suspense fallback={<ViewLoading label="Briefs and automations" />}><ReviewCenter envelope={envelope} busy={busy||loading} onBaselineRevision={(projectId,snapshot,snapshotHash)=>{if(mayNavigate())openEditor({type:'baseline-revision',projectId,snapshot,snapshotHash});}} onCommand={command=>mutate(command as Command)} onRefreshWorkspace={()=>void refresh()} onDirtyChange={dirty=>{sourceDirtyRef.current=dirty;stream.current?.setBusy(dirty||sourcePendingRef.current||busyRef.current);}} onPendingChange={pending=>{sourcePendingRef.current=pending;polling.current?.setBusy(pending||busyRef.current);stream.current?.setBusy((pending||busyRef.current)||sourceDirtyRef.current||Boolean(editorDraftController.current?.isDirty()));}} /></Suspense>}
-        {view === 'agents' && envelope && <Suspense fallback={<ViewLoading label="Agents" />}><AgentsView envelope={envelope} busy={busy||loading||editor!==null} onCommand={command=>mutate(command as Command)} onRefreshWorkspace={()=>void refresh()} onOpenJob={()=>{if(mayNavigate())openEditor({type:'agent-job'});}} onOpenBudget={budget=>{if(mayNavigate())openEditor({type:'agent-budget',budget});}} onOpenEnrollment={()=>{if(mayNavigate())openEditor({type:'execution-enrollment'});}} onDirtyChange={dirty=>agentGuard('jobsDirty',dirty)} onPendingChange={pending=>agentGuard('jobsPending',pending)} /></Suspense>}
+        {view === 'reviews' && envelope && <DeferredPanel label="Briefs and automations" canRetry={mayNavigate} onBack={()=>navigate('today')}><ReviewCenter envelope={envelope} busy={busy||loading} onBaselineRevision={(projectId,snapshot,snapshotHash)=>{if(mayNavigate())openEditor({type:'baseline-revision',projectId,snapshot,snapshotHash});}} onCommand={command=>mutate(command as Command)} onRefreshWorkspace={()=>void refresh()} onDirtyChange={dirty=>{sourceDirtyRef.current=dirty;stream.current?.setBusy(dirty||sourcePendingRef.current||busyRef.current);}} onPendingChange={pending=>{sourcePendingRef.current=pending;polling.current?.setBusy(pending||busyRef.current);stream.current?.setBusy((pending||busyRef.current)||sourceDirtyRef.current||Boolean(editorDraftController.current?.isDirty()));}} /></DeferredPanel>}
+        {view === 'agents' && envelope && <DeferredPanel label="Agents" canRetry={mayNavigate} onBack={()=>navigate('today')}><AgentsView envelope={envelope} busy={busy||loading||editor!==null} onCommand={command=>mutate(command as Command)} onRefreshWorkspace={()=>void refresh()} onOpenJob={()=>{if(mayNavigate())openEditor({type:'agent-job'});}} onOpenBudget={budget=>{if(mayNavigate())openEditor({type:'agent-budget',budget});}} onOpenEnrollment={()=>{if(mayNavigate())openEditor({type:'execution-enrollment'});}} onDirtyChange={dirty=>agentGuard('jobsDirty',dirty)} onPendingChange={pending=>agentGuard('jobsPending',pending)} /></DeferredPanel>}
         {view === 'runtime' && envelope && <RuntimeView envelope={envelope} busy={busy||loading} onCommand={command=>mutate(command as Command)} onEnroll={input=>enrollRuntimeDevice({...input,scopes:['telemetry:write']})} onRefreshWorkspace={()=>void refresh()} onDirtyChange={dirty=>{sourceDirtyRef.current=dirty;stream.current?.setBusy(dirty||sourcePendingRef.current||busyRef.current);}} onPendingChange={pending=>{sourcePendingRef.current=pending;polling.current?.setBusy(pending||busyRef.current);stream.current?.setBusy((pending||busyRef.current)||sourceDirtyRef.current||Boolean(editorDraftController.current?.isDirty()));}} />}
-        {view === 'sources' && envelope && <Suspense fallback={<ViewLoading label="Sources" />}><SourcesView onDirtyChange={dirty=>{sourceDirtyRef.current=dirty;stream.current?.setBusy(dirty||sourcePendingRef.current||busyRef.current);}} onPendingChange={pending=>{sourcePendingRef.current=pending;polling.current?.setBusy(pending||busyRef.current);stream.current?.setBusy((pending||busyRef.current)||sourceDirtyRef.current||Boolean(editorDraftController.current?.isDirty()));}} envelope={envelope} busy={busy || loading} onRefresh={() => void refresh()} onRestore={restoreWorkspace} onPreviousBackup={loadPreviousBackup} onBackup={()=>mutate({type:'workspace.backup'})} onImport={command=>mutate(command)} onDelete={command=>mutate(command)} onBackupRemove={command=>mutate(command)} /></Suspense>}
+        {view === 'sources' && envelope && <DeferredPanel label="Sources" canRetry={mayNavigate} onBack={()=>navigate('today')}><SourcesView onDirtyChange={dirty=>{sourceDirtyRef.current=dirty;stream.current?.setBusy(dirty||sourcePendingRef.current||busyRef.current);}} onPendingChange={pending=>{sourcePendingRef.current=pending;polling.current?.setBusy(pending||busyRef.current);stream.current?.setBusy((pending||busyRef.current)||sourceDirtyRef.current||Boolean(editorDraftController.current?.isDirty()));}} envelope={envelope} busy={busy || loading} onRefresh={() => void refresh()} onRestore={restoreWorkspace} onPreviousBackup={loadPreviousBackup} onBackup={()=>mutate({type:'workspace.backup'})} onImport={command=>mutate(command)} onDelete={command=>mutate(command)} onBackupRemove={command=>mutate(command)} /></DeferredPanel>}
       </>}
     </main><footer className="app-footer"><span>CONTROL ROOM</span><span>A little clarity. A steady next step.</span></footer></div>
     {notice && <div className="save-toast" role="status"><Check size={16} />{notice}</div>}
     <OriginalSaveContext.Provider value={{check:unresolved.find(item=>item.submission.mutationId===editorSubmissionId)?()=>checkOriginal(unresolved.find(item=>item.submission.mutationId===editorSubmissionId)!):undefined}}>
     <DurableDraftProvider baseRevision={editorRevision} controllerRef={editorDraftController} onRecover={recoverSubmission}>
+    {editor && <DeferredPanel label="Editor" canRetry={mayNavigate} onBack={()=>navigate('today')}>
     {envelope && editor?.type==='agent-budget' && <JobBudgetEditor key={`agent-budget:${editor.budget?.id??'new'}`} budget={editor.budget} onSave={command=>saveEditor(command as Command)} onClose={closeEditor} />}
     {envelope && editor?.type==='execution-enrollment' && <ExecutionEnrollmentDialog disabled={busy||loading} onEnroll={enrollRuntimeDevice} onClose={()=>{if(mayNavigate())closeEditor();}} onRefreshWorkspace={()=>void refresh()} onDirtyChange={dirty=>agentGuard('enrollmentDirty',dirty)} onPendingChange={pending=>agentGuard('enrollmentPending',pending)} />}
     {envelope && editor?.type==='agent-job' && <JobEditor key={`agent-job:${editor.taskId??editor.projectId??'new'}`} envelope={envelope} projectId={editor.projectId} taskId={editor.taskId} onSave={command=>saveEditor(command as Command)} onClose={closeEditor} />}
@@ -363,6 +395,7 @@ export default function ControlCenter({ userName }: { userName: string }) {
     {envelope && editor?.type==='attachment-reserve' && <AttachmentReserveEditor key="attachment-reserve:new" onSave={command=>saveEditor(command as Command)} onClose={closeEditor} />}
     {envelope && editor?.type==='attachment-upload' && <AttachmentUploadDialog key={`attachment-upload:${editor.attachment.id}`} attachment={editor.attachment} onClose={closeEditor} onStaged={()=>setNotice('Original bytes staged. Finalization is a separate owner action.')} />}
     {envelope && editor?.type==='attachment-lifecycle' && <AttachmentLifecycleDialog key={`attachment-lifecycle:${editor.action}:${editor.attachment.id}`} attachment={editor.attachment} action={editor.action} onSave={command=>saveEditor(command as Command)} onClose={closeEditor} />}
+    </DeferredPanel>}
     </DurableDraftProvider></OriginalSaveContext.Provider>
   </div></DeviceDraftProvider></SessionExpiredContext.Provider>;
 }
