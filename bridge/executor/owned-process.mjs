@@ -5,17 +5,20 @@ import {createHash,randomUUID} from 'node:crypto';
 import {promisify} from 'node:util';
 import {fileURLToPath} from 'node:url';
 import {win32} from 'node:path';
-import {shape,digest,integer,fail,sha} from './codec.mjs';
+import {shape,digest,integer,fail,sha,ExecutorError} from './codec.mjs';
 
 const executeFile=promisify(execFile);
-async function protectHelperDirectory(directory,{protect=false}={}){
+async function protectHelperDirectory(directory,{protect=false,executorState=false}={}){
  const system=process.env.SystemRoot??'C:\\Windows',environment={};
  for(const [key,value]of Object.entries(process.env))if(['systemroot','windir','userprofile','localappdata','appdata','temp','tmp','homedrive','homepath','username','userdomain','programdata','programfiles','programfiles(x86)','commonprogramfiles'].includes(key.toLowerCase()))environment[key]=value;
  environment.PSModulePath=win32.join(system,'System32','WindowsPowerShell','v1.0','Modules');environment.Path=win32.join(system,'System32');
- try{const result=await executeFile(win32.join(system,'System32','WindowsPowerShell','v1.0','powershell.exe'),['-NoLogo','-NoProfile','-NonInteractive','-File',fileURLToPath(new URL('../windows/protect-owned-helper.ps1',import.meta.url)),'-DirectoryPath',directory,...(protect?['-Protect']:[])],{shell:false,windowsHide:true,env:environment,timeout:10000,maxBuffer:4096,encoding:'utf8'});const value=JSON.parse(result.stdout.trim());shape(value,['protected','entries']);if(value.protected!==true||!Number.isInteger(value.entries)||value.entries<2||value.entries>3)throw Error();}catch{fail('owned_helper_acl_unverified');}
+ try{const result=await executeFile(win32.join(system,'System32','WindowsPowerShell','v1.0','powershell.exe'),['-NoLogo','-NoProfile','-NonInteractive','-File',fileURLToPath(new URL('../windows/protect-owned-helper.ps1',import.meta.url)),'-DirectoryPath',directory,...(protect?['-Protect']:[]),...(executorState?['-ExecutorState']:[])],{shell:false,windowsHide:true,env:environment,timeout:10000,maxBuffer:4096,encoding:'utf8'});const value=JSON.parse(result.stdout.trim());shape(value,['protected','entries']);if(value.protected!==true||!Number.isInteger(value.entries)||value.entries<(executorState?1:2)||value.entries>(executorState?256:3))throw Error();}catch(error){const diagnostic=typeof error.stderr==='string'?error.stderr.trim():'';const allowed=['modules','identity','native_compile','local_volume','current_owner','reparse_links','target_open','target_write_open','acl_write','acl_verify','parent_acl','parent_open','inventory'];const failure=new ExecutorError('owned_helper_acl_unverified');failure.diagnostic=allowed.includes(diagnostic.replace('owned_helper_acl_',''))?diagnostic:error.killed?'owned_helper_acl_timeout':'owned_helper_acl_unknown';throw failure;}
 }
 
 export async function prepareWindowsOwnedHelperDirectory(directory){if(process.platform!=='win32')fail('windows_owned_process_unavailable');if(typeof directory!=='string'||!isAbsolute(directory)||/[\r\n\0]/u.test(directory))fail('invalid_owned_helper');await protectHelperDirectory(directory,{protect:true});}
+
+export async function prepareWindowsExecutorStateDirectory(directory){if(process.platform!=='win32')fail('windows_owned_process_unavailable');await protectHelperDirectory(directory,{protect:true,executorState:true});}
+export async function verifyWindowsExecutorStateDirectory(directory){if(process.platform!=='win32')fail('windows_owned_process_unavailable');await protectHelperDirectory(directory,{executorState:true});}
 
 const nativeSupervisors=new WeakSet();
 export function assertWindowsOwnedProcessSupervisor(owner){if(!nativeSupervisors.has(owner))fail('native_owned_supervisor_required');return owner;}

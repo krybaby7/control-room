@@ -1,9 +1,10 @@
 # Fixed current-user helper ACL boundary. Only the chosen dedicated helper
 # directory and its allowlisted files are protected. Parents are inspected, never changed.
 [CmdletBinding()]
-param([Parameter(Mandatory=$true)][string]$DirectoryPath,[switch]$Protect)
+param([Parameter(Mandatory=$true)][string]$DirectoryPath,[switch]$Protect,[switch]$ExecutorState)
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+$stage = 'modules'
 # Windows PowerShell startup may prepend inherited/user module directories.
 # Pin again INSIDE the fixed PS5 process before any cmdlet discovery.
 $env:PSModulePath = [IO.Path]::Combine($PSHOME,'Modules')
@@ -12,17 +13,19 @@ try {
     foreach ($name in @('Microsoft.PowerShell.Utility','Microsoft.PowerShell.Management','Microsoft.PowerShell.Security')) {
         Import-Module ([IO.Path]::Combine($PSHOME,'Modules',$name,($name+'.psd1'))) -ErrorAction Stop
     }
-} catch { [Console]::Error.Write('fixed_windows_modules_unavailable'); exit 1 }
+} catch { [Console]::Error.Write('owned_helper_acl_modules'); exit 1 }
 
 $locks = New-Object 'System.Collections.Generic.List[Microsoft.Win32.SafeHandles.SafeFileHandle]'
 $targets = New-Object 'System.Collections.Generic.List[object]'
 try {
+    $stage = 'identity'
     $sid = [Security.Principal.WindowsIdentity]::GetCurrent().User
     if ($sid.Value -notmatch '^S-\d+(?:-\d+)+$' -or $sid.Value -in @('S-1-5-18','S-1-5-19','S-1-5-20')) { throw 'Interactive current user required.' }
     $systemSid = New-Object Security.Principal.SecurityIdentifier('S-1-5-18')
     $adminSid = 'S-1-5-32-544'
     $trustedInstallerSid = (New-Object Security.Principal.NTAccount('NT SERVICE','TrustedInstaller')).Translate([Security.Principal.SecurityIdentifier]).Value
     if (-not ('ControlRoomAcl.Native' -as [type])) {
+        $stage = 'native_compile'
         Add-Type -TypeDefinition @'
 using System;
 using System.ComponentModel;
@@ -74,6 +77,7 @@ namespace ControlRoomAcl {
         if ($Path.Length -gt 1024 -or $Path -notmatch '^[A-Za-z]:[\\/]' -or $Path -match '["\x00-\x1f\x7f]' -or $Path.Substring(2).Contains(':') -or $Path -match '(?:^|[\\/])\.{1,2}(?:[\\/]|$)' -or $Path -match '[. ](?:[\\/]|$)') { throw 'Local absolute path required.' }
         return [IO.Path]::GetFullPath($Path).TrimEnd('\')
     }
+    $stage = 'local_volume'
     $config = Normalize-LocalPath $DirectoryPath
     $state = $config
     if (-not [ControlRoomAcl.Native]::LocalVolume($config.Substring(0,2))) { throw 'Redirected or network drive refused.' }
@@ -89,10 +93,12 @@ namespace ControlRoomAcl {
         return $acl
     }
     function Assert-Regular($Handle,[bool]$Directory) {
+        $script:stage = 'reparse_links'
         $info = [ControlRoomAcl.Native]::Inspect($Handle)
         if (($info.Attributes -band 0x400) -ne 0 -or ((($info.Attributes -band 0x10) -ne 0) -ne $Directory) -or (-not $Directory -and $info.Links -ne 1)) { throw 'Regular non-linked object required.' }
     }
     function Assert-Owner($Acl) {
+        $script:stage = 'current_owner'
         if ($Acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -ne $sid.Value) { throw 'Current user ownership required.' }
     }
     function Test-PrivateAcl($Acl,[bool]$Directory) {
@@ -108,6 +114,7 @@ namespace ControlRoomAcl {
         return $true
     }
     function Protect-Target([string]$Path,[bool]$Directory) {
+        $script:stage = 'target_open'
         $handle = [ControlRoomAcl.Native]::Open($Path,$false)
         try {
             Assert-Regular $handle $Directory
@@ -116,6 +123,7 @@ namespace ControlRoomAcl {
             if (-not (Test-PrivateAcl $acl $Directory)) {
                 if (-not $Protect) { throw 'Explicit helper protection required.' }
                 $handle.Dispose()
+                $script:stage = 'target_write_open'
                 $handle = [ControlRoomAcl.Native]::Open($Path,$true)
                 Assert-Regular $handle $Directory
                 Assert-Owner (Read-ObjectAcl $handle $Directory)
@@ -129,11 +137,13 @@ namespace ControlRoomAcl {
                 }
                 # SetKernelObjectSecurity targets only this held object; it does not
                 # recursively propagate a named-directory ACL to unchecked children.
+                $script:stage = 'acl_write'
                 [ControlRoomAcl.Native]::Protect($handle,$replacement.GetSecurityDescriptorBinaryForm())
             }
             Assert-Regular $handle $Directory
             $checked = Read-ObjectAcl $handle $Directory
             Assert-Owner $checked
+            $script:stage = 'acl_verify'
             if (-not (Test-PrivateAcl $checked $Directory)) { throw 'Private ACL verification failed.' }
             $locks.Add($handle)
             return [pscustomobject]@{Path=$Path;Directory=$Directory;Handle=$handle}
@@ -141,6 +151,7 @@ namespace ControlRoomAcl {
     }
     function Assert-SafeParent([string]$Path,$Handle,[bool]$Immediate) {
         Assert-Regular $Handle $true
+        $script:stage = 'parent_acl'
         $acl = Read-ObjectAcl $Handle $true
         $owner = $acl.GetOwner([Security.Principal.SecurityIdentifier]).Value
         $osAncestor = [String]::Equals($Path.TrimEnd('\'),$driveRoot,[StringComparison]::OrdinalIgnoreCase) -or [String]::Equals($Path.TrimEnd('\'),$windowsRoot,[StringComparison]::OrdinalIgnoreCase) -or $windowsRoot.StartsWith($Path.TrimEnd('\')+'\',[StringComparison]::OrdinalIgnoreCase)
@@ -169,6 +180,7 @@ namespace ControlRoomAcl {
     }
     $parents = New-Object 'System.Collections.Generic.List[object]'
     foreach ($path in $ancestors) {
+        $stage = 'parent_open'
         $handle = [ControlRoomAcl.Native]::Open($path,$false)
         $locks.Add($handle)
         $immediate = [String]::Equals($path.TrimEnd('\'),$parent.TrimEnd('\'),[StringComparison]::OrdinalIgnoreCase)
@@ -177,11 +189,14 @@ namespace ControlRoomAcl {
     }
     # Never create a helper directory or modify parents during registration.
     if (-not [IO.Directory]::Exists($state)) { throw 'Existing helper directory required.' }
+    $stage = 'inventory'
     $entries = @(Get-ChildItem -LiteralPath $state -Force)
+    if (-not $ExecutorState) {
     $executables = @($entries | Where-Object { -not $_.PSIsContainer -and $_.Extension -ieq '.exe' })
     if ($executables.Count -ne 1 -or $entries.Count -gt 2) { throw 'Single-file helper inventory required.' }
     $expectedPdb = [IO.Path]::GetFileNameWithoutExtension($executables[0].Name)+'.pdb'
     foreach ($entry in $entries) { if ($entry.PSIsContainer -or ($entry.Name -ne $executables[0].Name -and $entry.Name -ne $expectedPdb)) { throw 'Unexpected helper sidecar.' } }
+    }
     $targets.Add((Protect-Target $state $true))
     $queue = New-Object 'System.Collections.Generic.Queue[string]'
     $queue.Enqueue($state)
@@ -207,7 +222,7 @@ namespace ControlRoomAcl {
     foreach ($p in $parents) { Assert-SafeParent $p.Path $p.Handle $p.Immediate }
     [Console]::Out.WriteLine(('{"protected":true,"entries":'+$targets.Count+'}'))
 } catch {
-    [Console]::Error.WriteLine('Native helper protection failed. Choose a current-user private folder and inspect local permissions.')
+    [Console]::Error.WriteLine(('owned_helper_acl_'+$stage))
     exit 1
 } finally {
     foreach ($handle in $locks) { $handle.Dispose() }

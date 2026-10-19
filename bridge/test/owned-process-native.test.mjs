@@ -19,7 +19,7 @@ test.before(async()=>{
  assert.equal(build.status,0,build.stdout+'\n'+build.stderr);
  assert.deepEqual((await readdir(buildDirectory)).filter(name=>name!=='OwnedProcess.pdb'),['OwnedProcess.exe']);
  const helperExecutable=join(buildDirectory,'OwnedProcess.exe'),helperSha256=createHash('sha256').update(await readFile(helperExecutable)).digest('hex');
- await prepareWindowsOwnedHelperDirectory(buildDirectory);registration={helperExecutable,helperSha256};
+ try{await prepareWindowsOwnedHelperDirectory(buildDirectory);}catch(error){console.log(JSON.stringify({nativeAclDiagnostic:error.diagnostic??'owned_helper_acl_unknown'}));throw error;}registration={helperExecutable,helperSha256};
 });
 test.beforeEach(async()=>{if(windows)owner=await createWindowsOwnedProcessSupervisor(registration);});
 test.after(async()=>{if(buildDirectory)await rm(buildDirectory,{recursive:true,force:true});});
