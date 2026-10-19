@@ -30,7 +30,7 @@ function failure(data,stderr=''){
 }
 /** Presentation only. Never changes scheduling, assertions, runner options or exit status. */
 export default async function* reporter(events){
- let completed=0,failed=0;const displayed=new Set(),stderr=new Map(),active=new Set(),cases=new Map();
+ let completed=0,failed=0,backupPhaseCount=0;const displayed=new Set(),stderr=new Map(),active=new Set(),cases=new Map();
  const heartbeat=setInterval(()=>{if(active.size){const files=[...active].sort().slice(0,128);process.stdout.write('TEST FILE ACTIVE '+JSON.stringify(files)+'\n');process.stdout.write('TEST FILE PENDING '+JSON.stringify(files.map(file=>{const state=cases.get(file);return {file,dequeued:state?.dequeued??0,completed:state?.completed??0,pending:[...(state?.pending.values()??[])].slice(0,8),untracked:state?.overflow??0,pendingCount:(state?.pending.size??0)+(state?.overflow??0)};}))+'\n');}},15000);heartbeat.unref();
  try{for await(const event of events){
   const data=event.data??{},file=data.entryFile??data.file??'<unknown>',known=diagnosticFile(data);
@@ -40,6 +40,7 @@ export default async function* reporter(events){
   }
   if(event.type==='test:dequeue'&&known&&!active.has(known)){active.add(known);yield 'TEST FILE START '+JSON.stringify(known)+'\n';}
   if((event.type==='test:summary'||event.type==='test:complete'&&data.nesting===0&&diagnosticFile({name:data.name})===known)&&known&&active.delete(known)){cases.delete(known);yield 'TEST FILE DONE '+JSON.stringify(known)+'\n';}
+  if(event.type==='test:stderr'&&known==='scheduled-backup-archive.test.ts'&&backupPhaseCount<64){for(const line of String(data.message??'').split(/\r?\n/)){if(/^SYNTHETIC BACKUP PHASE (fixture-(bindings|migrations|seed|metadata|put-start|put-done|ready|failed-dispose)|fixture-start|admit|before|run|run-done|workspace-checks|logical|archive|inspect|quota|foreign|replay|dispose|disposed)$/.test(line)&&backupPhaseCount++<64)yield line+'\n';}}
   if(event.type==='test:stderr'){if(!stderr.has(file)&&stderr.size>=128)stderr.delete(stderr.keys().next().value);stderr.set(file,(stderr.get(file)??'').concat(short(data.message,8192)).slice(-8192));}
   // test:complete is execution-ordered; test:fail may wait behind an earlier
   // long-running sibling. De-duplicate its later declaration-ordered twin.
@@ -75,6 +76,7 @@ async function selfTest(){
   const bootstrap=await execute(broken);assert.equal(bootstrap.code,1);assert.match(bootstrap.output,/synthetic-missing-module/);assert.match(bootstrap.output,/TEST STDERR/);
   async function* bounded(){yield {type:'test:fail',data:{name:'synthetic bound',details:{error:new Error('x'.repeat(100000),{cause:new Error('synthetic cause')})}}};}
   let rendered='';for await(const part of reporter(bounded()))rendered+=part;assert.ok(rendered.length<DETAIL_LIMIT+3000);
+  async function* phases(){yield {type:'test:stderr',data:{file:'scheduled-backup-archive.test.ts',message:'SYNTHETIC BACKUP PHASE inspect\nSYNTHETIC BACKUP PHASE synthetic-private-not-allowed\n'}};}let phaseOutput='';for await(const part of reporter(phases()))phaseOutput+=part;assert.equal(phaseOutput,'SYNTHETIC BACKUP PHASE inspect\n');
   process.stdout.write('PASS native Node 24 reporter: immediate nested causes, bounded errors, unchanged failed/pass/skip/todo exit behavior and progress/summary.\n');
  }finally{await rm(directory,{recursive:true,force:true});}
 }
