@@ -43,7 +43,15 @@ async function readPhysicalImage(db:SqlDatabase,owner:string,auditStatement:SqlS
    if(includesAudit){
     const page=batches[tables.length]?.results;
     if(!Array.isArray(page)||page.length>BUNDLE_LIMITS.pageSize)throw new Error('Invalid audit snapshot batch rows.');
-    auditPage=page;
+    const keys=['event_id','workspace_revision','ordinal','stream_id','stream_sequence','kind','entity_type','entity_id','occurred_at','payload_json'].sort();
+    const retained:Record<string,unknown>[]=[];
+    for(const raw of page){
+     if(!raw||typeof raw!=='object'||Array.isArray(raw)||canonical(Object.keys(raw).sort())!==canonical(keys))throw new Error('Invalid audit snapshot batch row shape.');
+     // Object/closed-column validation supplies a real Record; field values
+     // still pass the existing portable-audit decoder before any proof exists.
+     const row:Record<string,unknown>={};for(const [key,value]of Object.entries(raw))row[key]=value;retained.push(row);
+    }
+    auditPage=retained;
    }
    for(const [index,table]of tables.entries()){
     const page=batches[index].results;

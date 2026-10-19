@@ -1,4 +1,5 @@
 'use client';
+import {historySubjectHref} from '@/lib/history-subject-links';
 
 import {SubjectAssessmentStatus} from './subject-assessment-status';
 import {SubjectReviewLink} from './subject-review-link';
@@ -30,7 +31,7 @@ export function MilestoneWorkspace({revision,workspace,milestone:selected,onTask
  const renderCaptures=(rows:Capture[],empty:string)=><div className="capture-list">{rows.length?rows.map(capture=><article className="capture-card" key={capture.id}><div className="capture-content"><p className="eyebrow">{capture.kind} · {capture.status}</p>{onCapture?<button className="capture-title" onClick={()=>onCapture(capture)}>{capture.title}</button>:<h3>{capture.title}</h3>}<p className="capture-body">{capture.body||'No additional notes.'}</p><p className="field-hint">Linked through {workspace.tasks.find(task=>task.id===capture.convertedTaskId)?.title??'an unavailable task'}.</p></div></article>):<div className="panel"><EmptyState title={empty} text="Only capture records linked through this milestone’s tasks appear here. Project-wide notes are not treated as milestone decisions."/></div>}</div>;
  return <section aria-labelledby={heading}>
   <button type="button" className="back-button" onClick={onBack}><ArrowLeft size={16}/>Back to {project.name}</button>
-  <p><SubjectReviewLink subject={{type:'milestone',id:milestone.id}}/></p><SubjectAssessmentStatus revision={revision} subject={{type:'milestone',id:milestone.id}} planningStatus={milestone.status}/>
+  <p><SubjectReviewLink subject={{type:'milestone',id:milestone.id}}/> · <a href={historySubjectHref({type:'milestone',id:milestone.id})}>Review milestone history</a></p><SubjectAssessmentStatus revision={revision} subject={{type:'milestone',id:milestone.id}} planningStatus={milestone.status}/>
   <header className="page-heading"><div><p className="eyebrow">MILESTONE · {project.name}{project.archivedAt?' · PROJECT ARCHIVED':''}</p><h1 id={heading}>{milestone.title}</h1><p>{milestone.description||'No description added.'}</p></div><button type="button" className="button secondary" disabled={busy} onClick={()=>onEdit(milestone)}><Edit3 size={16}/>Edit milestone</button></header>
   {(milestone.archivedAt||project.archivedAt)&&<p className="capture-preview" role="status">{milestone.archivedAt?'This milestone is archived.':'This project is archived.'} Linked tasks, evidence and completion history remain available.</p>}
   {error&&<p className="form-error" role="alert">{error}</p>}<p className="field-hint" role="status">{notice}</p>

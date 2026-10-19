@@ -34,3 +34,19 @@ test('literal and Arabic search plus all review items remain reachable beyond pr
  for(const width of [320,768]){await page.setViewportSize({width,height:900});await expect(page.getByLabel('Search text',{exact:true})).toBeVisible();await page.getByLabel('Search text',{exact:true}).focus();await expect(page.getByLabel('Search text',{exact:true})).toBeFocused();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);}
  await page.getByRole('link',{name:titles[0],exact:true}).focus();await page.keyboard.press('Enter');await expect(page.getByRole('dialog',{name:'Edit task',exact:true})).toBeVisible();expect(new URL(page.url()).searchParams.get('id')).toBe(ids[0]);expect((await workspace(page)).revision).toBe(attentionRevision);
 });
+
+test('saved milestone history link opens exact owner filter intent and preserves it through reload',async({page})=>{
+ await openFixture(page);const suffix=crypto.randomUUID(),name='Synthetic history project '+suffix,title='Synthetic scoped milestone '+suffix;
+ await createProject(page,name);await openProject(page,name);await addMilestone(page,title);
+ const before=await workspace(page),milestone=before.workspace.milestones.find((row:{title:string})=>row.title===title);expect(milestone).toBeTruthy();
+ await page.getByRole('button').filter({has:page.getByRole('heading',{name:title,exact:true})}).click();
+ const responsePromise=page.waitForResponse(response=>{const url=new URL(response.url());return url.pathname==='/api/history'&&url.searchParams.get('entityType')==='milestone'&&url.searchParams.get('entityId')===milestone.id;});
+ await page.getByRole('link',{name:'Review milestone history',exact:true}).click();const response=await responsePromise;expect(response.ok()).toBeTruthy();
+ const history=await response.json();expect(history.entries.length).toBeGreaterThan(0);expect(history.entries.every((entry:{entityType:string;entityId:string})=>entry.entityType==='milestone'&&entry.entityId===milestone.id)).toBeTruthy();
+ await expect(page.getByRole('heading',{name:'History',exact:true})).toBeVisible();await expect(page.getByLabel('History entity type',{exact:true})).toHaveValue('milestone');await expect(page.getByLabel('History entity ID',{exact:true})).toHaveValue(milestone.id);
+ expect(new URL(page.url()).searchParams.get('view')).toBe('history');expect(new URL(page.url()).searchParams.get('id')).toBe(milestone.id);
+ await page.reload();await expect(page.getByLabel('History entity ID',{exact:true})).toHaveValue(milestone.id);
+ expect((await workspace(page)).revision).toBe(before.revision);
+ await page.goto('/?view=history&subject=milestone&id='+encodeURIComponent(milestone.id)+'&id=foreign');
+ await expect(page.getByRole('heading',{name:'This item is unavailable.',exact:true})).toBeVisible();await expect(page.getByLabel('History entity ID',{exact:true})).not.toBeVisible();
+});

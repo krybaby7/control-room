@@ -212,13 +212,13 @@ test('co-batched audit and normalized pages retain every independent cursor, exa
  }finally{f.sqlite.close();}
 });
 test('missing, oversized or repeated co-batched audit rows fail closed without certifying a physical-only image',async()=>{
- for(const mode of ['missing','oversized','repeated']as const){const f=await fixture();try{
+ for(const mode of ['missing','oversized','repeated','shape','primitive']as const){const f=await fixture();try{
   const statements=new WeakMap<import('../lib/workspace-store.ts').SqlStatement,string>(),original=f.db.batch.bind(f.db);let tampered=false;
   const db:import('../lib/workspace-store.ts').SqlDatabase={prepare(sql){const statement=f.db.prepare(sql);statements.set(statement,sql);return statement;},async batch(selected){
    const result=await original(selected),index=selected.findIndex(statement=>statements.get(statement)?.includes('FROM audit_events WHERE user_id=? AND event_id>?'));
    if(!tampered&&index>=0){tampered=true;const entry=event('bad-audit'),row={event_id:entry.id,workspace_revision:1,ordinal:0,stream_id:null,stream_sequence:null,kind:entry.kind,entity_type:entry.entityType,entity_id:entry.entityId,occurred_at:now,payload_json:canonical(entry)};
     if(mode==='missing')return result.map((value,i)=>i===index?{meta:value.meta}:value);
-    result[index].results=mode==='oversized'?Array.from({length:201},()=>row):[row,row];
+    result[index].results=mode==='oversized'?Array.from({length:201},()=>row):mode==='shape'?[{...row,unexpected:true}]:mode==='primitive'?[null]:[row,row];
    }return result;
   }};
   await assert.rejects(measureProspectiveRecoverability(db,owner,{now}),/audit snapshot|pagination order/);assert.equal(tampered,true);
