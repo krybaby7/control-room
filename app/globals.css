@@ -65,3 +65,9 @@
 .dialog-fields{min-height:0;flex:1 1 auto}.dialog-fields>*{flex-shrink:0}
 .editor-dialog>div{display:flex;flex-direction:column;max-height:calc(100dvh - 58px);min-height:0}
 @media(max-width:700px){.editor-dialog>div{max-height:calc(100dvh - 24px)}}
+
+/* A normal block owns dialog scrolling: native fieldset content can otherwise
+   overflow its flex box and cause the hidden form to scroll beneath the footer.
+   Keep the fieldset intact so saving still disables every nested control. */
+.editor-dialog form>.dialog-body{min-height:0;flex:1 1 auto;overflow-y:auto;scrollbar-width:thin}
+.editor-dialog form>.dialog-body>.dialog-fields{flex:0 0 auto;overflow:visible}
