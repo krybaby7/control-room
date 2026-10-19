@@ -36,7 +36,9 @@ test('actual Miniflare D1 capture preserves measurement and rejects late same-re
  const mf=new Miniflare({modules:true,script:'export default {fetch(){return new Response("isolated planning capture proof")}}',d1Databases:{DB:'synthetic-planning-capture'}});
  try{
  const db=await mf.getD1Database('DB');
- for(const name of (await readdir(new URL('../drizzle/',import.meta.url))).filter(name=>/^\\d+.*\\.sql$/u.test(name)).sort())for(const sql of (await readFile(new URL('../drizzle/'+name,import.meta.url),'utf8')).split('--> statement-breakpoint'))if(sql.trim())await db.prepare(sql.trim()).run();
+ const migrations=(await readdir(new URL('../drizzle/',import.meta.url))).filter(name=>/^\d+.*\.sql$/u.test(name)).sort();
+ assert.equal(migrations.length,27,'Native capture proof requires all 27 actual migrations.');
+ for(const name of migrations)for(const sql of (await readFile(new URL('../drizzle/'+name,import.meta.url),'utf8')).split('--> statement-breakpoint'))if(sql.trim())await db.prepare(sql.trim()).run();
  await loadWorkspace(db,owner,workspaceFixture,now);
  const ordinary=await measureProspectiveRecoverability(db,owner,{now}),first=await capturePlanningForRecoverability(db,owner,scope);
  assert.deepEqual(await measureProspectiveRecoverability(db,owner,{now,planningCapture:first.capture}),ordinary);
