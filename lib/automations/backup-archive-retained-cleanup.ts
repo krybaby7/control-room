@@ -89,8 +89,9 @@ export async function cleanupRetainedFileBackup(db:SqlDatabase,owner:string,inpu
   // Complete independent native ZIP, manifest, attachment and physical-ledger
   // verification occurs before a single old-key cleanup claim or DELETE.
   const verified=await readReadyFileBackup(db,owner,command.id,services,signal);
-  if(!verified||verified.indexHash!==command.indexHash||canonical(verified.index)!==canonical(value.index))return result('blocked','storage_unavailable');
+  if(!verified)return result('blocked','storage_unavailable');
   await verified.stream.cancel();
+  if(verified.indexHash!==command.indexHash||canonical(verified.index)!==canonical(value.index))return result('blocked','storage_unavailable');
   const checked=await load(db,owner,command,value.rows[0].namespace);
   if(canonical(checked)!==canonical(value))return result('blocked','authorization_stale');
   const storage=createBackupArchiveStorage(services.bucket);
