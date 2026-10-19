@@ -258,13 +258,42 @@
     "source": "9b98f8ea34b04ce681d3893f445bfa7e9111ae92",
     "run": 39197094431,
     "job": 117882154116,
-    "status": "running",
+    "status": "success",
     "scope": "Corrected captured-stderr closed request/socket/read-stage logging in original full pipeline; diagnostic-only.",
     "superseded": {
       "source": "601d95f4a12d0cc5400087cc6f98460bf57fe96a",
       "run": 39196256972,
       "reason": "Stage stdout was not captured; no phase proof."
-    }
+    },
+    "classification": "nonreproduction only; canonical e4 failure unresolved",
+    "nodePassed": 1776,
+    "nodeDurationMs": 309249.212968,
+    "bridgePassed": 146,
+    "browserPassed": 63,
+    "browserDurationMinutes": 4.4,
+    "r2BrowserPassed": 3,
+    "r2DurationSeconds": 51.2,
+    "closedEvents": 351,
+    "jobsReads": 25,
+    "jobsStatuses": [
+      200
+    ],
+    "jobsHeadersMs": [
+      29,
+      72
+    ],
+    "jobsCloseMs": [
+      29,
+      74
+    ],
+    "readerValidated": 25,
+    "readerValidationMs": [
+      17,
+      41
+    ],
+    "deadlineErrorFailedStageCount": 0,
+    "causalDefectEstablished": false,
+    "diagnosticLimitation": "Attaching connect listeners to already-connected reused sockets introduced diagnostic-only listener warnings; no production socket defect established."
   },
   "deployment": {
     "newDeployment": false,
@@ -279,7 +308,7 @@
     "operational-trading-effects",
     "external-alerts"
   ],
-  "nextAction": "Review and run one bounded server-only small-string native SHA-256 experiment, retaining shared/browser WebCrypto, every row/authority check and unchanged budgets. Await original-context captured-stderr jobs diagnostic terminal. Canonical e4 main and D1 latency remain failed.",
+  "nextAction": "Retain frozen e4 source and UNVALIDATED integrity-verified review packages. Release remains blocked by original unresolved fixture502 and D1savep95>2000ms. Resume with an evidence-driven fix/profiling plan, then run one coherent source's original regression gates and normal benchmark; do not integrate failed experiment or rerun to green. Restore managed cloud/Sites helper execution for private source/package handoff and complete approved runtime/Windows invocation integration plus real provider/device acceptance.",
   "performanceDiagnostic": {
     "source": "20c9e24b93c9211a52517940043134603569d040",
     "run": 39197190916,
@@ -317,9 +346,35 @@
     "run": 39198054055,
     "contractsJob": 117884994482,
     "benchmarkJob": 117884994781,
-    "status": "running",
+    "status": "failure",
     "integrated": false,
     "scope": "Only server physical row hashes: exact SHA-256 for immutable UTF8 strings <=65536 bytes; shared/client hashing unchanged; all binary/larger inputs retain WebCrypto.",
-    "independentReview": "Source review clear; cloud gates pending."
+    "independentReview": "Four-path source review clear; static closure across462 files/100 client entrypoints found no client runtime path. Correctness passed; performance failed and experiment was not integrated.",
+    "contracts": {
+      "status": "success",
+      "tests": 41,
+      "failed": 0,
+      "skipped": 0,
+      "durationMs": 8085.558832,
+      "workerParity": "actual Miniflare nodejs_compat SHA-256 bytes",
+      "typecheck": "success",
+      "lintErrors": 0,
+      "lintWarnings": 8,
+      "build": "success",
+      "runtimeD1": "success;27 migrations; synthetic CLI/HTTP only"
+    },
+    "normalBenchmark": {
+      "status": "failure",
+      "D1SaveP95": 2976.172820000007,
+      "D1SaveP50": 2244.327926999991,
+      "SQLiteSaveP95": 972.6099029999968,
+      "D1ReadP95": 925.2531080000044,
+      "outcomesPerEngine": 100,
+      "restoresPerEngine": 6,
+      "errors": [],
+      "artifactId": 12162961643,
+      "artifactDigest": "sha256:35fadef0b16c4051c9d38320e45a63238f11a481c7bb8d4b5a7a86b3ca46fc6c"
+    },
+    "decision": "Do not integrate: correctness passed but no performance improvement demonstrated; no rerun-to-green."
   }
 }
