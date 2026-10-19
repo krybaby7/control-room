@@ -1,0 +1,24 @@
+name: Control Room recovery read calibration
+on:
+  push:
+    branches: ['diagnostics/**']
+    paths:
+      - '.github/workflows/control-room-recovery-read-probe.yml'
+      - 'scripts/probe-recovery-read-pages.mjs'
+      - 'lib/recoverability-read-pages.ts'
+permissions:
+  contents: read
+jobs:
+  native-calibration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm run install:ci
+      - run: node --experimental-strip-types scripts/probe-recovery-read-pages.mjs
+        env:
+          CONTROL_ROOM_SOURCE_COMMIT: ${{ github.sha }}

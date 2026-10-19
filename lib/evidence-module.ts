@@ -5,7 +5,8 @@ import type {ModuleRow,RegisteredOwnerTable} from './workspace-modules.ts';
 import type {ReferenceDescriptor,TypedReference} from './workspace-references.ts';
 import type {JsonValue} from './workspace-protocol.ts';
 import {assertPortable,boundedPages,BUNDLE_LIMITS} from './workspace-export-core.ts';
-import {canonical,contentHash} from './canonical-json.ts';
+import {canonical} from './canonical-json.ts';
+import {serializationHash,type SerializationHashContext} from './serialization-hash.ts';
 import {portableHeadId,versionRowId} from './version-identity.ts';
 import {evidenceHeadSchema,evidenceVersionSchema,evidenceLinkSchema,evidenceIdSchema} from './evidence-validation.ts';
 import {decisionVersionSchema} from './decisions.ts';
@@ -30,27 +31,28 @@ function parseOrLegacy(spec:Spec,value:unknown):{kind:Envelope['kind'];record:un
 const evidenceSpecs:Spec[]=[{table:'evidence_records',kind:'head',parse:v=>evidenceHeadSchema.parse(v),legacy:true,marker:'currentVersion'},{table:'evidence_versions',kind:'version',parse:v=>evidenceVersionSchema.parse(v)},{table:'evidence_mappings',kind:'mapping',parse:v=>legacyEvidenceMappingSchema.parse(v)}];
 const decisionSpecs:Spec[]=[{table:'decision_records',kind:'head',parse:v=>evidenceHeadSchema.parse(v)},{table:'decision_versions',kind:'version',parse:v=>decisionVersionSchema.parse(v)},{table:'decisions',kind:'legacy',parse:v=>v,legacy:true}];
 function specFor(specs:Spec[],value:Envelope):Spec{const spec=specs.find(item=>item.kind===value.kind&&!(value.kind==='legacy'&&item.table==='decision_records'))??(value.kind==='legacy'?specs.find(item=>item.legacy):undefined);if(!spec)throw new Error('Unknown composite record kind.');return spec;}
-async function portableId(spec:Spec,kind:Envelope['kind'],physicalId:string,record:unknown):Promise<string>{
- if(kind==='head')return portableHeadId((record as {id:string}).id);
- if(kind==='version')return versionRowId((record as {id:string}).id,(record as {version:number}).version);
- return `${kind==='mapping'?'m':'l'}:${await contentHash(canonical([spec.table,physicalId]))}`;
+async function portableId(spec:Spec,kind:Envelope['kind'],physicalId:string,record:unknown,serializationHashContext?:SerializationHashContext):Promise<string>{
+ if(kind==='head')return portableHeadId((record as {id:string}).id,serializationHashContext);
+ if(kind==='version')return versionRowId((record as {id:string}).id,(record as {version:number}).version,serializationHashContext);
+ return `${kind==='mapping'?'m':'l'}:${await serializationHash(canonical([spec.table,physicalId]),serializationHashContext)}`;
 }
 function parsedComposite(specs:Spec[],raw:unknown):Wrapper&{value:Envelope}{const row=wrapperSchema.parse(raw),value=envelopeSchema.parse(row.value),spec=specFor(specs,value);assertPortable(value.record);if(value.kind!=='legacy')spec.parse(value.record);else if(!spec.legacy||parseOrLegacy(spec,value.record).kind!=='legacy')throw new Error('Unsupported or downgraded legacy record.');if(value.kind==='head'&&(value.record as {id:string}).id!==value.physicalId)throw new Error('Head physical identity differs.');return {...row,value};}
-async function exactIdentity(specs:Spec[],row:Wrapper&{value:Envelope}):Promise<void>{const spec=specFor(specs,row.value);if(row.id!==await portableId(spec,row.value.kind,row.value.physicalId,row.value.record))throw new Error('Portable composite identity differs.');if(row.value.kind==='version'&&row.value.physicalId!==row.id)throw new Error('Version physical identity differs.');}
-/** Per-call ordered pool; every portable identity, canonical SHA and schema check
- * runs on every row. No successful output escapes before all workers settle. */
-async function exportCompositeRows(specs:Spec[],spec:Spec,rows:ModuleRow[]):Promise<unknown[]>{
+async function exactIdentity(specs:Spec[],row:Wrapper&{value:Envelope},serializationHashContext?:SerializationHashContext):Promise<void>{const spec=specFor(specs,row.value);if(row.id!==await portableId(spec,row.value.kind,row.value.physicalId,row.value.record,serializationHashContext))throw new Error('Portable composite identity differs.');if(row.value.kind==='version'&&row.value.physicalId!==row.id)throw new Error('Version physical identity differs.');}
+/** Per-call ordered pool; every portable identity comparison and schema check
+ * runs on every row. Exact SHA digests may be reused only inside an explicit
+ * operation-local serialization context. No output escapes before all workers settle. */
+async function exportCompositeRows(specs:Spec[],spec:Spec,rows:ModuleRow[],serializationHashContext?:SerializationHashContext):Promise<unknown[]>{
  const result:unknown[]=new Array(rows.length),failure:{index:number;error:unknown}[]=[];let cursor=0;
  async function worker(){for(;;){const index=cursor++;if(index>=rows.length)return;const raw=rows[index];try{
   const {kind,record}=parseOrLegacy(spec,JSON.parse(raw.payload_json)),value={kind,physicalId:raw.id,record};
-  const row={id:await portableId(spec,kind,raw.id,record),rowRevision:raw.row_revision,contentHash:await contentHash(canonical(value)),value};
-  const parsed=parsedComposite(specs,row);await exactIdentity(specs,parsed);result[index]=row;
+  const row={id:await portableId(spec,kind,raw.id,record,serializationHashContext),rowRevision:raw.row_revision,contentHash:await serializationHash(canonical(value),serializationHashContext),value};
+  const parsed=parsedComposite(specs,row);await exactIdentity(specs,parsed,serializationHashContext);result[index]=row;
  }catch(error){if(!failure.length||index<failure[0].index)failure[0]={index,error};}}}
  await Promise.all(Array.from({length:Math.min(32,rows.length)},()=>worker()));
  if(failure.length)throw failure[0].error;return result;
 }
 function composite(key:string,specs:Spec[]):ExportModule{return {key,tables:specs.map(item=>item.table),schemaVersion:1,policy:'replace',legacyOptional:true,
- async exportRows(context){const result:unknown[]=[];for(const spec of specs){const rows=await boundedPages(after=>context.query.list(spec.table,{after,limit:BUNDLE_LIMITS.pageSize}));const selected=rows.slice(0,BUNDLE_LIMITS.rows-result.length+1);result.push(...await exportCompositeRows(specs,spec,selected));if(result.length>BUNDLE_LIMITS.rows)throw new Error('Composite row limit exceeded.');}return result.sort((a,b)=>(a as Wrapper).id.localeCompare((b as Wrapper).id));},
+ async exportRows(context){const result:unknown[]=[];for(const spec of specs){const rows=await boundedPages(after=>context.query.list(spec.table,{after,limit:BUNDLE_LIMITS.pageSize}));const selected=rows.slice(0,BUNDLE_LIMITS.rows-result.length+1);result.push(...await exportCompositeRows(specs,spec,selected,context.serializationHashContext));if(result.length>BUNDLE_LIMITS.rows)throw new Error('Composite row limit exceeded.');}return result.sort((a,b)=>(a as Wrapper).id.localeCompare((b as Wrapper).id));},
  parseAndMigrate(input){if(input.schemaVersion!==1)throw new Error('Unknown evidence module version.');const parsed=input.records.map(raw=>parsedComposite(specs,raw));validateChain(parsed);return parsed;},
  referenceValidationScope:'bundle' as const,validateReferences:validateEvidenceModuleReferences,
  async prepareReplace(_context,raws){const result:PhysicalImportRows[]=specs.map(spec=>({table:spec.table,records:[]}));const parsed=raws.map(raw=>parsedComposite(specs,raw));validateChain(parsed);for(const row of parsed){await exactIdentity(specs,row);const spec=specFor(specs,row.value);result.find(item=>item.table===spec.table)!.records.push({id:row.value.physicalId,value:row.value.record as JsonValue});}for(const item of result)if(new Set(item.records.map(row=>row.id)).size!==item.records.length)throw new Error('Duplicate physical record identity.');return result;},
@@ -69,7 +71,7 @@ function singleValue(spec:Spec,row:Wrapper):{record:unknown;legacy:boolean}{
  const record=spec.parse(row.value);if(object(record)&&typeof record.id==='string'&&record.id!==row.id)throw new Error('Module physical identity differs.');return {record,legacy:false};
 }
 function single(spec:Spec):ExportModule{return {key:spec.table,tables:[spec.table],schemaVersion:1,policy:'replace',legacyOptional:true,
- async exportRows(context){const rows=await boundedPages(after=>context.query.list(spec.table,{after,limit:BUNDLE_LIMITS.pageSize}));return Promise.all(rows.map(async raw=>{const parsed=parseOrLegacy(spec,JSON.parse(raw.payload_json)),value=parsed.kind==='legacy'?{kind:'legacy',physicalId:raw.id,record:parsed.record}:parsed.record;const row={id:raw.id,rowRevision:raw.row_revision,contentHash:await contentHash(canonical(value)),value};singleValue(spec,wrapperSchema.parse(row));return row;}));},
+ async exportRows(context){const rows=await boundedPages(after=>context.query.list(spec.table,{after,limit:BUNDLE_LIMITS.pageSize}));const serializationHashContext=context.serializationHashContext;return Promise.all(rows.map(async raw=>{const parsed=parseOrLegacy(spec,JSON.parse(raw.payload_json)),value=parsed.kind==='legacy'?{kind:'legacy',physicalId:raw.id,record:parsed.record}:parsed.record;const row={id:raw.id,rowRevision:raw.row_revision,contentHash:await serializationHash(canonical(value),serializationHashContext),value};singleValue(spec,wrapperSchema.parse(row));return row;}));},
  parseAndMigrate(input){if(input.schemaVersion!==1)throw new Error('Unknown evidence module version.');return input.records.map(raw=>{const row=wrapperSchema.parse(raw);assertPortable(row.value);singleValue(spec,row);return row;});},referenceValidationScope:'bundle' as const,validateReferences:validateEvidenceModuleReferences,
  prepareReplace(_context,raws){return [{table:spec.table,records:raws.map(raw=>{const row=wrapperSchema.parse(raw);return {id:row.id,value:singleValue(spec,row).record as JsonValue};})}];},
 };}
