@@ -1,6 +1,7 @@
+import {canonicalMkdtemp as mkdtemp} from './fixtures/private-state.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,writeFile,rm} from 'node:fs/promises';
+import {writeFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {DEFAULT_CONFIG,validateConfig,readConfig,canonicalJson,timestamp} from '../src/config.mjs';

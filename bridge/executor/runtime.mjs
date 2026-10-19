@@ -1,3 +1,10 @@
+import {open,lstat,realpath} from 'node:fs/promises';
+import {constants} from 'node:fs';
+import {createHash} from 'node:crypto';
+import {loadInstalledRuntimeAdapter} from './runtime-install.mjs';
+import {assertWindowsOwnedProcessSupervisor} from './owned-process.mjs';
+import {parseExecutionPolicy} from '../src/execution-policy.mjs';
+import {canonical} from './codec.mjs';
 /** No subscription runtime has been installed or verified in this repository.
  * This registry is intentionally empty; only a reviewed source change may add a
  * supported immutable package after independent upstream acceptance. */
@@ -69,4 +76,76 @@ export function createTestRuntimeHarness(options){
  const probeLocalExecution=async config=>{try{const parsed=preflight(config);return providerEvidence(await options.adapter.probe(parsed),policy,now);}catch(error){return unavailableProbe(now,error instanceof RuntimeBoundaryError?error.code:'probe_failed');}};
  const execute=async raw=>{try{preflight(raw?.config);const selected=request(raw,policy),evidence=await probeLocalExecution(selected.config);if(!evidence.ready)return blocked(evidence.issues[0]??'probe_failed');if(selected.signal.aborted)return blocked('request_cancelled');return result(await options.adapter.execute(selected),selected,policy);}catch(error){return blocked(error instanceof RuntimeBoundaryError?error.code:'runtime_failed');}};
  return Object.freeze({testOnly:true,installation:Object.freeze({status:'synthetic-test-only',enabled:policy.enabled,...identity}),probeLocalExecution,probe:probeLocalExecution,execute});
+}
+
+/** Derived from independently authenticated package bytes and fixed local semantics.
+ * This digest is evidence of reviewed policy identity, not a provider/live probe. */
+export async function deriveInstalledToolPolicyEvidence(installation,{provider,platform}={}){
+ await loadInstalledRuntimeAdapter(installation);
+ if(!['codex','claude'].includes(provider)||!['win32','linux','darwin'].includes(platform))bad('invalid_configuration');
+ const descriptor=Object.freeze({schemaVersion:1,runtimeVersion:installation.runtimeVersion,sourceCommit:installation.sourceCommit,packageSha256:installation.tarballSha256,toolPolicyVersion:installation.toolPolicy,provider,platform,providerToolPolicy:provider==='claude'?'restricted-file-tools':platform==='win32'?'native-sandbox-windows-unelevated':'native-sandbox'});
+ return Object.freeze({descriptor,sha256:createHash('sha256').update(canonical(descriptor)).digest('hex')});
+}
+/** Explicit trusted local composition. Installation, native process ownership,
+ * and independent policy pins are separate prerequisites; JSON cannot mint them. */
+export async function createInstalledSubscriptionRuntime(options){
+ shape(options,['installation','owner','policy','providerConfiguration','executableEvidence','now']);
+ if(typeof options.now!=='function')bad('invalid_configuration');
+ const now=options.now,owner=options.owner,policy=parseExecutionPolicy(options.policy),config=providerConfig(options.providerConfiguration);
+ assertWindowsOwnedProcessSupervisor(owner);
+ const adapter=await loadInstalledRuntimeAdapter(options.installation),installed=options.installation;
+ if(!policy.enabled)bad('disabled');if(policy.provider!==config.provider)bad('provider_identity_mismatch');
+ if(!policy.subscriptionOnly)bad('subscription_required');if(!policy.extraUsageOffAttested)bad('extra_usage_attestation_required');
+ const identity=policy.runtime;if(!identity||identity.version!==installed.runtimeVersion||identity.sourceCommit!==installed.sourceCommit||identity.packageSha256!==installed.tarballSha256||identity.toolPolicy!==installed.toolPolicy)bad('pin_identity_mismatch');
+ shape(options.executableEvidence,['sha256','version']);
+ const evidence={sha256:digest(options.executableEvidence.sha256),version:options.executableEvidence.version};
+ if(evidence.sha256!==identity.executableSha256||evidence.version!==identity.executableVersion)bad('pin_identity_mismatch');
+ const toolEvidence=await deriveInstalledToolPolicyEvidence(installed,{provider:config.provider,platform:process.platform});if(identity.toolPolicySha256!==toolEvidence.sha256)bad('tool_policy_mismatch');
+ const allowUnverifiedModel=policy.modelIdentityPolicy==='allow-unverified';
+ async function verifyExecutable(){
+  const path=config.executable,stat=await lstat(path);
+  if(!stat.isFile()||stat.isSymbolicLink()||stat.nlink!==1||stat.size>128*1024*1024||await realpath(path)!==path)bad('provider_identity_mismatch');
+  const file=await open(path,constants.O_RDONLY|(constants.O_NOFOLLOW??0));
+  try{const opened=await file.stat();if(opened.ino!==stat.ino||opened.dev!==stat.dev||opened.nlink!==1||opened.size!==stat.size)bad('provider_identity_mismatch');
+   const hash=createHash('sha256'),buffer=Buffer.alloc(65536);let length=0;for(;;){const {bytesRead}=await file.read(buffer,0,buffer.length,null);if(!bytesRead)break;length+=bytesRead;if(length>128*1024*1024)bad('provider_identity_mismatch');hash.update(buffer.subarray(0,bytesRead));}if(hash.digest('hex')!==evidence.sha256)bad('provider_identity_mismatch');
+  }finally{await file.close();}
+ }
+ await verifyExecutable();
+ function selectedRequest(raw){
+  shape(raw,['config','workspace','prompt','requestedModel','effort','mode','timeoutMs','outputBytesLimit','signal','allowUnverifiedModel']);
+  const parsed=providerConfig(raw.config);if(Object.keys(config).some(key=>config[key]!==parsed[key]))bad('provider_identity_mismatch');
+  localPath(raw.workspace);if(typeof raw.prompt!=='string'||!raw.prompt||Buffer.byteLength(raw.prompt)>32768)bad('invalid_request');
+  const model=policy.models.find(item=>item.id===raw.requestedModel);if(!model)bad('model_unavailable');if(!model.efforts.includes(raw.effort))bad('effort_unavailable');
+  const operation=raw.mode==='response'?'project.inspect':raw.mode==='edit'?'project.propose-patch':null;
+  if(!policy.operations.includes(operation)||raw.allowUnverifiedModel!==allowUnverifiedModel)bad('policy_blocked');
+  integer(raw.timeoutMs,30000,policy.maxTimeoutSeconds*1000);integer(raw.outputBytesLimit,1,policy.maxOutputBytesLimit);
+  if(!(raw.signal instanceof AbortSignal))bad('invalid_request');if(raw.signal.aborted)bad('request_cancelled');
+  return {...raw,config:{...config},allowUnverifiedModel};
+ }
+ const expectedProviderTools=config.provider==='claude'?'restricted-file-tools':process.platform==='win32'?'native-sandbox-windows-unelevated':'native-sandbox';
+ async function probeLocalExecution(rawConfig){try{
+  const parsed=providerConfig(rawConfig);if(Object.keys(config).some(key=>parsed[key]!==config[key]))bad('provider_identity_mismatch');
+  await loadInstalledRuntimeAdapter(installed);await verifyExecutable();
+  const raw=await adapter.probe({...config});shape(raw,['ready','runtimeVersion','issues','checkedAt','toolPolicy']);
+  if(typeof raw.ready!=='boolean'||!Array.isArray(raw.issues)||raw.issues.length>32)bad('probe_failed');
+  const checkedAt=stamp(raw.checkedAt),time=Date.parse(stamp(now()));if(Date.parse(checkedAt)>time||time-Date.parse(checkedAt)>300000)bad('probe_stale');
+  if(raw.runtimeVersion!==evidence.version)bad('provider_identity_mismatch');if(raw.toolPolicy!==expectedProviderTools)bad('tool_policy_mismatch');
+  await verifyExecutable();return {ready:raw.ready&&raw.issues.length===0,runtimeVersion:installed.runtimeVersion,issues:raw.ready&&raw.issues.length===0?[]:['probe_failed'],checkedAt,toolPolicy:installed.toolPolicy};
+ }catch(error){return unavailableProbe(now,error instanceof RuntimeBoundaryError?error.code:'probe_failed');}}
+ async function executeOwned(raw,ownership){let nativeResult=null,started=false,launched=false;try{
+  shape(ownership,['onStarted']);if(typeof ownership.onStarted!=='function')bad('invalid_request');
+  const selected=selectedRequest(raw);assertWindowsOwnedProcessSupervisor(owner);const readiness=await probeLocalExecution(selected.config);if(!readiness.ready)bad(readiness.issues[0]??'probe_failed');if(selected.signal.aborted)bad('request_cancelled');await loadInstalledRuntimeAdapter(installed);await verifyExecutable();
+  const owned={async run(nativeRequest){if(launched)bad('policy_blocked');launched=true;
+   if(nativeRequest.executable!==config.executable||nativeRequest.cwd!==selected.workspace||nativeRequest.timeoutMs>selected.timeoutMs||nativeRequest.outputBytesLimit>selected.outputBytesLimit)bad('policy_blocked');
+   nativeResult=await owner.run(nativeRequest);return nativeResult;
+  }};
+  const output=await adapter.executeOwned(selected,{owner:owned,onStarted:async value=>{await ownership.onStarted(value);started=true;}});
+  if(!output||Object.getPrototypeOf(output)!==Object.prototype||Object.keys(output).some(key=>!['status','finalText','stdout','stderr','observedModel','observedModels','completed','exitCode','terminationUnconfirmed','usage','error','events','runtimeBlock','processExitConfirmed'].includes(key)))bad('invalid_runtime_result');
+  const normalized=Object.fromEntries(['status','finalText','stdout','stderr','observedModel','observedModels','completed','exitCode','terminationUnconfirmed','usage','error'].map(key=>[key,output[key]]));
+  if(!launched)return {...blocked('runtime_failed'),processExitConfirmed:false};
+  const confirmed=started&&nativeResult?.processExitConfirmed===true&&nativeResult?.terminationUnconfirmed===false;
+  if(output.processExitConfirmed!==confirmed||output.exitCode!==nativeResult?.exitCode||!confirmed)return {...blocked('termination_unconfirmed',{terminationUnconfirmed:launched}),processExitConfirmed:false};
+  const checked=result(normalized,selected,{allowUnverifiedModel});return {...checked,processExitConfirmed:confirmed};
+ }catch(error){return {...blocked(error instanceof RuntimeBoundaryError?error.code:'runtime_failed',{terminationUnconfirmed:launched&&nativeResult?.processExitConfirmed!==true}),processExitConfirmed:started&&nativeResult?.processExitConfirmed===true&&nativeResult?.terminationUnconfirmed===false};}}
+ return Object.freeze({identity:Object.freeze({...identity}),installation:Object.freeze({...installed,enabled:true,provider:config.provider}),probeLocalExecution,probe:probeLocalExecution,executeOwned});
 }

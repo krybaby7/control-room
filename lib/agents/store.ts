@@ -35,7 +35,7 @@ export const agentFrozenAdmissionSchema=z.object({
 });
 export type AgentFrozenAdmission=z.infer<typeof agentFrozenAdmissionSchema>;
 
-export interface AgentLease {attemptId:string;jobId:string;executionEpoch:number;leaseToken:string;leaseExpiresAt:string;deadlineAt:string;operationalRevision:number;record:AgentJobRecordV1;executionBinding:AgentExecutionBindingV1;approvalEnvelope:AgentApprovalEnvelopeV1;taskInput:JsonValue;serverNow:string;frozenAdmission:AgentFrozenAdmission;resumed:boolean}
+export interface AgentLease {cancelRequest?:{requestId:string;requestedAt:string}|null;attemptId:string;jobId:string;executionEpoch:number;leaseToken:string;leaseExpiresAt:string;deadlineAt:string;operationalRevision:number;record:AgentJobRecordV1;executionBinding:AgentExecutionBindingV1;approvalEnvelope:AgentApprovalEnvelopeV1;taskInput:JsonValue;serverNow:string;frozenAdmission:AgentFrozenAdmission;resumed:boolean}
 export interface AgentEventReceipt {attemptId:string;epoch:number;sequence:number;payloadSha256:string;receivedAt:string}
 export interface AgentStoreOptions {
  now:string;context:AgentCommandContext;
@@ -128,12 +128,12 @@ async function active(db:SqlDatabase,p:DevicePrincipal,jobId:string,options:Agen
  if(!intent||intent.kind!=='agent.execute'||intent.cancel_requested!==0||!['pending','claimed','running'].includes(text(intent,'status'))||intent.execution_epoch!==state.execution_epoch||Date.parse(text(intent,'not_before'))>Date.parse(options.now)||canonical(JSON.parse(text(intent,'payload_json')))!==canonical({jobId:record.id,specSha256:record.specSha256}))fail('job_intent_unavailable');
  return {auth,proofs,record,state,approval,envelope,budget,capability,intent,taskInput,dependencyGraph};
 }
-async function lease(a:Row,record:AgentJobRecordV1,binding:AgentExecutionBindingV1,leaseToken:string,resumed:boolean,serverNow:string):Promise<AgentLease>{
+async function lease(a:Row,record:AgentJobRecordV1,binding:AgentExecutionBindingV1,leaseToken:string,resumed:boolean,serverNow:string,cancelRequest:AgentLease['cancelRequest']=null):Promise<AgentLease>{
  const identity=JSON.parse(text(a,'identity_json')) as {approvalEnvelope:unknown;taskInput:JsonValue;budgetId:string;frozenAdmission:unknown},approvalEnvelope=agentApprovalEnvelopeSchema.parse(identity.approvalEnvelope),frozenAdmission=agentFrozenAdmissionSchema.parse(identity.frozenAdmission);
  if(identity.taskInput===undefined||await contentHash(canonical(identity.taskInput))!==record.spec.taskSnapshotSha256||new TextEncoder().encode(canonical(identity.taskInput)).length+binding.artifactRefs.reduce((n,row)=>n+row.bytes,0)>binding.budget.inputBytesLimit||canonical(approvalEnvelope.executionBinding)!==canonical(binding)||approvalEnvelope.approval.jobId!==record.id||approvalEnvelope.approval.deviceId!==a.device_id||approvalEnvelope.approval.specSha256!==record.specSha256||approvalEnvelope.reservationId!==identity.budgetId)fail('frozen_lease_input_differs');
  const root=frozenAdmission.dependencyRows.find(row=>row.id===record.id);
  if(frozenAdmission.ownerContextHash!==await contentHash(text(a,'user_id'))||!root||root.status!=='queued'||canonical(root.dependsOnJobIds)!==canonical(record.spec.dependsOnJobIds)||canonical(frozenAdmission.artifactRefs)!==canonical(binding.artifactRefs))fail('frozen_admission_identity_differs');
- const response:AgentLease={attemptId:text(a,'id'),jobId:record.id,executionEpoch:integer(a,'execution_epoch'),leaseToken,leaseExpiresAt:text(a,'lease_expires_at'),deadlineAt:text(a,'deadline_at'),operationalRevision:integer(a,'operational_revision'),record,executionBinding:binding,approvalEnvelope,taskInput:identity.taskInput,serverNow,frozenAdmission,resumed};
+ const response:AgentLease={cancelRequest,attemptId:text(a,'id'),jobId:record.id,executionEpoch:integer(a,'execution_epoch'),leaseToken,leaseExpiresAt:text(a,'lease_expires_at'),deadlineAt:text(a,'deadline_at'),operationalRevision:integer(a,'operational_revision'),record,executionBinding:binding,approvalEnvelope,taskInput:identity.taskInput,serverNow,frozenAdmission,resumed};
  if(new TextEncoder().encode(canonical({...response,operationalRevision:Number.MAX_SAFE_INTEGER})).length>524288)fail('agent_lease_response_capacity');
  return response;
 }
@@ -177,10 +177,13 @@ export async function renewAgentLease(db:SqlDatabase,p:DevicePrincipal,raw:unkno
  const proofs=await snapshot(db,p.ownerId,['job_attempts','agent_job_state','workspace_job_intents']);
  const input=leaseInput.parse(raw),a=await ownedAttempt(db,p,input,options.now),identity=JSON.parse(text(a.attempt,'identity_json')) as {record:AgentJobRecordV1;executionBinding:AgentExecutionBindingV1};
  const record=await validateAgentJobRecord(identity.record),state=await one(db,'agent_job_state',p.ownerId,'job_id',record.id);
- if(!state||state.attempt_id!==a.attempt.id||state.execution_epoch!==a.attempt.execution_epoch||state.cancel_requested_at!==null||!['leased','running'].includes(text(state,'status'))||a.attempt.result_json!==null)fail('attempt_not_renewable');
- const expires=new Date(Math.min(Date.parse(options.now)+AGENT_LIMITS.leaseMs,Date.parse(text(a.attempt,'deadline_at')))).toISOString();
+ if(!state||state.attempt_id!==a.attempt.id||state.execution_epoch!==a.attempt.execution_epoch||!['leased','running','cancelling'].includes(text(state,'status'))||a.attempt.result_json!==null)fail('attempt_not_renewable');
+ const cancelRequest=state.cancel_requested_at===null?null:{requestId:agentIdSchema.parse(state.cancel_request_id),requestedAt:evidenceDateSchema.parse(state.cancel_requested_at)};
+ if(state.status==='cancelling'&&cancelRequest===null)fail('attempt_not_renewable');
+ // A cancellation receipt conveys stop authority only; it never extends runnable time.
+ const expires=cancelRequest===null?new Date(Math.min(Date.parse(options.now)+AGENT_LIMITS.leaseMs,Date.parse(text(a.attempt,'deadline_at')))).toISOString():text(a.attempt,'lease_expires_at');
  if(!await atomic(db,p,attemptGuard(a.auth,p,a.attempt,options.now),proofs,(gate,b)=>[db.prepare('UPDATE job_attempts SET lease_expires_at=?,operational_revision=operational_revision+1 WHERE user_id=? AND id=? AND '+gate).bind(expires,p.ownerId,input.attemptId,...b)]))fail('lease_changed');
- return lease({...a.attempt,lease_expires_at:expires,operational_revision:integer(a.attempt,'operational_revision')+1},record,identity.executionBinding,input.leaseToken,true,options.now);
+ return lease({...a.attempt,lease_expires_at:expires,operational_revision:integer(a.attempt,'operational_revision')+1},record,identity.executionBinding,input.leaseToken,true,options.now,cancelRequest);
 }
 function attemptGuard(auth:DeviceSqlGuard,p:DevicePrincipal,a:Row,now:string,allowExpired=false):DeviceSqlGuard{
  const clauses=['user_id=?','id=?','device_id=?','lease_token_hash=?','operational_revision=?','execution_epoch=?'];
@@ -195,7 +198,7 @@ async function eventsFor(db:SqlDatabase,p:DevicePrincipal,a:Row){
  return events;
 }
 function protocol(events:Map<number,{row:Row;event:AgentJobEventV1}>,record:AgentJobRecordV1,binding:AgentExecutionBindingV1,attempt:Row,state:Row){
- let accepted=false,started=false,exited=false,completed=false,blocked=false,cancelled=false,identityMismatch=false,exitCode:number|null=null,observedModel:string|null=null,sequence=0;
+ let modelObserved=false,modelVerified=false,accepted=false,started=false,exited=false,completed=false,blocked=false,cancelled=false,identityMismatch=false,exitCode:number|null=null,observedModel:string|null=null,sequence=0;
  const artifactIds=new Set<string>();let resultHash:string|null=null;
  while(events.has(sequence+1)){
   const e=events.get(++sequence)!.event;
@@ -206,6 +209,10 @@ function protocol(events:Map<number,{row:Row;event:AgentJobEventV1}>,record:Agen
    if(!accepted||started||exited)fail('started_event_outside_process');
    identityMismatch=e.details.runtimePackageSha256!==binding.runtime.packageSha256||e.details.toolPolicySha256!==binding.runtime.toolPolicySha256||e.details.requestedModel!==record.spec.requestedModel||e.details.observedModel!==null&&e.details.observedModel!==record.spec.requestedModel;
    started=true;observedModel=e.details.observedModel;
+  }else if(e.kind==='model_observed'){
+   if(!started||exited||modelObserved)fail('model_observation_outside_process');
+   if(e.details.requestedModel!==record.spec.requestedModel||e.details.requestedModel!==binding.requestedModel||observedModel!==null&&observedModel!==e.details.observedModel)fail('model_observation_identity_differs');
+   modelObserved=true;modelVerified=e.details.modelVerified;observedModel=e.details.observedModel;identityMismatch ||= e.details.observedModels.some(model=>model!==record.spec.requestedModel);
   }else if(e.kind==='progress'){
    if(!started||exited)fail('progress_outside_process');
   }else if(e.kind==='process_exit'){
@@ -222,7 +229,7 @@ function protocol(events:Map<number,{row:Row;event:AgentJobEventV1}>,record:Agen
    if(!accepted||started&&!exited)fail('blocked_process_exit_not_proven');blocked=true;
   }
  }
- return {sequence,accepted,started,exited,completed,blocked,cancelled,identityMismatch,exitCode,observedModel,artifactIds,resultHash};
+ return {sequence,accepted,started,exited,completed,blocked,cancelled,identityMismatch,exitCode,observedModel,modelObserved,modelVerified,artifactIds,resultHash};
 }
 async function persistAgentEvents(db:SqlDatabase,p:DevicePrincipal,raw:unknown,options:AgentStoreOptions,reconciliation?:{attempt:Row;auth:DeviceSqlGuard}):Promise<{receipts:AgentEventReceipt[];lastAppliedSequence:number}>{
  const proofs=await snapshot(db,p.ownerId,['job_attempts','job_events','agent_job_state','workspace_job_intents']);
@@ -279,7 +286,7 @@ async function finish(db:SqlDatabase,p:DevicePrincipal,a:Row,auth:DeviceSqlGuard
  if(!proof.exited||!result.processExitConfirmed||result.terminationUnconfirmed)fail('terminal_exit_not_proven');
  if(result.terminalProtocolObserved!==proof.completed)fail('terminal_protocol_claim_differs');
  if(proof.completed&&proof.resultHash!==hash)fail('completed_result_digest_differs');
- if(result.observedModel!==proof.observedModel||result.disposition==='succeeded'&&(!proof.completed||proof.exitCode!==0||proof.identityMismatch)||result.disposition==='cancelled'&&(!proof.cancelled||!state.cancel_requested_at))fail('terminal_protocol_identity_differs');
+ if(result.observedModel!==proof.observedModel||proof.modelObserved&&result.modelVerified!==proof.modelVerified||result.disposition==='succeeded'&&(!proof.completed||proof.exitCode!==0||proof.identityMismatch)||result.disposition==='cancelled'&&(!proof.cancelled||!state.cancel_requested_at))fail('terminal_protocol_identity_differs');
  const portableJob=await one(db,'agent_jobs',p.ownerId,'id',record.id),currentEpoch=await db.prepare('SELECT epoch FROM workspace_execution_state WHERE user_id=?').bind(p.ownerId).first<{epoch:number}>();
  let importedJob=false;if(portableJob){try{importedJob=JSON.parse(text(portableJob,'payload_json')).historical===true;}catch{fail('portable_job_identity_invalid');}}
  const historical=!portableJob||importedJob||(currentEpoch?.epoch??0)!==a.execution_epoch||portableJob.spec_hash!==record.specSha256,historicalReconciliation=reconciled&&historical;
@@ -329,6 +336,13 @@ export async function completeAgentAttempt(db:SqlDatabase,p:DevicePrincipal,raw:
 export async function reconcileAgentAttempt(db:SqlDatabase,p:DevicePrincipal,raw:unknown,options:AgentStoreOptions){
  const input=z.object({attemptId:agentIdSchema,journalNonce:z.string().min(32).max(128).regex(/^[A-Za-z0-9_-]+$/u),proof:z.enum(['no-launch','exited']),events:z.unknown().optional(),result:agentJobResultSchema.optional()}).strict().parse(raw),auth=await authority(db,p,options.now),a=await one(db,'job_attempts',p.ownerId,'id',input.attemptId);
  if(!a||a.device_id!==p.deviceId||a.journal_nonce_hash!==await contentHash(input.journalNonce))fail('journal_identity_differs',403);
+ // Bounded nonce-authenticated recovery batches carry evidence only. They
+ // cannot create a lease, launch permission, terminal result or budget release.
+ // Exact duplicates retain their original receipts even after completion.
+ if(input.proof==='exited'&&input.result===undefined){
+  if(input.events===undefined)fail('reconciliation_result_required');
+  return persistAgentEvents(db,p,{attemptId:input.attemptId,leaseToken:text(a,'lease_token_hash'),events:input.events},options,{attempt:a,auth});
+ }
  if(a.result_json!==null){if(input.result&&canonical(input.result)!==a.result_json)fail('terminal_result_immutable');return {result:agentJobResultSchema.parse(JSON.parse(text(a,'result_json'))),recordId:'result:'+input.attemptId};}
  if(a.reconciled_at!==null)return {result:null,recordId:null};
  if(input.proof==='exited'){

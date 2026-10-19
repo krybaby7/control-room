@@ -45,12 +45,15 @@
     "runner": "Restored managed cloud command runner",
     "node": "24.19.0",
     "lockedInstall": "passed; 690 packages",
-    "privateUpstream": "Authorized source API access available; independent private extraction in progress."
+    "privateUpstream": "Authorized extraction completed in separate private draft PR; 51 tests pass on actual Linux and Windows Actions. Source-bound local package installation verified; zero provider calls.",
+    "sites": "Existing private Site reopened through supported source helper; owner-only access preserved. No deployment.",
+    "storage": "Existing project identity and DB binding preserved. Added logical BUCKET declaration for implemented artifacts/backups; no deployment or owner-data mutation."
   },
   "currentWork": [
-    "Reviewed proxy partial-response correction committed; original jobs stall is not claimed fixed.",
-    "Actual private runtime extraction and compatibility package delivered for review; production verified installation, bounded executor composition and native supervisor integration underway.",
-    "One bounded serializer/SQL critical-path diagnostic approved on isolated source; no benchmark budget, fixture, concurrency or assertion changes."
+    "Final Windows portable fixture canonicalization without production guard changes; exact integrated native/bridge gate pending.",
+    "Nonce recovery implemented before runtime/provider/capability construction and independently reviewed; real HTTP multi-batch regression underway.",
+    "Isolated closed read-only transport batching being implemented from measured16/14RPC committed paths; no new benchmark until review.",
+    "Freeze coherent source, publish reviewable branch/PR update, exact-candidate canonical/performance/package-integrity checks, then private Sites release only if gates pass."
   ],
   "disabled": [
     "paid inference",
@@ -58,13 +61,40 @@
     "external alerts"
   ],
   "deployed": false,
-  "nextCommand": "Complete Windows canonical-fixture/native lifecycle checks and runtime installation/composition review; inspect isolated causal profile; integrate only justified changes, then run exact-candidate canonical regression/performance/package gates.",
-  "currentCommit": "5a608704d1ea99adca0131a51e2c0461180f8cd7",
+  "nextCommand": "Finish native HTTP recovery and Windows portable fixture tests; review isolated transport batching proof; commit/publish coherent candidate before final canonical gates.",
+  "currentCommit": "4df3e07e861b23cccb2db40c995e31bda454bfdb",
   "tests": {
     "proxy": "Dedicated regression passed; original negative control fails as expected; existing harness/typecheck pass. Original pre-header hang remains unexplained.",
     "privateRuntime": "51/51 on actual Linux and Windows Actions; separate private draft PR and source-only artifact exist. No real provider call.",
-    "nativeSupervisor": "Windows compilation succeeded, but all eight execution tests blocked at canonical helper-directory guard; fixture correction pending, no native pass.",
+    "nativeSupervisor": "Windows bd2ad00cb738f640fa9d3e31edf71634488b6fc7 run39241765240/job118024024712: native lifecycle/scoped ACL10pass/0fail/1platformskip, including300nestedfiles and junction refusal. Subsequent old portable executor fixtures failed noncanonical temporary paths; fixture-only corrections pending. Overall workflow failed; no helper package from this run.",
     "digestReuseExperiment": "39 focused tests passed; one working-candidate normal D1savep95=2543.508383ms failed. Isolated branch, not integrated.",
-    "serverDigestExperiment": "42 focused/parity/client-closure/type/build checks passed; exact local source9753fddb65b15f7edc1a010588d41ce43b4919bc normal D1savep95=2837.936316ms failed. Isolated branch, not integrated."
-  }
+    "serverDigestExperiment": "42 focused/parity/client-closure/type/build checks passed; exact local source9753fddb65b15f7edc1a010588d41ce43b4919bc normal D1savep95=2837.936316ms failed. Isolated branch, not integrated.",
+    "checkpointCanonical": {
+      "source": "a55dc09dfda1c6e8d66f4eb4260250c3dd8de272",
+      "run": 39239122725,
+      "result": "Main canonical workflow succeeded including Node, bridge, type, lint, build, D1/R2/HTTP, browser and packaging. Predates Phase 7 pending changes; original pre-header stall cause remains unproven."
+    },
+    "checkpointPerformance": {
+      "source": "a55dc09dfda1c6e8d66f4eb4260250c3dd8de272",
+      "run": 39239122694,
+      "D1saveP95Ms": 2467.045102,
+      "limitMs": 2000,
+      "passed": false
+    },
+    "runtimePipeline": "Three genuine D1/R2 HTTP regressions passed: upload/lost replies/restarts/corrupt bytes/late race; authenticated owner cancellation; expired-lease nonce recovery61events in50+11batches with lostreply/restart and exact terminal immutability. Real production result verifier, no provider/process claim.",
+    "combinedHashExperiment": "Isolated f432a2d367ed6e5988c73076b4b61bcf8afd50ef: 64 focused tests/type/build/lint/client closure passed; unchanged normal D1save p95 3061.477614ms failed. Not integrated.",
+    "cpuDiagnostic": "One isolated f432 + overlay c2fed39ff80e9b20ce886a7d8bd61f5b8f85a3dc556a43f0cd3369ee9d63df54 completed, then overlay restored. Instrumentation materially inflates CPU/latency; not acceptance. Missing context in moduleProjection/versionRowId measured as remaining sequential wait; bounded fix being inspected.",
+    "phase7Provisional": "Working-tree Node1797/1797 passed; typecheck/build pass; lint zero errors/eight existing warnings. Full bridge initial run195pass/1composition failure/9platform skips retained; corrected recovery fixture and Windows canonical temp-fixture updates pending final full run.",
+    "projectionHashExperiment": "Isolated exact7dc21543046330c384598f50458e7f804dc86ee2:71focused/type/lint pass; ONE unchanged normal benchmark failed D1savep95=2604.722028ms, SQLite/read passed,100outcomes and6restores perengine/errors[]. Not integrated. ReportSHA2565d7cd242b8669ed0433cc1fa89ff1079a07db87b52cdc9ed55a115d1ef018031.",
+    "phase7Bridge": "Linux portable bridge210tests:201pass/9explicitWindows skips/0fail; isolatedWindows CLIloader3/3 functionalcases pass. Windowsallbridge exactcandidate rerun pending.",
+    "bridgePackage": {
+      "source": "4df3e07e861b23cccb2db40c995e31bda454bfdb",
+      "version": "0.3.0",
+      "files": 47,
+      "bytes": 92156,
+      "sha256": "c2e4815a9c5f312c9480d8c2fa70a769f8626be922860069397401e1e9e2a4fd",
+      "acceptance": "Source-bound review package only; release performance gate still failed."
+    }
+  },
+  "uncommittedWork": "Sanitized ledger/checkpoint only; coherent Phase7 source committed, isolated performance experiment separate."
 }

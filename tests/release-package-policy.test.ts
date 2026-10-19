@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {validateCandidateBuildPath,validateBridgePackageInventory,type CandidatePackageFile} from '../lib/release-package-policy.ts';
+import {validateCandidateBuildPath,validateBridgePackageInventory,BRIDGE_03_SOURCE_PATHS,type CandidatePackageFile} from '../lib/release-package-policy.ts';
 const source='a'.repeat(40),hash='b'.repeat(64);
 const required=['package.json','src/cli.mjs','src/credentials.mjs','src/transport.mjs','windows/protect-credential.ps1','windows/run-bridge.ps1','windows/install-task.ps1','windows/uninstall-task.ps1','config.example.json','executor/cli.mjs','executor/runtime.mjs','executor/journal.mjs','executor/config.example.json'];
 function fixture(){return {format:'control-room-bridge-package',version:1,sourceCommit:source,filename:'control-room-windows-bridge-0.2.0.tgz',bytes:123,sha256:hash,files:required.map(path=>({path,bytes:10,sha256:hash})),acceptance:{automated:'See source-specific CI checks.',windows:'not-run',privateIngress:'unavailable',execution:'disabled'}};}
@@ -17,4 +17,12 @@ test('bridge inventory binds exact source, package bytes/hash and disabled accep
 test('strict inventory parsing rejects unknown fields, prototype values and unsafe sizes rather than guessing',()=>{
  for(const changed of [{...fixture(),token:'private'},Object.assign(Object.create({}),fixture()),{...fixture(),bytes:-1},{...fixture(),bytes:Number.MAX_SAFE_INTEGER},{...fixture(),sha256:'not-a-digest'}])assert.throws(()=>validateBridgePackageInventory(changed,actual(),source));
  assert.throws(()=>validateBridgePackageInventory(fixture(),actual(),'short'));
+});
+
+test('0.3 source inventory requires its complete owned-process/runtime closure while historical 0.2 remains valid',()=>{
+ const current={...fixture(),filename:'control-room-windows-bridge-0.3.0.tgz',files:BRIDGE_03_SOURCE_PATHS.map(path=>({path,bytes:10,sha256:hash}))},currentActual=[actual()[0],{...actual()[1],path:current.filename}];
+ assert.doesNotThrow(()=>validateBridgePackageInventory(current,currentActual,source));
+ assert.doesNotThrow(()=>validateBridgePackageInventory(fixture(),actual(),source));
+ for(const path of ['windows/owned-process/Program.cs','windows/owned-process/OwnedProcess.csproj','windows/owned-process/README.md','windows/protect-owned-helper.ps1','executor/launch-config.example.json','executor/runtime-install.mjs','executor/runner.mjs','executor/artifact-upload.mjs','executor/completion.mjs','executor/recovery.mjs'])assert.throws(()=>validateBridgePackageInventory({...current,files:current.files.filter(file=>file.path!==path)},currentActual,source),path);
+ for(const path of ['executor/private-runtime.mjs','src/private-runtime.mjs','windows/owned-process/ControlRoom.OwnedProcess.exe','windows/owned-process/runtime-state.json','executor/private-runtime/provider.mjs'])assert.throws(()=>validateBridgePackageInventory({...current,files:[...current.files,{path,bytes:1,sha256:hash}]},currentActual,source),path);
 });

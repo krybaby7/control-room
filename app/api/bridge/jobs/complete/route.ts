@@ -1,4 +1,5 @@
 import {env} from 'cloudflare:workers';
 import {handleAgentHttp} from '../../../../../lib/agents/http';
+import {createAgentResultVerifier} from '../../../../../lib/agents/result-verifier';
 export const dynamic='force-dynamic';
-export async function POST(request:Request){return handleAgentHttp("complete",request,{db:env.DB??null});}
+export async function POST(request:Request){return handleAgentHttp("complete",request,{db:env.DB??null,...(env.DB?{verifyResult:createAgentResultVerifier({db:env.DB,bucket:env.BUCKET})}:{})});}

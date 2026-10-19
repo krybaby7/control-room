@@ -21,7 +21,23 @@ export function validateCandidateBuildPath(raw:unknown):string{
  if(!/\.(?:m?js|cjs|css|map|json|html|txt|xml|webmanifest|wasm|woff2?|ttf|otf|eot|svg|png|jpe?g|gif|webp|avif|ico)$/iu.test(name)&&!['_headers','_redirects'].includes(name))fail();
  return path;
 }
-const bridgePath=/^(?:package\.json|README\.md|config\.example\.json|src\/[a-z0-9-]+\.mjs|windows\/[a-z0-9-]+\.ps1|executor\/[a-z0-9-]+\.mjs|executor\/README\.md|executor\/config\.example\.json)$/;
+const bridgePath=/^(?:package\.json|README\.md|config\.example\.json|src\/[a-z0-9-]+\.mjs|windows\/[a-z0-9-]+\.ps1|executor\/[a-z0-9-]+\.mjs|executor\/README\.md|executor\/config\.example\.json|executor\/launch-config\.example\.json|windows\/owned-process\/(?:Program\.cs|OwnedProcess\.csproj|README\.md))$/;
+/** Version 0.3 is a public source package. Private runtime installation bytes,
+ * binaries and owner state never belong in this immutable source inventory. */
+export const BRIDGE_03_SOURCE_PATHS:readonly string[]=Object.freeze([
+ 'package.json','README.md','config.example.json',
+ ...['agent-lab-import','agent-lab','cli','config','credentials','execution-policy','outbox','pc-command-center','transport','windows-state'].map(name=>'src/'+name+'.mjs'),
+ ...['artifact-upload','artifacts','claims','cli','codec','completion','connection','content-policy','executor','journal','launch-config','lease','operations','owned-process','recovery','runner','runtime-install','runtime','store','transport','wire','workspace'].map(name=>'executor/'+name+'.mjs'),
+ 'executor/README.md','executor/config.example.json','executor/launch-config.example.json',
+ ...['install-task','protect-credential','protect-owned-helper','protect-state','run-bridge','uninstall-task'].map(name=>'windows/'+name+'.ps1'),
+ 'windows/owned-process/Program.cs','windows/owned-process/OwnedProcess.csproj','windows/owned-process/README.md'
+]);
+const historicalBridgeRequired=['package.json','src/cli.mjs','src/credentials.mjs','src/transport.mjs','windows/protect-credential.ps1','windows/run-bridge.ps1','windows/install-task.ps1','windows/uninstall-task.ps1','config.example.json','executor/cli.mjs','executor/runtime.mjs','executor/journal.mjs','executor/config.example.json'];
+export function validateBridgeSourceInventory(filename:string,paths:readonly string[]):void{
+ const version=/^control-room-windows-bridge-([0-9]+)\.([0-9]+)\.([0-9]+)\.tgz$/u.exec(filename);if(!version||!Array.isArray(paths)||new Set(paths).size!==paths.length||paths.some(path=>!bridgePath.test(path)))fail();
+ const current=Number(version[1])>0||Number(version[2])>=3,required=current?BRIDGE_03_SOURCE_PATHS:historicalBridgeRequired;
+ if(required.some(path=>!paths.includes(path))||current&&paths.some(path=>!BRIDGE_03_SOURCE_PATHS.includes(path)))fail();
+}
 /** The build may carry only the exact freshly identified bridge tarball and its manifest. */
 export function validateBridgePackageInventory(raw:unknown,actualRaw:readonly CandidatePackageFile[],sourceCommit:string):void{
  if(!COMMIT.test(sourceCommit))fail();
@@ -32,8 +48,8 @@ export function validateBridgePackageInventory(raw:unknown,actualRaw:readonly Ca
  if(acceptance.automated!=='See source-specific CI checks.'||acceptance.windows!=='not-run'||acceptance.privateIngress!=='unavailable'||acceptance.execution!=='disabled')fail();
  if(!Array.isArray(manifest.files)||manifest.files.length<10||manifest.files.length>100)fail();
  const inventory=manifest.files.map(file);if(new Set(inventory.map(row=>row.path)).size!==inventory.length||inventory.some(row=>!bridgePath.test(row.path)))fail();
- const required=['package.json','src/cli.mjs','src/credentials.mjs','src/transport.mjs','windows/protect-credential.ps1','windows/run-bridge.ps1','windows/install-task.ps1','windows/uninstall-task.ps1','config.example.json','executor/cli.mjs','executor/runtime.mjs','executor/journal.mjs','executor/config.example.json'];
- if(required.some(path=>!inventory.some(row=>row.path===path))||inventory.reduce((sum,row)=>sum+row.bytes,0)>128*1024*1024)fail();
+ validateBridgeSourceInventory(filename,inventory.map(row=>row.path));
+ if(inventory.reduce((sum,row)=>sum+row.bytes,0)>128*1024*1024)fail();
  if(!Array.isArray(actualRaw)||actualRaw.length!==2)fail();const actual=actualRaw.map(file);
  if(new Set(actual.map(row=>row.path)).size!==2||!actual.some(row=>row.path==='manifest.json')||!actual.some(row=>row.path===filename&&row.bytes===size&&row.sha256===hash))fail();
 }

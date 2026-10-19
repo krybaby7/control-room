@@ -5,16 +5,19 @@ import {tmpdir} from 'node:os';
 import {join,dirname,delimiter} from 'node:path';
 import {spawnSync,execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
+import {BRIDGE_03_SOURCE_PATHS} from '../lib/release-package-policy.ts';
 const required=['src/cli.mjs','src/credentials.mjs','src/transport.mjs','windows/protect-credential.ps1','windows/run-bridge.ps1','windows/install-task.ps1','windows/uninstall-task.ps1','config.example.json','executor/cli.mjs','executor/runtime.mjs','executor/journal.mjs','executor/config.example.json'];
-async function fixture(){
+async function fixture(current=false,extra?:string,missing?:string){
  const directory=await mkdtemp(join(tmpdir(),'control-room-package-identity-')),root=join(directory,'repo');await mkdir(join(root,'scripts'),{recursive:true});
+ await mkdir(join(root,'lib'));await writeFile(join(root,'lib/release-package-policy.ts'),await readFile(new URL('../lib/release-package-policy.ts',import.meta.url)));
  await writeFile(join(root,'scripts/package-bridge.mjs'),await readFile(new URL('../scripts/package-bridge.mjs',import.meta.url)));
- for(const path of required){await mkdir(dirname(join(root,'bridge',path)),{recursive:true});await writeFile(join(root,'bridge',path),path.endsWith('.json')?'{}\n':'// Synthetic packaging fixture only.\n');}
+ for(const path of (current?BRIDGE_03_SOURCE_PATHS.filter(path=>!['package.json','README.md'].includes(path)):required).filter(path=>path!==missing)){await mkdir(dirname(join(root,'bridge',path)),{recursive:true});await writeFile(join(root,'bridge',path),path.endsWith('.json')?'{}\n':'// Synthetic packaging fixture only.\n');}
  await writeFile(join(root,'bridge/src/config.mjs'),'export function validateConfig(value){if(!value||typeof value!=="object")throw Error("Invalid synthetic config");}\n');
  await writeFile(join(root,'bridge/README.md'),'Synthetic package identity fixture.\n');
- await writeFile(join(root,'bridge/package.json'),JSON.stringify({name:'control-room-windows-bridge',version:'0.0.1',private:true,type:'module',files:['src/*.mjs','windows/*.ps1','README.md','config.example.json','executor/*.mjs','executor/config.example.json']},null,2)+'\n');
+ await writeFile(join(root,'bridge/package.json'),JSON.stringify({name:'control-room-windows-bridge',version:current?'0.3.0':'0.0.1',private:true,type:'module',files:['src/*.mjs','windows/*.ps1','README.md','config.example.json','executor/*.mjs','executor/config.example.json',...(current?['executor/README.md','executor/launch-config.example.json','windows/owned-process/*']:[])]},null,2)+'\n');
+ if(extra){await mkdir(dirname(join(root,'bridge',extra)),{recursive:true});await writeFile(join(root,'bridge',extra),'// Synthetic forbidden private runtime source.\n');}
  const git=(...args:string[])=>execFileSync('git',args,{cwd:root,encoding:'utf8',timeout:10000});
- git('init','--quiet');git('add','scripts','bridge');git('-c','user.name=Synthetic Fixture','-c','user.email=fixture@example.invalid','commit','--quiet','-m','Synthetic tracked package');
+ git('init','--quiet');git('add','scripts','bridge','lib');git('-c','user.name=Synthetic Fixture','-c','user.email=fixture@example.invalid','commit','--quiet','-m','Synthetic tracked package');
  const commit=git('rev-parse','HEAD').trim();
  const run=(env:Partial<NodeJS.ProcessEnv>={})=>spawnSync(process.execPath,[join(root,'scripts/package-bridge.mjs')],{cwd:root,env:{...process.env,CONTROL_ROOM_SOURCE_COMMIT:commit,...env},encoding:'utf8',timeout:60000,maxBuffer:2*1024*1024});
  return {directory,root,commit,run};
@@ -50,4 +53,11 @@ test('a tracked file changed after the clean check and restored after pack canno
   assert.deepEqual(await readFile(tracked),before,'working-tree restoration must not hide the packed mutation');
   await assert.rejects(readFile(join(f.root,'release/bridge/manifest.json')));
  }finally{await rm(f.directory,{recursive:true,force:true});}
+});
+
+test('actual 0.3 source package includes the exact public helper and executor closure',async()=>{
+ const f=await fixture(true);try{const result=f.run();assert.equal(result.status,0,result.stderr);const manifest=JSON.parse(await readFile(join(f.root,'release/bridge/manifest.json'),'utf8'));assert.equal(manifest.filename,'control-room-windows-bridge-0.3.0.tgz');assert.deepEqual(manifest.files.map((file:{path:string})=>file.path).sort(),[...BRIDGE_03_SOURCE_PATHS].sort());}finally{await rm(f.directory,{recursive:true,force:true});}
+});
+test('actual 0.3 packaging refuses a missing owned helper and tracked private runtime code',async()=>{
+ for(const [extra,missing]of [[undefined,'windows/owned-process/Program.cs'],['executor/private-runtime.mjs',undefined]] as const){const f=await fixture(true,extra,missing);try{const result=f.run();assert.notEqual(result.status,0);assert.match(result.stderr,/inventory is invalid/);await assert.rejects(readFile(join(f.root,'release/bridge/manifest.json')));}finally{await rm(f.directory,{recursive:true,force:true});}}
 });

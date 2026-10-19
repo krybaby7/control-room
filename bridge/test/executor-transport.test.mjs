@@ -1,9 +1,10 @@
+import {canonicalMkdtemp as mkdtemp,unitPrivateStateVerifier} from './fixtures/private-state.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createAgentExecutionTransport,bindAuthenticatedAgentGrant} from '../executor/transport.mjs';
 import {wireFixture} from './fixtures/executor-wire.mjs';
 import {openExecutionJournal} from '../executor/journal.mjs';
-import {mkdtemp,rm} from 'node:fs/promises';
+import {rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {jobSpecSha256} from '../src/execution-policy.mjs';
@@ -30,7 +31,7 @@ test('401 and 403 stop authentication and never expose returned provider prose',
 });
 
 const localFacts=async()=>({otherActiveAttempts:0,usedJobs:0,usedRuntimeSeconds:0,cancelRequested:false,localDisabled:false});
-async function grantJournal(t,wire){const directory=await mkdtemp(join(tmpdir(),'executor-brand-fixture-'));const journal=await openExecutionJournal({directory,identity:{jobId:wire.jobId,attemptId:wire.attemptId,deviceId:wire.approvalEnvelope.approval.deviceId,epoch:wire.executionEpoch,specSha256:wire.record.specSha256}});t.after(async()=>{try{await journal.close();}finally{await rm(directory,{recursive:true,force:true});}});return journal;}
+async function grantJournal(t,wire){const directory=await mkdtemp(join(tmpdir(),'executor-brand-fixture-'));const journal=await openExecutionJournal({verifyPrivateState:unitPrivateStateVerifier,directory,identity:{jobId:wire.jobId,attemptId:wire.attemptId,deviceId:wire.approvalEnvelope.approval.deviceId,epoch:wire.executionEpoch,specSha256:wire.record.specSha256}});t.after(async()=>{try{await journal.close();}finally{await rm(directory,{recursive:true,force:true});}});return journal;}
 test('only exact fixed private transport grants bind native context; JSON copies/flags cannot mint provenance',async t=>{
  const {wire,options:fixture}=wireFixture(),journal=await grantJournal(t,wire);let monotonic=1000;
  const transport=createAgentExecutionTransport({...options,monotonic:()=>monotonic+=100,fetchImpl:async()=>Response.json(wire)}),grant=await transport.claim(payload),local={policy:fixture.admission.policy,capability:fixture.admission.capability,journal,readLocalState:localFacts};

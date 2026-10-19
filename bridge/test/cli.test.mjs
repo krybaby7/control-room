@@ -1,8 +1,20 @@
+import {spawnSync} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
+import {canonicalMkdtemp as mkdtemp} from './fixtures/private-state.mjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {EventEmitter} from 'node:events';
 import {runBridgeOnce,main,readMaskedSecret,doctorBridge,nodeVersionStatus,requireSupportedNode} from '../src/cli.mjs';
+/** Preserve the same functional assertions in a child with an explicit unit-only
+ * Windows guard loader; Linux exercises the actual no-op platform boundary. */
+function runWindowsCliUnitCase(name){
+ if(process.platform!=='win32'||process.env.CONTROL_ROOM_UNIT_CLI_STATE==='synthetic-only')return false;
+ const pattern='^'+name.replace(/[.*+?^${}()|[\]\\]/gu,'\\$&')+'$';
+ const unitEnvironment={...process.env,CONTROL_ROOM_UNIT_CLI_STATE:'synthetic-only'};delete unitEnvironment.NODE_TEST_CONTEXT;
+ const child=spawnSync(process.execPath,['--import',fileURLToPath(new URL('./fixtures/cli-windows-state-loader.mjs',import.meta.url)),'--test','--test-name-pattern',pattern,fileURLToPath(import.meta.url)],{env:unitEnvironment,encoding:'utf8',timeout:30000,maxBuffer:65536});
+ assert.equal(child.status,0,child.stdout+'\n'+child.stderr);assert.equal(child.error,undefined);return true;
+}
 function canonical(v){if(Array.isArray(v))return '['+v.map(canonical).join(',')+']';if(v&&typeof v==='object')return '{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+canonical(v[k])).join(',')+'}';return JSON.stringify(v);}
 const stamp='2026-10-18T12:00:00.000Z',session={deviceId:'device',bootId:'boot',generation:2},config={deviceId:'device',bridgeVersion:'0.1.0',pcCommandCenter:{enabled:true,instanceId:'pc',selectedGpuId:null,selectedGpuAlias:null}};
 function window(){return {windowId:'synthetic-window',bootId:'boot',generation:2,sequence:1,issuedAt:stamp,expiresAt:'2026-10-18T12:00:30.000Z'};}
@@ -46,7 +58,8 @@ test('CLI rejects arbitrary commands, secret argv, and relative config before pl
 });
 
 test('actual configured run-once uses a dedicated SQLite outbox and only closed cloud requests',async()=>{
-  const {mkdtemp,writeFile,mkdir,rm}=await import('node:fs/promises'),{tmpdir}=await import('node:os'),{join}=await import('node:path'),{DEFAULT_CONFIG}=await import('../src/config.mjs');
+ if(runWindowsCliUnitCase('actual configured run-once uses a dedicated SQLite outbox and only closed cloud requests'))return;
+  const {writeFile,mkdir,rm}=await import('node:fs/promises'),{tmpdir}=await import('node:os'),{join}=await import('node:path'),{DEFAULT_CONFIG}=await import('../src/config.mjs');
   const directory=await mkdtemp(join(tmpdir(),'synthetic-bridge-cli-')),path=join(directory,'config.json'),requests=[];
   const active={...structuredClone(DEFAULT_CONFIG),cloudBaseUrl:'https://private.example',pcCommandCenter:{enabled:true,instanceId:'synthetic-pc',selectedGpuId:null,selectedGpuAlias:null}};
   try{
@@ -73,7 +86,8 @@ test('actual configured run-once uses a dedicated SQLite outbox and only closed 
   }finally{await rm(directory,{recursive:true,force:true});}
 });
 test('enrollment secret is received only through prompt dependency and never printed or saved as configuration',async()=>{
-  const {mkdtemp,writeFile,readFile,rm}=await import('node:fs/promises'),{tmpdir}=await import('node:os'),{join}=await import('node:path'),{DEFAULT_CONFIG}=await import('../src/config.mjs');
+ if(runWindowsCliUnitCase('enrollment secret is received only through prompt dependency and never printed or saved as configuration'))return;
+  const {writeFile,readFile,rm}=await import('node:fs/promises'),{tmpdir}=await import('node:os'),{join}=await import('node:path'),{DEFAULT_CONFIG}=await import('../src/config.mjs');
   const directory=await mkdtemp(join(tmpdir(),'synthetic-bridge-enroll-')),path=join(directory,'config.json'),printed=[],saved=[];
   const config={...structuredClone(DEFAULT_CONFIG),cloudBaseUrl:'https://private.example'};
   try{
@@ -120,7 +134,8 @@ test('doctor checks actual Node and produces a bounded redacted read-only report
  for(const privateValue of ['private-device-secret','private-ingress-secret','raw-local-gpu','private-host','private-prompt','73.2345'])assert.equal(JSON.stringify(report).includes(privateValue),false);
 });
 test('doctor default ingress never calls cloud transport; invalid config is typed and never reveals file content',async()=>{
- const {mkdtemp,writeFile,rm}=await import('node:fs/promises'),{tmpdir}=await import('node:os'),{join}=await import('node:path'),{DEFAULT_CONFIG}=await import('../src/config.mjs');
+ if(runWindowsCliUnitCase('doctor default ingress never calls cloud transport; invalid config is typed and never reveals file content'))return;
+ const {writeFile,rm}=await import('node:fs/promises'),{tmpdir}=await import('node:os'),{join}=await import('node:path'),{DEFAULT_CONFIG}=await import('../src/config.mjs');
  const directory=await mkdtemp(join(tmpdir(),'synthetic-doctor-')),path=join(directory,'config.json'),printed=[];let reads=0,cloudCalls=0;
  try{
   await writeFile(path,JSON.stringify({...structuredClone(DEFAULT_CONFIG),cloudBaseUrl:'https://private.example'}));

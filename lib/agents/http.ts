@@ -1,4 +1,5 @@
 import {z} from 'zod';
+import {AgentResultVerificationError} from './result-verifier.ts';
 import {ownerAgentContext} from './context.ts';
 import type {SqlDatabase} from '../workspace-store.ts';
 import {evidenceDateSchema} from '../evidence-validation.ts';
@@ -77,6 +78,7 @@ export async function handleAgentHttp(action:AgentHttpAction,request:Request,dep
   const conflict=result!==null&&typeof result==='object'&&'status'in result&&result.status==='conflict';
   return Response.json(result,{status:conflict?409:200,headers:agentHttpHeaders});
  }catch(error){
+  if(error instanceof AgentResultVerificationError)return rejected(409,error.code);
   if(error instanceof BodyFailure)return rejected(error.status);if(error instanceof z.ZodError||error instanceof SyntaxError)return rejected(400);
   if(error instanceof RecoverabilityCapacityError)return rejected(409,'recovery_capacity');
   const status=error&&typeof error==='object'&&'status'in error?error.status:null;

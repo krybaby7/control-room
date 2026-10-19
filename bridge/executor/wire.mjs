@@ -8,7 +8,8 @@ function boundedJson(raw,{maxBytes=32768,maxNodes=10000,maxDepth=40,code='task_i
  if(Buffer.byteLength(canonical(raw))>maxBytes)fail(code);
 }
 export function parseAgentLease(raw){
- shape(raw,['attemptId','jobId','executionEpoch','leaseToken','leaseExpiresAt','deadlineAt','operationalRevision','record','executionBinding','resumed','approvalEnvelope','serverNow','taskInput','frozenAdmission']);
+ shape(raw,['attemptId','jobId','executionEpoch','leaseToken','leaseExpiresAt','deadlineAt','operationalRevision','record','executionBinding','resumed','approvalEnvelope','serverNow','taskInput','frozenAdmission',...(Object.hasOwn(raw??{},'cancelRequest')?['cancelRequest']:[])]);
+ const cancelRequest=raw.cancelRequest??null;if(cancelRequest!==null){shape(cancelRequest,['requestId','requestedAt']);id(cancelRequest.requestId);stamp(cancelRequest.requestedAt);if(Date.parse(cancelRequest.requestedAt)>Date.parse(raw.serverNow))fail('invalid_cancel_request');}
  id(raw.attemptId);id(raw.jobId);integer(raw.executionEpoch);integer(raw.operationalRevision,1);bool(raw.resumed);stamp(raw.serverNow);stamp(raw.leaseExpiresAt);stamp(raw.deadlineAt);
  if(typeof raw.leaseToken!=='string'||!/^[a-f0-9]{64}$/u.test(raw.leaseToken))fail('invalid_lease_token');
  shape(raw.record,['id','intentId','spec','specSha256','createdAt','retryOfJobId','historical']);id(raw.record.id);id(raw.record.intentId);stamp(raw.record.createdAt);if(raw.record.retryOfJobId!==null)id(raw.record.retryOfJobId);if(raw.record.historical!==false||raw.record.id!==raw.jobId||raw.record.retryOfJobId===raw.record.id)fail('historical_job_not_authority');
@@ -25,7 +26,7 @@ export function parseAgentLease(raw){
  if(canonical(frozen.artifactRefs)!==canonical(binding.artifactRefs))fail('frozen_artifact_identity_differs');
 
  const now=Date.parse(raw.serverNow),expires=Date.parse(raw.leaseExpiresAt),deadline=Date.parse(raw.deadlineAt);if(expires<=now||expires-now>60000||expires>deadline||deadline-now>spec.timeoutSeconds*1000||deadline<=now)fail('invalid_server_deadline');
- return JSON.parse(canonical(raw));
+ return JSON.parse(canonical({...raw,cancelRequest}));
 }
 function localLease(wire){return {jobId:wire.jobId,attemptId:wire.attemptId,epoch:wire.executionEpoch,deviceId:wire.approvalEnvelope.approval.deviceId,leaseToken:wire.leaseToken,expiresAt:wire.leaseExpiresAt,spec:wire.record.spec,specSha256:wire.record.specSha256,approvalId:wire.approvalEnvelope.approval.id};}
 /** All response data must arrive through the authenticated fixed transport.
@@ -35,6 +36,7 @@ export function bindAgentLease(raw,{expectedBindingSha256,admission,sentMonotoni
  const wire=parseAgentLease(raw),timing={serverNow:wire.serverNow,sentMonotonicMs,receivedMonotonicMs};
  const local=admitExecutionLease({lease:localLease(wire),envelope:wire.approvalEnvelope,expectedBindingSha256,admission,timing,serverDeadlineAt:wire.deadlineAt,continuation:wire.resumed});
  let current=wire,nextRenew=receivedMonotonicMs+15000,uncertain=false,renewing=false,launchConsumed=false;
+ if(wire.cancelRequest)local.requestStop('cancel_requested');
  return Object.freeze({
   identity:local.identity,spec:local.spec,binding:local.binding,
   taskInput:freezeJson(JSON.parse(canonical(wire.taskInput))),get mayLaunch(){return !wire.resumed&&!uncertain&&!launchConsumed&&local.snapshot().stopReason===null;},
@@ -44,12 +46,13 @@ export function bindAgentLease(raw,{expectedBindingSha256,admission,sentMonotoni
   async renew(transport,monotonic){
    if(renewing)fail('renewal_in_progress');const sent=monotonic();this.assertCurrent(sent);renewing=true;
    try{const response=await transport.renew({attemptId:current.attemptId,leaseToken:current.leaseToken}),received=monotonic(),next=parseAgentLease(response);if(!next.resumed||next.operationalRevision<=current.operationalRevision||['attemptId','jobId','executionEpoch','leaseToken','deadlineAt'].some(key=>next[key]!==current[key])||canonical(next.record)!==canonical(current.record)||canonical(next.executionBinding)!==canonical(current.executionBinding)||canonical(next.approvalEnvelope)!==canonical(current.approvalEnvelope)||canonical(next.taskInput)!==canonical(current.taskInput)||canonical(next.frozenAdmission)!==canonical(current.frozenAdmission))fail('renewal_wire_identity_differs');
-    local.renew(localLease(next),{serverNow:next.serverNow,sentMonotonicMs:sent,receivedMonotonicMs:received});current=next;nextRenew=received+15000;return this.snapshot();
+    if(current.cancelRequest&&canonical(next.cancelRequest)!==canonical(current.cancelRequest)||next.cancelRequest&&Date.parse(next.leaseExpiresAt)>Date.parse(current.leaseExpiresAt))fail('cancel_request_identity_differs');
+    local.renew(localLease(next),{serverNow:next.serverNow,sentMonotonicMs:sent,receivedMonotonicMs:received});current=next;nextRenew=received+15000;if(next.cancelRequest)local.requestStop('cancel_requested');return this.snapshot();
    }catch{uncertain=true;local.requestStop('shutdown');fail('lease_renewal_uncertain');}finally{renewing=false;}
   },
   reportEvents(transport,events){return transport.events({attemptId:current.attemptId,leaseToken:current.leaseToken,events});},
   requestStop(reason){local.requestStop(reason);},
-  snapshot(){return {...local.snapshot(),operationalRevision:current.operationalRevision,nextRenewMonotonicMs:nextRenew,resumed:wire.resumed,mayLaunch:this.mayLaunch};}
+  snapshot(){return {...local.snapshot(),operationalRevision:current.operationalRevision,nextRenewMonotonicMs:nextRenew,resumed:wire.resumed,mayLaunch:this.mayLaunch,cancelRequest:current.cancelRequest===null?null:freezeJson(structuredClone(current.cancelRequest))};}
  });
 }
 /** Receipt acknowledgement is journaled only after exact immutable hash/epoch/sequence verification.

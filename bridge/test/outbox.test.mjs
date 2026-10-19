@@ -1,6 +1,7 @@
+import {canonicalMkdtempSync as mkdtempSync} from './fixtures/private-state.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,rmSync,readdirSync,statSync} from 'node:fs';
+import {rmSync,readdirSync,statSync} from 'node:fs';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {DatabaseSync} from 'node:sqlite';

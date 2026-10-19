@@ -1,9 +1,11 @@
+import {canonicalMkdtemp as mkdtemp} from './fixtures/private-state.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
-import {mkdtemp,mkdir,writeFile,readFile,rm,stat} from 'node:fs/promises';
-import {join} from 'node:path';
+import {mkdir,writeFile,readFile,rm,stat} from 'node:fs/promises';
+import {join,dirname} from 'node:path';
+import {executorScopeForPath} from '../executor/launch-config.mjs';
 import {tmpdir} from 'node:os';
 import {createWorkspaceManager} from '../executor/workspace.mjs';
 import {parsePatchPaths,validateInspectionReport} from '../executor/operations.mjs';
@@ -32,3 +34,6 @@ test('inspection claims must cite actual allowed exact source hashes and existin
  const hash='a'.repeat(64),workspace={files:[{path:'src/file',sha256:hash,lineCount:2}]},report={summary:'Synthetic review, not accepted task completion',findings:[{path:'src/file',line:2,claim:'Plain <script> data',evidenceSha256:hash}],limitations:['No model or Windows execution was performed.']};
  assert.equal(validateInspectionReport(report,workspace,4096).contentType,'application/json');assert.throws(()=>validateInspectionReport({...report,findings:[{...report.findings[0],line:3}]},workspace,4096),/source_differs/);assert.throws(()=>validateInspectionReport({...report,findings:[{...report.findings[0],path:'src/foreign'}]},workspace,4096),/source_differs/);assert.throws(()=>validateInspectionReport(report,workspace,8),/output_limit/);
 });
+
+/** Portable bounded work-count fixture, not native Windows ACL evidence. */
+test('more than256 nested selected files use one fresh tree protection pass and one verification per checkpoint',async t=>{const f=await fixture(t);if(!f)return;for(let group=0;group<3;group++){const dir=join(f.repo,'src','nested-'+group);await mkdir(dir);for(let index=0;index<100;index++)await writeFile(join(dir,'file-'+index+'.txt'),'Synthetic bounded source\n');}await f.command(['add','src']);await f.command(['commit','--quiet','-m','synthetic300filetree']);const base=await f.command(['rev-parse','HEAD']),parent=dirname(f.state),workspaceParent=join(parent,'.control-room-workspaces'),repoRoot=join(workspaceParent,'repo-'+ 'a'.repeat(32));await mkdir(workspaceParent,{mode:0o700});await mkdir(repoRoot,{mode:0o700});const calls=[],manager=await createWorkspaceManager({gitExecutable:git,repository:{...f.repository,baseCommits:[base]},stateRoot:repoRoot,verifyPrivateWorkspace:async(path,options={})=>{calls.push({scope:executorScopeForPath(join(parent,'launch.json'),path),created:options.created===true});}}),workspace=await manager.prepare({workspaceKey:'attempt-'+ 'b'.repeat(32),baseCommit:base});assert.equal(workspace.files.length,301);assert.equal(calls.filter(call=>call.scope==='workspace-tree'&&call.created).length,1);await workspace.verify();await workspace.verify();assert.equal(calls.filter(call=>call.scope==='workspace-tree'&&!call.created).length,2);assert.equal(calls.length,6);});

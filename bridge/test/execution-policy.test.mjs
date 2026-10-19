@@ -1,7 +1,8 @@
+import {canonicalMkdtemp as mkdtemp} from './fixtures/private-state.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {mkdtemp,mkdir,writeFile,symlink,rm,realpath} from 'node:fs/promises';
+import {mkdir,writeFile,symlink,rm,realpath} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {EXECUTION_LIMITS,parseJobSpec,jobSpecSha256,defaultExecutionPolicy,parseExecutionPolicy,executionPolicySha256,capabilitySha256,parseCapability,validateRelativePath,resolveAllowedPath,validateJobDependencyGraph,checkExecutionAdmission} from '../src/execution-policy.mjs';

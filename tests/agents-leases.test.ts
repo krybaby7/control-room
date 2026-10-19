@@ -85,12 +85,16 @@ test('SQL abort after attempt insertion rolls back consumed approval, queue and 
  f.sqlite.exec("CREATE TRIGGER synthetic_fail BEFORE UPDATE ON job_approvals BEGIN SELECT RAISE(ABORT,'synthetic fault'); END");
  await assert.rejects(claim(f));assert.equal(count(f,'job_attempts'),0);assert.equal(count(f,'agent_device_slots'),0);assert.equal(f.sqlite.prepare('SELECT status FROM agent_job_state').get()!.status,'queued');
 }finally{f.sqlite.close();}});
-test('renewal uses frozen binding beyond capability clock refresh, never extends local deadline; cancellation and old token deny',async()=>{const f=await fixture(600);try{
+test('renewal uses frozen binding beyond capability clock refresh, never extends local deadline; cancellation returns stop-only authority without extending expiry',async()=>{const f=await fixture(600);try{
  let lease=await claim(f);
  for(let second=15;second<=315;second+=15){if(second===300)f.sqlite.prepare('UPDATE agent_capabilities SET revoked_at=?,operational_revision=operational_revision+1').run(later(second));lease=await renewAgentLease(f.db,f.principal,{attemptId:lease.attemptId,leaseToken:lease.leaseToken},{...f.options,now:later(second)});}
  assert.equal(lease.deadlineAt,later(600));assert.equal(lease.leaseExpiresAt,later(375));
  f.sqlite.prepare('UPDATE agent_job_state SET cancel_requested_at=?,cancel_request_id=?').run(later(316),'owner-cancel-id');
- await assert.rejects(renewAgentLease(f.db,f.principal,{attemptId:lease.attemptId,leaseToken:lease.leaseToken},{...f.options,now:later(316)}));
+ const cancelled=await renewAgentLease(f.db,f.principal,{attemptId:lease.attemptId,leaseToken:lease.leaseToken},{...f.options,now:later(316)});
+ assert.deepEqual(cancelled.cancelRequest,{requestId:'owner-cancel-id',requestedAt:later(316)});assert.equal(cancelled.leaseExpiresAt,lease.leaseExpiresAt);assert.equal(cancelled.deadlineAt,lease.deadlineAt);assert.equal(cancelled.operationalRevision,lease.operationalRevision+1);
+ await assert.rejects(renewAgentLease(f.db,{...f.principal,deviceId:'foreign-device'},{attemptId:lease.attemptId,leaseToken:lease.leaseToken},{...f.options,now:later(317)}));
+ await assert.rejects(renewAgentLease(f.db,f.principal,{attemptId:lease.attemptId,leaseToken:'f'.repeat(64)},{...f.options,now:later(317)}));
+ await assert.rejects(renewAgentLease(f.db,f.principal,{attemptId:lease.attemptId,leaseToken:lease.leaseToken},{...f.options,now:later(376)}));
  assert.equal(f.sqlite.prepare('SELECT reserved_seconds FROM agent_budgets').get()!.reserved_seconds,600);
 }finally{f.sqlite.close();}});
 test('out of order events retain gaps, contiguous replay applies once, changed duplicate is409',async()=>{const f=await fixture();try{
@@ -144,7 +148,7 @@ test('late journal exit proof reconciles expired lease without a new attempt or 
  await assert.rejects(reportAgentEvents(f.db,f.principal,{attemptId:lease.attemptId,leaseToken:lease.leaseToken,events},{...f.options,now:later(62)}));
  assert.equal(count(f,'job_events'),0);
  const terminal=await reconcileAgentAttempt(f.db,f.principal,{attemptId:lease.attemptId,journalNonce:nonce,proof:'exited',events,result:value},{...f.options,now:later(63),verifyResult:async()=>({adapterChecksPassed:true})});
- assert.equal(terminal.result?.disposition,'succeeded');assert.equal(count(f,'job_attempts'),1);assert.equal(count(f,'agent_results'),1);
+ assert.ok('result' in terminal);assert.equal(terminal.result?.disposition,'succeeded');assert.equal(count(f,'job_attempts'),1);assert.equal(count(f,'agent_results'),1);
  assert.equal(f.sqlite.prepare('SELECT status FROM workspace_job_intents').get()!.status,'completed');assert.notEqual(f.sqlite.prepare('SELECT released_at FROM agent_device_slots').get()!.released_at,null);
  assert.equal(f.sqlite.prepare('SELECT charged_seconds FROM agent_budgets').get()!.charged_seconds,120);
 }finally{f.sqlite.close();}});
@@ -208,7 +212,7 @@ test('restore omitting original job/task retains unknown attempt then persists s
  assert.equal(await expireAgentAttempts(f.db,f.owner,later(31)),1);
  assert.equal(f.sqlite.prepare('SELECT released_at FROM agent_device_slots').get()!.released_at,null);
  const terminal=await reconcileAgentAttempt(f.db,f.principal,{attemptId:lease.attemptId,journalNonce:nonce,proof:'exited',events,result:value},{...f.options,now:later(32)});
- assert.equal(terminal.result?.disposition,'succeeded');
+ assert.ok('result' in terminal);assert.equal(terminal.result?.disposition,'succeeded');
  const stored=JSON.parse(f.sqlite.prepare('SELECT payload_json FROM agent_results').get()!.payload_json as string);
  assert.equal(stored.historical,true);assert.deepEqual(stored.result,value);assert.equal(stored.result.artifactIds[0],'purged-original-artifact');assert.equal(count(f,'attachments'),0);assert.equal(f.sqlite.prepare('SELECT status FROM agent_job_state').get()!.status,'blocked');assert.equal(f.sqlite.prepare('SELECT accepted_at FROM agent_job_state').get()!.accepted_at,null);assert.equal(stored.frozenJob.historical,true);assert.equal(stored.frozenJob.specSha256,f.record.specSha256);
  assert.equal(count(f,'agent_jobs'),0);assert.equal(f.sqlite.prepare('SELECT revision FROM workspaces').get()!.revision,2);
@@ -310,4 +314,17 @@ test('valid 256-node graph with maximum IDs and eight edges fits frozen admissio
  assert.equal(lease.frozenAdmission.dependencyRows.length,256);assert.ok(manifestBytes>32768);assert.ok(manifestBytes<=393216);assert.ok(responseBytes>65536);assert.ok(responseBytes<=524288);
  assert.equal(lease.executionBinding.budget.inputBytesLimit,32768);assert.equal(count(f,'job_attempts'),1);
  const resumed=await claim(f);assert.deepEqual(resumed.frozenAdmission,lease.frozenAdmission);
+}finally{f.sqlite.close();}});
+
+
+test('nonce recovery batches retain exact event receipts after expiry and terminal commit without granting a lease',async()=>{const f=await fixture();try{
+ const lease=await claim(f),value=result(lease),events=await proofEvents(lease,value),options={...f.options,now:later(180)},body={attemptId:lease.attemptId,journalNonce:nonce,proof:'exited',events:events.slice(0,2)};
+ await assert.rejects(reconcileAgentAttempt(f.db,f.principal,{...body,journalNonce:'foreign_nonce_000000000000000000000000'},options));
+ const first=await reconcileAgentAttempt(f.db,f.principal,body,options);assert.ok('receipts' in first);assert.equal(first.lastAppliedSequence,2);assert.equal(first.receipts.length,2);
+ assert.equal(f.sqlite.prepare('SELECT lease_expires_at FROM job_attempts').get()!.lease_expires_at,lease.leaseExpiresAt);assert.equal(count(f,'agent_results'),0);assert.equal(f.sqlite.prepare('SELECT reserved_seconds FROM agent_budgets').get()!.reserved_seconds,120);
+ const second=await reconcileAgentAttempt(f.db,f.principal,{...body,events:events.slice(2)},options);assert.ok('receipts' in second);assert.equal(second.lastAppliedSequence,4);
+ const done=await reconcileAgentAttempt(f.db,f.principal,{attemptId:lease.attemptId,journalNonce:nonce,proof:'exited',result:value},{...options,verifyResult:async()=>({adapterChecksPassed:true})});assert.ok('result' in done);assert.equal(done.result?.disposition,'succeeded');
+ const replay=await reconcileAgentAttempt(f.db,f.principal,body,{...options,now:later(181)});assert.deepEqual(replay,{...first,lastAppliedSequence:4});assert.equal(count(f,'agent_results'),1);
+ await assert.rejects(reconcileAgentAttempt(f.db,f.principal,{...body,events:[{...events[0],diagnostic:'unknown'}]},options));
+ assert.equal(f.sqlite.prepare('SELECT lease_expires_at FROM job_attempts').get()!.lease_expires_at,lease.leaseExpiresAt);
 }finally{f.sqlite.close();}});

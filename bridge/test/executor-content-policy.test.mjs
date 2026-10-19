@@ -1,6 +1,7 @@
+import {canonicalMkdtemp as mkdtemp,unitPrivateStateVerifier} from './fixtures/private-state.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,rm,readdir} from 'node:fs/promises';
+import {rm,readdir} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {prepareExecutionArtifactContent,assertExecutionArtifactContent} from '../executor/content-policy.mjs';
@@ -17,7 +18,7 @@ test('patch privacy refusal preserves semantics; safe text remains exact and unk
 });
 test('durable artifact writer refuses unprepared credentials and writes only explicitly prepared bytes',async t=>{
  const directory=await mkdtemp(join(tmpdir(),'synthetic-content-policy-'));t.after(()=>rm(directory,{recursive:true,force:true}));
- const store=await openExecutionArtifacts({directory,verifyPrivateState:async()=>true}),bytes=encode('Synthetic Bearer '+'a'.repeat(40));
+ const store=await openExecutionArtifacts({directory,verifyPrivateState:unitPrivateStateVerifier}),bytes=encode('Synthetic Bearer '+'a'.repeat(40));
  await assert.rejects(()=>store.put({id:'artifact-original',filename:'synthetic.txt',contentType:'text/plain',data:bytes}),/sensitive_content/);assert.deepEqual(await readdir(directory),[]);
  const prepared=prepareExecutionArtifactContent({logicalType:'diagnostic',bytes}),descriptor=await store.put({id:'artifact-prepared',filename:'synthetic.txt',contentType:'text/plain',data:prepared.bytes});
  assert.deepEqual(await store.read(descriptor.id,descriptor.sha256,descriptor.bytes),Buffer.from(prepared.bytes));

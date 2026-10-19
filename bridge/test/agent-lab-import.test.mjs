@@ -1,6 +1,7 @@
+import {canonicalMkdtemp as mkdtemp} from './fixtures/private-state.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFile,mkdtemp,writeFile,rm,symlink} from 'node:fs/promises';
+import {readFile,writeFile,rm,symlink} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {createHash} from 'node:crypto';
