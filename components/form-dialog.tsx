@@ -38,7 +38,7 @@ export function FormDialog({ title, subtitle, dirty, onClose, onSave, submitLabe
   }} onCancel={event => { event.preventDefault(); close(); }}>
     <form onSubmit={async event => { event.preventDefault(); if (saving) return; setSaving(true); setError(''); try { await onSave(); onClose(); } catch (cause) { setError(cause instanceof Error ? cause.message : 'We could not save this. Your draft is still here.'); } finally { setSaving(false); } }}>
       <header className="dialog-header"><div><p className="eyebrow">YOUR WORKSPACE</p><h2 id={titleId}>{title}</h2>{subtitle && <p>{subtitle}</p>}</div><button type="button" className="icon-button" aria-label="Close editor" onClick={close} disabled={saving}><X size={21} /></button></header>
-      <fieldset className="dialog-fields" disabled={saving}>{children}</fieldset>
+      <div className="dialog-body"><fieldset className="dialog-fields" disabled={saving}>{children}</fieldset></div>
       <footer className="dialog-footer">{originalSave.check&&<button type="button" className="text-button" disabled={checking||saving} onClick={async()=>{setChecking(true);try{setOutcome(await originalSave.check!());}finally{setChecking(false);}}}>Check original save</button>}{outcome&&<p role="status">{outcome}</p>}{error && <p className="form-error" role="alert"><AlertCircle size={17} /><span>{error}</span></p>}<div className="dialog-actions"><button className="button secondary" type="button" onClick={close} disabled={saving}>Cancel</button><button className="button primary" type="submit" disabled={saving}>{saving && <LoaderCircle size={16} className="spinning" />}{saving ? 'Saving…' : submitLabel}</button></div></footer>
     </form>
   </dialog>;
