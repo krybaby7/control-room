@@ -1,0 +1,22 @@
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {spawn} from 'node:child_process';
+assert.equal(Number(process.versions.node.split('.')[0]),24,'Use native Node 24 for this isolated negative control.');
+for(const path of ['lib/automations/backup-store.ts','lib/automations/backup-archive-removal.ts'])assert.match(await readFile(path,'utf8'),/void full\.stream\.cancel\(\)\.catch/,'This branch must contain the deliberately old unawaited archive owner.');
+const child=spawn(process.execPath,['--experimental-strip-types','--test','--test-reporter=tap','--test-timeout=120000','--test-name-pattern=settles its cancelled verification GET before returning','tests/scheduled-backup-archive.test.ts'],{stdio:['ignore','pipe','pipe'],shell:false});
+let output='',errors='',timedOut=false;
+const timer=setTimeout(()=>{timedOut=true;child.kill();},250000);
+child.stdout.on('data',part=>{output+=part.toString();if(output.length>524288)child.kill();});
+child.stderr.on('data',part=>{errors+=part.toString();if(errors.length>131072)child.kill();});
+let code;
+try{code=await new Promise((resolve,reject)=>{child.once('error',reject);child.once('close',resolve);});}finally{clearTimeout(timer);}
+process.stdout.write(output);
+assert.equal(timedOut,false,'A timeout cannot satisfy a negative control.');
+assert.equal(code,1,'Both old ownership paths must be rejected by the actual native regressions.');
+assert.match(output,/not ok \d+ - a replayed native file backup settles its cancelled verification GET before returning/);
+assert.match(output,/not ok \d+ - a reviewed file-removal preflight settles its cancelled verification GET before returning/);
+assert.match(output,/a receipt is not returned while its cancelled native GET still owns an unread body/);
+assert.match(output,/verification body ownership must settle before subsequent owner proof reads/);
+assert.match(output,/# fail 2\b/);assert.match(output,/# cancelled 0\b/);
+assert.doesNotMatch(output+errors,/testTimeoutFailure|cancelledByParent|test timed out|duration exceeded/i);
+process.stdout.write('PASS isolated negative control: deliberately old replay and removal owners each fail their exact native body-ownership assertion; neither failure is a timeout. This is not a production or complete-suite pass.\n');

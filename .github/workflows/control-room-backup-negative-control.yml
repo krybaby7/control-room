@@ -1,0 +1,21 @@
+name: Control Room deliberately old backup ownership negative control
+on:
+  workflow_dispatch:
+  push:
+    branches: ['diagnostics/control-room-backup-negative-*']
+    paths: ['.github/workflows/control-room-backup-negative-control.yml']
+permissions:
+  contents: read
+jobs:
+  negative-control:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm run install:ci
+      - name: Require both deliberately old owners to fail exact assertions
+        run: node scripts/test-backup-cancel-negative.mjs
