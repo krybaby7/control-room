@@ -31,3 +31,5 @@ jobs:
             playwright-report/
           if-no-files-found: warn
           retention-days: 7
+
+# Verify the measured real-div scrolling ownership fix with original pointer assertions.
