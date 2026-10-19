@@ -204,3 +204,55 @@ test('historical retired continuity is not current DELETE authority after an exe
  assert.equal((await listRetiredFileBackups(f.db,principal.ownerId)).items[0].cleanupAuthorized,false);
  }finally{await f.mf.dispose();}
 });
+
+test('a replayed native file backup settles its cancelled verification GET before returning',async()=>{
+ const f=await fixture({fileBytes:1024});
+ let release!:()=>void,entered!:()=>void,drained!:()=>void;
+ const gate=new Promise<void>(resolve=>{release=resolve;}),started=new Promise<void>(resolve=>{entered=resolve;}),finished=new Promise<void>(resolve=>{drained=resolve;});
+ let replay:ReturnType<typeof runScheduledBackup>|undefined,gated=false;
+ try{
+  const job=await f.admit();assert.deepEqual(await runScheduledBackup(f.db,principal,job.intentId,{now:()=>now,files:f.services}),{status:'completed'});
+  const key=(await f.db.prepare('SELECT storage_key FROM backup_archive_objects WHERE user_id=? AND archive_id=? AND part_number=0').bind(principal.ownerId,job.backupId).first<{storage_key:string}>())!.storage_key;
+  let gets=0;
+  const services:FileBackupServices={...f.services,bucket:{put:(key,bytes,options)=>f.services.bucket.put(key,bytes,options),async get(requested){
+   const object=await f.services.bucket.get(requested);if(!object||requested!==key||++gets!==2)return object;
+   // The first GET verifies the complete archive; the second is the returned
+   // stream's automatic pull. Retain its ACTUAL R2 body until explicit release.
+   gated=true;const reader=object.body.getReader();let first=true,closed=false;
+   return {size:object.size,httpMetadata:object.httpMetadata,customMetadata:object.customMetadata,body:new ReadableStream<Uint8Array>({
+    async pull(controller){try{if(first){first=false;entered();await gate;}const next=await reader.read();if(next.done){closed=true;reader.releaseLock();drained();controller.close();}else controller.enqueue(next.value);}catch(error){if(!closed){closed=true;reader.releaseLock();drained();}controller.error(error);}},
+    async cancel(){try{release();await reader.cancel();}finally{if(!closed){closed=true;reader.releaseLock();drained();}}}
+   })};
+  }}};
+  let settled=false;replay=runScheduledBackup(f.db,principal,job.intentId,{now:()=>now,files:services});void replay.then(()=>{settled=true;},()=>{settled=true;});
+  await started;await Promise.resolve();await Promise.resolve();assert.equal(settled,false,'a receipt is not returned while its cancelled native GET still owns an unread body');
+  release();assert.deepEqual(await replay,{status:'replayed'});await finished;assert.equal(gets,2);
+  assert.equal(await f.count('workspace_backups'),1);assert.equal(await f.count('automation_occurrences'),1);assert.equal(await f.count('backup_archive_objects'),1);
+ }finally{release();if(gated)await finished;await replay?.catch(()=>{});await f.mf.dispose();}
+});
+
+test('a reviewed file-removal preflight settles its cancelled verification GET before returning',async()=>{
+ const f=await fixture({fileBytes:1024});
+ let release!:()=>void,entered!:()=>void,drained!:()=>void;
+ const gate=new Promise<void>(resolve=>{release=resolve;}),started=new Promise<void>(resolve=>{entered=resolve;}),finished=new Promise<void>(resolve=>{drained=resolve;});
+ let removal:ReturnType<typeof prepareFileBackupRemoval>|undefined,gated=false;
+ try{
+  const points=await pair(f);
+  const key=(await f.db.prepare('SELECT storage_key FROM backup_archive_objects WHERE user_id=? AND archive_id=? AND part_number=0').bind(principal.ownerId,points.newer.backupId).first<{storage_key:string}>())!.storage_key;
+  let gets=0;
+  const services:FileBackupServices={...f.services,bucket:{put:(key,bytes,options)=>f.services.bucket.put(key,bytes,options),async get(requested){
+   const object=await f.services.bucket.get(requested);if(!object||requested!==key||++gets!==2)return object;
+   // The first GET verifies the complete archive; the second is the returned
+   // stream's automatic pull. Retain its ACTUAL R2 body until explicit release.
+   gated=true;const reader=object.body.getReader();let first=true,closed=false;
+   return {size:object.size,httpMetadata:object.httpMetadata,customMetadata:object.customMetadata,body:new ReadableStream<Uint8Array>({
+    async pull(controller){try{if(first){first=false;entered();await gate;}const next=await reader.read();if(next.done){closed=true;reader.releaseLock();drained();controller.close();}else controller.enqueue(next.value);}catch(error){if(!closed){closed=true;reader.releaseLock();drained();}controller.error(error);}},
+    async cancel(){try{release();await reader.cancel();}finally{if(!closed){closed=true;reader.releaseLock();drained();}}}
+   })};
+  }}};
+  let settled=false;removal=prepareFileBackupRemoval(f.db,principal.ownerId,points.input,services,removalNow);void removal.then(()=>{settled=true;},()=>{settled=true;});
+  await started;await Promise.resolve();await Promise.resolve();assert.equal(settled,false,'reviewed removal proof is not returned while its cancelled native GET still owns an unread body');
+  release();assert.equal((await removal).selected.logical.id,points.selected.backupId);await finished;assert.equal(gets,2);
+  assert.equal(await f.count('workspace_backups'),2);assert.equal(await f.count('backup_archive_cleanup_claims'),0);assert.equal(await f.count('backup_archive_objects'),2);
+ }finally{release();if(gated)await finished;await removal?.catch(()=>{});await f.mf.dispose();}
+});

@@ -1,0 +1,40 @@
+name: Control Room archive stream ownership verification
+on:
+  push:
+    branches: ['diagnostics/control-room-backup-ownership*']
+    paths: ['.github/workflows/control-room-backup-ownership-diagnostic.yml']
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm run install:ci
+      - run: node --experimental-strip-types --test --test-timeout=120000 tests/scheduled-backup-archive.test.ts tests/backup-archive-reauthorization.test.ts tests/backup-archive-retained-cleanup.test.ts tests/backup-archive-object-stream.test.ts tests/recovery-backups.test.ts
+      - run: npm run typecheck
+        if: always()
+      - run: npm run lint
+        if: always()
+  complete:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm run install:ci
+      - run: node scripts/test-reporter.mjs --self-test
+      - run: npm test
+        timeout-minutes: 9
