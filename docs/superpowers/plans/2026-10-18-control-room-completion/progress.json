@@ -242,7 +242,7 @@
       ]
     }
   ],
-  "nextAction": "Inspect runtime_probe diagnostic-only request/socket/readstage candidate; run one instrumented original full main context for diagnosis. Do not raise timeouts, remove guards, infer success from step advancement or rerun unchanged source to chase green. Preserve exacte4source andfailedD1latency; artifactinspectionf7faa remainsunrun because no candidate exists.",
+  "nextAction": "Await ONEinstrumentedoriginalfullcontext diagnostic601d95f4a12d0cc5400087cc6f98460bf57fe96a/run39196256972/job117879566023; inspect closedproxy/socket/readstages todiagnose originalGET/jobs502. Do notmergelogging/source diagnostics, extendtimeouts, loosenreadguards orrelabela diagnosticpassascanonicalrelease. Canonicalsourcee4 unchanged andstillfailedmain/latency; reviewpackagesverifiedintegrityonly.",
   "allowedStatuses": [
     "not_started",
     "in_progress",
@@ -272,13 +272,13 @@
     "implementationHead": "e4af1fc5ae344a029f9677576963700c92aaefee",
     "headMeaning": "Frozen primary application source; this separate checkpoint branch records current verification.",
     "executionMode": "GitHub source APIs; actual Node24 GitHub Actions Linux/Windows. Managed workspace/Sites helper execution unavailable.",
-    "tests": "Exact final application sourcee4af1fc5ae344a029f9677576963700c92aaefee:491/491 focused+type/lint39194507156/job117874233566; three-engineQA39194510945 ALL11PASS; bothmobile39194510972/job117874244687 p952761.9ms and39194507161/job117874233407 p952739.8ms PASS;streaming14/runtimeD1/artifact16+D1R2/agentsD1/maintenance97tables291guardsPASS. Segmented39194510962/job117874244413 PASS27migrations/33modules/79segments/10080rows/17,767,591bytes,targetSTILLFENCED. Main39194510987/job117874247405 Node/bridge/typecheck stepsPASS,lint/build/native/browser/package ongoing; full counts await terminal.\nExacte4 firstnormal39194510942/job117874255539 FAILED ONLYD1savep952499.678949ms>2000,p501797.993855;SQLite978.531809,D1read859.966659 PASS;100outcomes/sixrestores perengine/errors[]. Artifact12161845635 sha256325994989f843e4becbaa72d22b4f77751d0ee98619434ce99f068de4cedcfe4. No rerun or latency waiver; release acceptance blocked.\nExacte4 main39194510987/job117874247405 TERMINALFAILURE:1776/1776Node,0fail/skip/cancel312917.923094ms;146/146bridge;type/lint/build and ALL nativeD1/R2/HTTPincludingoriginalscheduledsource PASS. DefaultChromium62/63:budgetjourneyagents.spec.ts61 firstGET/api/jobs afterSave failed; R2Chromium3/3PASS52.2s. Package+bridgeartifactstepsSKIPPED;no candidate. Failureartifact12161927116 SHA25634814a0c847b0876b44565b85571128ddb8c1b62f8437d51b7922d92c525c8e1.\nREADONLY originaltraceinspectionce71e9b46274f8d55932b0344845b4c73a60d11d run39195925741/job117878578293 verifiedouterartifactdigest and882eventsWITHOUTproductrerun. FailedGET/jobs was502 after15003.982ms (action15005.825ms);earlier200reads31.7/29.0/39.1ms. Empty502matches15sfixtureupstreamdeadline, NOTapp503recordvalidation. Underlyingrequeststallcauseunknown. Runtime_probe preparingdiagnostic-onlyfixedproxy/socket/readstagephases;no timeoutincrease/assertionweakening/HTTPagentfixyet.",
+    "tests": "Exact final application sourcee4af1fc5ae344a029f9677576963700c92aaefee:491/491 focused+type/lint39194507156/job117874233566; three-engineQA39194510945 ALL11PASS; bothmobile39194510972/job117874244687 p952761.9ms and39194507161/job117874233407 p952739.8ms PASS;streaming14/runtimeD1/artifact16+D1R2/agentsD1/maintenance97tables291guardsPASS. Segmented39194510962/job117874244413 PASS27migrations/33modules/79segments/10080rows/17,767,591bytes,targetSTILLFENCED. Main39194510987/job117874247405 Node/bridge/typecheck stepsPASS,lint/build/native/browser/package ongoing; full counts await terminal.\nExacte4 firstnormal39194510942/job117874255539 FAILED ONLYD1savep952499.678949ms>2000,p501797.993855;SQLite978.531809,D1read859.966659 PASS;100outcomes/sixrestores perengine/errors[]. Artifact12161845635 sha256325994989f843e4becbaa72d22b4f77751d0ee98619434ce99f068de4cedcfe4. No rerun or latency waiver; release acceptance blocked.\nExacte4 main39194510987/job117874247405 TERMINALFAILURE:1776/1776Node,0fail/skip/cancel312917.923094ms;146/146bridge;type/lint/build and ALL nativeD1/R2/HTTPincludingoriginalscheduledsource PASS. DefaultChromium62/63:budgetjourneyagents.spec.ts61 firstGET/api/jobs afterSave failed; R2Chromium3/3PASS52.2s. Package+bridgeartifactstepsSKIPPED;no candidate. Failureartifact12161927116 SHA25634814a0c847b0876b44565b85571128ddb8c1b62f8437d51b7922d92c525c8e1.\nREADONLY originaltraceinspectionce71e9b46274f8d55932b0344845b4c73a60d11d run39195925741/job117878578293 verifiedouterartifactdigest and882eventsWITHOUTproductrerun. FailedGET/jobs was502 after15003.982ms (action15005.825ms);earlier200reads31.7/29.0/39.1ms. Empty502matches15sfixtureupstreamdeadline, NOTapp503recordvalidation. Underlyingrequeststallcauseunknown. Runtime_probe preparingdiagnostic-onlyfixedproxy/socket/readstagephases;no timeoutincrease/assertionweakening/HTTPagentfixyet.\nUNVALIDATED REVIEW-ONLY packages nowexist for actualcheckedoutsourcee4af1fc5ae344a029f9677576963700c92aaefee: packagingrun39196349095/job117879852995,workflowhead50c17a8c5239ea05cd71f847b2afd8ac9e2190f9 distinctfrombuildsource. Candidateartifact12161504710/v4SHA3fd91ac8e6756bc20cc8b0caadebfbac7ca6e227dbd6b8241f6851e83d2e632f;bridgeartifact12161808777/v4SHA1efccc649bc65d3e0a835f8d46658326226f9aaf394a3ebcc50a923bfc3a435a. Independentactualcloudinspection39196532648/job117880419325 PASS1032source/332build/34bridgefiles, exactsource/innerSHA/allbuildinventory/byte-exactbridgeagainstsource;bothwrongouterSHA andalteredinnerTARwithrecomputedouterSHA negativecontrolsREJECTED. Integrityartifact12162087989 SHA58b780d4617e2c4a7780af553023e8a6adfe2bc2b048776aab7f36037479247a. IntegrityisNOTreleaseacceptance; releaseAccepted=false/deployed=false.",
     "knownFailures": [
       "Maindefaultbrowser hasone actualfixtureupstream502/15s failure after budgetSave; requeststall diagnosis ongoing. No final candidate or bridgepackage artifact produced.",
       "Exacte4 firstnormal39194510942/job117874255539 FAILED ONLYD1savep952499.678949ms>2000,p501797.993855;SQLite978.531809,D1read859.966659 PASS;100outcomes/sixrestores perengine/errors[]. Artifact12161845635 sha256325994989f843e4becbaa72d22b4f77751d0ee98619434ce99f068de4cedcfe4. No rerun or latency waiver; release acceptance blocked.",
       "Supported Sites helper execution unavailable although metadata/deployment access exists. Existing owner-private Site unchangedversion2. Approved separate pinned runtime extraction and Windows owned-process/sandbox invocation code/integration plus real owner device acceptance remain missing; installing bridge alone does not supply invocation. Selectedprovider consent/renewable ingress/closedbrowserwakeup/hostedSSE/physicalmobile-passkey acceptance not-run. Paid inference/operational-trading effects/externalalerts remain disabled."
     ],
-    "nextCommand": "Inspect runtime_probe diagnostic-only request/socket/readstage candidate; run one instrumented original full main context for diagnosis. Do not raise timeouts, remove guards, infer success from step advancement or rerun unchanged source to chase green. Preserve exacte4source andfailedD1latency; artifactinspectionf7faa remainsunrun because no candidate exists.",
+    "nextCommand": "Await ONEinstrumentedoriginalfullcontext diagnostic601d95f4a12d0cc5400087cc6f98460bf57fe96a/run39196256972/job117879566023; inspect closedproxy/socket/readstages todiagnose originalGET/jobs502. Do notmergelogging/source diagnostics, extendtimeouts, loosenreadguards orrelabela diagnosticpassascanonicalrelease. Canonicalsourcee4 unchanged andstillfailedmain/latency; reviewpackagesverifiedintegrityonly.",
     "includedChanges": [
       "Original reviewed Lab projection; private runtime remainsnotinstalled.",
       "Bounded planning capture/preflight, serialization, native5armreadgroups and archive streamownership fixes retained.",
@@ -286,7 +286,46 @@
       "Real dialog scrolling and deferredmoduleloading/retry/deadline preserved.",
       "Synchronous perinstance opener capture restoresfocus acrossdeferredshared/customdialogs.",
       "NativeD1atomicadmissionuses4guardbindings whilepreservingallauthorityconditionsandsixstatementrollback; meaningfulwhole-service andlate-race regressions added."
-    ]
+    ],
+    "reviewPackages": {
+      "workflowHead": "50c17a8c5239ea05cd71f847b2afd8ac9e2190f9",
+      "sourceCommit": "e4af1fc5ae344a029f9677576963700c92aaefee",
+      "run": 39196349095,
+      "job": 117879852995,
+      "status": "success",
+      "releaseAccepted": false,
+      "deployed": false,
+      "candidate": {
+        "id": 12161504710,
+        "bytes": 3404534,
+        "zipSha256": "3fd91ac8e6756bc20cc8b0caadebfbac7ca6e227dbd6b8241f6851e83d2e632f"
+      },
+      "bridge": {
+        "id": 12161808777,
+        "bytes": 61807,
+        "zipSha256": "1efccc649bc65d3e0a835f8d46658326226f9aaf394a3ebcc50a923bfc3a435a",
+        "tarBytes": 59423,
+        "tarFiles": 34,
+        "tarSha256": "d9a6eb8d066f0ff59e3c0e1c8ba8046e66e064517543b0000feb78cf99751305"
+      },
+      "sourceTar": {
+        "bytes": 11612160,
+        "sha256": "ae8de1a903cea89b755fe9e366313d401d73a6ddd3146beed68acf5c01cf95c9"
+      },
+      "buildTarGz": {
+        "bytes": 1301238,
+        "sha256": "8f13f54957bf7ad2b94262d90f90a88a1a8ef11eba48070fbef507e62584513c"
+      },
+      "inspection": "Independent cloud byte inspection and both negative controls passed; UNVALIDATED for release."
+    },
+    "integrityProof": {
+      "commit": "6e43164a84d555d5b7c4568e1f8684a75b4efa6e",
+      "run": 39196532648,
+      "job": 117880419325,
+      "status": "success",
+      "artifactId": 12162087989,
+      "artifactDigest": "sha256:58b780d4617e2c4a7780af553023e8a6adfe2bc2b048776aab7f36037479247a"
+    }
   },
   "updatedAt": "2026-10-19"
 }
