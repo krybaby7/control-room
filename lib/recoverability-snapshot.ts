@@ -3,7 +3,7 @@ import {REFERENCE_LIMITS} from './workspace-references.ts';
 import {prepareHistoricalAuditRows} from './audit-import.ts';
 import type {Workspace} from './types.ts';
 import type {SqlDatabase} from './workspace-store.ts';
-import {readCurrent} from './workspace-store.ts';
+import {readRecoverabilityAuxiliary} from './recoverability-auxiliary.ts';
 import {OWNER_TABLES,ownerTable,type GuardedWrite,type ModuleRow,type OwnerScopedReader,type RegisteredOwnerTable} from './workspace-modules.ts';
 import type {AuditEventDraft,JsonValue} from './workspace-protocol.ts';
 import type {ModuleReplacement,MutationPlan} from './workspace-transaction.ts';
@@ -12,7 +12,7 @@ import {BUNDLE_LIMITS,boundedPages} from './workspace-export-core.ts';
 import {buildWorkspaceBundle,exportRegistry,moduleTables,serializePortableAuditRow,type WorkspaceBundle} from './workspace-export.ts';
 import {canonical,contentHash} from './canonical-json.ts';
 import {measureRecoverability,type RecoverabilityMeasurement,type RecoverabilityTableInput} from './recoverability-measure.ts';
-import {readOperationalWatermarks,validateOperationalWatermarks} from './operational-watermarks.ts';
+import {validateOperationalWatermarks} from './operational-watermarks.ts';
 import {canonicalJsonValue} from './audit-events.ts';
 import {getWorkspaceNamespaces} from './workspace-namespaces.ts';
 import {parseWorkspaceExport} from './workspace-validation.ts';
@@ -22,13 +22,15 @@ type CapturedPhysicalRow=ModuleRow&{stream_sequence?:number};
 /** Closed read-only batches retain independent key cursors, exact row shapes,
  * source sequence, page and row bounds. No JSON aggregate exceeds a row limit. */
 async function readPhysicalImage(db:SqlDatabase,owner:string):Promise<Map<RegisteredOwnerTable,CapturedPhysicalRow[]>>{
+ // One compiled 36-table batch; adding tables requires an explicit bound review.
+ if(OWNER_TABLES.length>36)throw new Error('Physical snapshot table batch bound exceeded.');
  const image=new Map<RegisteredOwnerTable,CapturedPhysicalRow[]>(),after=new Map<RegisteredOwnerTable,string>();
  let pending=[...OWNER_TABLES],retainedBytes=0;
  for(const table of pending){image.set(table,[]);after.set(table,'');}
  while(pending.length){
   const following:RegisteredOwnerTable[]=[];
-  for(let offset=0;offset<pending.length;offset+=12){
-   const tables=pending.slice(offset,offset+12),statements=tables.map(table=>db.prepare(`SELECT id, row_revision, payload_json, content_hash${streams[table]?', stream_sequence':''} FROM ${ownerTable(table)} WHERE user_id = ? AND id > ? ORDER BY id LIMIT ?`).bind(owner,after.get(table)!,BUNDLE_LIMITS.pageSize));
+  for(let offset=0;offset<pending.length;offset+=36){
+   const tables=pending.slice(offset,offset+36),statements=tables.map(table=>db.prepare(`SELECT id, row_revision, payload_json, content_hash${streams[table]?', stream_sequence':''} FROM ${ownerTable(table)} WHERE user_id = ? AND id > ? ORDER BY id LIMIT ?`).bind(owner,after.get(table)!,BUNDLE_LIMITS.pageSize));
    const batches=await db.batch(statements);
    if(!Array.isArray(batches)||batches.length!==tables.length)throw new Error('Invalid physical snapshot batch.');
    for(const [index,table]of tables.entries()){
@@ -67,11 +69,11 @@ export async function measureProspectiveRecoverability(db:SqlDatabase,owner:stri
  if(!owner||!Number.isFinite(Date.parse(input.now)))throw new Error('An owner and valid measurement timestamp are required.');
  if(REFERENCE_LIMITS.rows!==BUNDLE_LIMITS.rows)throw new Error('Reference and recovery row bounds require an explicit serializer update.');
  if((input.writes?.length??0)>200||(input.events?.length??0)>2000||(input.replacements?.length??0)>OWNER_TABLES.length||(input.historyImports?.length??0)>BUNDLE_LIMITS.rows||(input.operationalWrites?.length??0)>BUNDLE_LIMITS.rows||(input.operationalEvents?.length??0)>BUNDLE_LIMITS.rows)throw new Error('Prospective operation count exceeds its bounded serializer scope.');
- const terminalReserveRows=(await db.prepare("SELECT job_id,operational_revision,status,approval_id FROM agent_job_state WHERE user_id=? AND approval_id IS NOT NULL AND status IN ('queued','leased','running','cancelling','reconcile_required') ORDER BY job_id LIMIT 13").bind(owner).all<{job_id:string;operational_revision:number;status:string;approval_id:string}>()).results;
+ const auxiliary=await readRecoverabilityAuxiliary(db,owner,input.now,{includeTerminalReserve:true}),terminalReserveRows=auxiliary.terminalReserveRows;
  if(terminalReserveRows.length>12||!Number.isSafeInteger(input.agentTerminalReserveDelta??0)||Math.abs(input.agentTerminalReserveDelta??0)>12)throw new Error('Invalid finite terminal reserve.');
  const terminalReserveCount=terminalReserveRows.length+(input.agentTerminalReserveDelta??0);if(terminalReserveCount<0||terminalReserveCount>12)throw new Error('Terminal reserve exceeds the finite batch.');
- const captured=await readCurrent(db,owner,input.now),namespaces=await getWorkspaceNamespaces(db,owner);
- const boundaryRevision=captured.revision,boundaryWatermarks=await readOperationalWatermarks(db,owner);
+ const captured=auxiliary.current,namespaces=auxiliary.namespaces;
+ const boundaryRevision=captured.revision,boundaryWatermarks=auxiliary.watermarks;
  // Every serializer below reads this one captured physical image, never a second
  // independent live export. The final read verifies the whole image before the
  // caller receives exact atomic row-set preconditions.
@@ -146,8 +148,8 @@ export async function measureProspectiveRecoverability(db:SqlDatabase,owner:stri
  if(serializedMaximum+reserveBytes>1_800_000)measurement.reasons.push({code:'d1_backup_bytes',scope:'agent-terminal-headroom',actual:serializedMaximum+reserveBytes,limit:1_800_000});
  if((modules.agent_results?.records.length??0)+terminalReserveCount>500)measurement.reasons.push({code:'row_limit',scope:'agent-terminal-history-headroom',actual:(modules.agent_results?.records.length??0)+terminalReserveCount,limit:500});
  measurement.allowed=measurement.reasons.length===0;
- const current=await readCurrent(db,owner,input.now);
- if(current.revision!==boundaryRevision||canonical(current.workspace)!==canonical(original.planning)||canonical(await readOperationalWatermarks(db,owner))!==canonical(boundaryWatermarks))throw new Error('Workspace boundary changed during recoverability measurement.');
+ const latestAuxiliary=await readRecoverabilityAuxiliary(db,owner,input.now,{includeNamespaces:false}),current=latestAuxiliary.current;
+ if(current.revision!==boundaryRevision||canonical(current.workspace)!==canonical(original.planning)||canonical(latestAuxiliary.watermarks)!==canonical(boundaryWatermarks))throw new Error('Workspace boundary changed during recoverability measurement.');
  // Re-read all physical sets: the returned revision/vector alone does not detect an
  // unguarded same-revision mutation, and must never certify a stale normalized set.
  const latestPhysical=await readPhysicalImage(db,owner);

@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {database} from './helpers/sqlite.ts';
 import {createPrivateGrowthContext,privateInsertGrowth,privateUpdateGrowth,combinePrivateGrowth} from '../lib/private-growth.ts';
-import {privateRowGrowth} from '../lib/private-capacity.ts';
+import {privateRowGrowth,privateCapacityGuard} from '../lib/private-capacity.ts';
 test('native schema hydration counts escaped UTF8 full defaults exactly, excluding only owner identity',async t=>{
  const f=database();t.after(()=>f.sqlite.close());
  const input={intent_id:'synthetic-intent',configuration_hash:'a'.repeat(64)},growth=await privateInsertGrowth(f.db,'integration_jobs',input);
@@ -61,4 +61,40 @@ test('standalone multirow UPDATE hydrates schema once rather than once per owner
  const f=database();t.after(()=>f.sqlite.close());for(let index=0;index<4;index++)f.sqlite.prepare('INSERT INTO workspace_drafts(user_id,id,row_revision,payload_json,expires_at) VALUES(?,?,1,?,?)').run('owner','draft-'+index,'original','later');
  let fingerprints=0;const db={...f.db,prepare(sql:string){if(sql.includes('sqlite_master'))fingerprints++;return f.db.prepare(sql);}};
  await privateUpdateGrowth(db,'owner','workspace_drafts','id LIKE ?',['draft-%'],{payload_json:'new'});assert.equal(fingerprints,1);
+});
+
+test('one captured schema serves growth and capacity without caching actual owner usage or accepting cloned authority',async t=>{
+ const f=database();t.after(()=>f.sqlite.close());let fingerprints=0;
+ const db={...f.db,prepare(sql:string){if(sql.startsWith('SELECT name,sql FROM sqlite_master'))fingerprints++;return f.db.prepare(sql);}};
+ const schemaContext=await createPrivateGrowthContext(db);
+ const growth=await privateInsertGrowth(db,'workspace_drafts',{id:'quota-capture',row_revision:1,payload_json:'{}',expires_at:'later'},schemaContext);
+ const options={schemaContext,growth:[{...growth,rows:99999}]};
+ const proof=await privateCapacityGuard(db,'owner',options);
+ assert.equal(fingerprints,1);
+ assert.ok(await db.prepare('SELECT 1 WHERE '+proof.sql).bind(...proof.bindings).first());
+ for(let index=0;index<3;index++)f.sqlite.prepare('INSERT INTO workspace_drafts(user_id,id,row_revision,payload_json,expires_at) VALUES(?,?,1,?,?)').run('owner','actual-'+index,'{}','later');
+ // Same immutable columns, independently evaluated CURRENT owner rows.
+ const later=await privateCapacityGuard(db,'owner',options);assert.equal(fingerprints,1);
+ assert.equal(await db.prepare('SELECT 1 WHERE '+later.sql).bind(...later.bindings).first(),null);
+ const other=await privateCapacityGuard(db,'other',options);assert.ok(await db.prepare('SELECT 1 WHERE '+other.sql).bind(...other.bindings).first());
+ await assert.rejects(()=>privateCapacityGuard(db,'owner',{schemaContext:{...schemaContext}}));
+ await assert.rejects(()=>privateCapacityGuard(f.db,'owner',{schemaContext}));
+ await assert.rejects(()=>privateCapacityGuard(db,'owner',{schemaContext:JSON.parse(JSON.stringify(schemaContext))}));
+});
+test('captured capacity retains the original exact schema fingerprint and atomically rolls back late DDL',async t=>{
+ const f=database();t.after(()=>f.sqlite.close());
+ const schemaContext=await createPrivateGrowthContext(f.db);
+ const growth=await privateInsertGrowth(f.db,'workspace_drafts',{id:'late-ddl',row_revision:1,payload_json:'{}',expires_at:'later'},schemaContext);
+ f.sqlite.exec('ALTER TABLE workspace_drafts ADD COLUMN unexpected_after_capture TEXT');
+ // Reusing a quote is safe only because the atomic guard still checks the old
+ // exact schema; it must not silently quote the changed schema or omit its fence.
+ const proof=await privateCapacityGuard(f.db,'owner',{schemaContext,growth:[growth]});
+ assert.equal(await f.db.prepare('SELECT 1 WHERE '+proof.sql).bind(...proof.bindings).first(),null);
+ await assert.rejects(f.db.batch([
+  f.db.prepare('INSERT INTO workspace_mutations(user_id,mutation_id,command_hash,revision,committed_at) VALUES(?,?,?,?,?)').bind('owner','captured-must-rollback','a'.repeat(64),1,'2026-10-19T12:00:00.000Z'),
+  f.db.prepare('INSERT INTO workspace_assertions(user_id,mutation_id,valid) SELECT ?,?,CASE WHEN '+proof.sql+' THEN 1 ELSE 0 END').bind('owner','capture-ddl',...proof.bindings),
+ ]));
+ assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM workspace_mutations').get()!.n,0);
+ assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM workspace_assertions').get()!.n,0);
+ await assert.rejects(()=>privateCapacityGuard(f.db,'owner'));
 });

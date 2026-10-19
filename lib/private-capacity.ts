@@ -1,4 +1,4 @@
-import {privateSchemaMetadata} from './private-schema.ts';
+import {privateSchemaMetadata,type PrivateSchemaContext} from './private-schema.ts';
 import {PRIVATE_PROFILE_TABLES} from './private-profile.ts';
 import {canonical} from './canonical-json.ts';
 import type {SqlDatabase} from './workspace-store.ts';
@@ -28,7 +28,7 @@ export const PRIVATE_JOURNAL_RESERVATION=Object.freeze({eventBytes:8*1024*1024,e
 const agentPrivateTables=PRIVATE_PROFILE_TABLES;
 export interface PrivateGrowth {table:typeof agentPrivateTables[number]|'baselineRemovalFences';bytes:number;rows:number}
 export const PRIVATE_REVOCATION_POOL=Object.freeze({devices:20,bytesPerDevice:2048,rowsPerDevice:1,bytes:40960,rows:20,framingBytes:24576});
-export interface PrivateCapacityOptions {newAttempts?:number;newPendingPuts?:number;settlingPendingPuts?:number;firstCancelAttemptIds?:readonly string[];firstRevokeDeviceIds?:readonly string[];growth?:readonly PrivateGrowth[]}
+export interface PrivateCapacityOptions {/** Server-only, DB-bound schema capture; never caches owner usage. */schemaContext?:PrivateSchemaContext;newAttempts?:number;newPendingPuts?:number;settlingPendingPuts?:number;firstCancelAttemptIds?:readonly string[];firstRevokeDeviceIds?:readonly string[];growth?:readonly PrivateGrowth[]}
 export async function privateCapacityGuard(db:SqlDatabase,owner:string,options:PrivateCapacityOptions={}):Promise<PrivateCapacityGuard>{
  const count=options.newAttempts??0;if(!owner||!Number.isSafeInteger(count)||count<0||count>1)capacityFail('invalid_private_capacity_request');
  const newPuts=options.newPendingPuts??0,settlingPuts=options.settlingPendingPuts??0;for(const amount of [newPuts,settlingPuts])if(!Number.isSafeInteger(amount)||amount<0||amount>500)capacityFail('invalid_pending_put_reservation');
@@ -38,7 +38,7 @@ export async function privateCapacityGuard(db:SqlDatabase,owner:string,options:P
  if(firstCancel.length&&(count||newPuts||settlingPuts||growth.reduce((sum,value)=>sum+value.bytes,0)>firstCancel.length*4096||growth.reduce((sum,value)=>sum+value.rows,0)>firstCancel.length*2))capacityFail('first_cancel_growth_exceeds_funding');
  const firstRevoke=options.firstRevokeDeviceIds??[];if(firstRevoke.length>1||firstRevoke.some(value=>typeof value!=='string'||value.length<1||value.length>128||Array.from(value).some(character=>character.charCodeAt(0)<=32||character.charCodeAt(0)===127)))capacityFail('invalid_first_revoke_funding');
  if(firstRevoke.length&&(count||newPuts||settlingPuts||firstCancel.length||growth.reduce((sum,value)=>sum+value.bytes,0)>2048||growth.reduce((sum,value)=>sum+value.rows,0)>1))capacityFail('first_revoke_growth_exceeds_funding');
- const metadata=await privateSchemaMetadata(db);
+ const metadata=await privateSchemaMetadata(db,options.schemaContext);
  const jsonFor=(table:typeof agentPrivateTables[number],alias='')=>{
   const columns=metadata.tables[table].map(row=>row.name).filter(name=>name!=='user_id').sort();
   if(!columns.length||columns.some(name=>!/^[a-z_][a-z0-9_]*$/u.test(name)))capacityFail('invalid_server_schema');

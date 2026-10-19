@@ -1,4 +1,4 @@
-import {privateSchemaMetadata} from './private-schema.ts';
+import {privateSchemaMetadata,capturePrivateSchema,type PrivateSchemaContext} from './private-schema.ts';
 import {getTableColumns,getTableName,is} from 'drizzle-orm';
 import {SQLiteTable} from 'drizzle-orm/sqlite-core';
 import * as schema from '../db/schema.ts';
@@ -8,17 +8,13 @@ import type {SqlDatabase} from './workspace-store.ts';
 export type PrivatePhysicalRow=Record<string,string|number|null>;
 type Table=Exclude<PrivateGrowth['table'],'baselineRemovalFences'>;
 function fail():never{throw new PrivateCapacityError();}
-export interface PrivateGrowthContext {readonly guard:{readonly sql:string;readonly bindings:readonly (string|number|null)[]}}
+export type PrivateGrowthContext=PrivateSchemaContext;
 type SchemaMetadata=Awaited<ReturnType<typeof privateSchemaMetadata>>;
-const contexts=new WeakMap<PrivateGrowthContext,{db:SqlDatabase;metadata:SchemaMetadata}>();
 /** One operation's owner-free immutable schema quote. Caller MUST conjoin guard
  * with its atomic admission/write proof. Never retain this context as authority. */
-export async function createPrivateGrowthContext(db:SqlDatabase):Promise<PrivateGrowthContext>{
- const metadata=await privateSchemaMetadata(db),guard=Object.freeze({sql:metadata.guard.sql,bindings:Object.freeze([...metadata.guard.bindings])}),context=Object.freeze({guard});
- contexts.set(context,{db,metadata});return context;
-}
+export const createPrivateGrowthContext=capturePrivateSchema;
 async function schemaFor(db:SqlDatabase,context?:PrivateGrowthContext):Promise<SchemaMetadata>{
- if(context===undefined)return privateSchemaMetadata(db);const retained=contexts.get(context);if(!retained||retained.db!==db)fail();return retained.metadata;
+ try{return await privateSchemaMetadata(db,context);}catch{fail();}
 }
 const definitions=new Map<string,SQLiteTable>();for(const value of Object.values(schema))if(is(value,SQLiteTable))definitions.set(getTableName(value),value);
 function scalar(value:unknown):value is string|number|null{return value===null||typeof value==='string'||typeof value==='number'&&Number.isFinite(value);}

@@ -1,6 +1,7 @@
+import {readMutationAdmission,classifyMutationAdmission} from './mutation-admission-reader.ts';
 import {withWorkspaceAdmission} from './workspace-admission.ts';
 import {workspacePrivateCapacityGrowth} from './workspace-private-capacity.ts';
-import {requirePrivateCapacity} from './private-capacity.ts';
+import {privateCapacityGuard,PrivateCapacityError} from './private-capacity.ts';
 import {fileBackupRemovalControlSchema,fileBackupRemovalStatements} from './automations/backup-archive-removal.ts';
 import {validateAgentArtifactPlan} from './agents/artifact-controls.ts';
 import {backupQuotaGuard} from './backup-archive-quota.ts';
@@ -75,14 +76,13 @@ async function executeWorkspaceCommandAdmitted(userId:string,input:{protocolVers
   // Existing v2 receipts used the command-only hash; preserve their replay semantics.
   const legacyHash=await hashJson(command);
   const checkReceipt=async ():Promise<CommandResult|null>=>{const prior=await receipt(db,userId,id);if(!prior)return null;if(prior.command_hash!==hash && prior.command_hash!==legacyHash)throw new MutationIdReuseError('This mutation ID was reused for a different change.');return {status:'replayed',envelope:await readCurrent(db,userId,now),receipt:{mutationId:id,commandHash:prior.command_hash,appliedRevision:prior.revision}};};
-  const epoch=await checkMutationEpoch(db,userId,id);
-  if(epoch.status==='retired')throw new RetiredMutationError('This mutation epoch is retired.');
-  const replay=await checkReceipt();if(replay)return replay;
-  // Reject stale queued contenders before hydrating a large planning document.
-  // Epoch and receipt replay remain authoritative; equal revisions still take
-  // the complete snapshot and every atomic compare-and-swap below.
-  const revisionHead=await db.prepare('SELECT revision FROM workspaces WHERE user_id=?').bind(userId).first<{revision:number}>();
-  if(revisionHead&&revisionHead.revision!==revision)return {status:'conflict',currentRevision:revisionHead.revision};
+  // One statement freezes the epoch, receipt and revision head together.
+  // Later failure reconciliation and every atomic compiler guard stay intact.
+  const admission=await readMutationAdmission(db,userId,id),epoch=admission.epoch;
+  const decision=classifyMutationAdmission(admission,{commandHash:hash,legacyHash,expectedRevision:revision});
+  if(decision.status==='retired')throw new RetiredMutationError('This mutation epoch is retired.');
+  if(decision.status==='replayed')return {status:'replayed',envelope:await readCurrent(db,userId,now),receipt:{mutationId:id,commandHash:decision.receipt.command_hash,appliedRevision:decision.receipt.revision}};
+  if(decision.status==='conflict')return {status:'conflict',currentRevision:decision.currentRevision};
   const before=await readCurrent(db,userId,now);if(before.revision!==revision)return {status:'conflict',currentRevision:before.revision};
   if(await receiptCount(db,userId)>=RECEIPT_CAPACITY.hard)throw new WorkspaceCapacityError();
   const handler=deps.handlers.get(command.type);if(!handler)throw new CommandValidationError('Unknown command.');
@@ -126,8 +126,8 @@ async function executeWorkspaceCommandAdmitted(userId:string,input:{protocolVers
     throw error;
   }
   const privateQuote=await workspacePrivateCapacityGrowth(db,userId,{plan,before,command,mutationId:id,commandHash:hash,now,preparedBackup,agentArtifact});
-  let privateCapacity:Awaited<ReturnType<typeof requirePrivateCapacity>>;
-  try{privateCapacity=await requirePrivateCapacity(db,userId,{growth:privateQuote.growth,firstCancelAttemptIds:privateQuote.firstCancelAttemptIds,firstRevokeDeviceIds:privateQuote.firstRevokeDeviceIds});}
+  let privateCapacity:Awaited<ReturnType<typeof privateCapacityGuard>>;
+  try{privateCapacity=await privateCapacityGuard(db,userId,{schemaContext:privateQuote.schemaContext,growth:privateQuote.growth,firstCancelAttemptIds:privateQuote.firstCancelAttemptIds,firstRevokeDeviceIds:privateQuote.firstRevokeDeviceIds});}
   catch(error){
     if((await checkMutationEpoch(db,userId,id)).status==='retired')throw new RetiredMutationError('This mutation epoch is retired.');
     const concurrentReplay=await checkReceipt();if(concurrentReplay)return concurrentReplay;
@@ -328,8 +328,11 @@ async function executeWorkspaceCommandAdmitted(userId:string,input:{protocolVers
     const replay=await checkReceipt();if(replay)return replay;
     const current=await readCurrent(db,userId,now);if(current.revision!==revision)return {status:'conflict',currentRevision:current.revision};
     // Only classify a row conflict when an authoritative reread proves it; otherwise storage remains uncertain.
-    if(plan.importSource){const source=await db.prepare('SELECT id FROM workspace_imports WHERE user_id=? AND id=? AND content_hash=? AND expires_at>?').bind(userId,plan.importSource.id,plan.importSource.hash,now).first<{id:string}>();if(!source)throw new ModuleConflictError('The staged import changed or expired. Review a new preview.');}
     if(await receiptCount(db,userId)>=RECEIPT_CAPACITY.hard)throw new WorkspaceCapacityError();
+    // Reconcile the exact admitted quote only on failure; the same guard was the
+    // first atomic assertion. No refreshed quote, deletion credit or refund.
+    if(!await db.prepare('SELECT 1 WHERE '+privateCapacity.sql).bind(...privateCapacity.bindings).first())throw new PrivateCapacityError();
+    if(plan.importSource){const source=await db.prepare('SELECT id FROM workspace_imports WHERE user_id=? AND id=? AND content_hash=? AND expires_at>?').bind(userId,plan.importSource.id,plan.importSource.hash,now).first<{id:string}>();if(!source)throw new ModuleConflictError('The staged import changed or expired. Review a new preview.');}
     const reader=ownerReader(db,userId);
     if(plan.referenceSnapshot){
       for(const table of plan.referenceSnapshot.coveredModules){
@@ -342,8 +345,9 @@ async function executeWorkspaceCommandAdmitted(userId:string,input:{protocolVers
     for(const write of plan.writes){const row=await reader.get(write.table,write.id);if(write.operation==='insert'?Boolean(row):!row || row.row_revision!==write.expectedRowRevision)throw new ModuleConflictError('A related record changed. Refresh and review again.');}
     throw new WorkspaceStorageError('The change could not be confirmed. Reconcile its mutation ID before retrying.');
   }
-  const finalEpoch=await checkMutationEpoch(db,userId,id);if(finalEpoch.status==='retired')throw new RetiredMutationError('This mutation epoch is retired.');
-  const committed=await receipt(db,userId,id);if(!committed)return {status:'conflict',currentRevision:(await readCurrent(db,userId,now)).revision};
-  if(committed.command_hash!==hash) return (await checkReceipt())!;
-  return {status:acquired?'committed':'replayed',envelope:await readCurrent(db,userId,now),receipt:{mutationId:id,commandHash:hash,appliedRevision:committed.revision}};
+  const finalAdmission=await readMutationAdmission(db,userId,id);
+  if(finalAdmission.epoch.status==='retired')throw new RetiredMutationError('This mutation epoch is retired.');
+  const committed=finalAdmission.receipt;if(!committed)return {status:'conflict',currentRevision:(await readCurrent(db,userId,now)).revision};
+  if(committed.command_hash!==hash&&committed.command_hash!==legacyHash)throw new MutationIdReuseError('This mutation ID was reused for a different change.');
+  return {status:acquired&&committed.command_hash===hash?'committed':'replayed',envelope:await readCurrent(db,userId,now),receipt:{mutationId:id,commandHash:committed.command_hash,appliedRevision:committed.revision}};
 }

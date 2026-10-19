@@ -6,6 +6,14 @@ export type {PrivateSchemaColumn} from './private-schema-contract.ts';
 type Table=typeof PRIVATE_PROFILE_TABLES[number];
 export interface PrivateSchemaGuard {sql:string;bindings:(string|number|null)[]}
 export interface PrivateSchemaMetadata {readonly tables:Readonly<Record<Table,readonly PrivateSchemaColumn[]>>;readonly guard:PrivateSchemaGuard}
+/** Opaque, DB-bound capture for ONE operation. Its exact guard must fence every
+ * atomic write using the captured columns; this is never capacity/owner authority. */
+export interface PrivateSchemaContext {readonly guard:{readonly sql:string;readonly bindings:readonly (string|number|null)[]}}
+const captures=new WeakMap<PrivateSchemaContext,{db:SqlDatabase;metadata:PrivateSchemaMetadata}>();
+export async function capturePrivateSchema(db:SqlDatabase):Promise<PrivateSchemaContext>{
+ const metadata=await privateSchemaMetadata(db),context=Object.freeze({guard:metadata.guard});
+ captures.set(context,{db,metadata});return context;
+}
 type SchemaRow={name:string;sql:string};
 type Entry={fingerprint:string;columns:Promise<Readonly<Record<Table,readonly PrivateSchemaColumn[]>>>};
 const caches=new WeakMap<SqlDatabase,Entry>();
@@ -25,12 +33,13 @@ async function discover(db:SqlDatabase,rows:SchemaRow[]):Promise<Readonly<Record
  return tables;
 }
 /** Only physical schema metadata is cached, never owner rows, quota values,
- * principal state or authorization. Every call reads the current closed schema
+ * principal state or authorization. Every uncaptured call reads the current closed schema
  * fingerprint. Parallel misses share discovery, installed before PRAGMAs start.
  * The returned guard MUST be included in the same atomic write admission as
  * every quota proof relying on these columns. A schema change never receives
  * implicit permission because an earlier metadata promise happened to resolve. */
-export async function privateSchemaMetadata(db:SqlDatabase):Promise<PrivateSchemaMetadata>{
+export async function privateSchemaMetadata(db:SqlDatabase,context?:PrivateSchemaContext):Promise<PrivateSchemaMetadata>{
+ if(context!==undefined){const capture=captures.get(context);if(!capture||capture.db!==db)fail();return capture.metadata;}
  const rows=(await db.prepare(schemaQuery).bind(inventory).all<SchemaRow>()).results;
  if(rows.length!==PRIVATE_PROFILE_TABLES.length||new Set(rows.map(row=>row.name)).size!==rows.length||rows.some(row=>!PRIVATE_PROFILE_TABLES.includes(row.name as Table)||typeof row.sql!=='string'||!row.sql||row.sql.length>100000)||rows.some((row,index)=>index>0&&rows[index-1].name>=row.name))fail();
  const fingerprint=canonical(rows);

@@ -36,21 +36,41 @@ const output=new URL('../benchmark-results/workspace.json',import.meta.url);
 const report={format:'control-room-synthetic-benchmark-v1',source,startedAt:new Date().toISOString(),environment:{node:process.version,v8:process.versions.v8,platform:platform(),arch:arch(),cpuModel:cpus()[0]?.model??'unreported',availableParallelism:availableParallelism(),totalMemoryBytes:totalmem(),miniflareLockedVersion:JSON.parse(await readFile(new URL('../node_modules/miniflare/package.json',import.meta.url),'utf8')).version},method:{warmups,samples,percentile:'nearest rank; p95 is the largest of five measured samples',timing:'host performance.now; includes actual database binding round trips where used; setup excluded',budgetsMilliseconds:budgets,thresholdMeaning:'Explicit coarse CI regression gates, not production service-level objectives.',limits:{planning:WORKSPACE_LIMITS,evidenceRead:EVIDENCE_SNAPSHOT_LIMITS,bundle:BUNDLE_LIMITS,d1Recovery:BACKUP_LIMITS,importStaging:IMPORT_STAGING_LIMITS,ownerTables:OWNER_TABLES.length}},engines:[],errors:[],limitations:['Synthetic isolated metadata only; no live owner, hosted D1/R2 network, physical device, provider or model.','Shared Actions CPU and local Miniflare transport vary; five samples provide a coarse regression signal, not a statistically stable tail estimate.','The large case approaches planning record caps and the default D1 metadata recovery byte bound; it does not claim all independent maxima fit simultaneously.','Restore includes real quarantine, private recovery snapshot, receipt, audit and guarded central command; no fake adapter or timing subtraction.']};
 report.environment.initialNodeMemoryBytes=process.memoryUsage();
 const commandProfiling=process.env.CONTROL_ROOM_PROFILE_COMMANDS==='1';
-report.method.commandProfiling={enabled:commandProfiling,activation:'CONTROL_ROOM_PROFILE_COMMANDS=1',scope:'Node benchmark only; one stable DB wrapper per engine',limits:{commandFrames:100,intervalsPerCommand:1024},interpretation:'Binding await durations overlap. Union is used for coverage; outside-observed-await wall includes admission waiting, JS/hash/validation and all other unobserved awaits, and is not a CPU attribution. No SQL, parameters, owner IDs, command bodies or result rows are recorded.'};
+report.method.commandProfiling={enabled:commandProfiling,activation:'CONTROL_ROOM_PROFILE_COMMANDS=1',scope:'Node benchmark only; one stable DB wrapper per engine',limits:{commandFrames:100,intervalsPerCommand:1024,sequenceEntriesPerCommand:128},interpretation:'Binding await durations overlap. Union is used for coverage; outside-observed-await wall includes admission waiting, JS/hash/validation and all other unobserved awaits, and is not a CPU attribution. No SQL, parameters, owner IDs, command bodies or result rows are recorded.'};
 
 const commandProfileContext=new AsyncLocalStorage();
 function sqlClass(sql){
- const upper=sql.toUpperCase(),read=/^\s*(SELECT|PRAGMA|EXPLAIN)\b/u.test(upper);
- const family=/SQLITE_MASTER|PRAGMA_TABLE_INFO/u.test(upper)?'schema_contract':/WORKSPACE_MUTATIONS/u.test(upper)?'receipt':/WORKSPACE_MUTATION_EPOCHS|MUTATION_ID/u.test(upper)?'mutation_authority':/WORKSPACE_EXECUTION_STATE/u.test(upper)?'execution_epoch':/WORKSPACE_JOB_INTENTS/u.test(upper)?'job_authority':/BACKUP|ATTACHMENT_BLOB/u.test(upper)?'recovery_ledger':/AUDIT_/u.test(upper)?'audit':/\bWORKSPACES\b/u.test(upper)?'planning_metadata':'owner_module_or_guard';
+ const upper=sql.toUpperCase(),read=/^\s*(SELECT|PRAGMA|EXPLAIN)\b/u.test(upper)||/^\s*WITH PRIVATE_CAPACITY_OWNER\b/u.test(upper);
+ // Closed, compile-time categories only. Priority prevents composed quota and
+ // admission SQL from being mislabeled by an incidental audit/table reference.
+ let family='owner_module_or_guard';
+ if(/PRIVATE_CAPACITY_OWNER/u.test(upper))family='private_capacity';
+ else if(/SQLITE_MASTER|PRAGMA TABLE_INFO/u.test(upper))family='schema_contract';
+ else if(/WORKSPACE_MUTATION_EPOCHS/u.test(upper)&&/WORKSPACE_MUTATIONS/u.test(upper))family=/\bWORKSPACES\b/u.test(upper)?'mutation_admission':'mutation_final_receipt';
+ else if(/COUNT\(\*\).*WORKSPACE_MUTATIONS/u.test(upper))family='receipt_count';
+ else if(/WORKSPACE_MUTATIONS/u.test(upper))family='receipt';
+ else if(/WORKSPACE_MUTATION_EPOCHS|MUTATION_ID/u.test(upper))family='mutation_authority';
+ else if(/SELECT\s+W\.CONTENT,W\.REVISION,W\.UPDATED_AT/u.test(upper))family='workspace_current';
+ else if(/SELECT DISTINCT ENTITY_ID FROM AUDIT_EVENTS/u.test(upper))family='baseline_removal';
+ else if(/AGENT_JOB_STATE/u.test(upper)&&/APPROVAL_ID IS NOT NULL/u.test(upper)&&/LIMIT 13/u.test(upper))family='terminal_reserve';
+ else if(/WORKSPACE_SOURCE_NAMESPACES/u.test(upper))family='namespaces';
+ else if(/OPERATIONAL_WATERMARK|OPERATIONAL_STREAM|STREAM_WATERMARK/u.test(upper))family='operational_watermark';
+ else if(/FROM AUDIT_EVENTS/u.test(upper)&&/EVENT_ID\s*>/u.test(upper))family='audit_page';
+ else if(/SELECT ID,\s*ROW_REVISION,\s*PAYLOAD_JSON,\s*CONTENT_HASH/u.test(upper))family='physical_page';
+ else if(/WORKSPACE_EXECUTION_STATE/u.test(upper))family='execution_epoch';
+ else if(/WORKSPACE_JOB_INTENTS/u.test(upper))family='job_authority';
+ else if(/BACKUP|ATTACHMENT_BLOB/u.test(upper))family='recovery_ledger';
+ else if(/AUDIT_/u.test(upper))family='audit_other';
+ else if(/\bWORKSPACES\b/u.test(upper))family='planning_metadata';
  return {read,family};
 }
 function profileDatabase(base){
  const native=new WeakMap();
- const observed=async(method,classification,statements,operation)=>{
+ const observed=async(method,classification,statements,operation,members)=>{
   const frame=commandProfileContext.getStore();if(!frame)return operation();
   frame.rpcCount++;frame.statementCount+=statements;frame.calls[method]=(frame.calls[method]??0)+1;
   const aggregate=frame.classes[classification]??={calls:0,statements:0,sumAwaitMilliseconds:0};aggregate.calls++;aggregate.statements+=statements;
-  const started=performance.now();try{return await operation();}finally{const ended=performance.now();aggregate.sumAwaitMilliseconds+=ended-started;frame.sumAwaitMilliseconds+=ended-started;if(frame.intervals.length<1024)frame.intervals.push([started-frame.startedAt,ended-frame.startedAt]);else frame.intervalsTruncated=true;}
+  const started=performance.now(),entry={method,family:classification,statements,...(members?{members}:{}),startedMilliseconds:started-frame.startedAt,awaitMilliseconds:null};if(frame.sequence.length<128)frame.sequence.push(entry);else frame.sequenceTruncated=true;try{return await operation();}finally{const ended=performance.now();entry.awaitMilliseconds=ended-started;aggregate.sumAwaitMilliseconds+=ended-started;frame.sumAwaitMilliseconds+=ended-started;if(frame.intervals.length<1024)frame.intervals.push([started-frame.startedAt,ended-frame.startedAt]);else frame.intervalsTruncated=true;}
  };
  const statement=(value,classification)=>{
   const wrapped={bind:(...values)=>statement(value.bind(...values),classification),first:()=>observed('first',classification.family,1,()=>value.first()),all:()=>observed('all',classification.family,1,()=>value.all()),run:()=>observed('run',classification.family,1,()=>value.run())};
@@ -58,15 +78,15 @@ function profileDatabase(base){
  };
  // This single wrapper identity is retained for the whole engine, including
  // warmups, so DB-keyed schema/contract caches are not invalidated per command.
- return {prepare:sql=>statement(base.prepare(sql),sqlClass(sql)),batch:statements=>{const rows=statements.map(value=>native.get(value));return observed('batch',rows.every(row=>row?.classification.read)?'read_batch':'write_or_guard_batch',statements.length,()=>base.batch(statements.map((value,index)=>rows[index]?.value??value)));}};
+ return {prepare:sql=>statement(base.prepare(sql),sqlClass(sql)),batch:statements=>{const rows=statements.map(value=>native.get(value));return observed('batch',rows.every(row=>row?.classification.read)?'read_batch':'write_or_guard_batch',statements.length,()=>base.batch(statements.map((value,index)=>rows[index]?.value??value)),Object.fromEntries([...new Set(rows.map(row=>row?.classification.family??'unclassified'))].sort().map(family=>[family,rows.filter(row=>(row?.classification.family??'unclassified')===family).length])));}};
 }
 function profileSummary(frame,wallMilliseconds,status){
  let covered=0,end=0;for(const [start,stop]of frame.intervals.sort((left,right)=>left[0]-right[0])){covered+=Math.max(0,stop-Math.max(start,end));end=Math.max(end,stop);}
- return {wave:frame.wave,session:frame.session,ownerClass:frame.ownerClass,status,wallMilliseconds,rpcCount:frame.rpcCount,statementCount:frame.statementCount,calls:frame.calls,classes:frame.classes,sumObservedBindingAwaitMilliseconds:frame.sumAwaitMilliseconds,observedAwaitUnionMilliseconds:frame.intervalsTruncated?null:covered,wallOutsideObservedBindingAwaitMilliseconds:frame.intervalsTruncated?null:Math.max(0,wallMilliseconds-covered),intervalsTruncated:frame.intervalsTruncated};
+ return {wave:frame.wave,session:frame.session,ownerClass:frame.ownerClass,status,wallMilliseconds,rpcCount:frame.rpcCount,statementCount:frame.statementCount,calls:frame.calls,classes:frame.classes,sumObservedBindingAwaitMilliseconds:frame.sumAwaitMilliseconds,observedAwaitUnionMilliseconds:frame.intervalsTruncated?null:covered,wallOutsideObservedBindingAwaitMilliseconds:frame.intervalsTruncated?null:Math.max(0,wallMilliseconds-covered),intervalsTruncated:frame.intervalsTruncated,sequence:frame.sequence,sequenceTruncated:frame.sequenceTruncated};
 }
 async function profiledCommand(engine,session,wave,operation){
  if(!commandProfiling)return operation();
- const frame={startedAt:performance.now(),wave,session:session.index,ownerClass:session.index<10?'contended_near_bound':'independent_small',rpcCount:0,statementCount:0,calls:{},classes:{},sumAwaitMilliseconds:0,intervals:[],intervalsTruncated:false};
+ const frame={startedAt:performance.now(),wave,session:session.index,ownerClass:session.index<10?'contended_near_bound':'independent_small',rpcCount:0,statementCount:0,calls:{},classes:{},sumAwaitMilliseconds:0,intervals:[],intervalsTruncated:false,sequence:[],sequenceTruncated:false};
  let status='threw';try{const value=await commandProfileContext.run(frame,operation);status=value.status;return value;}
  finally{engine.commandProfiles??=[];if(engine.commandProfiles.length<100){const row=profileSummary(frame,performance.now()-frame.startedAt,status);engine.commandProfiles.push(row);console.log(JSON.stringify({event:'controlled_command_profile',engine:engine.name,...row}));}}
 }

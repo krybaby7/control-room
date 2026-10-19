@@ -90,10 +90,10 @@ test('aggregate normalized reference rows fail closed across individually bounde
  }finally{f.sqlite.close();}
 });
 
-function observeDatabase(db:import('../lib/workspace-store.ts').SqlDatabase,afterRead:(sql:string)=>void):import('../lib/workspace-store.ts').SqlDatabase{
+function observeDatabase(db:import('../lib/workspace-store.ts').SqlDatabase,afterRead:(sql:string)=>void,afterBatch?:(sqls:readonly string[])=>void):import('../lib/workspace-store.ts').SqlDatabase{
  type Statement=import('../lib/workspace-store.ts').SqlStatement;
  const originals=new WeakMap<Statement,{statement:Statement;sql:string}>();
- return {prepare(sql){let statement=db.prepare(sql);const wrapped:Statement={bind(...values){statement=statement.bind(...values);originals.set(wrapped,{statement,sql});return wrapped;},async first<T>(){const result=await statement.first<T>();afterRead(sql);return result;},async all<T>(){const result=await statement.all<T>();afterRead(sql);return result;},run(){return statement.run();}};originals.set(wrapped,{statement,sql});return wrapped;},async batch(statements){const selected=statements.map(statement=>{const value=originals.get(statement);if(!value)throw new Error('Unknown synthetic statement.');return value;});const result=await db.batch(selected.map(value=>value.statement));for(const value of selected)afterRead(value.sql);return result;}};
+ return {prepare(sql){let statement=db.prepare(sql);const wrapped:Statement={bind(...values){statement=statement.bind(...values);originals.set(wrapped,{statement,sql});return wrapped;},async first<T>(){const result=await statement.first<T>();afterRead(sql);return result;},async all<T>(){const result=await statement.all<T>();afterRead(sql);return result;},run(){return statement.run();}};originals.set(wrapped,{statement,sql});return wrapped;},async batch(statements){const selected=statements.map(statement=>{const value=originals.get(statement);if(!value)throw new Error('Unknown synthetic statement.');return value;});const result=await db.batch(selected.map(value=>value.statement));afterBatch?.(selected.map(value=>value.sql));for(const value of selected)afterRead(value.sql);return result;}};
 }
 test('one frozen module capture plus one verification matches actual export without redundant adapter database scans',async()=>{
  const f=await fixture();try{
@@ -140,8 +140,8 @@ test('closed batched pages retain all 450 immutable rows and exact key cursors w
 });
 test('missing or malformed batch row results fail closed rather than certifying an empty recovery image',async()=>{
  for(const mode of ['missing','shape','order']as const){const f=await fixture();try{
-  const original=f.db.batch.bind(f.db);let tampered=false;
-  const db:import('../lib/workspace-store.ts').SqlDatabase={prepare:sql=>f.db.prepare(sql),async batch(statements){const result=await original(statements);if(!tampered){tampered=true;if(mode==='missing')return result.map(row=>({meta:row.meta}));const row={id:'bad',row_revision:1,payload_json:'{}',content_hash:hash};result[0].results=mode==='shape'?[{...row,unexpected:true}]:[row,row];}return result;}};
+  const original=f.db.batch.bind(f.db),sqlByStatement=new WeakMap<import('../lib/workspace-store.ts').SqlStatement,string>();let tampered=false;
+  const db:import('../lib/workspace-store.ts').SqlDatabase={prepare(sql){const statement=f.db.prepare(sql);sqlByStatement.set(statement,sql);return statement;},async batch(statements){const result=await original(statements);if(!tampered&&statements.every(statement=>sqlByStatement.get(statement)?.startsWith('SELECT id, row_revision, payload_json, content_hash'))){tampered=true;if(mode==='missing')return result.map(row=>({meta:row.meta}));const row={id:'bad',row_revision:1,payload_json:'{}',content_hash:hash};result[0].results=mode==='shape'?[{...row,unexpected:true}]:[row,row];}return result;}};
   await assert.rejects(measureProspectiveRecoverability(db,owner,{now}),/snapshot batch|snapshot row/);assert.equal(tampered,true);assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM workspace_mutations').get()!.n,0);
  }finally{f.sqlite.close();}}
 });
@@ -159,4 +159,32 @@ test('mixed BMP and astral original IDs retain SQLite BINARY order in real expor
   assert.equal(quote.measurement.measurements.bundleBytes,byteLength(JSON.stringify(actual)));
   for(const id of ids)assert.ok(actual.modules.evidence.records.some(raw=>(raw as {value?:{record?:{id?:string}}}).value?.record?.id===id));
  }finally{f.sqlite.close();}
+});
+
+test('one closed 36-statement capture and one verification retain independent active-table pagination',async()=>{
+ const f=await fixture();try{
+  let sizes:number[]=[];const db=observeDatabase(f.db,()=>{},sqls=>{if(sqls.every(sql=>sql.startsWith('SELECT id, row_revision, payload_json, content_hash')))sizes.push(sqls.length);});
+  const empty=await measureProspectiveRecoverability(db,owner,{now});assert.deepEqual(sizes,[36,36]);assert.equal(empty.measurement.allowed,true);
+  const payload=canonical({text:'Exact bounded independent cursor'}),digest=await contentHash(payload),insert=f.sqlite.prepare('INSERT INTO evidence_records(user_id,id,row_revision,payload_json,content_hash) VALUES(?,?,1,?,?)');
+  for(let index=0;index<450;index++)insert.run(owner,'wide-page-'+String(index).padStart(4,'0'),payload,digest);
+  insert.run('different-owner','foreign-not-selected',payload,digest);sizes=[];
+  const quote=await measureProspectiveRecoverability(db,owner,{now});assert.deepEqual(sizes,[36,1,1,36,1,1]);
+  assert.equal(quote.boundaryRows.find(row=>row.table==='evidence_records')!.rows.length,450);assert.equal(canonical(quote.boundaryRows).includes('foreign-not-selected'),false);
+  assert.equal(quote.measurement.measurements.bundleBytes,byteLength(JSON.stringify(await exportWorkspaceBundle(f.db,owner,{now:()=>now}))));
+ }finally{f.sqlite.close();}
+});
+test('actual Miniflare D1 accepts both complete closed 36-table read batches without dropping owner rows or final equality proofs',{timeout:120000},async()=>{
+ const {Miniflare}=await import('miniflare'),{readFile,readdir}=await import('node:fs/promises'),mf=new Miniflare({modules:true,script:'export default {fetch(){return new Response("isolated synthetic recovery batch fixture")}}',d1Databases:{DB:'synthetic-wide-recovery'}});
+ try{
+  const native=await mf.getD1Database('DB'),files=(await readdir(new URL('../drizzle/',import.meta.url))).filter(name=>/^\d+.*\.sql$/u.test(name)).sort();
+  for(const name of files)for(const sql of (await readFile(new URL('../drizzle/'+name,import.meta.url),'utf8')).split('--> statement-breakpoint'))if(sql.trim())await native.prepare(sql.trim()).run();
+  await loadWorkspace(native,owner,workspaceFixture,now);
+  const payload=canonical({text:'Retained actual D1 original Unicode العربية 😀'}),digest=await contentHash(payload);
+  for(const [user,id]of [[owner,'native-selected'],['different-owner','native-foreign']]as const)await native.prepare('INSERT INTO evidence_records(user_id,id,row_revision,payload_json,content_hash) VALUES(?,?,1,?,?)').bind(user,id,payload,digest).run();
+  const sizes:number[]=[];const db=observeDatabase(native,()=>{},sqls=>{if(sqls.every(sql=>sql.startsWith('SELECT id, row_revision, payload_json, content_hash')))sizes.push(sqls.length);});
+  const quote=await measureProspectiveRecoverability(db,owner,{now});assert.deepEqual(sizes,[36,36]);assert.equal(quote.measurement.allowed,true);
+  assert.deepEqual(quote.boundaryRows.find(row=>row.table==='evidence_records')!.rows.map(row=>row.id),['native-selected']);
+  assert.equal(quote.measurement.measurements.bundleBytes,byteLength(JSON.stringify(await exportWorkspaceBundle(native,owner,{now:()=>now}))));
+  assert.equal((await native.prepare('SELECT COUNT(*) n FROM workspace_mutations WHERE user_id=?').bind(owner).first<{n:number}>())!.n,0);
+ }finally{await mf.dispose();}
 });

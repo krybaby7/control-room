@@ -73,6 +73,10 @@ For every row record: status, implementation commit, automated tests, local brow
 
 ## Current integration evidence
 
-Validated isolated results above belong to exact `a3895568fc26588decc66c06c20e0996e1adc5b6`. The next coherent candidate includes reviewed corrections and remains unvalidated until its terminal gates finish. Earlier phase verification documents retain historical results; they do not establish a new deployed version.
+Exact source `1f1307c264b82ce8aea8134952f65b01922f5696` passed focused run39180576896/job117832257182:389 tests, typecheck and lint, including all native source D1 claim/current/page guards. Its three-browser, both mobile timing, artifact, runtime, agent D1, streaming and recovery-maintenance jobs passed. Full integrated/package gates remain pending.
 
-The existing private Site is unchanged. Supported Sites publishing requires restored helper execution plus the normal validation and terminal deployment verification. The repository source and draft PR remain reviewable; paid inference and operational effects remain disabled.
+Exact809573 segmented run39180048381/job117830678157 passed10080rows/79segments/17,767,523bytes with original IDs/private history and actual fresh file/staged artifacts; the target remained fenced. Normal1f130 concurrent saves passed SQLite p95=1501.23ms but failed D1 p95=5656.94ms against the unchanged2000ms budget. All100 concurrent command outcomes, exact-once replays and six reviewed restores per engine passed. This is a remaining performance defect, not live-provider proof.
+
+The next candidate batches closed read-only snapshot queries, combines mutation admission, reuses DB-bound schema metadata with exact atomic fingerprints, and removes a redundant capacity preflight while retaining the same atomic capacity assertion. These changes await native regressions and normal performance measurement.
+
+The existing private Site is unchanged at version2 with owner-only access. Supported Sites publishing requires restored helper execution plus normal validation and terminal deployment verification. Repository source and the draft PR remain reviewable; paid inference and operational effects remain disabled. Physical owner-device, provider consent/credentials, real fixed-runtime installation and hosted ingress/SSE acceptance remain explicit external actions.

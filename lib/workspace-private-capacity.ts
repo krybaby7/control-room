@@ -2,7 +2,7 @@ import {canonical,contentHash} from './canonical-json.ts';
 import {sourceConfigurationHash} from './background/job-store.ts';
 import {sourceConnectionSchema,sourceTargetSchema} from './sources/validation.ts';
 import {auditProjectIds} from './audit-projects.ts';
-import {privateInsertGrowth,combinePrivateGrowth,createPrivateGrowthContext} from './private-growth.ts';
+import {privateInsertGrowth,combinePrivateGrowth,createPrivateGrowthContext,type PrivateGrowthContext} from './private-growth.ts';
 import {privateRowGrowth,type PrivateGrowth,type PrivateCapacityGuard} from './private-capacity.ts';
 import type {SqlDatabase} from './workspace-store.ts';
 import type {WorkspaceEnvelope} from './types.ts';
@@ -20,7 +20,7 @@ export interface WorkspacePrivateCapacityInput {
   * is NEVER a request field. Their own count/row guards remain mandatory. */
  supplementalGrowth?:readonly PrivateGrowth[];
 }
-export interface WorkspacePrivateCapacityQuote {growth:PrivateGrowth[];guards:PrivateCapacityGuard[];firstCancelAttemptIds:string[];firstRevokeDeviceIds:string[]}
+export interface WorkspacePrivateCapacityQuote {schemaContext:PrivateGrowthContext;growth:PrivateGrowth[];guards:PrivateCapacityGuard[];firstCancelAttemptIds:string[];firstRevokeDeviceIds:string[]}
 /** Quote growth only: this helper does not admit a command, consume a reservation,
  * create authority, or execute writes. All returned guards and the neutral
  * privateCapacityGuard MUST run inside the same transient compiler claim.
@@ -45,9 +45,12 @@ export async function workspacePrivateCapacityGrowth(db:SqlDatabase,owner:string
   guards.push({sql:(found?'EXISTS':'NOT EXISTS')+'(SELECT 1 FROM '+name+' WHERE user_id=? AND '+where+')',bindings});
   if(found)update(name,values);else await insert(name,{...key,...values});
  }
- const epoch=(await db.prepare('SELECT epoch FROM workspace_execution_state WHERE user_id=?').bind(owner).first<{epoch:number}>())?.epoch??0;
+ // Epoch is used only by prospective rows that actually contain it. Keep its
+ // exact persisted value and share one operation-local read across those rows.
+ let epochRead:Promise<number>|undefined;
+ function readEpoch():Promise<number>{return epochRead??=db.prepare('SELECT epoch FROM workspace_execution_state WHERE user_id=?').bind(owner).first<{epoch:number}>().then(row=>row?.epoch??0);}
  await insert('workspace_mutations',{mutation_id:input.mutationId,command_hash:input.commandHash,revision:input.before.revision+1,committed_at:now});
- for(const job of plan.jobs)await insert('workspace_job_intents',{id:job.id,kind:job.kind,dedupe_key:job.dedupeKey,payload_json:canonical(job.payload),not_before:job.notBefore,status:job.kind==='agent.execute'?'awaiting_approval':'pending',execution_epoch:epoch,cancel_requested:0});
+ for(const job of plan.jobs)await insert('workspace_job_intents',{id:job.id,kind:job.kind,dedupe_key:job.dedupeKey,payload_json:canonical(job.payload),not_before:job.notBefore,status:job.kind==='agent.execute'?'awaiting_approval':'pending',execution_epoch:await readEpoch(),cancel_requested:0});
  if(plan.restoreEpoch)update('workspace_job_intents',{status:'cancelled',cancel_requested:1},await count('workspace_job_intents'));
  if(plan.importSource){
   // Match the compiler's exact activation scope. A status transition still has
@@ -102,7 +105,7 @@ export async function workspacePrivateCapacityGrowth(db:SqlDatabase,owner:string
   update('job_approvals',{revoked_at:now},n);update('agent_budgets',{reserved_jobs:revisionMax,reserved_seconds:revisionMax,operational_revision:revisionMax,updated_at:now},n);
   update('workspace_job_intents',{status:'cancelled',cancel_requested:1},n);
  }else if(controls?.action==='create'){
-  const value=controls.record;await insert('agent_job_state',{job_id:value.id,intent_id:value.intentId,status:'awaiting_approval',operational_revision:1,spec_hash:value.specSha256,task_hash:value.spec.taskSnapshotSha256,execution_epoch:epoch,updated_at:now});
+  const value=controls.record;await insert('agent_job_state',{job_id:value.id,intent_id:value.intentId,status:'awaiting_approval',operational_revision:1,spec_hash:value.specSha256,task_hash:value.spec.taskSnapshotSha256,execution_epoch:await readEpoch(),updated_at:now});
  }else if(controls?.action==='budget'){
   const values={payload_json:canonical({maximumJobs:controls.maximumJobs,maximumSeconds:controls.maximumSeconds,enabled:controls.enabled}),maximum_jobs:controls.maximumJobs,maximum_seconds:controls.maximumSeconds,enabled:controls.enabled?1:0,updated_at:now};
   if(controls.expectedOperationalRevision===null)await insert('agent_budgets',{id:controls.id,operational_revision:1,reserved_jobs:0,reserved_seconds:0,charged_seconds:0,...values});
@@ -137,7 +140,7 @@ export async function workspacePrivateCapacityGrowth(db:SqlDatabase,owner:string
     const target=targets.get(sourceId);if(!target)throw new Error('Source capacity projection has no owner target.');
     const changed=plan.writes.find(write=>write.table==='source_connections'&&write.id===target.connectionId),storedConnection=changed?null:await db.prepare('SELECT payload_json FROM source_connections WHERE user_id=? AND id=?').bind(owner,target.connectionId).first<{payload_json:string}>();
     const connection=sourceConnectionSchema.parse(changed?.value??(storedConnection?JSON.parse(storedConnection.payload_json):null)),hash=await sourceConfigurationHash(connection,target);
-    await upsert('source_sync_state',{source_id:sourceId},{operational_revision:revisionMax,configuration_hash:hash,execution_epoch:epoch,paused:action==='pause'?1:0,cursor:null,etag:null,attempted_at:null,last_success_at:null,last_source_revision:null,failure:null,retry_at:null,failure_count:0});
+    await upsert('source_sync_state',{source_id:sourceId},{operational_revision:revisionMax,configuration_hash:hash,execution_epoch:await readEpoch(),paused:action==='pause'?1:0,cursor:null,etag:null,attempted_at:null,last_success_at:null,last_source_revision:null,failure:null,retry_at:null,failure_count:0});
     if(action==='pause'){const predicate='id IN(SELECT intent_id FROM integration_jobs WHERE user_id=? AND source_id=?)';update('workspace_job_intents',{status:'cancelled',cancel_requested:1},await count('workspace_job_intents',predicate,[owner,sourceId]));}
    }
   }
@@ -145,7 +148,7 @@ export async function workspacePrivateCapacityGrowth(db:SqlDatabase,owner:string
    // Trusted principal IDs in the closed private profile have a 500-UTF16-unit
    // ceiling; escaped NUL units upper-bound UTF-8/JSON for every such ID.
    // This is a byte bound only and never installs that placeholder.
-   await upsert('automation_runtime',{schedule_id:control.scheduleId},{configuration_hash:control.configurationHash,operational_revision:revisionMax,execution_epoch:epoch,paused:control.action==='pause'?1:0,next_due_at:control.nextDueAt,principal_ref:control.action==='pause'?null:String.fromCharCode(0).repeat(500),last_attempt_at:null,last_success_at:null,failure:null,retry_at:null});
+   await upsert('automation_runtime',{schedule_id:control.scheduleId},{configuration_hash:control.configurationHash,operational_revision:revisionMax,execution_epoch:await readEpoch(),paused:control.action==='pause'?1:0,next_due_at:control.nextDueAt,principal_ref:control.action==='pause'?null:String.fromCharCode(0).repeat(500),last_attempt_at:null,last_success_at:null,failure:null,retry_at:null});
    if(control.action==='pause'){const predicate='(id IN(SELECT intent_id FROM integration_jobs WHERE user_id=? AND schedule_id=?) OR id IN(SELECT intent_id FROM automation_occurrence_claims WHERE user_id=? AND schedule_id=?))';update('workspace_job_intents',{status:'cancelled',cancel_requested:1},await count('workspace_job_intents',predicate,[owner,control.scheduleId,owner,control.scheduleId]));}
   }
  }
@@ -154,7 +157,7 @@ export async function workspacePrivateCapacityGrowth(db:SqlDatabase,owner:string
   for(const deviceId of ids){
    update('device_sessions',{retired_at:now},await count('device_sessions','device_id=? AND retired_at IS NULL',[deviceId]));
    update('device_live_windows',{consumed_at:now,expires_at:now},await count('device_live_windows','device_id=? AND consumed_at IS NULL AND julianday(expires_at)>julianday(?)',[deviceId,now]));
-   await upsert('device_runtime',{device_id:deviceId},{operational_revision:revisionMax,execution_epoch:epoch,current_generation:revisionMax,current_boot_id:null,last_live_received_at:null,revoked_at:now,last_request_at:null});
+   await upsert('device_runtime',{device_id:deviceId},{operational_revision:revisionMax,execution_epoch:await readEpoch(),current_generation:revisionMax,current_boot_id:null,last_live_received_at:null,revoked_at:now,last_request_at:null});
   }
  }
 
@@ -181,5 +184,5 @@ export async function workspacePrivateCapacityGrowth(db:SqlDatabase,owner:string
    firstRevokeDeviceIds.push(deviceId);
   }
  }
- return {growth,guards,firstCancelAttemptIds,firstRevokeDeviceIds};
+ return {schemaContext:growthContext,growth,guards,firstCancelAttemptIds,firstRevokeDeviceIds};
 }
