@@ -39,6 +39,8 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm run install:ci
+      - run: npm run typecheck
+      - run: npm run lint
       - run: npm run build
       - run: npx playwright install --with-deps ${{ matrix.browser }}
       - run: npx playwright test --config playwright.acceptance.config.ts --project=${{ matrix.browser }}

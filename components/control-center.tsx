@@ -121,7 +121,7 @@ export default function ControlCenter({ userName }: { userName: string }) {
   const expiredRef = useRef(false);
   const [stale, setStale] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<string | null>(null);
-  const editorOpener=useRef<HTMLElement|null>(null);
+  const [editorOpener,setEditorOpener]=useState<HTMLElement|null>(null);
   const editorDraftController=useRef<DurableDraftController|null>(null);
   const deviceDraftController=useRef<DeviceDraftController|null>(null);
   const [unresolved,setUnresolved]=useState<{submission:Submission;command:Command}[]>([]);
@@ -308,7 +308,7 @@ export default function ControlCenter({ userName }: { userName: string }) {
   const openEditor = (next: Editor,sourceRevision?:number) => {
     if (!envelope) return;
     // Preserve the real trigger before disabling it or awaiting a deferred editor module.
-    editorOpener.current=document.activeElement instanceof HTMLElement?document.activeElement:null;
+    setEditorOpener(document.activeElement instanceof HTMLElement?document.activeElement:null);
     // Use the displayed snapshot, even if an in-flight read has already updated the ref.
     editorBaseRef.current = { revision: sourceRevision??envelope.revision };setEditorRevision(sourceRevision??envelope.revision);
     editorReturnLocation.current=window.location.pathname+window.location.search;setEditorSubmissionId(null);setEditor(next);
@@ -375,7 +375,7 @@ export default function ControlCenter({ userName }: { userName: string }) {
       </>}
     </main><footer className="app-footer"><span>CONTROL ROOM</span><span>A little clarity. A steady next step.</span></footer></div>
     {notice && <div className="save-toast" role="status"><Check size={16} />{notice}</div>}
-    <EditorOpenerContext.Provider value={editorOpener.current}><OriginalSaveContext.Provider value={{check:unresolved.find(item=>item.submission.mutationId===editorSubmissionId)?()=>checkOriginal(unresolved.find(item=>item.submission.mutationId===editorSubmissionId)!):undefined}}>
+    <EditorOpenerContext.Provider value={editorOpener}><OriginalSaveContext.Provider value={{check:unresolved.find(item=>item.submission.mutationId===editorSubmissionId)?()=>checkOriginal(unresolved.find(item=>item.submission.mutationId===editorSubmissionId)!):undefined}}>
     <DurableDraftProvider baseRevision={editorRevision} controllerRef={editorDraftController} onRecover={recoverSubmission}>
     {editor && <DeferredPanel label="Editor" canRetry={mayNavigate} onBack={()=>navigate('today')}>
     {envelope && editor?.type==='agent-budget' && <JobBudgetEditor key={`agent-budget:${editor.budget?.id??'new'}`} budget={editor.budget} onSave={command=>saveEditor(command as Command)} onClose={closeEditor} />}
