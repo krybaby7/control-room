@@ -19,7 +19,17 @@ test.before(async()=>{
  assert.equal(build.status,0,build.stdout+'\n'+build.stderr);
  assert.deepEqual((await readdir(buildDirectory)).filter(name=>name!=='OwnedProcess.pdb'),['OwnedProcess.exe']);
  const helperExecutable=join(buildDirectory,'OwnedProcess.exe'),helperSha256=createHash('sha256').update(await readFile(helperExecutable)).digest('hex');
- try{await prepareWindowsOwnedHelperDirectory(buildDirectory);}catch(error){console.log(JSON.stringify({nativeAclDiagnostic:error.diagnostic??'owned_helper_acl_unknown'}));throw error;}registration={helperExecutable,helperSha256};
+ try{await prepareWindowsOwnedHelperDirectory(buildDirectory);}catch(error){
+  console.log(JSON.stringify({nativeAclDiagnostic:error.diagnostic??'owned_helper_acl_unknown'}));
+  // Only this exact causal refusal permits the test-only newly-created staging
+  // ownership setup. All product verification and other guard failures remain.
+  if(error.diagnostic!=='owned_helper_acl_current_owner')throw error;
+  const script=fileURLToPath(new URL('./fixtures/prepare-owned-native-fixture.ps1',import.meta.url));
+  const fixedPowerShell=join(process.env.SystemRoot??'C:\\Windows','System32','WindowsPowerShell','v1.0','powershell.exe');
+  const setup=spawnSync(fixedPowerShell,['-NoLogo','-NoProfile','-NonInteractive','-File',script,'-DirectoryPath',buildDirectory,'-ExecutableSha256',helperSha256],{encoding:'utf8',shell:false,timeout:10000,maxBuffer:4096});
+  assert.equal(setup.status,0,'synthetic_fixture_owner_unavailable');const evidence=JSON.parse(setup.stdout.trim());assert.deepEqual(Object.keys(evidence).sort(),['ownerWasAdmin','ownerWasCurrent']);assert.equal(typeof evidence.ownerWasCurrent,'boolean');assert.equal(typeof evidence.ownerWasAdmin,'boolean');console.log(JSON.stringify({syntheticFixtureOwner:evidence}));
+  await prepareWindowsOwnedHelperDirectory(buildDirectory);
+ }registration={helperExecutable,helperSha256};
 });
 test.beforeEach(async()=>{if(windows)owner=await createWindowsOwnedProcessSupervisor(registration);});
 test.after(async()=>{if(buildDirectory)await rm(buildDirectory,{recursive:true,force:true});});
