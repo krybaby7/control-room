@@ -309,5 +309,17 @@
       "shaIntervalsTruncated": false
     },
     "acceptance": false
+  },
+  "nativeHashExperiment": {
+    "source": "817ffba2843cf1f493bdbeafa5214aa0e48b0d3b",
+    "applicationCandidate": "b1123fdc4f997668b74524d33834b7635529b927",
+    "branch": "diagnostics/control-room-native-sha-e4",
+    "run": 39198054055,
+    "contractsJob": 117884994482,
+    "benchmarkJob": 117884994781,
+    "status": "running",
+    "integrated": false,
+    "scope": "Only server physical row hashes: exact SHA-256 for immutable UTF8 strings <=65536 bytes; shared/client hashing unchanged; all binary/larger inputs retain WebCrypto.",
+    "independentReview": "Source review clear; cloud gates pending."
   }
 }
