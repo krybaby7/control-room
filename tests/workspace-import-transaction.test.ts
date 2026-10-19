@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {database} from './helpers/sqlite.ts';
 import {createSeedWorkspace} from '../lib/seed.ts';
-import {loadWorkspace,readCurrent,type SqlDatabase} from '../lib/workspace-store.ts';
+import {loadWorkspace,readCurrent,type SqlDatabase,type SqlStatement} from '../lib/workspace-store.ts';
 import {executeWorkspaceCommand,mutationOutcome} from '../lib/workspace-transaction.ts';
 import {workspaceHandlers} from '../lib/workspace-handlers.ts';
 import {exportWorkspaceBundle,contentHash,canonical} from '../lib/workspace-export.ts';
@@ -12,7 +12,12 @@ import {listWorkspaceBackups,readWorkspaceBackup} from '../lib/workspace-backups
 import {CommandValidationError} from '../lib/workspace-errors.ts';
 const now='2026-10-18T12:00:00.000Z';
 async function legacyEvidenceRow(physicalId:string,record:unknown){const value={kind:'legacy',physicalId,record};return {id:`l:${await contentHash(canonical(['evidence_records',physicalId]))}`,rowRevision:99,contentHash:await contentHash(canonical(value)),value};}
-const deps=(db:SqlDatabase)=>({db,handlers:workspaceHandlers,now:()=>now});
+const deps=(db:SqlDatabase,onPrepared?:()=>void)=>{
+ if(!onPrepared)return {db,handlers:workspaceHandlers,now:()=>now};
+ const preparedHook=onPrepared,handlers=new Map(workspaceHandlers),original=handlers.get('workspace.import.commit')!;
+ handlers.set('workspace.import.commit',{...original,async prepare(context){const plan=await original.prepare(context);preparedHook();return plan;}});
+ return {db,handlers,now:()=>now};
+};
 async function setup(){
  const fixture=database();const {db,sqlite}=fixture;for(const owner of ['a','b'])await loadWorkspace(db,owner,()=>createSeedWorkspace(now),now);
  for(const owner of ['a','b'])sqlite.prepare('INSERT INTO evidence_records (user_id,id,row_revision,payload_json,content_hash) VALUES (?,?,?,?,?)').run(owner,'original',4,JSON.stringify({text:'Original evidence'}),await contentHash(canonical({text:'Original evidence'})));
@@ -25,7 +30,16 @@ async function setup(){
  const input={protocolVersion:1,mutationId:'reviewed-import-0001',expectedRevision:1,command};
  return {...fixture,bundle,stage,input};
 }
-function intercept(db:SqlDatabase,hook:()=>void):SqlDatabase{let fired=false;return {...db,batch:async statements=>{if(!fired){fired=true;hook();}return db.batch(statements);}};}
+function intercept(db:SqlDatabase,hook:()=>void){
+ let fired=false,prepared=false;const sqls=new WeakMap<SqlStatement,string>();
+ const wrapped:SqlDatabase={...db,prepare(sql){const statement=db.prepare(sql);sqls.set(statement,sql);return statement;},async batch(statements){
+  if(!fired&&statements.some(statement=>/\bINSERT\s+INTO\s+workspace_command_guards\b/i.test(sqls.get(statement)??''))){
+   assert.equal(prepared,true,'The race must occur after the real reviewed-import handler prepared its complete plan.');fired=true;hook();
+  }
+  return db.batch(statements);
+ }};
+ return {db:wrapped,onPrepared(){prepared=true;},fired(){return fired;}};
+}
 function snapshot(sqlite:ReturnType<typeof database>['sqlite']){return Object.fromEntries(['workspaces','evidence_records','audit_events','workspace_backups','workspace_recovery','workspace_mutations','workspace_execution_state','workspace_job_intents','workspace_command_guards','workspace_assertions','audit_import_identities'].map(table=>[table,sqlite.prepare(`SELECT * FROM ${table} ORDER BY user_id`).all()]));}
 
 test('reviewed import atomically replaces planning and module, appends provenance, snapshots original and invalidates execution',async()=>{
@@ -42,7 +56,7 @@ test('reviewed import atomically replaces planning and module, appends provenanc
 
 for(const race of ['revision','hash','new-row','deleted-row'] as const)test(`replacement table ${race} race aborts the entire import`,async()=>{
  const {db,sqlite,input}=await setup();let afterRace:ReturnType<typeof snapshot>;const raced=intercept(db,()=>{if(race==='revision')sqlite.prepare('UPDATE evidence_records SET row_revision=5 WHERE user_id=?').run('a');else if(race==='hash')sqlite.prepare("UPDATE evidence_records SET content_hash='changed' WHERE user_id=?").run('a');else if(race==='deleted-row')sqlite.prepare('DELETE FROM evidence_records WHERE user_id=?').run('a');else sqlite.prepare('INSERT INTO evidence_records (user_id,id,row_revision,payload_json,content_hash) VALUES (?,?,?,?,?)').run('a','racer',1,'{}','changed');afterRace=snapshot(sqlite);});
- await assert.rejects(executeWorkspaceCommand('a',input,deps(raced)));assert.deepEqual(snapshot(sqlite),afterRace!);
+ await assert.rejects(executeWorkspaceCommand('a',input,deps(raced.db,raced.onPrepared)));assert.equal(raced.fired(),true,'The intended atomic command-claim race must actually fire.');assert.deepEqual(snapshot(sqlite),afterRace!);
 });
 
 for(const [operation,table,when] of [['DELETE','evidence_records',''],['INSERT','evidence_records',''],['INSERT','audit_events',"WHEN NEW.kind='imported-history'"],['INSERT','workspace_execution_state',''],['UPDATE','workspace_job_intents','']] as const)test(`SQL abort at ${operation} ${table} rolls all replacement effects back`,async()=>{
@@ -60,7 +74,7 @@ test('legacy planning restore refuses to omit populated normalized modules',asyn
 
 test('staged source digest changing between preparation and batch cannot commit an accepted import',async()=>{
  const {db,sqlite,input,stage}=await setup();const before=snapshot(sqlite);const raced=intercept(db,()=>{sqlite.prepare('UPDATE workspace_imports SET content_hash=? WHERE user_id=? AND id=?').run('0'.repeat(64),'a',stage.id);});
- await assert.rejects(executeWorkspaceCommand('a',input,deps(raced)));assert.deepEqual(snapshot(sqlite),before);
+ await assert.rejects(executeWorkspaceCommand('a',input,deps(raced.db,raced.onPrepared)));assert.equal(raced.fired(),true,'The intended atomic command-claim race must actually fire.');assert.deepEqual(snapshot(sqlite),before);
 });
 
 for(const invalid of ['bulk-row-bytes','expanded-history-bytes','duplicate-identity'] as const)test(`import ${invalid} is rejected before any authoritative write`,async()=>{
@@ -74,7 +88,7 @@ for(const invalid of ['bulk-row-bytes','expanded-history-bytes','duplicate-ident
 
 for(const race of ['deleted','expired'] as const)test(`staged source ${race} at the transaction boundary prevents import`,async()=>{
  const {db,sqlite,input,stage}=await setup();const before=snapshot(sqlite);const raced=intercept(db,()=>{if(race==='deleted')sqlite.prepare('DELETE FROM workspace_imports WHERE user_id=? AND id=?').run('a',stage.id);else sqlite.prepare('UPDATE workspace_imports SET expires_at=? WHERE user_id=? AND id=?').run(now,'a',stage.id);});
- await assert.rejects(executeWorkspaceCommand('a',input,deps(raced)));assert.deepEqual(snapshot(sqlite),before);
+ await assert.rejects(executeWorkspaceCommand('a',input,deps(raced.db,raced.onPrepared)));assert.equal(raced.fired(),true,'The intended atomic command-claim race must actually fire.');assert.deepEqual(snapshot(sqlite),before);
 });
 
 test('same source audit identity survives a changed bundle without appending another historical event',async()=>{
