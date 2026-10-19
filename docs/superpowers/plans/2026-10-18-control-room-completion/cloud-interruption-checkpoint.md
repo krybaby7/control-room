@@ -1,25 +1,21 @@
 # Cloud implementation checkpoint
 
-Parent source commit: a3895568fc26588decc66c06c20e0996e1adc5b6. Resolve the branch ref for this checkpoint's own commit.
+Parent validated/diagnosed source: 77b99f74905c0c8200bea85ba7d5a296f51ecfea. The immediately preceding unpublished intermediate fix commit is 8c3aca98b6e49cfe94314fc1290136ba4797852f; resolve the branch ref for this checkpoint's own commit.
 
 GitHub source APIs and actual GitHub Actions Node 24 cloud runners. Supported workspace execution remains unavailable.
 
-The runtime accepted explicit `gpt-6.1-sol` selection for the integrator and all six worker IDs recorded in progress.json. Follow-up tasks retain that configuration.
+Accepted runtime configuration remains `gpt-6.1-sol` for the integrator and six worker IDs in progress.json. No substitute model or local Windows implementation.
 
-Exact a389: focused160/160 tests, type/lint, actual artifact D1/R2, agents/runtime D1, maintenance, SSE and all three browser engines passed. Segmented recovery passed10080 rows/79segments/17,767,523bytes with actual files and staged artifacts, inert target. HTTP20-session p95=812.57ms passed2000ms; near-bound SQLite savep95=1428.75ms passed, D1savep95=10591.05ms failed. Full Node1660/1668 passed; eight specific failures are addressed in this unvalidated revision.
+77b: focused210/212 passed; fresh queued authority, 64MiB stage growth, batched/Unicode snapshots passed. Reporter self-test, artifact16+actualD1/R2, runtime/agentsD1, maintenance, SSE, three-browser acceptance and segmented10080-row recovery passed. Full1677 tests:1628pass49fail, with fixture adapter/race targeting regressions and source-claim D1 depth identified. Near-bound SQLite p95=1528.58ms passed; D1p95=7548.74ms failed2000ms. One mobile readiness run3140.4ms failed3000ms; another passed.
 
-## Included changes awaiting validation
+## Known failures and unfinished work
 
-Closed batched owner snapshot reads; SQLite UTF-8 ID ordering; fresh artifact authorization after queue admission; exact archive-stage growth; compact scheduled-source authority bindings; typed receipt-capacity precedence; isolated independent-process race fixtures; current native UI fixture; bounded live Node diagnostics. No test, quota, timeout or performance budget is relaxed.
+- New corrections require actual current-source regression; no final source/package or publication is claimed.
+- 49 full-suite reported failures were traced to SELECT rows discarded by three synthetic D1 adapters, early race/lost-response injection at read-only snapshots, source-claim D1 expression depth, reserved-slot fixture targeting and three fixture typing errors. Corrections are included; exact rerun pending.
+- D1 near-bound save p95 remains above2000ms. Separate opt-in command profiling is added, without changing the normal gate or budgets.
+- Mobile startup exceeded3000ms in one run. Three noninitial screens are now loaded on demand; actual browser validation is pending.
+- Hosted/provider/runtime/owner-device acceptance and supported Sites helper execution remain external. Read-only metadata reconfirms private owner-only version2, no visitors/groups.
 
-## Known failures and remaining work
+This source includes mutation-boundary fault fixtures with unchanged safety assertions, native SELECT result propagation, balanced/compact source authority, on-demand noninitial screens, and separate opt-in command timing. Normal thresholds and all validation gates remain enabled. Paid inference and operational effects remain disabled. Existing Site and owner data are unchanged.
 
-- Current source changes require fresh complete gates; no new source/package pass is claimed.
-- Actual a389 full Node had eight failures: two recursive in-isolate race fixtures, duplicate backup-intent fixtures, TSX test-loader mismatch, original-history diagnostic mismatch, scheduled-source D1 binding overflow, and receipt-capacity error precedence. Corrections are included here and require validation.
-- Near-bound D1 concurrent-save p95 still exceeded2000ms at a389. Batched coherent reads and exact Unicode ordering are included here; budget unchanged.
-- Review found unquoted stage-commit growth and artifact authority aging while queued. Exact growth guards and fresh post-admission authorization with five no-effect regressions are included here; tests pending.
-- Real hosted/provider/runtime/device acceptance and supported Sites publishing helper execution remain external.
-
-Existing private Site and audience remain unchanged. No new publication, owner-data reset, paid inference or operational effect.
-
-Next command: GET https://api.github.com/repos/krybaby7/control-room/git/ref/heads/feat/control-room-completion-cloud; inspect actions/runs for that exact returned SHA, then terminal focused/full/performance/recovery logs.
+Next command: GET https://api.github.com/repos/krybaby7/control-room/git/ref/heads/feat/control-room-completion-cloud; inspect all exact-head Actions, especially focused/full, normal benchmark, separate command profile and mobile performance.

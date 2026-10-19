@@ -1,6 +1,7 @@
 // Actual isolated SQLite and Miniflare D1 benchmark. Synthetic owner data only.
 // No production latency, private ingress, provider, model or physical-device claim.
 import assert from 'node:assert/strict';
+import {AsyncLocalStorage} from 'node:async_hooks';
 import {performance} from 'node:perf_hooks';
 import {cpus,availableParallelism,totalmem,platform,arch} from 'node:os';
 import {mkdir,readFile,readdir,writeFile} from 'node:fs/promises';
@@ -34,6 +35,42 @@ const budgets={
 const output=new URL('../benchmark-results/workspace.json',import.meta.url);
 const report={format:'control-room-synthetic-benchmark-v1',source,startedAt:new Date().toISOString(),environment:{node:process.version,v8:process.versions.v8,platform:platform(),arch:arch(),cpuModel:cpus()[0]?.model??'unreported',availableParallelism:availableParallelism(),totalMemoryBytes:totalmem(),miniflareLockedVersion:JSON.parse(await readFile(new URL('../node_modules/miniflare/package.json',import.meta.url),'utf8')).version},method:{warmups,samples,percentile:'nearest rank; p95 is the largest of five measured samples',timing:'host performance.now; includes actual database binding round trips where used; setup excluded',budgetsMilliseconds:budgets,thresholdMeaning:'Explicit coarse CI regression gates, not production service-level objectives.',limits:{planning:WORKSPACE_LIMITS,evidenceRead:EVIDENCE_SNAPSHOT_LIMITS,bundle:BUNDLE_LIMITS,d1Recovery:BACKUP_LIMITS,importStaging:IMPORT_STAGING_LIMITS,ownerTables:OWNER_TABLES.length}},engines:[],errors:[],limitations:['Synthetic isolated metadata only; no live owner, hosted D1/R2 network, physical device, provider or model.','Shared Actions CPU and local Miniflare transport vary; five samples provide a coarse regression signal, not a statistically stable tail estimate.','The large case approaches planning record caps and the default D1 metadata recovery byte bound; it does not claim all independent maxima fit simultaneously.','Restore includes real quarantine, private recovery snapshot, receipt, audit and guarded central command; no fake adapter or timing subtraction.']};
 report.environment.initialNodeMemoryBytes=process.memoryUsage();
+const commandProfiling=process.env.CONTROL_ROOM_PROFILE_COMMANDS==='1';
+report.method.commandProfiling={enabled:commandProfiling,activation:'CONTROL_ROOM_PROFILE_COMMANDS=1',scope:'Node benchmark only; one stable DB wrapper per engine',limits:{commandFrames:100,intervalsPerCommand:1024},interpretation:'Binding await durations overlap. Union is used for coverage; outside-observed-await wall includes admission waiting, JS/hash/validation and all other unobserved awaits, and is not a CPU attribution. No SQL, parameters, owner IDs, command bodies or result rows are recorded.'};
+
+const commandProfileContext=new AsyncLocalStorage();
+function sqlClass(sql){
+ const upper=sql.toUpperCase(),read=/^\s*(SELECT|PRAGMA|EXPLAIN)\b/u.test(upper);
+ const family=/SQLITE_MASTER|PRAGMA_TABLE_INFO/u.test(upper)?'schema_contract':/WORKSPACE_MUTATIONS/u.test(upper)?'receipt':/WORKSPACE_MUTATION_EPOCHS|MUTATION_ID/u.test(upper)?'mutation_authority':/WORKSPACE_EXECUTION_STATE/u.test(upper)?'execution_epoch':/WORKSPACE_JOB_INTENTS/u.test(upper)?'job_authority':/BACKUP|ATTACHMENT_BLOB/u.test(upper)?'recovery_ledger':/AUDIT_/u.test(upper)?'audit':/\bWORKSPACES\b/u.test(upper)?'planning_metadata':'owner_module_or_guard';
+ return {read,family};
+}
+function profileDatabase(base){
+ const native=new WeakMap();
+ const observed=async(method,classification,statements,operation)=>{
+  const frame=commandProfileContext.getStore();if(!frame)return operation();
+  frame.rpcCount++;frame.statementCount+=statements;frame.calls[method]=(frame.calls[method]??0)+1;
+  const aggregate=frame.classes[classification]??={calls:0,statements:0,sumAwaitMilliseconds:0};aggregate.calls++;aggregate.statements+=statements;
+  const started=performance.now();try{return await operation();}finally{const ended=performance.now();aggregate.sumAwaitMilliseconds+=ended-started;frame.sumAwaitMilliseconds+=ended-started;if(frame.intervals.length<1024)frame.intervals.push([started-frame.startedAt,ended-frame.startedAt]);else frame.intervalsTruncated=true;}
+ };
+ const statement=(value,classification)=>{
+  const wrapped={bind:(...values)=>statement(value.bind(...values),classification),first:()=>observed('first',classification.family,1,()=>value.first()),all:()=>observed('all',classification.family,1,()=>value.all()),run:()=>observed('run',classification.family,1,()=>value.run())};
+  native.set(wrapped,{value,classification});return wrapped;
+ };
+ // This single wrapper identity is retained for the whole engine, including
+ // warmups, so DB-keyed schema/contract caches are not invalidated per command.
+ return {prepare:sql=>statement(base.prepare(sql),sqlClass(sql)),batch:statements=>{const rows=statements.map(value=>native.get(value));return observed('batch',rows.every(row=>row?.classification.read)?'read_batch':'write_or_guard_batch',statements.length,()=>base.batch(statements.map((value,index)=>rows[index]?.value??value)));}};
+}
+function profileSummary(frame,wallMilliseconds,status){
+ let covered=0,end=0;for(const [start,stop]of frame.intervals.sort((left,right)=>left[0]-right[0])){covered+=Math.max(0,stop-Math.max(start,end));end=Math.max(end,stop);}
+ return {wave:frame.wave,session:frame.session,ownerClass:frame.ownerClass,status,wallMilliseconds,rpcCount:frame.rpcCount,statementCount:frame.statementCount,calls:frame.calls,classes:frame.classes,sumObservedBindingAwaitMilliseconds:frame.sumAwaitMilliseconds,observedAwaitUnionMilliseconds:frame.intervalsTruncated?null:covered,wallOutsideObservedBindingAwaitMilliseconds:frame.intervalsTruncated?null:Math.max(0,wallMilliseconds-covered),intervalsTruncated:frame.intervalsTruncated};
+}
+async function profiledCommand(engine,session,wave,operation){
+ if(!commandProfiling)return operation();
+ const frame={startedAt:performance.now(),wave,session:session.index,ownerClass:session.index<10?'contended_near_bound':'independent_small',rpcCount:0,statementCount:0,calls:{},classes:{},sumAwaitMilliseconds:0,intervals:[],intervalsTruncated:false};
+ let status='threw';try{const value=await commandProfileContext.run(frame,operation);status=value.status;return value;}
+ finally{engine.commandProfiles??=[];if(engine.commandProfiles.length<100){const row=profileSummary(frame,performance.now()-frame.startedAt,status);engine.commandProfiles.push(row);console.log(JSON.stringify({event:'controlled_command_profile',engine:engine.name,...row}));}}
+}
+
 const failures=[];
 function failure(error){return {name:error instanceof Error?error.name:'Error',message:String(error instanceof Error?error.message:error).slice(0,1200)};}
 function percentile(values,fraction){return [...values].sort((a,b)=>a-b)[Math.max(0,Math.ceil(values.length*fraction)-1)];}
@@ -105,7 +142,7 @@ async function concurrentSessions(engine,db){
   const inputs=await Promise.all(sessions.map(async(session,index)=>({protocolVersion:1,expectedRevision:snapshots[index].revision,mutationId:await issueMutationId(db,session.user,now),command:{type:'capture.update',id:session.captureId,patch:{body:session.marker+wave}}})));
   const started=performance.now();
   const outcomes=await Promise.all(sessions.map(async(session,index)=>{
-   const start=performance.now();const result=await executeWorkspaceCommand(session.user,inputs[index],{db,handlers:workspaceHandlers,now:()=>now});saveTimes.push(performance.now()-start);return result;
+   const start=performance.now();const result=await profiledCommand(engine,session,wave,()=>executeWorkspaceCommand(session.user,inputs[index],{db,handlers:workspaceHandlers,now:()=>now}));saveTimes.push(performance.now()-start);return result;
   }));
   const elapsed=performance.now()-started;assert.ok(elapsed>0);waves.push(elapsed);
   assert.equal(outcomes.filter(result=>result.status==='committed').length,11,'Exactly one same-owner CAS and all independent-owner commands commit.');
@@ -127,6 +164,7 @@ async function concurrentSessions(engine,db){
  }
  // Each wave has twenty actual promises in flight; SQLite serializes its
  // synchronous binding, while Miniflare D1 includes real local binding transport.
+ if(commandProfiling){assert.equal(engine.commandProfiles?.length,100);assert.ok(engine.commandProfiles.every(row=>row.rpcCount>0&&row.statementCount>0&&row.wallMilliseconds>0));engine.commandProfileGroups=[];for(const ownerClass of ['contended_near_bound','independent_small'])for(const status of ['committed','conflict']){const rows=engine.commandProfiles.filter(row=>row.ownerClass===ownerClass&&row.status===status);if(!rows.length)continue;const entry={ownerClass,status,commands:rows.length,p50WallMilliseconds:percentile(rows.map(row=>row.wallMilliseconds),.5),p95WallMilliseconds:percentile(rows.map(row=>row.wallMilliseconds),.95),p50RpcCount:percentile(rows.map(row=>row.rpcCount),.5),p95RpcCount:percentile(rows.map(row=>row.rpcCount),.95),p95ObservedAwaitUnionMilliseconds:rows.every(row=>row.observedAwaitUnionMilliseconds!==null)?percentile(rows.map(row=>row.observedAwaitUnionMilliseconds),.95):null,p95OutsideObservedAwaitMilliseconds:rows.every(row=>row.wallOutsideObservedBindingAwaitMilliseconds!==null)?percentile(rows.map(row=>row.wallOutsideObservedBindingAwaitMilliseconds),.95):null};engine.commandProfileGroups.push(entry);console.log(JSON.stringify({event:'controlled_command_profile_group',engine:engine.name,...entry}));}}
  engine.concurrency={sessions:20,sameOwnerSessions:10,independentOwners:10,waves:samples,commitsPerWave:11,conflictsPerWave:9,duplicateReplayEffects:0,transport:engine.name==='sqlite'?'actual synchronous SQLite binding; not twenty operating-system connections':'actual local Miniflare D1 binding; not hosted network clients'};
  // Preserve all 100 samples rather than selecting a favorable wave.
  for(const [name,values]of [['concurrentSessionRead',readTimes],['concurrentSessionSave',saveTimes]]){
@@ -137,6 +175,7 @@ async function concurrentSessions(engine,db){
 }
 
 async function runEngine(name,db,model,migrations){
+ if(commandProfiling)db=profileDatabase(db);
  const bundle=await exportWorkspaceBundle(db,owner,{now:()=>now}),serialized=JSON.stringify(bundle),bytes=new TextEncoder().encode(serialized),encoded=encodePlanning(model.workspace);
  assert.ok(bytes.byteLength>=BACKUP_LIMITS.d1BundleBytes*.75&&bytes.byteLength<=BACKUP_LIMITS.d1BundleBytes*.82,'The fixture must actually approach the default D1 recovery byte bound.');
  assert.equal(bundle.modules.evidence.records.length,evidenceCount*2);assert.equal(parseWorkspaceBundle(JSON.parse(serialized)).planning.tasks.length,model.workspace.tasks.length);

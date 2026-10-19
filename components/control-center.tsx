@@ -15,7 +15,7 @@ import {weekStartSchema} from '@/lib/weekly-planning';
 import {OriginalSaveContext} from './form-dialog';
 import {TaskBulkActions} from './task-bulk-actions';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { AlertCircle, ArrowRight, Check, ChevronDown, FolderOpen, Inbox, LayoutGrid, LoaderCircle, LogOut, Plus, Radio, RefreshCw, Search, ListChecks, CalendarDays, Sun, X } from 'lucide-react';
 import type { Capture, Command, Milestone, Project, Task, Workspace, WorkspaceEnvelope } from '@/lib/types';
 import { isCurrentWeek } from '@/lib/calendar';
@@ -45,19 +45,22 @@ import { CaptureEditor, ConvertEditor } from './capture-editors';
 import { TodayView } from './today-view';
 import { ProjectDetail, ProjectsView } from './projects-view';
 import { InboxView } from './inbox-view';
-import { SourcesView } from './sources-view';
-import {ReviewCenter} from './review-center';
 import {z} from 'zod';
 import {canonical,contentHash} from '@/lib/canonical-json';
 import {ExecutionEnrollmentDialog} from './execution-enrollment-dialog';
 import type {GenericDeviceEnrollmentInput} from '@/lib/devices/validation';
-import {AgentsView} from './agents-view';
 import {JobBudgetEditor} from './job-budget-editor';
 import type {JobBudgetDisplay} from '@/lib/agents/read-model';
 import {JobEditor} from './job-editor';
 import {RuntimeView,EnrollmentSecretUnavailableError,EnrollmentNotStartedError,type RuntimeEnrollmentResult} from './runtime-view';
 import {BaselineRevisionEditor} from './baseline-revision-editor';
 import type {ReviewSnapshot} from '@/lib/reviews/contracts';
+
+// Defer noninitial screens so Today can become usable on a slow connection.
+const SourcesView=lazy(()=>import('./sources-view').then(module=>({default:module.SourcesView})));
+const ReviewCenter=lazy(()=>import('./review-center').then(module=>({default:module.ReviewCenter})));
+const AgentsView=lazy(()=>import('./agents-view').then(module=>({default:module.AgentsView})));
+function ViewLoading({label}:{label:string}){return <p role="status" className="muted">Loading {label}…</p>;}
 
 type View = 'today' | 'projects' | 'inbox' | 'sources' | 'reviews' | 'search' | 'attention' | 'weekly' | 'evidence' | 'history' | 'runtime' | 'agents';
 type SaveBase = { revision: number; submission?: Submission | null };
@@ -330,10 +333,10 @@ export default function ControlCenter({ userName }: { userName: string }) {
         {!unavailableTarget && view === 'projects' && (milestone ? <MilestoneWorkspace revision={envelope!.revision} workspace={workspace} milestone={milestone} onTask={openTask} onEdit={row=>openEditor({type:'milestone',milestone:row,project:workspace.projects.find(project=>project.id===row.projectId)!})} onNewTask={row=>openEditor({type:'task',projectId:row.projectId,milestoneId:row.id})} onCapture={row=>openEditor({type:'capture',capture:row})} onCommand={command=>mutate(command)} onBack={()=>project?openProject(project):navigate('projects')} /> : project ? <ProjectDetail baselineRemovedIds={envelope?.baselineRemovedIds} key={`project-detail:${project.id}`} project={project} workspace={workspace} busy={busy} onBack={() => navigate('projects')} onProjectEdit={() => openEditor({ type: 'project', project })} onProjectLifecycle={(row,action)=>run({type:action==='archive'?'project.archive':'project.restore',id:row.id})} onMilestone={openMilestone} onNewMilestone={() => openEditor({ type: 'milestone', project })} onTask={openTask} onNewTask={() => openEditor({ type: 'task', projectId: project.id })} onPin={pinTask} onApplyBaseline={(project, baselineId) => run({ type: 'baseline.apply', projectId: project.id, baselineId })} /> : <ProjectsView workspace={workspace} onProject={openProject} onCreate={()=>openEditor({type:'project'})} />)}
         {!unavailableTarget && view==='projects' && !milestone && <TaskBulkActions key={`task-bulk:${project?.id??'portfolio'}`} workspace={workspace} revision={envelope!.revision} projectId={project?.id} onTask={openTask} onCommand={(command,revision)=>mutate(command,undefined,revision)} />}
         {view === 'inbox' && <InboxView revision={envelope!.revision} onBulkCommand={(command,revision)=>mutate(command,undefined,revision)} workspace={workspace} busy={busy} onCreate={() => openEditor({ type: 'capture' })} onEdit={capture => openEditor({ type: 'capture', capture })} onConvert={capture => openEditor({ type: 'convert', capture })} onTask={openTask} onCommand={run} />}
-        {view === 'reviews' && envelope && <ReviewCenter envelope={envelope} busy={busy||loading} onBaselineRevision={(projectId,snapshot,snapshotHash)=>{if(mayNavigate())openEditor({type:'baseline-revision',projectId,snapshot,snapshotHash});}} onCommand={command=>mutate(command as Command)} onRefreshWorkspace={()=>void refresh()} onDirtyChange={dirty=>{sourceDirtyRef.current=dirty;stream.current?.setBusy(dirty||sourcePendingRef.current||busyRef.current);}} onPendingChange={pending=>{sourcePendingRef.current=pending;polling.current?.setBusy(pending||busyRef.current);stream.current?.setBusy((pending||busyRef.current)||sourceDirtyRef.current||Boolean(editorDraftController.current?.isDirty()));}} />}
-        {view === 'agents' && envelope && <AgentsView envelope={envelope} busy={busy||loading||editor!==null} onCommand={command=>mutate(command as Command)} onRefreshWorkspace={()=>void refresh()} onOpenJob={()=>{if(mayNavigate())openEditor({type:'agent-job'});}} onOpenBudget={budget=>{if(mayNavigate())openEditor({type:'agent-budget',budget});}} onOpenEnrollment={()=>{if(mayNavigate())openEditor({type:'execution-enrollment'});}} onDirtyChange={dirty=>agentGuard('jobsDirty',dirty)} onPendingChange={pending=>agentGuard('jobsPending',pending)} />}
+        {view === 'reviews' && envelope && <Suspense fallback={<ViewLoading label="Briefs and automations" />}><ReviewCenter envelope={envelope} busy={busy||loading} onBaselineRevision={(projectId,snapshot,snapshotHash)=>{if(mayNavigate())openEditor({type:'baseline-revision',projectId,snapshot,snapshotHash});}} onCommand={command=>mutate(command as Command)} onRefreshWorkspace={()=>void refresh()} onDirtyChange={dirty=>{sourceDirtyRef.current=dirty;stream.current?.setBusy(dirty||sourcePendingRef.current||busyRef.current);}} onPendingChange={pending=>{sourcePendingRef.current=pending;polling.current?.setBusy(pending||busyRef.current);stream.current?.setBusy((pending||busyRef.current)||sourceDirtyRef.current||Boolean(editorDraftController.current?.isDirty()));}} /></Suspense>}
+        {view === 'agents' && envelope && <Suspense fallback={<ViewLoading label="Agents" />}><AgentsView envelope={envelope} busy={busy||loading||editor!==null} onCommand={command=>mutate(command as Command)} onRefreshWorkspace={()=>void refresh()} onOpenJob={()=>{if(mayNavigate())openEditor({type:'agent-job'});}} onOpenBudget={budget=>{if(mayNavigate())openEditor({type:'agent-budget',budget});}} onOpenEnrollment={()=>{if(mayNavigate())openEditor({type:'execution-enrollment'});}} onDirtyChange={dirty=>agentGuard('jobsDirty',dirty)} onPendingChange={pending=>agentGuard('jobsPending',pending)} /></Suspense>}
         {view === 'runtime' && envelope && <RuntimeView envelope={envelope} busy={busy||loading} onCommand={command=>mutate(command as Command)} onEnroll={input=>enrollRuntimeDevice({...input,scopes:['telemetry:write']})} onRefreshWorkspace={()=>void refresh()} onDirtyChange={dirty=>{sourceDirtyRef.current=dirty;stream.current?.setBusy(dirty||sourcePendingRef.current||busyRef.current);}} onPendingChange={pending=>{sourcePendingRef.current=pending;polling.current?.setBusy(pending||busyRef.current);stream.current?.setBusy((pending||busyRef.current)||sourceDirtyRef.current||Boolean(editorDraftController.current?.isDirty()));}} />}
-        {view === 'sources' && envelope && <SourcesView onDirtyChange={dirty=>{sourceDirtyRef.current=dirty;stream.current?.setBusy(dirty||sourcePendingRef.current||busyRef.current);}} onPendingChange={pending=>{sourcePendingRef.current=pending;polling.current?.setBusy(pending||busyRef.current);stream.current?.setBusy((pending||busyRef.current)||sourceDirtyRef.current||Boolean(editorDraftController.current?.isDirty()));}} envelope={envelope} busy={busy || loading} onRefresh={() => void refresh()} onRestore={restoreWorkspace} onPreviousBackup={loadPreviousBackup} onBackup={()=>mutate({type:'workspace.backup'})} onImport={command=>mutate(command)} onDelete={command=>mutate(command)} onBackupRemove={command=>mutate(command)} />}
+        {view === 'sources' && envelope && <Suspense fallback={<ViewLoading label="Sources" />}><SourcesView onDirtyChange={dirty=>{sourceDirtyRef.current=dirty;stream.current?.setBusy(dirty||sourcePendingRef.current||busyRef.current);}} onPendingChange={pending=>{sourcePendingRef.current=pending;polling.current?.setBusy(pending||busyRef.current);stream.current?.setBusy((pending||busyRef.current)||sourceDirtyRef.current||Boolean(editorDraftController.current?.isDirty()));}} envelope={envelope} busy={busy || loading} onRefresh={() => void refresh()} onRestore={restoreWorkspace} onPreviousBackup={loadPreviousBackup} onBackup={()=>mutate({type:'workspace.backup'})} onImport={command=>mutate(command)} onDelete={command=>mutate(command)} onBackupRemove={command=>mutate(command)} /></Suspense>}
       </>}
     </main><footer className="app-footer"><span>CONTROL ROOM</span><span>A little clarity. A steady next step.</span></footer></div>
     {notice && <div className="save-toast" role="status"><Check size={16} />{notice}</div>}
