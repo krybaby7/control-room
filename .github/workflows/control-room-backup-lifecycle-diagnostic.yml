@@ -1,0 +1,29 @@
+name: Control Room native backup lifecycle diagnostics
+on:
+  push:
+    branches: ['diagnostics/**']
+    paths: ['.github/workflows/control-room-backup-lifecycle-diagnostic.yml']
+permissions:
+  contents: read
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        file: ['backup-archive-reauthorization', 'scheduled-backup-archive']
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    env:
+      CONTROL_ROOM_SOURCE_COMMIT: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm run install:ci
+      - name: Diagnose exact native backup file
+        timeout-minutes: 5
+        run: node --experimental-strip-types --test --test-reporter=spec --test-timeout=120000 tests/${{ matrix.file }}.test.ts
