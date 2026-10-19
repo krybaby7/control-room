@@ -1,26 +1,27 @@
 # Cloud implementation checkpoint
 
-Parent source:bb93165b0c99e295bb431eda8227bce4b924a54e. Resolve the branch ref for this checkpoint's own commit.
+Primary parent before these two integration commits: b88ddebdccffc8863990bc63e5b8976d2a5f2456. First integration commit:1457218a828f9f172600b8007c6904ebc4be5905. Resolve the implementation branch ref for this checkpoint's own source SHA.
 
-Execution uses GitHub source APIs and actual Node24 GitHub Actions cloud runners. Explicit gpt-6.1-sol model parameters were accepted for the integrator and six recorded workers. Workspace/Sites helper execution remains unavailable; no substitute runtime/model is used.
+Execution uses GitHub source APIs plus actual Node24 GitHub Actions cloud runners. Supported explicit gpt-6.1-sol selections were accepted for the integrator and six recorded workers; no substitute model or original local Windows execution is used. Workspace/Sites helper execution remains unavailable.
 
-## Exact verification
+## Exact evidence
 
-Exactbb93165b0c99e295bb431eda8227bce4b924a54e normal benchmark39184605165 failed only D1savep954204.984753ms against unchanged2000ms; SQLite1129.747987ms and D1read873.887513ms passed. All100outcomes and six restores perengine correct. Both mobile runs passed p952720.7/2725.6ms. Profiling confirms16/18RPC after co-batching, with18SQL commit; diagnostic timings are not acceptance. Packaging diagnostic39184760370 exposed TS2322 in co-batched audit rows before build; a closed-column runtime guard is included next. Last complete focused result remains872:445/445/type/lint; full integrated Node suite unfinished.
+Controlled candidate d190e0dbd5c5393c8e9d1115779b38ebeac169b1: run39187661181 focused/job117853393154 passed460/460 Node,typecheck,lint; normal/job117853393340 passed D1savep951772.252457ms<2000,SQLite674.8287ms,D1read573.718564ms<1500,all100concurrent outcomes and six restores perengine/errors=[]. Actual calibration39187661085/job117853392757 proves nativeD1 true5-arm compound cap: minimal5 passes,6/10/20/30 fail; full37-source capture now8 bounded SELECT statements in one read-only batch. Separate instrumented profile latency failed and is not substituted for normal acceptance.
 
-## Included changes awaiting cloud gates
+## Included reviewed changes
 
-- Audit batch values now validate non-null object shape and all ten exact SELECT columns before typed copies; malformed/primitive audit-row regressions expanded.
-- Milestone detail opens owner-resolved scoped history through the existing navigation guards; exact original IDs, archived subjects, editable read-only filters, neutral invalid query handling, and explicit undo review retained. Three unit cases and a native filtered-event/reload/no-write journey added.
-- Presentation-only reporter native event self-test passed at isolatedc735; full-suite active-file diagnostics remain running. No scheduling, timeout, assertion or result-counter changes.
+- Exact immutable-string SHA results are reused only in one bounded branded serialization context; physical-row native hashing and every schema/reference/identity/CAS check remain unchanged.
+- Closed recovery reads use <=5 UNION arms per statement, <=8 statements in one read-only batch, per-table cursor/LIMIT200/empty certificates/strict row padding and BINARY order; complete first/final images, frozen audit vector, byte/row caps and final namespace remain.
+- Narrow generated-build packaging exceptions preserve four exact metadata paths and an anchored framework tilde-chunk grammar; all private/dot/traversal/symlink/identity/finite-size guards retained. Exactcdacc diagnostic package passed138bridge+8packaging/type/lint/build and archives, but its artifacts are UNVALIDATED and are not a final primary-source release.
+- Backup object-stream cancellation awaits an already-started bounded read, starts no new chunk and avoids late enqueue/error. Native6case proof and strict numeric/closed-phase reporter self-tests passed. Explicit fixture body cleanup retains all original native assertions.
 
-## Known failures and remaining work
+## Unfinished and external work
 
-- D1 concurrent-save p95 remains failed2000ms despite two fewer RPCs; unchanged samples/budgets retained.
-- Full integrated Node/bridge/type/lint/build/D1/R2/HTTP/browser/application package awaits a terminal coherent pass; partial or canceled runs are not passes.
-- Closed-column audit typing and scoped history await exact-source cloud regression gates. Diagnostic application packaging must retry after typecheck passes; actual rejected build path is not yet known.
-- Supported Sites helper execution remains unavailable. Actual upstream runtime/adapter/sandbox, provider consent, renewable private ingress, hosted SSE and owner device/passkey acceptance remain unavailable/not-run. No new deployment or enabled paid/operational/trading effects.
+- Complete coherent full Node/bridge/type/lint/build/D1/R2/HTTP/default-browser/application-package gate remains pending; the native9MiB scheduled backup journey is under exact source-line/closed-phase diagnostics, with no skipped assertion or timeout/sample/budget change.
+- Isolated c735 full suite timed out with2backupfiles; fixture-only17810 removes reauthorization stall but scheduled-backup-archive.test.ts67:1 remains. Reviewed stream cancellation passes6native cases; it did not establish a full-suite cure. Latest diagnostic7a adds fixed phase labels to locate the remaining await.
+- Original actual-format local Agent Lab projection and optional source-objective fields are under separate privacy review/native verification; not included yet. Actual upstream interface has now been inspected through authorized read-only access; no private upstream source/identity/pins/records are published. No need to ask owner to rediscover an unknown API.
+- Supported Sites source/package helper execution is unavailable. Existing private Site remains version2, one owner and no visitors/groups. Production invocation still needs an approved pinned runtime package and Windows owned-process/sandbox integration and acceptance; real provider consent, renewable private ingress, hosted SSE and owner devices/passkey are not-run. Paid inference, trading/operational effects and external alerts remain disabled.
 
-Private Site remains unchanged active version2, one owner and no visitors/groups. Original hosting identity, owner records/IDs and original applied migrations are preserved. Rejected local inspection history is excluded from published ancestry.
+Hosting identity, owner records/IDs and original applied migrations are preserved. Rejected local inspection history remains excluded. No new Site deployment or owner/provider/device acceptance is claimed.
 
-Next command: GET https://api.github.com/repos/krybaby7/control-room/git/ref/heads/feat/control-room-completion-cloud; inspect exact source focused/full/normal benchmark and isolated39184413279 file diagnostics; retry bounded diagnostic packaging on this corrected source, then fix actual full-suite stall and performance.
+Next command: GET https://api.github.com/repos/krybaby7/control-room/git/ref/heads/feat/control-room-completion-cloud; inspect exact returned SHA's full/focused/normal/mobile/segmented/native gates. Inspect diagnostic39187780747 terminal fixed phase at scheduled-backup-archive.test.ts67:1, fix actual remaining await, verify original Agent Lab projection candidate, then hold coherent source for final packaging and release evidence.

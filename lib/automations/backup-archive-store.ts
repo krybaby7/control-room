@@ -1,3 +1,4 @@
+import {backupArchiveObjectStream} from '../backup-archive-object-stream.ts';
 import {requirePrivateCapacity,privateRowGrowth,type PrivateGrowth} from '../private-capacity.ts';
 import {z} from 'zod';
 import type {SqlDatabase,SqlStatement} from '../workspace-store.ts';
@@ -76,9 +77,7 @@ async function reserve(db:SqlDatabase,claim:ScheduledBackupClaim,prepared:{manif
  const row=await archive(db,claim.ownerId,claim.backupId);if(!row)throw new Error('Archive reservation was not confirmed.');return row;
 }
 function sourceProofs(bundle:WorkspaceBundle){return (bundle.modules.attachments?.records??[]).flatMap(raw=>{const record=attachmentRecordSchema.parse((raw as {value:unknown}).value);return record.status==='ready'?[record]:[];});}
-function objectStream(storage:ReturnType<typeof createBackupArchiveStorage>,namespace:string,index:BackupArchiveIndex,signal?:AbortSignal):ReadableStream<Uint8Array>{
- let part=0;return new ReadableStream({async pull(controller){try{stopped(signal);if(part===index.chunks.length){controller.close();return;}const bytes=await storage.get(namespace,index.chunks[part++],signal);if(!bytes)throw new Error('A reserved archive object is missing.');controller.enqueue(bytes);}catch(error){controller.error(error);}}});
-}
+function objectStream(storage:ReturnType<typeof createBackupArchiveStorage>,namespace:string,index:BackupArchiveIndex,signal?:AbortSignal):ReadableStream<Uint8Array>{return backupArchiveObjectStream(storage,namespace,index.chunks,signal);}
 async function inspectStored(db:SqlDatabase,owner:string,row:ArchiveRow,index:BackupArchiveIndex,services:FileBackupServices,signal?:AbortSignal){
  const verifyLedger=async()=>{if(await db.prepare('SELECT 1 FROM backup_archive_cleanup_claims c JOIN backup_archive_objects o ON o.storage_key=c.storage_key WHERE o.user_id=? AND o.archive_id=? LIMIT 1').bind(owner,row.id).first())throw new Error('Archive object is permanently retired or fenced.');const retained=await chunks(db,owner,row.id);if(retained.length!==index.chunks.length||retained.some((chunk,part)=>chunk.part_number!==part||chunk.storage_key!==backupArchiveKey(row.namespace,part)||chunk.bytes!==index.chunks[part].bytes||chunk.sha256!==index.chunks[part].sha256||chunk.verified_at===null||chunk.purged_at!==null))throw new Error('Archive physical ledger differs.');};await verifyLedger();
  const expected=metadata(row),records=new Map(sourceProofs(expected.bundle).map(record=>[record.id,record]));
