@@ -8,6 +8,7 @@ import {ROOT,FIXTURE_ORIGIN,WORKER_ORIGIN,parseFixtureArgs,prepareFixtures} from
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 export const FIXTURE_REQUEST_TIMEOUT_MS=15_000;
 let fixtureRequestSequence=0;
+let proxyDiagnosticSequence=0,proxyActiveUpstreams=0;
 function fixtureRouteClass(input){try{const path=new URL(input instanceof Request?input.url:String(input)).pathname;return path==='/api/workspace'?'workspace':path==='/api/evidence'?'evidence':/^\/api\/attachments\/[^/]+\/content$/.test(path)?'attachment-content':'other';}catch{return 'other';}}
 /** The same signal bounds response headers and subsequent JSON/text/binary body reads. */
 export function fixtureFetch(input,init={},timeoutMs=FIXTURE_REQUEST_TIMEOUT_MS){
@@ -34,11 +35,17 @@ export function fixtureProxy({requestTimeoutMs=FIXTURE_REQUEST_TIMEOUT_MS}={}){
   if(session==='a'||session==='b'){headers['oai-authenticated-user-id']=`synthetic-${session}`;headers['oai-authenticated-user-email']=`synthetic-${session}@example.invalid`;}
   // Preserve external/missing origins so production same-origin checks still reject them.
   if(headers.origin===FIXTURE_ORIGIN)headers.origin=WORKER_ORIGIN;
-  const upstream=http.request(new URL(request.url??'/',WORKER_ORIGIN),{method:request.method,headers},incoming=>{const outgoing={...incoming.headers};if(typeof outgoing.location==='string'&&outgoing.location.startsWith(WORKER_ORIGIN))outgoing.location=FIXTURE_ORIGIN+outgoing.location.slice(WORKER_ORIGIN.length);response.writeHead(incoming.statusCode??502,outgoing);incoming.on('error',()=>response.destroy());incoming.pipe(response);});
-  const deadline=setTimeout(()=>upstream.destroy(new Error('Synthetic fixture upstream deadline exceeded.')),requestTimeoutMs);
-  upstream.setTimeout(requestTimeoutMs,()=>upstream.destroy(new Error('Synthetic fixture upstream socket timed out.')));
+  // Diagnostic branch only: closed request lifecycle metadata, never request data.
+  const diagnostic=request.method==='GET'&&url.pathname==='/api/jobs',diagnosticSequence=++proxyDiagnosticSequence,diagnosticStart=performance.now();
+  const diagnosticEvent=(phase,extra={})=>{if(diagnostic)console.log(JSON.stringify({event:'diagnostic_jobs_proxy',sequence:diagnosticSequence,phase,elapsedMs:Math.round(performance.now()-diagnosticStart),activeUpstreams:proxyActiveUpstreams,...extra}));};
+  diagnosticEvent('entry');proxyActiveUpstreams++;
+  const upstream=http.request(new URL(request.url??'/',WORKER_ORIGIN),{method:request.method,headers},incoming=>{diagnosticEvent('upstream-headers',{status:incoming.statusCode??null,reusedSocket:upstream.reusedSocket===true});incoming.once('end',()=>diagnosticEvent('upstream-end'));const outgoing={...incoming.headers};if(typeof outgoing.location==='string'&&outgoing.location.startsWith(WORKER_ORIGIN))outgoing.location=FIXTURE_ORIGIN+outgoing.location.slice(WORKER_ORIGIN.length);response.writeHead(incoming.statusCode??502,outgoing);incoming.on('error',()=>response.destroy());incoming.pipe(response);});
+  upstream.once('socket',socket=>{diagnosticEvent('socket',{connecting:socket.connecting,reusedSocket:upstream.reusedSocket===true});socket.once('connect',()=>diagnosticEvent('socket-connect'));});
+  upstream.once('close',()=>{proxyActiveUpstreams--;diagnosticEvent('upstream-close');});
+  const deadline=setTimeout(()=>{diagnosticEvent('whole-deadline',{reusedSocket:upstream.reusedSocket===true});upstream.destroy(new Error('Synthetic fixture upstream deadline exceeded.'));},requestTimeoutMs);
+  upstream.setTimeout(requestTimeoutMs,()=>{diagnosticEvent('idle-deadline',{reusedSocket:upstream.reusedSocket===true});upstream.destroy(new Error('Synthetic fixture upstream socket timed out.'));});
   response.once('finish',()=>clearTimeout(deadline));response.once('close',()=>{clearTimeout(deadline);upstream.destroy();});
-  upstream.on('error',()=>{if(!response.headersSent)response.writeHead(502);response.end();});request.on('aborted',()=>upstream.destroy());request.pipe(upstream);
+  upstream.on('error',error=>{diagnosticEvent('upstream-error',{code:['ECONNRESET','ETIMEDOUT','ECONNREFUSED','EPIPE','ENOTFOUND','ECONNABORTED'].includes(error.code)?error.code:'other',reusedSocket:upstream.reusedSocket===true});if(!response.headersSent)response.writeHead(502);response.end();});request.on('aborted',()=>upstream.destroy());request.pipe(upstream);
  });
 }
 async function waitReady(child){const deadline=Date.now()+60000;while(Date.now()<deadline){if(child.exitCode!==null)throw new Error('Fixture worker exited before readiness.');try{const response=await fixtureFetch(`${WORKER_ORIGIN}/api/workspace`,{signal:AbortSignal.timeout(1500)});if(response.status===401)return;}catch{}await pause(200);}throw new Error('Fixture worker readiness timed out.');}
@@ -101,7 +108,7 @@ export async function startFixture(args){
  const cleanup=()=>cleaning??=(async()=>{if(proxy){proxy.closeAllConnections();await new Promise(resolve=>proxy.close(resolve));}if(child&&child.exitCode===null){child.kill('SIGTERM');await Promise.race([new Promise(resolve=>child.once('exit',resolve)),pause(3000)]);if(child.exitCode===null){child.kill('SIGKILL');await new Promise(resolve=>child.once('exit',resolve));}}await fixture.cleanup();})();
  const onSignal=()=>{void cleanup().then(()=>process.exit(0));};process.once('SIGTERM',onSignal);process.once('SIGINT',onSignal);
  try{
-  child=spawn(process.execPath,[fixture.wrangler,'dev','--local','--config',fixture.configPath,'--persist-to',fixture.statePath,'--ip','127.0.0.1','--port','4174','--inspector-port','0','--log-level','debug'],{shell:false,cwd:ROOT,env:fixture.environment,stdio:['ignore','pipe','pipe']});for(const stream of [child.stdout,child.stderr])stream.on('data',data=>{logs=(logs+data.toString()).slice(-12000);});child.on('error',error=>{logs+=error.message;});
+  child=spawn(process.execPath,[fixture.wrangler,'dev','--local','--config',fixture.configPath,'--persist-to',fixture.statePath,'--ip','127.0.0.1','--port','4174','--inspector-port','0','--log-level','debug'],{shell:false,cwd:ROOT,env:fixture.environment,stdio:['ignore','pipe','pipe']});let diagnosticLines='';for(const stream of [child.stdout,child.stderr])stream.on('data',data=>{logs=(logs+data.toString()).slice(-12000);diagnosticLines=(diagnosticLines+data.toString()).slice(-8192);const lines=diagnosticLines.split('\n');diagnosticLines=lines.pop()??'';for(const line of lines){const at=line.indexOf('{"event":"diagnostic_jobs_reader"');if(at<0)continue;try{const value=JSON.parse(line.slice(at).replace(/\u001b\[[0-9;]*m/g,''));if(value.event==='diagnostic_jobs_reader'&&['entry','authenticated','beforecurrent','basequeries','budgets','jobs','evaluations','aftercurrent','validated','failed'].includes(value.stage)&&Number.isSafeInteger(value.sequence)&&Number.isSafeInteger(value.elapsedMs))console.log(JSON.stringify({event:value.event,sequence:value.sequence,stage:value.stage,elapsedMs:value.elapsedMs}));}catch{}}});child.on('error',error=>{logs+=error.message;});
   await waitReady(child);
   proxy=fixtureProxy();await new Promise((resolve,reject)=>{proxy.once('error',reject);proxy.listen(4173,'127.0.0.1',resolve);});
   if(!serve){await smokeFixture();if(withR2)await smokeAttachments();await cleanup();}else{console.log(`Synthetic local fixture ready at ${FIXTURE_ORIGIN}`);await new Promise((resolve,reject)=>{child.once('exit',code=>{if(!cleaning)reject(new Error(`Fixture worker exited ${code}`));else resolve();});});}

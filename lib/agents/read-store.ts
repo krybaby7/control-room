@@ -7,10 +7,12 @@ import {agentIdSchema,agentResultRecordSchema,agentJobResultSchema} from './cont
 import {validateEvaluationObservation} from './evaluation-import.ts';
 import {jobReadModelSchema,type JobReadModel} from './read-model.ts';
 /** Owner-only safe projection. Private tokens/process identity never leave this boundary. */
-export async function readAgentJobs(db:SqlDatabase,owner:string,now:string,options:{afterJob?:string;afterEvaluation?:string;executionAvailable?:boolean;jobId?:string}={}):Promise<JobReadModel>{
+export async function readAgentJobs(db:SqlDatabase,owner:string,now:string,options:{afterJob?:string;afterEvaluation?:string;executionAvailable?:boolean;jobId?:string;onDiagnosticStage?:(stage:'beforecurrent'|'basequeries'|'budgets'|'jobs'|'evaluations'|'aftercurrent'|'validated')=>void}={}):Promise<JobReadModel>{
  if(!owner)throw new Error('An authenticated owner is required.');
  for(const id of [options.afterJob,options.afterEvaluation,options.jobId])if(id!==undefined)agentIdSchema.parse(id);
+ options.onDiagnosticStage?.('beforecurrent');
  const before=await readCurrent(db,owner,now),services=ownerAgentContext(db,owner,now);
+ options.onDiagnosticStage?.('basequeries');
  const rows=(await db.prepare('SELECT id,row_revision,payload_json,content_hash FROM agent_jobs WHERE user_id=? AND id>? AND (? IS NULL OR id=?) ORDER BY id LIMIT 201').bind(owner,options.afterJob??'',options.jobId??null,options.jobId??null).all<{id:string;row_revision:number;payload_json:string;content_hash:string}>()).results;
  // Restoring portable history must not hide a retained uncertain process. Its
  // frozen proposal is displayed as historical context, without execution grants.
@@ -20,12 +22,14 @@ export async function readAgentJobs(db:SqlDatabase,owner:string,now:string,optio
  const detached=(await db.prepare("SELECT r.payload_json,r.content_hash,r.job_id FROM agent_results r WHERE r.user_id=? AND r.job_id>? AND (? IS NULL OR r.job_id=?) AND NOT EXISTS(SELECT 1 FROM agent_jobs j WHERE j.user_id=r.user_id AND j.id=r.job_id) AND NOT EXISTS(SELECT 1 FROM agent_results later WHERE later.user_id=r.user_id AND later.job_id=r.job_id AND (later.recorded_at>r.recorded_at OR (later.recorded_at=r.recorded_at AND later.id>r.id))) ORDER BY r.job_id LIMIT 201").bind(owner,options.afterJob??'',options.jobId??null,options.jobId??null).all<{payload_json:string;content_hash:string;job_id:string}>()).results;
  for(const row of detached){const result=agentResultRecordSchema.parse(JSON.parse(row.payload_json));if(result.jobId!==row.job_id||await contentHash(canonical(result))!==row.content_hash||await contentHash(canonical(result.result))!==result.resultSha256)throw new Error('Detached historical result digest differs.');if(!rows.some(existing=>existing.id===row.job_id)){const value={...await validateAgentJobRecord(result.frozenJob),historical:true};rows.push({id:value.id,row_revision:1,payload_json:canonical(value),content_hash:await contentHash(canonical(value))});}}
  rows.sort((a,b)=>a.id<b.id?-1:a.id>b.id?1:0);const nextJobAfter=rows.length>200?rows[199].id:null,page=rows.slice(0,200),jobs:JobReadModel['jobs']=[];
+ options.onDiagnosticStage?.('budgets');
  const budgetRows=(await db.prepare('SELECT id,operational_revision,maximum_jobs,maximum_seconds,reserved_jobs,reserved_seconds,charged_seconds,enabled,payload_json FROM agent_budgets WHERE user_id=? ORDER BY id LIMIT 13').bind(owner).all<{id:string;operational_revision:number;maximum_jobs:number;maximum_seconds:number;reserved_jobs:number;reserved_seconds:number;charged_seconds:number;enabled:number;payload_json:string}>()).results;
  if(budgetRows.length>12)throw new Error('Budget configuration bound exceeded.');
  const budgetDisplays=budgetRows.map(row=>{if(canonical(JSON.parse(row.payload_json))!==canonical({maximumJobs:row.maximum_jobs,maximumSeconds:row.maximum_seconds,enabled:row.enabled===1}))throw new Error('Budget body differs from its bounds.');return {id:row.id,operationalRevision:row.operational_revision,maximumJobs:row.maximum_jobs,maximumSeconds:row.maximum_seconds,reservedJobs:row.reserved_jobs,reservedSeconds:row.reserved_seconds,chargedSeconds:row.charged_seconds,enabled:row.enabled===1};});
  const budgets=options.executionAvailable?budgetDisplays.filter(row=>row.enabled):[];
  const devices=options.executionAvailable?(await db.prepare('SELECT device_id FROM agent_capabilities WHERE user_id=? AND revoked_at IS NULL ORDER BY device_id LIMIT 21').bind(owner).all<{device_id:string}>()).results:[];
  if(budgets.length>12||devices.length>20)throw new Error('Execution configuration bound exceeded.');
+ options.onDiagnosticStage?.('jobs');
  for(const row of page){
   if(await contentHash(canonical(JSON.parse(row.payload_json)))!==row.content_hash)throw new Error('Owner job body digest differs.');
   const record=await validateAgentJobRecord(JSON.parse(row.payload_json)),privateState=await services.state(record.id),state=record.historical?null:privateState;
@@ -42,10 +46,13 @@ export async function readAgentJobs(db:SqlDatabase,owner:string,now:string,optio
   const attempt=attemptRow?{id:attemptRow.id,epoch:attemptRow.execution_epoch,deviceId:attemptRow.device_id,createdAt:attemptRow.created_at,leaseExpiresAt:attemptRow.lease_expires_at,deadlineAt:attemptRow.deadline_at,lastAppliedSequence:attemptRow.last_applied_sequence,processExitConfirmed:result?.processExitConfirmed??false,terminationUnconfirmed:result?.terminationUnconfirmed??uncertainState,startedAt:attemptRow.launched_at,lastEventAt:event?.at??null,diagnostic:uncertainState?'exit_unconfirmed' as const:result?.diagnostic??'unknown' as const}:null;
   jobs.push({record,rowRevision:row.row_revision,status,operationalRevision:state?.operationalRevision??privateState?.operationalRevision??1,attempt,result,resultHash:result?await contentHash(canonical(result)):null,approvalCandidate,accepted:!record.historical&&state?.acceptedAt!==null&&state?.acceptedAt!==undefined});
  }
+ options.onDiagnosticStage?.('evaluations');
  const evaluationsRaw=options.jobId?[]:(await db.prepare('SELECT id,payload_json,content_hash FROM evaluation_runs WHERE user_id=? AND id>? ORDER BY id LIMIT 201').bind(owner,options.afterEvaluation??'').all<{id:string;payload_json:string;content_hash:string}>()).results,nextEvaluationAfter=evaluationsRaw.length>200?evaluationsRaw[199].id:null,evaluations=[];
  for(const row of evaluationsRaw.slice(0,200)){const value=await validateEvaluationObservation(JSON.parse(row.payload_json));if(value.id!==row.id||await contentHash(canonical(value))!==row.content_hash)throw new Error('Evaluation history digest differs.');evaluations.push(value);}
+ options.onDiagnosticStage?.('aftercurrent');
  const after=await readCurrent(db,owner,now);if(after.revision!==before.revision)throw new Error('Owner job read changed. Refresh again.');
  const value=jobReadModelSchema.parse({revision:before.revision,generatedAt:now,jobs,evaluations,budgets:budgetDisplays,nextJobAfter,nextEvaluationAfter,execution:{enabled:options.executionAvailable===true,diagnostic:options.executionAvailable?'ready':'not_installed'}});
  if(new TextEncoder().encode(JSON.stringify(value)).byteLength>2*1024*1024)throw new Error('Owner job page exceeds its byte bound.');
+ options.onDiagnosticStage?.('validated');
  return value;
 }
