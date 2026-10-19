@@ -9,6 +9,11 @@ export interface MutationAdmissionSnapshot {
   * missing-workspace handling; this reader never seeds or borrows a workspace. */
  readonly currentRevision:number|null;
 }
+export const MUTATION_ADMISSION_READ_SQL=`SELECT e.status epoch_status,m.mutation_id receipt_id,m.command_hash receipt_hash,m.revision receipt_revision,w.revision current_revision
+ FROM (SELECT ? owner,? mutation_id,? epoch) selected
+ LEFT JOIN workspace_mutation_epochs e ON e.user_id=selected.owner AND e.epoch=selected.epoch
+ LEFT JOIN workspace_mutations m ON m.user_id=selected.owner AND m.mutation_id=selected.mutation_id
+ LEFT JOIN workspaces w ON w.user_id=selected.owner`;
 type AdmissionRow={epoch_status:string|null;receipt_id:string|null;receipt_hash:string|null;receipt_revision:number|null;current_revision:number|null};
 /** One owner-scoped SQLite statement snapshot, not execution authority. Epochs,
  * receipts and the revision head are read together without loading planning.
@@ -21,11 +26,7 @@ export async function readMutationAdmission(db:SqlDatabase,authenticatedOwner:st
  if(!authenticatedOwner)throw new Error('A signed-in user is required.');
  // Reuse the original reserved m1 parser and exact invalid-ID errors BEFORE SQL.
  const parsedEpoch=mutationEpoch(mutationId);
- const row=await db.prepare(`SELECT e.status epoch_status,m.mutation_id receipt_id,m.command_hash receipt_hash,m.revision receipt_revision,w.revision current_revision
- FROM (SELECT ? owner,? mutation_id,? epoch) selected
- LEFT JOIN workspace_mutation_epochs e ON e.user_id=selected.owner AND e.epoch=selected.epoch
- LEFT JOIN workspace_mutations m ON m.user_id=selected.owner AND m.mutation_id=selected.mutation_id
- LEFT JOIN workspaces w ON w.user_id=selected.owner`).bind(authenticatedOwner,mutationId,parsedEpoch).first<AdmissionRow>();
+ const row=await db.prepare(MUTATION_ADMISSION_READ_SQL).bind(authenticatedOwner,mutationId,parsedEpoch).first<AdmissionRow>();
  if(!row)throw new Error('Mutation admission snapshot could not be read.');
  let epoch:MutationEpochCheck={status:'legacy'};
  if(parsedEpoch!==null){

@@ -11,12 +11,12 @@ const moduleStreams=[
  ["evaluation_runs","agents","evaluation_runs_sequence"]
 ]as const;
 const ownerColumn='(SELECT user_id FROM watermark_owner)';
-const watermarkSql="WITH watermark_owner AS MATERIALIZED(SELECT ? user_id),selected_heads AS MATERIALIZED(SELECT stream_id,last_sequence FROM operational_stream_heads WHERE user_id="+ownerColumn+" ORDER BY stream_id LIMIT 201) SELECT (SELECT json_group_array(json_object('stream_id',stream_id,'last_sequence',last_sequence)) FROM selected_heads) heads_json,"+moduleStreams.map(([table,,field])=>"(SELECT MAX(stream_sequence) FROM "+table+" WHERE user_id="+ownerColumn+") "+field).join(',')+",(SELECT MAX(stream_sequence) FROM audit_events WHERE user_id="+ownerColumn+" AND stream_id='sources') source_audit_sequence,(SELECT MAX(stream_sequence) FROM audit_events WHERE user_id="+ownerColumn+" AND stream_id='agents') agent_audit_sequence";
+export const OPERATIONAL_WATERMARK_READ_SQL="WITH watermark_owner AS MATERIALIZED(SELECT ? user_id),selected_heads AS MATERIALIZED(SELECT stream_id,last_sequence FROM operational_stream_heads WHERE user_id="+ownerColumn+" ORDER BY stream_id LIMIT 201) SELECT (SELECT json_group_array(json_object('stream_id',stream_id,'last_sequence',last_sequence)) FROM selected_heads) heads_json,"+moduleStreams.map(([table,,field])=>"(SELECT MAX(stream_sequence) FROM "+table+" WHERE user_id="+ownerColumn+") "+field).join(',')+",(SELECT MAX(stream_sequence) FROM audit_events WHERE user_id="+ownerColumn+" AND stream_id='sources') source_audit_sequence,(SELECT MAX(stream_sequence) FROM audit_events WHERE user_id="+ownerColumn+" AND stream_id='agents') agent_audit_sequence";
 /** One owner-bound statement freezes heads and all row/audit maxima together.
  * No owner data, schema assumption or authority is cached between calls. */
 export async function readOperationalWatermarks(db:SqlDatabase,userId:string):Promise<Record<string,number>>{
  if(!userId)throw new Error('An authenticated owner is required.');
- const snapshot=await db.prepare(watermarkSql).bind(userId).first<Record<string,unknown>>();
+ const snapshot=await db.prepare(OPERATIONAL_WATERMARK_READ_SQL).bind(userId).first<Record<string,unknown>>();
  if(!snapshot||typeof snapshot.heads_json!=='string'||snapshot.heads_json.length>65536)throw new Error('Invalid operational stream watermark.');
  const expected=['heads_json',...moduleStreams.map(([, ,field])=>field),'source_audit_sequence','agent_audit_sequence'];
  if(Object.keys(snapshot).length!==expected.length||expected.some(field=>!Object.hasOwn(snapshot,field)))throw new Error('Invalid operational stream watermark.');

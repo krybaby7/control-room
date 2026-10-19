@@ -1,3 +1,4 @@
+import {readCommittedWorkspace} from './closed-workspace-reads.ts';
 import {capturePlanningPreflight} from './recoverability-planning-capture.ts';
 import {readMutationAdmission,classifyMutationAdmission} from './mutation-admission-reader.ts';
 import {withWorkspaceAdmission} from './workspace-admission.ts';
@@ -346,9 +347,9 @@ async function executeWorkspaceCommandAdmitted(userId:string,input:{protocolVers
     for(const write of plan.writes){const row=await reader.get(write.table,write.id);if(write.operation==='insert'?Boolean(row):!row || row.row_revision!==write.expectedRowRevision)throw new ModuleConflictError('A related record changed. Refresh and review again.');}
     throw new WorkspaceStorageError('The change could not be confirmed. Reconcile its mutation ID before retrying.');
   }
-  const finalAdmission=await readMutationAdmission(db,userId,id);
+  const finalRead=await readCommittedWorkspace(db,userId,id,now),finalAdmission=finalRead.admission;
   if(finalAdmission.epoch.status==='retired')throw new RetiredMutationError('This mutation epoch is retired.');
-  const committed=finalAdmission.receipt;if(!committed)return {status:'conflict',currentRevision:(await readCurrent(db,userId,now)).revision};
+  const committed=finalAdmission.receipt;if(!committed)return {status:'conflict',currentRevision:finalRead.current().revision};
   if(committed.command_hash!==hash&&committed.command_hash!==legacyHash)throw new MutationIdReuseError('This mutation ID was reused for a different change.');
-  return {status:acquired&&committed.command_hash===hash?'committed':'replayed',envelope:await readCurrent(db,userId,now),receipt:{mutationId:id,commandHash:committed.command_hash,appliedRevision:committed.revision}};
+  return {status:acquired&&committed.command_hash===hash?'committed':'replayed',envelope:finalRead.current(),receipt:{mutationId:id,commandHash:committed.command_hash,appliedRevision:committed.revision}};
 }

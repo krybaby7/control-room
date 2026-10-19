@@ -1,5 +1,6 @@
 import type {SqlDatabase} from './workspace-store.ts';
 export interface WorkspaceNamespaces {auditNamespace:string;blobNamespace:string;cursorSecret:Uint8Array}
+export const WORKSPACE_NAMESPACE_READ_SQL='SELECT audit_namespace,blob_namespace,cursor_secret FROM workspace_source_namespaces WHERE user_id=?';
 interface NamespaceRow {audit_namespace:string;blob_namespace:string;cursor_secret:string}
 const randomUuid=/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
 function owner(userId:string){if(typeof userId!=='string'||!userId.trim())throw new Error('An authenticated owner is required.');}
@@ -11,7 +12,7 @@ function decode(row:NamespaceRow):WorkspaceNamespaces {
 }
 /** Server-only owner-scoped authority. Never export this configuration row or secret. Portable attachment source keys remain metadata claims; target availability requires rekeying and verification. */
 export async function getWorkspaceNamespaces(db:SqlDatabase,userId:string):Promise<WorkspaceNamespaces|null>{
- owner(userId);const row=await db.prepare('SELECT audit_namespace,blob_namespace,cursor_secret FROM workspace_source_namespaces WHERE user_id=?').bind(userId).first<NamespaceRow>();return row?decode(row):null;
+ owner(userId);const row=await db.prepare(WORKSPACE_NAMESPACE_READ_SQL).bind(userId).first<NamespaceRow>();return row?decode(row):null;
 }
 /** Concurrent initializers converge on the single persisted owner row, rather than returning losing candidates. */
 export async function getOrCreateWorkspaceNamespaces(db:SqlDatabase,userId:string):Promise<WorkspaceNamespaces>{

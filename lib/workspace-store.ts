@@ -17,17 +17,19 @@ export interface SqlDatabase {
   prepare(sql: string): SqlStatement;
   batch(statements: SqlStatement[]): Promise<{ meta: { changes?: number }; results?:unknown[] }[]>;
 }
+export const CURRENT_WORKSPACE_READ_SQL='SELECT w.content,w.revision,w.updated_at,EXISTS(SELECT 1 FROM workspace_recovery r WHERE r.user_id=w.user_id) AS previous_backup_available,(SELECT p.payload_json FROM weekly_plans p WHERE p.user_id=w.user_id AND p.id=?) AS weekly_payload_json FROM workspaces w WHERE w.user_id=?';
+export const BASELINE_REMOVAL_READ_SQL="SELECT DISTINCT entity_id FROM audit_events WHERE user_id=? AND kind='entity.delete' AND entity_type IN ('task','capture') AND entity_id IN (SELECT value FROM json_each(?)) ORDER BY entity_id";
 interface Row { content: string; revision: number; updated_at: string; }
 function owner(userId:string): void { if (!userId) throw new Error('A signed-in user is required.'); }
 function envelope(row:Row):WorkspaceEnvelope { return { workspace:decodePlanning(row.content,row.updated_at),revision:row.revision,updatedAt:row.updated_at }; }
 export async function readCurrent(db:SqlDatabase,userId:string,now:string=new Date().toISOString()):Promise<WorkspaceEnvelope> {
   const week=currentWeek(now);
-  const row = await db.prepare('SELECT w.content,w.revision,w.updated_at,EXISTS(SELECT 1 FROM workspace_recovery r WHERE r.user_id=w.user_id) AS previous_backup_available,(SELECT p.payload_json FROM weekly_plans p WHERE p.user_id=w.user_id AND p.id=?) AS weekly_payload_json FROM workspaces w WHERE w.user_id=?').bind(week,userId).first<Row & {previous_backup_available:number;weekly_payload_json:string|null}>();
+  const row = await db.prepare(CURRENT_WORKSPACE_READ_SQL).bind(week,userId).first<Row & {previous_backup_available:number;weekly_payload_json:string|null}>();
   if (!row) throw new Error('The workspace could not be loaded.');
   const current=envelope(row);
   if(row.weekly_payload_json!==null)current.workspace=hydrateCurrentWeeklyPins(current.workspace,weeklyPlanSchema.parse(JSON.parse(row.weekly_payload_json)),now);
   const candidates=current.workspace.projects.flatMap(project=>{const baseline=getProjectBaseline(project);return baseline?[...baseline.actions.map(action=>baselineRecordId(project.id,action.key)),baselineRecordId(project.id,'context')]:[];});
-  const removed=candidates.length?(await db.prepare("SELECT DISTINCT entity_id FROM audit_events WHERE user_id=? AND kind='entity.delete' AND entity_type IN ('task','capture') AND entity_id IN (SELECT value FROM json_each(?)) ORDER BY entity_id").bind(userId,JSON.stringify(candidates)).all<{entity_id:string}>()).results.map(row=>row.entity_id):[];
+  const removed=candidates.length?(await db.prepare(BASELINE_REMOVAL_READ_SQL).bind(userId,JSON.stringify(candidates)).all<{entity_id:string}>()).results.map(row=>row.entity_id):[];
   return {...current,previousBackupAvailable:Boolean(row.previous_backup_available),...(removed.length?{baselineRemovedIds:removed}:{})};
 }
 export async function loadWorkspace(db: SqlDatabase, userId: string, seed: () => Workspace, now: string): Promise<WorkspaceEnvelope> {

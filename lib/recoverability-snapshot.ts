@@ -1,6 +1,8 @@
+import {createFinalRecoveryReads,RECOVERY_AUDIT_READ_SQL} from './closed-workspace-reads.ts';
 import type {ScopedPlanningCapture} from './recoverability-planning-capture.ts';
 import {readRecoveryReadPages} from './recoverability-read-pages.ts';
-import {createSerializationHashContext,closeSerializationHashContext} from './serialization-hash.ts';
+import {closeSerializationHashContext} from './serialization-hash.ts';
+import {createServerSerializationHashContext} from './server/serialization-hash.ts';
 import {verifyRecoverabilityRowHashes} from './recoverability-row-hashes.ts';
 import {startRecoverabilityPhase} from './recoverability-diagnostics.ts';
 import {compareSqliteText} from './sqlite-text-order.ts';
@@ -19,7 +21,6 @@ import {canonical,contentHash} from './canonical-json.ts';
 import {measureRecoverability,type RecoverabilityMeasurement,type RecoverabilityTableInput} from './recoverability-measure.ts';
 import {validateOperationalWatermarks} from './operational-watermarks.ts';
 import {canonicalJsonValue} from './audit-events.ts';
-import {getWorkspaceNamespaces} from './workspace-namespaces.ts';
 import {parseWorkspaceExport} from './workspace-validation.ts';
 const streams:Partial<Record<RegisteredOwnerTable,string>>={agent_results:'agents',evaluation_runs:'agents',source_observations:'sources',source_sync_runs:'sources',integration_history:'sources',review_snapshots:'reviews',review_analysis_runs:'reviews',notification_events:'notifications',automation_occurrences:'automations'};
 
@@ -74,7 +75,7 @@ export interface ProspectiveRecoverabilityResult {agentTerminalReserveRows?:Arra
  * An allowed measurement does not itself authorize a write, restoration or paid action.
  */
 export async function measureProspectiveRecoverability(db:SqlDatabase,owner:string,input:ProspectiveRecoverabilityInput):Promise<ProspectiveRecoverabilityResult>{
- const serializationHashContext=createSerializationHashContext();
+ const serializationHashContext=createServerSerializationHashContext();
  try{
  if(!owner||!Number.isFinite(Date.parse(input.now)))throw new Error('An owner and valid measurement timestamp are required.');
  if(REFERENCE_LIMITS.rows!==BUNDLE_LIMITS.rows)throw new Error('Reference and recovery row bounds require an explicit serializer update.');
@@ -87,10 +88,9 @@ export async function measureProspectiveRecoverability(db:SqlDatabase,owner:stri
  // Every serializer below reads this one captured physical image, never a second
  // independent live export. The final read verifies the whole image before the
  // caller receives exact atomic row-set preconditions.
- const auditColumns='event_id,workspace_revision,ordinal,stream_id,stream_sequence,kind,entity_type,entity_id,occurred_at,payload_json';
- const auditStatement=(after:string)=>db.prepare(`SELECT ${auditColumns} FROM audit_events WHERE user_id=? AND event_id>? AND NOT EXISTS(SELECT 1 FROM json_each(?) frozen WHERE frozen.key=audit_events.stream_id AND audit_events.stream_sequence>frozen.value) ORDER BY event_id LIMIT ?`).bind(owner,after,canonical(boundaryWatermarks),BUNDLE_LIMITS.pageSize);
- const readAudit=(firstPage:Record<string,unknown>[])=>boundedPages<Record<string,unknown>&{id:string}>(async after=>{
-  const page=after===''?firstPage:(await auditStatement(after).all<Record<string,unknown>>()).results;
+ const auditStatement=(after:string,reader:SqlDatabase=db)=>reader.prepare(RECOVERY_AUDIT_READ_SQL).bind(owner,after,canonical(boundaryWatermarks),BUNDLE_LIMITS.pageSize);
+ const readAudit=(firstPage:Record<string,unknown>[],reader:SqlDatabase=db)=>boundedPages<Record<string,unknown>&{id:string}>(async after=>{
+  const page=after===''?firstPage:(await auditStatement(after,reader).all<Record<string,unknown>>()).results;
   return page.map(row=>({id:row.event_id as string,...row}));
  });
 
@@ -99,7 +99,7 @@ export async function measureProspectiveRecoverability(db:SqlDatabase,owner:stri
  const capturedRows=await readPhysicalImage(db,owner,boundaryWatermarks),capturedPhysical=capturedRows.physical,capturedAudit=await readAudit(capturedRows.auditPage);
  const physical=new Map<RegisteredOwnerTable,Map<string,ModuleRow>>(),beforeRows=new Map<RegisteredOwnerTable,ModuleRow[]>(),sequences=new Map<string,number>();
  const finishHashCurrent=startRecoverabilityPhase(db,'hash-current');
- await verifyRecoverabilityRowHashes([...capturedPhysical.values()].flat());
+ await verifyRecoverabilityRowHashes([...capturedPhysical.values()].flat(),serializationHashContext);
  for(const table of OWNER_TABLES){
   const rawRows=capturedPhysical.get(table)!,rows:ModuleRow[]=rawRows.map(({id,row_revision,payload_json,content_hash})=>({id,row_revision,payload_json,content_hash}));
   beforeRows.set(table,rows);physical.set(table,new Map(rows.map(row=>[row.id,{...row}])));
@@ -159,7 +159,7 @@ export async function measureProspectiveRecoverability(db:SqlDatabase,owner:stri
  const finishExpandFuture=startRecoverabilityPhase(db,'expandfuture');
  const tables:RecoverabilityTableInput[]=[],expandedRecords:string[]=[],futureTableArguments:Array<{name:string;serialized:string}>=[];
  for(const table of OWNER_TABLES){const before=beforeRows.get(table)!,after=[...physical.get(table)!.values()].sort((a,b)=>compareSqliteText(a.id,b.id)),expanded=[];
-  for(const row of after){const value=JSON.parse(row.payload_json) as JsonValue;expandedRecords.push(JSON.stringify({id:row.id,value}));expanded.push({...row,...await moduleProjection(table,row.id,value)});}
+  for(const row of after){const value=JSON.parse(row.payload_json) as JsonValue;expandedRecords.push(JSON.stringify({id:row.id,value}));expanded.push({...row,...await moduleProjection(table,row.id,value,serializationHashContext)});}
   tables.push({table,beforeRowsJson:canonical(before.map(({id,row_revision,content_hash})=>({id,row_revision,content_hash}))),expandedAfterPayloadJson:canonical(expanded),beforeRowCount:before.length,afterRowCount:after.length});
   const futureExpanded=expanded.map(row=>{if(!Number.isSafeInteger(row.row_revision+1))throw new Error('Future restore row revision exceeds supported capacity.');return {...row,row_revision:row.row_revision+1};});
   futureTableArguments.push({name:`future-restore:${table}:before`,serialized:canonical(after.map(({id,row_revision,content_hash})=>({id,row_revision,content_hash})))},{name:`future-restore:${table}:after`,serialized:canonical(futureExpanded)});
@@ -179,14 +179,20 @@ export async function measureProspectiveRecoverability(db:SqlDatabase,owner:stri
  measurement.allowed=measurement.reasons.length===0;
  finishMeasure();
  const finishFinalReads=startRecoverabilityPhase(db,'finalreads');
- const latestAuxiliary=await readRecoverabilityAuxiliary(db,owner,input.now,{includeNamespaces:false}),current=latestAuxiliary.current;
+ const finalReads=createFinalRecoveryReads(db,owner,input.now,boundaryWatermarks);
+ try{
+ const [auxiliaryRead,physicalRead]=await Promise.allSettled([readRecoverabilityAuxiliary(finalReads.reader,owner,input.now,{includeNamespaces:false}),readPhysicalImage(finalReads.reader,owner,boundaryWatermarks)]);
+ if(auxiliaryRead.status==='rejected')throw auxiliaryRead.reason;
+ const latestAuxiliary=auxiliaryRead.value,current=latestAuxiliary.current;
  if(current.revision!==boundaryRevision||canonical(current.workspace)!==canonical(original.planning)||canonical(current.baselineRemovedIds??[])!==canonical(captured.baselineRemovedIds??[])||canonical(latestAuxiliary.watermarks)!==canonical(boundaryWatermarks))throw new Error('Workspace boundary changed during recoverability measurement.');
  // Re-read all physical sets: the returned revision/vector alone does not detect an
  // unguarded same-revision mutation, and must never certify a stale normalized set.
- const latestRows=await readPhysicalImage(db,owner,boundaryWatermarks),latestPhysical=latestRows.physical;
+ if(physicalRead.status==='rejected')throw physicalRead.reason;
+ const latestRows=physicalRead.value,latestPhysical=latestRows.physical;
  for(const table of OWNER_TABLES)if(canonical(latestPhysical.get(table))!==canonical(capturedPhysical.get(table)))throw new Error('Normalized row set changed (including operational sequence) during recoverability measurement.');
- if(canonical(await readAudit(latestRows.auditPage))!==canonical(capturedAudit))throw new Error('Audit row set changed during recoverability measurement.');
- if((await getWorkspaceNamespaces(db,owner))?.auditNamespace!==namespaces?.auditNamespace)throw new Error('Audit namespace changed during recoverability measurement.');
+ if(canonical(await readAudit(latestRows.auditPage,finalReads.reader))!==canonical(capturedAudit))throw new Error('Audit row set changed during recoverability measurement.');
+ if((await finalReads.namespaces())?.auditNamespace!==namespaces?.auditNamespace)throw new Error('Audit namespace changed during recoverability measurement.');
+ }finally{await finalReads.close();}
  finishFinalReads();
  return {agentTerminalReserveRows:terminalReserveRows,measurement,boundaryRevision,boundaryWatermarks:{...boundaryWatermarks},boundaryRows:OWNER_TABLES.map(table=>({table,rows:beforeRows.get(table)!.map(({id,row_revision,content_hash})=>({id,row_revision,content_hash}))}))};
  }finally{closeSerializationHashContext(serializationHashContext);}

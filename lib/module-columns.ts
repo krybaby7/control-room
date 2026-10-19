@@ -15,6 +15,7 @@ import { decisionVersionSchema } from './decisions.ts';
 import { evidenceRequirementSchema } from './evidence-requirements.ts';
 import { acceptanceRecordSchema } from './acceptance.ts';
 import { versionRowId } from './version-identity.ts';
+import type {SerializationHashContext} from './serialization-hash.ts';
 import { ATTACHMENT_POLICY, validateAttachmentMetadata } from './attachment-policy.ts';
 const columns={
  weekly_plans:[],weekly_reviews:[],recurrence_rules:[],recurrence_occurrences:[],
@@ -46,7 +47,7 @@ const attachmentSchema=z.object({
 type Projection=Record<string,string|number|null>;
 function matchingId(physical:string,logical:string):void{if(physical!==logical)throw new Error('Module physical ID differs from its logical record.');}
 /** Mirrors index typed payloads; a nullable legacy placeholder never becomes typed authority. */
-export async function moduleProjection(table:RegisteredOwnerTable,id:string,value:JsonValue):Promise<Projection>{
+export async function moduleProjection(table:RegisteredOwnerTable,id:string,value:JsonValue,serializationHashContext?:SerializationHashContext):Promise<Projection>{
  const names=moduleColumnNames(table);evidenceIdSchema.parse(id);
  const empty=()=>Object.fromEntries(names.map(name=>[name,null]));
  switch(table){
@@ -76,10 +77,10 @@ export async function moduleProjection(table:RegisteredOwnerTable,id:string,valu
   if(!parsed.success)return empty();matchingId(id,parsed.data.id);return {current_version:parsed.data.currentVersion,archived_at:parsed.data.archivedAt};
  }
  case 'evidence_versions':{
-  const record=evidenceVersionSchema.parse(value);matchingId(id,await versionRowId(record.id,record.version));return {evidence_id:record.id,version:record.version,recorded_at:record.recordedAt};
+  const record=evidenceVersionSchema.parse(value);matchingId(id,await versionRowId(record.id,record.version,serializationHashContext));return {evidence_id:record.id,version:record.version,recorded_at:record.recordedAt};
  }
  case 'decision_versions':{
-  const record=decisionVersionSchema.parse(value);matchingId(id,await versionRowId(record.id,record.version));return {decision_id:record.id,version:record.version,recorded_at:record.recordedAt,status:record.status,review_on:record.reviewOn,source_capture_id:record.sourceCaptureId,supersedes_decision_id:record.supersedesDecisionId};
+  const record=decisionVersionSchema.parse(value);matchingId(id,await versionRowId(record.id,record.version,serializationHashContext));return {decision_id:record.id,version:record.version,recorded_at:record.recordedAt,status:record.status,review_on:record.reviewOn,source_capture_id:record.sourceCaptureId,supersedes_decision_id:record.supersedesDecisionId};
  }
  case 'evidence_links':{
   const parsed=evidenceLinkSchema.safeParse(value);if(!parsed.success)return empty();const record=parsed.data;matchingId(id,record.id);return {evidence_id:record.evidenceId,evidence_version:record.evidenceVersion,subject_type:record.subject.type,subject_id:record.subject.id,requirement_id:record.requirementId,relation:record.relation};

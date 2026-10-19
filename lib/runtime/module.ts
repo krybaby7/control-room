@@ -3,7 +3,8 @@ import type {ExportContext,ExportModule,ImportContext} from '../workspace-export
 import {assertPortable,boundedPages,BUNDLE_LIMITS} from '../workspace-export-core.ts';
 import type {ReferenceDescriptor,TypedReference} from '../workspace-references.ts';
 import type {JsonValue} from '../workspace-protocol.ts';
-import {canonical,contentHash} from '../canonical-json.ts';
+import {canonical} from '../canonical-json.ts';
+import {serializationHash,type SerializationHashContext} from '../serialization-hash.ts';
 import {deviceDisplaySchema,deviceIdSchema} from '../devices/validation.ts';
 import {DEVICE_LIMITS} from '../devices/contracts.ts';
 import {RUNTIME_LIMITS} from './contracts.ts';
@@ -27,16 +28,16 @@ function rows(spec:Spec,raw:unknown[]){
  if(new Set(parsed.map(row=>row.id)).size!==parsed.length)throw new Error('Duplicate runtime portable identity.');
  return parsed;
 }
-async function verify(spec:Spec,raw:unknown){
+async function verify(spec:Spec,raw:unknown,serializationHashContext?:SerializationHashContext){
  const row=parse(spec,raw);
- if(await contentHash(canonical(row.value))!==row.contentHash)throw new Error('Runtime portable record digest differs.');
- if(spec.key==='runtime_evidence'){const value=selectedRuntimeEvidenceSchema.parse(row.value);if(await contentHash(canonical(value.observation))!==value.payloadHash)throw new Error('Selected runtime observation digest differs.');}
+ if(await serializationHash(canonical(row.value),serializationHashContext)!==row.contentHash)throw new Error('Runtime portable record digest differs.');
+ if(spec.key==='runtime_evidence'){const value=selectedRuntimeEvidenceSchema.parse(row.value);if(await serializationHash(canonical(value.observation),serializationHashContext)!==value.payloadHash)throw new Error('Selected runtime observation digest differs.');}
  return row;
 }
 async function exported(spec:Spec,context:ExportContext){
  const stored=await boundedPages(after=>context.query.list(spec.key,{after,limit:BUNDLE_LIMITS.pageSize}));
  const parsed=rows(spec,stored.map(row=>({id:row.id,rowRevision:row.row_revision,contentHash:row.content_hash,value:JSON.parse(row.payload_json)})));
- for(const row of parsed)await verify(spec,row);return parsed;
+ for(const row of parsed)await verify(spec,row,context.serializationHashContext);return parsed;
 }
 /** Device labels and explicitly selected immutable observations only. No raw telemetry,
  * latest projection, credentials, live windows, sessions, grants or leases are covered. */
