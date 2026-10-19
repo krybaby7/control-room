@@ -16,7 +16,7 @@ async function fixture(){
  const git=(...args:string[])=>execFileSync('git',args,{cwd:root,encoding:'utf8',timeout:10000});
  git('init','--quiet');git('add','scripts','bridge');git('-c','user.name=Synthetic Fixture','-c','user.email=fixture@example.invalid','commit','--quiet','-m','Synthetic tracked package');
  const commit=git('rev-parse','HEAD').trim();
- const run=(env:NodeJS.ProcessEnv={})=>spawnSync(process.execPath,[join(root,'scripts/package-bridge.mjs')],{cwd:root,env:{...process.env,CONTROL_ROOM_SOURCE_COMMIT:commit,...env},encoding:'utf8',timeout:60000,maxBuffer:2*1024*1024});
+ const run=(env:Partial<NodeJS.ProcessEnv>={})=>spawnSync(process.execPath,[join(root,'scripts/package-bridge.mjs')],{cwd:root,env:{...process.env,CONTROL_ROOM_SOURCE_COMMIT:commit,...env},encoding:'utf8',timeout:60000,maxBuffer:2*1024*1024});
  return {directory,root,commit,run};
 }
 test('actual local npm package contains only HEAD-identical tracked bytes and truthful immutable package hashes',async()=>{

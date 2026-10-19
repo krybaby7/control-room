@@ -35,3 +35,10 @@ Controlled warm-fixture targets remain p95 workspace read ≤1.5 seconds, normal
 The last measured normal D1 save results before the current batching candidate exceeded the unchanged two-second target. Current-source optimizations and all final gates still require their own terminal measurements. Historical passing tests do not establish current performance.
 
 Use owner-authenticated reads of storage usage, verified backup age/completeness, source last-success age and job detail/run history for triage. Read-only checks do not create an alert. Synthetic alerts belong only in the isolated fixture; no real recipient, push subscription, paid request or provider is activated by this runbook. The operator must verify current platform quotas/billing and define an explicitly authorized aggregate-only alert/delivery path before enabling it.
+
+
+## Owner-only operational health
+
+`GET /api/health` is a private, read-only aggregate view with no query parameters. It reports logical storage, recorded READY backup catalog age/coverage, current-epoch due-job age using not_before, and selected-source recorded success age against each configured stale threshold. Inconsistent clocks or configuration remain unknown. File coverage requires matching catalog SHA and exact metadata content; fresh R2 byte readback is explicitly not performed.
+
+Warning conditions are returned as data with external delivery disabled and no readiness guarantee. They never send notifications, accept work, change a schedule, complete a task or authorize execution. Native synthetic alert-condition tests are distinct from real private hosted monitoring and delivery acceptance.

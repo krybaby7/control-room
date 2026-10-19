@@ -1,3 +1,4 @@
+import {verifyRecoverabilityRowHashes} from './recoverability-row-hashes.ts';
 import {startRecoverabilityPhase} from './recoverability-diagnostics.ts';
 import {compareSqliteText} from './sqlite-text-order.ts';
 import {REFERENCE_LIMITS} from './workspace-references.ts';
@@ -86,10 +87,9 @@ export async function measureProspectiveRecoverability(db:SqlDatabase,owner:stri
  const capturedPhysical=await readPhysicalImage(db,owner);
  const physical=new Map<RegisteredOwnerTable,Map<string,ModuleRow>>(),beforeRows=new Map<RegisteredOwnerTable,ModuleRow[]>(),sequences=new Map<string,number>();
  const finishHashCurrent=startRecoverabilityPhase(db,'hash-current');
- let retainedBytes=0;
+ await verifyRecoverabilityRowHashes([...capturedPhysical.values()].flat());
  for(const table of OWNER_TABLES){
   const rawRows=capturedPhysical.get(table)!,rows:ModuleRow[]=rawRows.map(({id,row_revision,payload_json,content_hash})=>({id,row_revision,payload_json,content_hash}));
-  for(const row of rows){retainedBytes+=new TextEncoder().encode(row.payload_json).length;if(retainedBytes>BUNDLE_LIMITS.bytes)throw new Error('Physical snapshot byte bound exceeded.');if(await contentHash(canonical(JSON.parse(row.payload_json)))!==row.content_hash)throw new Error('Current normalized content hash differs.');}
   beforeRows.set(table,rows);physical.set(table,new Map(rows.map(row=>[row.id,{...row}])));
   const stream=streams[table];if(stream){const indexed=rawRows.map(row=>({id:row.id,stream_sequence:row.stream_sequence!}));if(indexed.some(row=>row.stream_sequence>(boundaryWatermarks[stream]??0)))throw new Error('Operational physical snapshot changed or exceeds boundary.');for(const row of indexed)sequences.set(`${table}:${row.id}`,row.stream_sequence);}
  }

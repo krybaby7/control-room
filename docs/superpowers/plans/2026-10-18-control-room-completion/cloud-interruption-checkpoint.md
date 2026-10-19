@@ -1,31 +1,28 @@
 # Cloud implementation checkpoint
 
-Parent source: b7baad8a96057f2896f35b092eed722154b48135. Resolve the branch ref for this checkpoint's own commit.
+Parent source: 48320ca00c0c43e725a452188d873683b83e70f0. Resolve the branch ref for this checkpoint's own commit.
 
-Execution uses GitHub source APIs and actual Node24 GitHub Actions cloud runners. Supported workspace/Sites helper execution remains unavailable. Explicit accepted gpt-6.1-sol runtime selections and six worker IDs are recorded in progress.json. No substitute implementation model is used.
+GitHub source APIs and actual Node24 GitHub Actions cloud runners remain the execution path. Supported workspace/Sites helper execution is unavailable. Accepted explicit gpt-6.1-sol runtime selection and six worker IDs remain recorded; no substitute implementation model is used.
 
-## Verified evidence
+## Exact verification
 
-Exactb7baad8 full39181434715/job117834885336:1706/1707pass, only the same new auxiliary fixture failure; no canceled/skipped/todo. Focused39181431759/job117834821636:412/413pass, only new auxiliary fixture selected no eligible task; corrected here with explicit synthetic todo task. Typecheck/lint passed. All8admission,6native64MiB/100kreceipt atomiccapacity/race/uncertain tests and5casequeuedartifactauthorization passed. ActualD1 source/auxiliary/36table fixtures passed. Normalfd54D1p954355.25ms still fails2000ms; profile18/20RPC identifies~3.2s serialization gap. Bothfd54mobile gates passed. Full/package pending.
+Exact48320 focused39182229298/job117837213966 passed435/435 Node, including native health SQLite/D1, all admission/private-capacity races and three real Git/npm packaging fixtures. Typecheck failed only two package-test override typings; their correction is included here. Lint had0errors. Actual48320 segmented39182232456 passed10080rows/79segments/17,767,523bytes; artifact/runtime/agent D1, maintenance/streaming, three-browser and both mobile gates passed. Normal SQLite savep95793.90ms passes; D1save3399.42ms fails2000ms. Profiling isolates hash-current p952461.2ms. Full current-source/package gates remain pending.
 
-## Included changes awaiting exact-head native validation
+## Reviewed changes awaiting native rerun
 
-- Explicit whole-context reference validators run once per bundle build by function identity; module validators/portability/limits/hashes remain per module
-- Each original and prospective bundle still validates its complete graph separately; no cross-request result cache
-- Bounded opt-in request-local phase timings identify remaining CPU cost without logging content
-- Weekly hydration fixture uses an explicit eligible synthetic task; seed proposal authority remains unchanged
-- Runbook exact decimal byte limits corrected
-- Owner-only read-only operational health aggregates and synthetic warning evaluation; external delivery disabled and fresh file readback explicitly absent
-- Bridge tarball members verified against exact tracked HEAD bytes; untracked and during-pack tamper cases rejected
+- Every captured row's identical canonical SHA is verified through a bounded32-worker native pool, with aggregate UTF8 bounds checked before any digest and all work settled
+- Identical normalized row-set predicates are grouped with balanced AND under unchanged atomic claim, adaptive100-parameter and conservative combined-byte bounds; vector/terminal proofs remain separate
+- Packaging test-only environment override typings corrected
+- Owner-device checklist and operational health runbook prepared without invented observations
 
-Independent review confirmed local validator scope, preserved per-module checks and hashes, original context isolation, owner-only aggregate health and source configuration identity. Backup file coverage additionally requires exact catalog SHA and metadata identity; fresh R2 readback is never implied. New tests cover mixed validators, changed contexts, tampered package source and synthetic health warning conditions. They have not yet run.
+Independent review found no actionable safety or data-fidelity issues in the bounded hash pool or grouped assertions. All canonical bytes, leaf predicates/bindings, original IDs, quotas and atomic authority remain unchanged. New native-crypto and SQLite/D1 boundary/race tests have not yet run. Physical UNION redesign remains on hold; it is not included.
 
 ## Remaining work
 
-- Current coherent full/browser/package gates are pending after this source optimization.
-- D1 concurrent-save p95 remains above2000ms on the last measured source; this candidate removes repeated whole-graph validation without waiving the gate.
-- Supported Sites helper execution and real provider/runtime/owner-device/hosted ingress/SSE acceptance remain external; no new Site publication or paid/operational effects.
+- D1 normal-save target remains failed on the last measured source; this candidate's bounded SHA and assertion changes await actual native/regression/performance gates.
+- Final full Node/bridge/type/lint/build/D1/R2/HTTP/default-browser/package gates still need one terminal coherent pass.
+- Supported Sites helper execution is unavailable. Real provider/runtime/owner-device/private ingress/SSE and hosted acceptance remain external. No new Site publication, paid inference, operational/trading effect or external alert delivery.
 
-Original owner data, private Site identity/access and version2 remain unchanged. The rejected local inspection commit remains excluded from public ancestry. No paid inference, operational/trading effect or live external delivery is enabled.
+Read-only Site metadata confirms active version2, one owner, no visitors or groups. Hosting configuration and original migrations match the launch baseline;27migrations include25append-only additions. Owner records were not reset. The rejected local inspection commit remains excluded from public ancestry.
 
 Next command: GET https://api.github.com/repos/krybaby7/control-room/git/ref/heads/feat/control-room-completion-cloud; inspect the exact returned SHA's focused/full Actions, normal benchmark, separate RPC profile, and five mobile timing samples.
