@@ -1,0 +1,79 @@
+name: Control Room same-runner performance ABBA diagnostic
+on:
+  push:
+    branches: ['diagnostics/control-room-performance-abba*']
+    paths: ['.github/workflows/control-room-performance-abba.yml']
+permissions:
+  contents: read
+jobs:
+  calibration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: d190e0dbd5c5393c8e9d1115779b38ebeac169b1
+          path: baseline
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: 24fc1361ddbf5f5c372c48accf8fb9f9a690da2b
+          path: candidate
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm run install:ci
+        working-directory: baseline
+      - run: npm run install:ci
+        working-directory: candidate
+      - name: Unchanged normal benchmark a1
+        id: a1
+        continue-on-error: true
+        working-directory: baseline
+        env:
+          CONTROL_ROOM_SOURCE_COMMIT: d190e0dbd5c5393c8e9d1115779b38ebeac169b1
+        run: node --experimental-strip-types scripts/benchmark-workspace.mjs
+      - name: Preserve every a1 result
+        if: always()
+        run: node --input-type=module -e 'import {mkdirSync,copyFileSync} from "node:fs"; mkdirSync("abba-results",{recursive:true}); copyFileSync("baseline/benchmark-results/workspace.json","abba-results/a1.json");'
+      - name: Unchanged normal benchmark b1
+        id: b1
+        continue-on-error: true
+        working-directory: candidate
+        env:
+          CONTROL_ROOM_SOURCE_COMMIT: 24fc1361ddbf5f5c372c48accf8fb9f9a690da2b
+        run: node --experimental-strip-types scripts/benchmark-workspace.mjs
+      - name: Preserve every b1 result
+        if: always()
+        run: node --input-type=module -e 'import {mkdirSync,copyFileSync} from "node:fs"; mkdirSync("abba-results",{recursive:true}); copyFileSync("candidate/benchmark-results/workspace.json","abba-results/b1.json");'
+      - name: Unchanged normal benchmark b2
+        id: b2
+        continue-on-error: true
+        working-directory: candidate
+        env:
+          CONTROL_ROOM_SOURCE_COMMIT: 24fc1361ddbf5f5c372c48accf8fb9f9a690da2b
+        run: node --experimental-strip-types scripts/benchmark-workspace.mjs
+      - name: Preserve every b2 result
+        if: always()
+        run: node --input-type=module -e 'import {mkdirSync,copyFileSync} from "node:fs"; mkdirSync("abba-results",{recursive:true}); copyFileSync("candidate/benchmark-results/workspace.json","abba-results/b2.json");'
+      - name: Unchanged normal benchmark a2
+        id: a2
+        continue-on-error: true
+        working-directory: baseline
+        env:
+          CONTROL_ROOM_SOURCE_COMMIT: d190e0dbd5c5393c8e9d1115779b38ebeac169b1
+        run: node --experimental-strip-types scripts/benchmark-workspace.mjs
+      - name: Preserve every a2 result
+        if: always()
+        run: node --input-type=module -e 'import {mkdirSync,copyFileSync} from "node:fs"; mkdirSync("abba-results",{recursive:true}); copyFileSync("baseline/benchmark-results/workspace.json","abba-results/a2.json");'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: synthetic-normal-abba-calibration
+          path: abba-results/*.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Preserve unchanged gate failures in diagnostic conclusion
+        if: always()
+        run: node --input-type=module -e 'import {readFileSync} from "node:fs"; for(const label of ["a1","b1","b2","a2"]){const value=JSON.parse(readFileSync("abba-results/"+label+".json","utf8")); console.log(JSON.stringify({label,source:value.source,status:value.status,engines:value.engines})); if(value.status!=="passed") process.exitCode=1;}'
