@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {contentHash} from '../lib/canonical-json.ts';
 import {serverContentHash,SERVER_SYNC_SHA_MAX_BYTES} from '../lib/server-content-hash.ts';
 const limit=SERVER_SYNC_SHA_MAX_BYTES;
-const strings=['','abc','العربية 😀','\\ud800','\\udfff','x'.repeat(limit-1),'x'.repeat(limit),'x'.repeat(limit+1),'é'.repeat(limit/2),'é'.repeat(limit/2+1),'😀'.repeat(limit/4),'😀'.repeat(limit/4+1)];
+const strings=['','abc','العربية 😀',String.fromCharCode(0xd800),String.fromCharCode(0xdfff),'x'.repeat(limit-1),'x'.repeat(limit),'x'.repeat(limit+1),'é'.repeat(limit/2),'é'.repeat(limit/2+1),'😀'.repeat(limit/4),'😀'.repeat(limit/4+1)];
 test('server small-string native SHA preserves actual UTF8 digest bytes at all boundaries',async()=>{
  for(const value of strings)assert.equal(await serverContentHash(value),await contentHash(value));
 });

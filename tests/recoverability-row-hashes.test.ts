@@ -23,10 +23,11 @@ test('canonical UTF8 identity is exact and a corrupt late row cannot certify any
  input[74].content_hash=await contentHash(canonical(JSON.parse(input[74].payload_json)));await verifyRecoverabilityRowHashes(input);assert.equal(active,0);
 });
 test('UTF8 aggregate overflow is refused before scheduling even the first actual digest',async context=>{
- const first=(await rows(1))[0],oversized={payload_json:JSON.stringify({text:'😀'.repeat(BUNDLE_LIMITS.bytes/4)}),content_hash:'a'.repeat(64)},original=crypto.subtle.digest.bind(crypto.subtle);let calls=0;
+ const first=(await rows(1))[0],oversized={payload_json:JSON.stringify({text:'😀'.repeat(BUNDLE_LIMITS.bytes/4)}),content_hash:'a'.repeat(64)},original=crypto.subtle.digest.bind(crypto.subtle);let calls=0,nativeCalls=0;const native=nodeCrypto.createHash;
  assert.ok(oversized.payload_json.length<BUNDLE_LIMITS.bytes);assert.ok(new TextEncoder().encode(oversized.payload_json).byteLength>BUNDLE_LIMITS.bytes);
  context.mock.method(crypto.subtle,'digest',(...args:DigestArgs)=>{calls++;return original(...args);});
- await assert.rejects(verifyRecoverabilityRowHashes([first,oversized]),/Physical snapshot byte bound exceeded/);assert.equal(calls,0);
+ context.mock.method(nodeCrypto,'createHash',(...args:Parameters<typeof nodeCrypto.createHash>)=>{nativeCalls++;return native(...args);});syncBuiltinESMExports();
+ try{await assert.rejects(verifyRecoverabilityRowHashes([first,oversized]),/Physical snapshot byte bound exceeded/);assert.equal(calls,0);assert.equal(nativeCalls,0);}finally{context.mock.restoreAll();syncBuiltinESMExports();}
 });
 test('invalid JSON retains its original parse refusal and every other started digest settles before return',async context=>{
  const large={text:'x'.repeat(65536)},payload_json=JSON.stringify(large),content_hash=await contentHash(canonical(large)),input=Array.from({length:40},()=>({payload_json,content_hash})),original=crypto.subtle.digest.bind(crypto.subtle);let active=0,calls=0;input[3]={payload_json:'not original JSON',content_hash:'b'.repeat(64)};
