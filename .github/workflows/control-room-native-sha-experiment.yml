@@ -1,0 +1,43 @@
+name: Control Room bounded native SHA experiment
+on:
+  push:
+    branches: ['diagnostics/control-room-native-sha-e4']
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm run install:ci
+      - run: node --experimental-strip-types --test tests/server-content-hash.test.ts tests/recoverability-row-hashes.test.ts tests/recoverability-snapshot.test.ts tests/recoverability-planning-capture.test.ts tests/serialization-hash.test.ts
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run build
+      - run: npm run test:runtime-d1
+  normal-benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CONTROL_ROOM_SOURCE_COMMIT: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm run install:ci
+      - run: node --experimental-strip-types scripts/benchmark-workspace.mjs
+        timeout-minutes: 15
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: unchanged-normal-native-sha-experiment
+          path: benchmark-results/workspace.json
+          if-no-files-found: error
+          retention-days: 14
