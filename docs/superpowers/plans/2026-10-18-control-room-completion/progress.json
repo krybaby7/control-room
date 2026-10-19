@@ -206,7 +206,8 @@
         "Exact a389 segmented39177959085/job117824511970 terminal success:10080rows/79segments/17,767,523bytes, actual fresh attachments, staged artifacts and backup rekey, inert fenced target with native IDs/grants preserved. Three-browser and HTTP20-session performance pass; near-bound D1 latency remains above2000ms.",
         "Exact df042 full Node1674/1677passed; all native file-backup14/retained-cleanup9/reauthorization5 regressions passed. Actual profile reveals62–64database RPCs per committed save; coherent workspace and watermark coqueries are included for pending verification. Mobile transfer/hydration diagnostics added without waiving budgets.",
         "Exact872c2ae3087677887d212e9a12385dbb14595f3b: focused39183950579/job117842337594 passed445/445 Node, typecheck and lint. Three-browser39183954211, segmented39183954194, maintenance39183954098, agents D139183954165, runtime D139183950533, artifact39183950588 and streaming39183954148 passed. Mobile push/PR passed first-usable p952560.8/2991.0ms. Normal39183954120 failed onlyD1savep953125.165054ms against unchanged2000ms (SQLite789.28948ms passed); all100outcomes and six restores perengine correct. Full39183954108 remains unfinished/stalled in Node; no final source package.",
-        "Exactbb93165b0c99e295bb431eda8227bce4b924a54e normal benchmark39184605165 failed only D1savep954204.984753ms against unchanged2000ms; SQLite1129.747987ms and D1read873.887513ms passed. All100outcomes and six restores perengine correct. Both mobile runs passed p952720.7/2725.6ms. Profiling confirms16/18RPC after co-batching, with18SQL commit; diagnostic timings are not acceptance. Packaging diagnostic39184760370 exposed TS2322 in co-batched audit rows before build; a closed-column runtime guard is included next. Last complete focused result remains872:445/445/type/lint; full integrated Node suite unfinished."
+        "Exactbb93165b0c99e295bb431eda8227bce4b924a54e normal benchmark39184605165 failed only D1savep954204.984753ms against unchanged2000ms; SQLite1129.747987ms and D1read873.887513ms passed. All100outcomes and six restores perengine correct. Both mobile runs passed p952720.7/2725.6ms. Profiling confirms16/18RPC after co-batching, with18SQL commit; diagnostic timings are not acceptance. Packaging diagnostic39184760370 exposed TS2322 in co-batched audit rows before build; a closed-column runtime guard is included next. Last complete focused result remains872:445/445/type/lint; full integrated Node suite unfinished.",
+        "Primaryb88 focused39184960621/job117845340310 passed450/450 Node/type/lint; native/browser/segmented/maintenance/streaming gates passed. Serialization candidate99cd passed456/456/type/lint but D1savep954240.82849ms FAILS2000ms (SQLite1065.979788ms pass). Packaging diagnosticcdacc run39185591267 passed138bridge+8packaging/type/lint/build/archive/upload; artifacts are UNVALIDATED and not primary source. Full diagnosticc735 timed out with2backupfiles; fixture-only fullAFTER17810 also timed out, nowONLY scheduled-backup-archive.test.ts remains active; reauthorization completed. Streamcancel source d8c5 independently reviewed, native/full gates pending. Closed2x<=19UNION snapshot source in development, not claimed verified."
       ],
       "blockers": [
         "Exact final coherent source/full browser/packaging gates still in progress.",
@@ -215,7 +216,7 @@
       ]
     }
   ],
-  "nextAction": "GET https://api.github.com/repos/krybaby7/control-room/git/ref/heads/feat/control-room-completion-cloud; inspect exact source focused/full/normal benchmark and isolated39184413279 file diagnostics; retry bounded diagnostic packaging on this corrected source, then fix actual full-suite stall and performance.",
+  "nextAction": "Inspect terminalfullAFTER17810/run39185653948 (scheduled backup remains), run d8c5 streamcancel plus source-line reporter diagnostic, and verify save_client's two bounded physical/audit UNION groups on actualD1 before composing a coherent primary candidate.",
   "allowedStatuses": [
     "not_started",
     "in_progress",
@@ -242,21 +243,21 @@
     "evidence": "Explicit supported model selection accepted and worker IDs returned."
   },
   "checkpoint": {
-    "implementationHead": "bb93165b0c99e295bb431eda8227bce4b924a54e",
+    "implementationHead": "b88ddebdccffc8863990bc63e5b8976d2a5f2456",
     "headMeaning": "Parent of this checkpoint commit; resolve the branch ref for the checkpoint commit itself.",
     "executionMode": "GitHub source APIs and actual GitHub Actions Node 24 cloud runners. Supported workspace execution remains unavailable.",
-    "tests": "Exactbb93165b0c99e295bb431eda8227bce4b924a54e normal benchmark39184605165 failed only D1savep954204.984753ms against unchanged2000ms; SQLite1129.747987ms and D1read873.887513ms passed. All100outcomes and six restores perengine correct. Both mobile runs passed p952720.7/2725.6ms. Profiling confirms16/18RPC after co-batching, with18SQL commit; diagnostic timings are not acceptance. Packaging diagnostic39184760370 exposed TS2322 in co-batched audit rows before build; a closed-column runtime guard is included next. Last complete focused result remains872:445/445/type/lint; full integrated Node suite unfinished.",
+    "tests": "Primaryb88 focused39184960621/job117845340310 passed450/450 Node/type/lint; native/browser/segmented/maintenance/streaming gates passed. Serialization candidate99cd passed456/456/type/lint but D1savep954240.82849ms FAILS2000ms (SQLite1065.979788ms pass). Packaging diagnosticcdacc run39185591267 passed138bridge+8packaging/type/lint/build/archive/upload; artifacts are UNVALIDATED and not primary source. Full diagnosticc735 timed out with2backupfiles; fixture-only fullAFTER17810 also timed out, nowONLY scheduled-backup-archive.test.ts remains active; reauthorization completed. Streamcancel source d8c5 independently reviewed, native/full gates pending. Closed2x<=19UNION snapshot source in development, not claimed verified.",
     "knownFailures": [
       "D1 concurrent-save p95 remains failed2000ms despite two fewer RPCs; unchanged samples/budgets retained.",
       "Full integrated Node/bridge/type/lint/build/D1/R2/HTTP/browser/application package awaits a terminal coherent pass; partial or canceled runs are not passes.",
       "Closed-column audit typing and scoped history await exact-source cloud regression gates. Diagnostic application packaging must retry after typecheck passes; actual rejected build path is not yet known.",
       "Supported Sites helper execution remains unavailable. Actual upstream runtime/adapter/sandbox, provider consent, renewable private ingress, hosted SSE and owner device/passkey acceptance remain unavailable/not-run. No new deployment or enabled paid/operational/trading effects."
     ],
-    "nextCommand": "GET https://api.github.com/repos/krybaby7/control-room/git/ref/heads/feat/control-room-completion-cloud; inspect exact source focused/full/normal benchmark and isolated39184413279 file diagnostics; retry bounded diagnostic packaging on this corrected source, then fix actual full-suite stall and performance.",
+    "nextCommand": "Inspect terminalfullAFTER17810/run39185653948 (scheduled backup remains), run d8c5 streamcancel plus source-line reporter diagnostic, and verify save_client's two bounded physical/audit UNION groups on actualD1 before composing a coherent primary candidate.",
     "includedChanges": [
-      "Audit batch values now validate non-null object shape and all ten exact SELECT columns before typed copies; malformed/primitive audit-row regressions expanded.",
-      "Milestone detail opens owner-resolved scoped history through the existing navigation guards; exact original IDs, archived subjects, editable read-only filters, neutral invalid query handling, and explicit undo review retained. Three unit cases and a native filtered-event/reload/no-write journey added.",
-      "Presentation-only reporter native event self-test passed at isolatedc735; full-suite active-file diagnostics remain running. No scheduling, timeout, assertion or result-counter changes."
+      "Current primary includes typed audit row guards and scoped milestone history;450focused tests pass.",
+      "Separate source candidates:9ca22 serialization reuse (456focused),d42b packaging fix (actualUNVALIDATEDartifact proof),89c99 fixture body drain; none is yet integrated into primary.",
+      "d8c5 streamcancel helper source independently reviewed; native/full gates pending. Two <=19branch physical/audit UNION groups are in development; no SQL correctness/performance claim."
     ]
   },
   "updatedAt": "2026-10-19"
