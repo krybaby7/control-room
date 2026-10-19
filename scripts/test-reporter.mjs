@@ -34,7 +34,7 @@ export default async function* reporter(events){
  const heartbeat=setInterval(()=>{if(active.size){const files=[...active].sort().slice(0,128);process.stdout.write('TEST FILE ACTIVE '+JSON.stringify(files)+'\n');process.stdout.write('TEST FILE PENDING '+JSON.stringify(files.map(file=>{const state=cases.get(file);return {file,dequeued:state?.dequeued??0,completed:state?.completed??0,pending:[...(state?.pending.values()??[])].slice(0,8),untracked:state?.overflow??0,pendingCount:(state?.pending.size??0)+(state?.overflow??0)};}))+'\n');}},15000);heartbeat.unref();
  try{for await(const event of events){
   const data=event.data??{},file=data.entryFile??data.file??'<unknown>',known=diagnosticFile(data);
-  if(known&&(event.type==='test:dequeue'||event.type==='test:complete')&&Number.isSafeInteger(data.line)&&data.line>0&&data.line<=10000000&&Number.isSafeInteger(data.column)&&data.column>0&&data.column<=10000000){
+  if(known&&diagnosticFile({name:data.name})!==known&&(event.type==='test:dequeue'||event.type==='test:complete')&&Number.isSafeInteger(data.line)&&data.line>0&&data.line<=10000000&&Number.isSafeInteger(data.column)&&data.column>0&&data.column<=10000000){
    let state=cases.get(known);if(!state){state={dequeued:0,completed:0,pending:new Map(),overflow:0};cases.set(known,state);}
    const key=JSON.stringify([known,data.line,data.column,data.nesting??0,short(data.name,1000)]);if(event.type==='test:dequeue'){if(!state.pending.has(key)){state.dequeued++;if(state.pending.size<1024)state.pending.set(key,{line:data.line,column:data.column});else state.overflow++;}}else if(state.pending.delete(key))state.completed++;else if(state.overflow>0){state.overflow--;state.completed++;}
   }
