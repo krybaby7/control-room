@@ -1,7 +1,7 @@
 # Fixed current-user helper ACL boundary. Only the chosen dedicated helper
 # directory and its allowlisted files are protected. Parents are inspected, never changed.
 [CmdletBinding()]
-param([Parameter(Mandatory=$true)][string]$DirectoryPath,[switch]$Protect,[switch]$ExecutorState)
+param([Parameter(Mandatory=$true)][string]$DirectoryPath,[switch]$Protect,[switch]$ExecutorState,[ValidateSet('state-root','attempts','attempt','artifacts','runtime','runtime-src','reservations','claims','workspace-root','workspace-repository','workspace-attempts','workspace-empty','workspace-tree')][string]$Scope)
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $stage = 'modules'
@@ -102,12 +102,12 @@ namespace ControlRoomAcl {
         if ($Acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -ne $sid.Value) { throw 'Current user ownership required.' }
     }
     function Test-PrivateAcl($Acl,[bool]$Directory) {
-        if (-not $Acl.AreAccessRulesProtected) { return $false }
+        if (-not $ExecutorState -and -not $Acl.AreAccessRulesProtected) { return $false }
         $rules = @($Acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier]))
         if ($rules.Count -ne 2) { return $false }
         $seen = New-Object 'System.Collections.Generic.HashSet[string]'
         foreach ($rule in $rules) {
-            if ($rule.IdentityReference.Value -notin @($sid.Value,$systemSid.Value) -or $rule.IsInherited -or $rule.AccessControlType -ne [Security.AccessControl.AccessControlType]::Allow -or $rule.FileSystemRights -ne [Security.AccessControl.FileSystemRights]::FullControl -or $rule.PropagationFlags -ne [Security.AccessControl.PropagationFlags]::None) { return $false }
+            if ($rule.IdentityReference.Value -notin @($sid.Value,$systemSid.Value) -or (-not $ExecutorState -and $rule.IsInherited) -or $rule.AccessControlType -ne [Security.AccessControl.AccessControlType]::Allow -or $rule.FileSystemRights -ne [Security.AccessControl.FileSystemRights]::FullControl -or $rule.PropagationFlags -ne [Security.AccessControl.PropagationFlags]::None) { return $false }
             $expected = if ($Directory) { [Security.AccessControl.InheritanceFlags]::ContainerInherit -bor [Security.AccessControl.InheritanceFlags]::ObjectInherit } else { [Security.AccessControl.InheritanceFlags]::None }
             if ($rule.InheritanceFlags -ne $expected -or -not $seen.Add($rule.IdentityReference.Value)) { return $false }
         }
@@ -190,6 +190,10 @@ namespace ControlRoomAcl {
     # Never create a helper directory or modify parents during registration.
     if (-not [IO.Directory]::Exists($state)) { throw 'Existing helper directory required.' }
     $stage = 'inventory'
+    $caps = @{'state-root'=6;'attempts'=14;'attempt'=8;'artifacts'=101;'runtime'=5;'runtime-src'=5;'reservations'=13;'claims'=14;'workspace-root'=33;'workspace-repository'=16;'workspace-attempts'=13;'workspace-empty'=1;'workspace-tree'=512002}
+    $limit = if ($ExecutorState) { if (-not $Scope -or -not $caps.ContainsKey($Scope)) { throw 'Selected scope required.' }; $caps[$Scope] } else { 3 }
+    $recursive = -not $ExecutorState -or $Scope -eq 'workspace-tree'
+    $fileCount = 0; $fileBytes = [Int64]0
     $entries = @(Get-ChildItem -LiteralPath $state -Force)
     if (-not $ExecutorState) {
     $executables = @($entries | Where-Object { -not $_.PSIsContainer -and $_.Extension -ieq '.exe' })
@@ -203,14 +207,15 @@ namespace ControlRoomAcl {
     while ($queue.Count -gt 0) {
         $directory = $queue.Dequeue()
         Get-ChildItem -LiteralPath $directory -Force | ForEach-Object {
-            if ($targets.Count -ge 256) { throw 'State tree exceeds bound.' }
+            if ($targets.Count -ge $limit) { throw 'Selected scope exceeds bound.' }
             $item = $_
             $full = [IO.Path]::GetFullPath($item.FullName)
             if (-not $full.StartsWith($state+'\',[StringComparison]::OrdinalIgnoreCase)) { throw 'State path escaped scope.' }
             if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'Reparse point refused.' }
+            if ($Scope -eq 'workspace-tree' -and -not $item.PSIsContainer) { $fileCount++; $fileBytes += $item.Length; if ($fileCount -gt 2001 -or $fileBytes -gt (8388608+4096)) { throw 'Workspace file bound exceeded.' } }
             $target = Protect-Target $full ([bool]$item.PSIsContainer)
             $targets.Add($target)
-            if ($item.PSIsContainer) { $queue.Enqueue($full) }
+            if ($recursive -and $item.PSIsContainer) { $queue.Enqueue($full) }
         }
     }
     foreach ($target in $targets) {

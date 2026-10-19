@@ -1,13 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {spawn,spawnSync} from 'node:child_process';
-import {readFile,mkdtemp,rm,access,readdir,writeFile,realpath} from 'node:fs/promises';
+import {readFile,mkdtemp,rm,access,readdir,writeFile,realpath,mkdir,symlink} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {once} from 'node:events';
-import {createWindowsOwnedProcessSupervisor,prepareWindowsOwnedHelperDirectory,assertWindowsOwnedProcessSupervisor} from '../executor/owned-process.mjs';
+import {createWindowsOwnedProcessSupervisor,prepareWindowsOwnedHelperDirectory,assertWindowsOwnedProcessSupervisor,prepareWindowsExecutorStateDirectory,verifyWindowsExecutorStateDirectory} from '../executor/owned-process.mjs';
 const windows=process.platform==='win32',fixture=fileURLToPath(new URL('./fixtures/owned-child.mjs',import.meta.url));
 let owner,buildDirectory,registration;
 test.before(async()=>{
@@ -31,7 +31,7 @@ test.before(async()=>{
   await prepareWindowsOwnedHelperDirectory(buildDirectory);
  }registration={helperExecutable,helperSha256};
 });
-test.beforeEach(async()=>{if(windows)owner=await createWindowsOwnedProcessSupervisor(registration);});
+test.beforeEach(async()=>{if(windows){const previous=owner;owner=await createWindowsOwnedProcessSupervisor(registration);assert.notStrictEqual(owner,previous);}});
 test.after(async()=>{if(buildDirectory)await rm(buildDirectory,{recursive:true,force:true});});
 function request(args=[],overrides={}){
  const env={};for(const key of ['SystemRoot','WINDIR','TEMP','TMP','PATH'])if(process.env[key])env[key]=process.env[key];
@@ -65,10 +65,26 @@ test('native Windows registration refuses an unbound mutable application sidecar
 test('native Windows joins deferred durable callback after helper exits and never resumes afterward', {skip:!windows},async()=>{
  const controller=new AbortController();let release,started;const barrier=new Promise(resolve=>{release=resolve;}),entered=new Promise(resolve=>{started=resolve;});let settled=false;
  const pending=owner.run(request(['silent'],{signal:controller.signal,onStarted:async()=>{started();controller.abort();await barrier;}})).then(value=>{settled=true;return value;});
- await entered;await new Promise(resolve=>setTimeout(resolve,250));assert.equal(settled,false);release();const result=await pending;assert.equal(result.processExitConfirmed,false);assert.equal(result.terminationUnconfirmed,true);
+ await Promise.race([entered,pending.then(()=>{throw Error('owned callback not entered');})]);await new Promise(resolve=>setTimeout(resolve,250));assert.equal(settled,false);release();const result=await pending;assert.equal(result.processExitConfirmed,false);assert.equal(result.terminationUnconfirmed,true);
  await assert.rejects(owner.run(request()),/owned_process_slot_unavailable/);
 });
 test('native Windows stale or reused PID text cannot select a process to stop', {skip:!windows},async()=>{
  await assert.rejects(owner.run({...request(),pid:process.pid}),/invalid_shape/);
  const result=await owner.run(request());assert.equal(result.processExitConfirmed,true);assert.equal(result.exitCode,0);
+});
+
+test('native Windows selected workspace exceeds256 nested files, accepts inherited private ACL, refuses junction/cross-root', {skip:!windows},async()=>{
+ const directory=await realpath(await mkdtemp(join(tmpdir(),'owned-native-build-'))),workspaceRoot=join(directory,'.control-room-workspaces'),repo=join(workspaceRoot,'repo-'+ 'a'.repeat(32)),worktrees=join(repo,'worktrees'),attempt=join(worktrees,'attempt-'+ 'b'.repeat(32));
+ const script=fileURLToPath(new URL('./fixtures/prepare-owned-native-fixture.ps1',import.meta.url)),powershell=join(process.env.SystemRoot??'C:\\Windows','System32','WindowsPowerShell','v1.0','powershell.exe');
+ const createFixture=flag=>{const result=spawnSync(powershell,['-NoLogo','-NoProfile','-NonInteractive','-File',script,'-DirectoryPath',directory,flag],{encoding:'utf8',shell:false,timeout:10000,maxBuffer:4096});assert.equal(result.status,0,'synthetic_scope_fixture_unavailable');};
+ try{
+  createFixture('-WorkspaceFixture');
+  for(const [path,scope]of [[workspaceRoot,'workspace-root'],[repo,'workspace-repository'],[worktrees,'workspace-attempts'],[attempt,'workspace-tree']])await prepareWindowsExecutorStateDirectory(path,{scope});
+  assert.equal((await readdir(join(attempt,'nested','selected'))).length,300);
+  await verifyWindowsExecutorStateDirectory(attempt,{scope:'workspace-tree'});
+  createFixture('-AppendInheritedFile');await verifyWindowsExecutorStateDirectory(attempt,{scope:'workspace-tree'});
+  const outside=join(directory,'outside');await mkdir(outside);const marker=join(outside,'marker');await writeFile(marker,'unchanged');await symlink(outside,join(attempt,'bad-junction'),'junction');
+  await assert.rejects(verifyWindowsExecutorStateDirectory(attempt,{scope:'workspace-tree'}),/owned_helper_acl_unverified/);assert.equal(await readFile(marker,'utf8'),'unchanged');
+  await assert.rejects(verifyWindowsExecutorStateDirectory(outside,{scope:'workspace-tree'}),/invalid_executor_directory_scope/);
+ }finally{await rm(directory,{recursive:true,force:true});}
 });

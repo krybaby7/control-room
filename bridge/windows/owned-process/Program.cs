@@ -61,12 +61,12 @@ class Program {
    CloseHandle(inputRead);inputRead=IntPtr.Zero;CloseHandle(outputWrite);outputWrite=IntPtr.Zero;CloseHandle(errorWrite);errorWrite=IntPtr.Zero;
    Emit(new{kind="started",pid=process.dwProcessId,startedAt=DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")});
    // Provider cannot execute one instruction before the durable owner acknowledgement.
-   var ackTask=Console.In.ReadLineAsync();if(await Task.WhenAny(ackTask,Task.Delay(15000))!=ackTask||await ackTask!="resume")throw new InvalidOperationException();
+   var ackTask=Task.Run(()=>Console.In.ReadLine());if(await Task.WhenAny(ackTask,Task.Delay(15000))!=ackTask||await ackTask!="resume")throw new InvalidOperationException();
    var outTask=Pump(outputRead,"stdout");outputRead=IntPtr.Zero;var errTask=Pump(errorRead,"stderr");errorRead=IntPtr.Zero;
    Check(ResumeThread(process.hThread)!=uint.MaxValue);CloseHandle(process.hThread);process.hThread=IntPtr.Zero;
    var writer=new FileStream(new SafeFileHandle(inputWrite,true),FileAccess.Write);inputWrite=IntPtr.Zero;
    var inputTask=Task.Run(async()=>{try{await writer.WriteAsync(Encoding.UTF8.GetBytes(input));}catch(IOException){}finally{writer.Dispose();}});
-   var stop=Console.In.ReadLineAsync();var watch=Stopwatch.StartNew();bool stopping=false;long stoppedAt=0;
+   var stop=Task.Run(()=>Console.In.ReadLine());var watch=Stopwatch.StartNew();bool stopping=false;long stoppedAt=0;
    for(;;){Check(QueryInformationJobObject(job,1,out var accounting,(uint)Marshal.SizeOf<ACCOUNTING>(),IntPtr.Zero));if(accounting.ActiveProcesses==0)break;
     if(!stopping&&(stop.IsCompleted||watch.ElapsedMilliseconds>=timeout)){Check(TerminateJobObject(job,1));stopping=true;stoppedAt=watch.ElapsedMilliseconds;}
     if(stopping&&watch.ElapsedMilliseconds-stoppedAt>10000){Emit(new{kind="uncertain"});return 3;}await Task.Delay(20);

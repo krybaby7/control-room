@@ -1,6 +1,6 @@
 # Synthetic CI staging ownership only. Product registration/run remain verify-only.
 [CmdletBinding()]
-param([Parameter(Mandatory=$true)][string]$DirectoryPath,[Parameter(Mandatory=$true)][string]$ExecutableSha256)
+param([Parameter(Mandatory=$true)][string]$DirectoryPath,[string]$ExecutableSha256,[switch]$WorkspaceFixture,[switch]$AppendInheritedFile)
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
 $env:PSModulePath=[IO.Path]::Combine($PSHOME,'Modules')
@@ -24,10 +24,15 @@ public static class SyntheticOwner {
  public static Info Inspect(SafeFileHandle h){Info i;if(!GetFileInformationByHandle(h,out i))throw new Win32Exception(Marshal.GetLastWin32Error());return i;}
  public static string Path(SafeFileHandle h){var b=new System.Text.StringBuilder(32768);uint n=GetFinalPathNameByHandleW(h,b,(uint)b.Capacity,0);if(n==0||n>=b.Capacity)throw new Win32Exception();return b.ToString();}
  public static byte[] Descriptor(SafeFileHandle h){uint n;GetKernelObjectSecurity(h,1,null,0,out n);if(n==0||n>65536)throw new InvalidOperationException();var b=new byte[n];if(!GetKernelObjectSecurity(h,1,b,n,out n))throw new Win32Exception(Marshal.GetLastWin32Error());return b;}
+ [DllImport("kernel32.dll")] static extern IntPtr GetCurrentProcess();
+ [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr h);
+ [DllImport("advapi32.dll",SetLastError=true)] static extern bool OpenProcessToken(IntPtr process,uint access,out IntPtr token);
+ [DllImport("advapi32.dll",SetLastError=true)] static extern bool SetTokenInformation(IntPtr token,int information,IntPtr data,uint size);
+ public static void DefaultOwner(byte[] sid){IntPtr token;if(!OpenProcessToken(GetCurrentProcess(),0x88,out token))throw new Win32Exception(Marshal.GetLastWin32Error());IntPtr value=Marshal.AllocHGlobal(sid.Length),owner=Marshal.AllocHGlobal(IntPtr.Size);try{Marshal.Copy(sid,0,value,sid.Length);Marshal.WriteIntPtr(owner,value);if(!SetTokenInformation(token,4,owner,(uint)IntPtr.Size))throw new Win32Exception(Marshal.GetLastWin32Error());}finally{Marshal.FreeHGlobal(value);Marshal.FreeHGlobal(owner);CloseHandle(token);}}
  public static void Owner(SafeFileHandle h,byte[] b){if(!SetKernelObjectSecurity(h,1,b))throw new Win32Exception(Marshal.GetLastWin32Error());}
 }
 '@
- if($DirectoryPath  -notmatch  '^[A-Za-z]:\\'  -or  $DirectoryPath  -match  '[\x00-\x1f"*?<>|]'  -or  $ExecutableSha256  -notmatch  '^[a-f0-9]{64}$') {throw 'invalid_fixture'}
+ if($DirectoryPath  -notmatch  '^[A-Za-z]:\\'  -or  $DirectoryPath  -match  '[\x00-\x1f"*?<>|]'  -or ( -not $WorkspaceFixture -and -not $AppendInheritedFile -and $ExecutableSha256 -notmatch '^[a-f0-9]{64}$')) {throw 'invalid_fixture'}
  $directory=[IO.Path]::GetFullPath($DirectoryPath).TrimEnd('\')
  if([IO.Path]::GetFileName($directory)  -notmatch  '^owned-native-build-[A-Za-z0-9]{6}$') {throw 'invalid_fixture'}
  $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User
@@ -37,10 +42,12 @@ public static class SyntheticOwner {
  if($temp.StartsWith('\\?\')){$temp=$temp.Substring(4)}
  if( -not  [String]::Equals([IO.Path]::GetDirectoryName($directory),$temp.TrimEnd('\'),[StringComparison]::OrdinalIgnoreCase)){throw 'invalid_fixture_parent'}
  $entries=@(Get-ChildItem -LiteralPath $directory -Force)
+ if($WorkspaceFixture){if($entries.Count -ne 0){throw 'fresh_empty_fixture_required'}}elseif($AppendInheritedFile){if($entries.Count -ne 1 -or $entries[0].Name -ne '.control-room-workspaces' -or -not $entries[0].PSIsContainer){throw 'invalid_fixture_inventory'}}else{
  if($entries.Count  -lt  1  -or  $entries.Count  -gt  2){throw 'invalid_fixture_inventory'}
  foreach($entry in $entries){if($entry.PSIsContainer  -or  $entry.Name  -notin  @('OwnedProcess.exe','OwnedProcess.pdb')){throw 'invalid_fixture_inventory'}}
  $digest=(Get-FileHash -LiteralPath (Join-Path $directory 'OwnedProcess.exe') -Algorithm SHA256).Hash.ToLowerInvariant()
  if($digest  -ne  $ExecutableSha256){throw 'invalid_fixture_digest'}
+ }
  # Hold every ancestor without delete sharing before inspecting the target objects.
  $cursor=[IO.Path]::GetDirectoryName($directory)
  while($cursor){$h=[SyntheticOwner]::Open($cursor,$false);$handles.Add($h);$i=[SyntheticOwner]::Inspect($h);if(($i.Attributes -band  0x400) -ne  0  -or  ($i.Attributes -band  0x10) -eq  0){throw 'invalid_fixture_parent'};$next=[IO.Directory]::GetParent($cursor);if($null -eq  $next){break};$cursor=$next.FullName}
@@ -54,6 +61,20 @@ public static class SyntheticOwner {
   $acl=New-Object Security.AccessControl.DirectorySecurity;$acl.SetSecurityDescriptorBinaryForm([SyntheticOwner]::Descriptor($h));$owner=$acl.GetOwner([Security.Principal.SecurityIdentifier]).Value
   if($owner -ne  $sid.Value){$wasCurrent=$false;if($owner -ne  $admin){throw 'foreign_fixture_owner'};$wasAdmin=$true;$replacement=New-Object Security.AccessControl.DirectorySecurity;$replacement.SetOwner($sid);[SyntheticOwner]::Owner($h,$replacement.GetSecurityDescriptorBinaryForm())}
   $checked=New-Object Security.AccessControl.DirectorySecurity;$checked.SetSecurityDescriptorBinaryForm([SyntheticOwner]::Descriptor($h));if($checked.GetOwner([Security.Principal.SecurityIdentifier]).Value -ne  $sid.Value){throw 'fixture_owner_unconfirmed'}
+ }
+ if($WorkspaceFixture -or $AppendInheritedFile){
+  # Change only this short-lived fixture-creation process's default object owner.
+  # Product processes/tokens and product ACL verification remain unchanged.
+  $sidBytes=New-Object byte[] $sid.BinaryLength;$sid.GetBinaryForm($sidBytes,0);[SyntheticOwner]::DefaultOwner($sidBytes)
+  $workspaceRoot=Join-Path $directory '.control-room-workspaces'
+  $repo=Join-Path $workspaceRoot ('repo-'+('a'*32))
+  $attempt=Join-Path (Join-Path $repo 'worktrees') ('attempt-'+('b'*32))
+  $nested=Join-Path (Join-Path $attempt 'nested') 'selected'
+  if($AppendInheritedFile){$newFile=Join-Path $nested 'inherited-created.txt';if([IO.File]::Exists($newFile)){throw 'fixture_file_exists'};[IO.File]::WriteAllText($newFile,'synthetic inherited fixture')}else{
+  $null=[IO.Directory]::CreateDirectory($nested)
+  for($n=0;$n -lt 300;$n++){[IO.File]::WriteAllText((Join-Path $nested ('file-'+$n.ToString('D3')+'.txt')),'synthetic fixture')}
+  [IO.File]::WriteAllText((Join-Path $attempt '.git'),'gitdir: synthetic fixture')
+  }
  }
  [Console]::Out.WriteLine(('{"ownerWasCurrent":'+$wasCurrent.ToString().ToLowerInvariant()+',"ownerWasAdmin":'+$wasAdmin.ToString().ToLowerInvariant()+'}'))
 }catch{[Console]::Error.WriteLine('synthetic_fixture_owner_unavailable');exit 1}finally{foreach($h in $handles){$h.Dispose()}}
