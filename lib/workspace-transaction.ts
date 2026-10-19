@@ -1,4 +1,4 @@
-import {capturePlanningForRecoverability} from './recoverability-planning-capture.ts';
+import {capturePlanningPreflight} from './recoverability-planning-capture.ts';
 import {readMutationAdmission,classifyMutationAdmission} from './mutation-admission-reader.ts';
 import {withWorkspaceAdmission} from './workspace-admission.ts';
 import {workspacePrivateCapacityGrowth} from './workspace-private-capacity.ts';
@@ -84,8 +84,8 @@ async function executeWorkspaceCommandAdmitted(userId:string,input:{protocolVers
   if(decision.status==='retired')throw new RetiredMutationError('This mutation epoch is retired.');
   if(decision.status==='replayed')return {status:'replayed',envelope:await readCurrent(db,userId,now),receipt:{mutationId:id,commandHash:decision.receipt.command_hash,appliedRevision:decision.receipt.revision}};
   if(decision.status==='conflict')return {status:'conflict',currentRevision:decision.currentRevision};
-  const {before,capture:planningCapture}=await capturePlanningForRecoverability(db,userId,{now,mutationId:id,expectedRevision:revision});if(before.revision!==revision)return {status:'conflict',currentRevision:before.revision};
-  if(await receiptCount(db,userId)>=RECEIPT_CAPACITY.hard)throw new WorkspaceCapacityError();
+  const {before,capture:planningCapture,readReceiptCount}=await capturePlanningPreflight(db,userId,{now,mutationId:id,expectedRevision:revision});if(before.revision!==revision)return {status:'conflict',currentRevision:before.revision};
+  if(readReceiptCount()>=RECEIPT_CAPACITY.hard)throw new WorkspaceCapacityError();
   const handler=deps.handlers.get(command.type);if(!handler)throw new CommandValidationError('Unknown command.');
   let plan:MutationPlan;
   try {plan=await handler.prepare(ownerPrepareContext(db,userId,before,command,now,{attachmentAccess:deps.attachmentAccess,verifyAttachment:deps.verifyAttachment,deviceEnrollment:deps.deviceEnrollment,agentArtifact:deps.agentArtifact,fileBackupServices:deps.fileBackupServices},id));plan.planningAfter=parseWorkspaceExport(plan.planningAfter,now);}
