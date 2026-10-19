@@ -1,23 +1,13 @@
-# Cloud implementation checkpoint — reviewed fixes ready for coherent gates
+# Cloud checkpoint — frozen final application source
 
-Application/test/CI parent: `eb6755432f3e0989b1c722ac56fe745b7f4a7102`. Resolve `feat/control-room-completion-cloud` for this documentation checkpoint's exact SHA. Runtime controls accepted exact gpt-6.1-sol for all six recorded workers. Actual execution is Node24 GitHub Actions; original local Windows checkout untouched.
+Application source: `e4af1fc5ae344a029f9677576963700c92aaefee`; PR1 draft/unmerged. Separate verification checkpoint; primary remains frozen for exact source-bound artifacts.
 
-## Exact evidence
+Exact final application sourcee4af1fc5ae344a029f9677576963700c92aaefee:491/491 focused+type/lint39194507156/job117874233566; three-engineQA39194510945 ALL11PASS; bothmobile39194510972/job117874244687 p952761.9ms and39194507161/job117874233407 p952739.8ms PASS;streaming14/runtimeD1/artifact16+D1R2/agentsD1/maintenance97tables291guardsPASS. Segmented39194510962/job117874244413 PASS27migrations/33modules/79segments/10080rows/17,767,591bytes,targetSTILLFENCED. Main39194510987/job117874247405 Node/bridge/typecheck stepsPASS,lint/build/native/browser/package ongoing; full counts await terminal.
 
-Exact3b170542115137b95b83f10b6c9e302af5c21e19 main39193244377/job117870390296:1774/1774Node195062.377ms,146/146bridge,type/lint/buildPASS; nativegeneration/workspace/source/reviews/scheduledbackupPASS. MainthenFAILED FIRSTwake scheduledsource admission dueD1>100bindguard; no laterbrowser/package. Focused489/489/type/lint39193240090; isolatedagents/runtime/artifactD1R2/maintenance97tables291guards/streaming14 PASS. Segmented39193244376/job117870388009 PASS27migrations/33modules/79segments/10080rows/17,767,591bytes,targetSTILLFENCED.
-Focus fix e5c302de83332a904b530d365d92b9404b704c3f run39193959740 TERMINALSUCCESS original11QA:Chromium1178725611294/4,Firefox1178725609603/3,WebKit1178725610724/4;type/lint/build EACHpass. Original390/768/1280budget+enrollmentEscape/focus/keyboard/axe assertions unchanged; precapturedperinstanceopener coverssharedFormDialog andcustomenrollment.
-Atomic D1 admission fix d2d35c21515790ffe754ae4d84392c0341e7bf91 run39194122483/job117873042518 TERMINALSUCCESS34/34targettests/no skips+ORIGINAL27migrationnative scheduledsource admission/page/restart/sameintent/digest/replay/lease/capacity/revocation/archive/epoch/SQLrollbackretry/planningunchangedPASS;typecheckPASS/lint0errors8warnings. Guard4boundparams withmaterializedcanonicalscalarvector preservesALLconditions/order/sixstatementatomicbatch.
+Exacte4 firstnormal39194510942/job117874255539 FAILED ONLYD1savep952499.678949ms>2000,p501797.993855;SQLite978.531809,D1read859.966659 PASS;100outcomes/sixrestores perengine/errors[]. Artifact12161845635 sha256325994989f843e4becbaa72d22b4f77751d0ee98619434ce99f068de4cedcfe4. No rerun or latency waiver; release acceptance blocked.
 
-## Unfinished / known limits
+Supported Sites helper execution unavailable although metadata/deployment access exists. Existing owner-private Site unchangedversion2. Approved separate pinned runtime extraction and Windows owned-process/sandbox invocation code/integration plus real owner device acceptance remain missing; installing bridge alone does not supply invocation. Selectedprovider consent/renewable ingress/closedbrowserwakeup/hostedSSE/physicalmobile-passkey acceptance not-run. Paid inference/operational-trading effects/externalalerts remain disabled.
 
-- New integrated source needs its own complete Node/bridge/type/lint/build/nativeD1R2/HTTP/browser/mobile/performance/package gates. Component successes retain original sources; no final accepted release artifact or new deployment yet.
+Next: Wait for main39194510987/job117874247405 terminal; inspect exact counts/artifact identities/inner hashes and preserve failed latency acceptance. Reconcile all phase/gap evidence without moving the frozen source until artifacts exist.
 
-- Exact3b normal39193244373/job117870396369 FAILED ONLYD1savep952410.695566ms>2000;SQLite953.989242/D1read798.646104 PASS,100outcomes/sixrestores perengine/errors[]. Artifact12161111300. Earlier normal passes/failures retained; no safe further bounded optimization justified, unchanged budget remains unmet.
-
-- Exact3b mobile39193244400/job117870387962 FAILEDp953205ms>3000(HTTPcasePASS); same-source39193240126/job117870374637 PASS2746.3ms retainedseparately. No stable mobile acceptance claim or retry-to-green.
-
-- Supported Sites helper execution unavailable although metadata/deployment access exists. Existing owner-private Site unchangedversion2. Approved separate pinned runtime extraction and Windows owned-process/sandbox invocation code/integration plus real owner device acceptance remain missing; installing bridge alone does not supply invocation. Selectedprovider consent/renewable ingress/closedbrowserwakeup/hostedSSE/physicalmobile-passkey acceptance not-run. Paid inference/operational-trading effects/externalalerts remain disabled.
-
-Original owner records/IDs, applied migrations, hosting identity and private access preserved. Intentional negative controls/diagnostic instrumentation and rejected local inspection history are excluded from this clean integration. PR1 remains draft/unmerged. No new deployment is claimed.
-
-Next: Inspect this exact implementation-branch head's complete source-bound gates and candidate/Windows package outputs. Preserve all failed normal/mobile metrics; do not waive budgets or publish a Site before required gates and supported helper execution are available.
+Exact supported gpt-6.1-sol model selections and six worker IDs remain recorded. GitHub Actions Node24 cloud execution; original local Windows checkout untouched. No owner data/IDs, applied migrations, hosting identity or private access changed. No new Site deployment or accepted release claimed; paid inference and operational/trading effects remain disabled.
