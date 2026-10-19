@@ -1,4 +1,4 @@
-import {test,expect,type Page} from '@playwright/test';
+import {test,expect,type Page,type Route} from '@playwright/test';
 import {fixtureOrigin,openFixture,workspace} from './helpers';
 import type {Workspace} from '../../lib/types';
 const escape=(value:string)=>Array.from(value,char=>'^$.*+?()[]{}|'.includes(char)||char.charCodeAt(0)===92?String.fromCharCode(92)+char:char).join('');
@@ -40,9 +40,24 @@ test('saved milestone history link opens exact owner filter intent and preserves
  await createProject(page,name);await openProject(page,name);await addMilestone(page,title);
  const before=await workspace(page),milestone=before.workspace.milestones.find((row:{title:string})=>row.title===title);expect(milestone).toBeTruthy();
  await page.getByRole('button').filter({has:page.getByRole('heading',{name:title,exact:true})}).click();
- const responsePromise=page.waitForResponse(response=>{const url=new URL(response.url());return url.pathname==='/api/history'&&url.searchParams.get('entityType')==='milestone'&&url.searchParams.get('entityId')===milestone.id;});
- await page.getByRole('link',{name:'Review milestone history',exact:true}).click();const response=await responsePromise;expect(response.ok()).toBeTruthy();
- const history=await response.json();expect(history.entries.length).toBeGreaterThan(0);expect(history.entries.every((entry:{entityType:string;entityId:string})=>entry.entityType==='milestone'&&entry.entityId===milestone.id)).toBeTruthy();
+ // Copy the actual UI-requested upstream bytes before Chromium can evict its
+ // response body. Fulfill the same status/headers/body; no retry or extra GET.
+ const matches=(url:URL)=>url.pathname==='/api/history'&&url.searchParams.get('entityType')==='milestone'&&url.searchParams.get('entityId')===milestone.id;
+ type CapturedHistory={ok:boolean;history:{entries:Array<{entityType:string;entityId:string;kind:string}>}};
+ let resolveCaptured!:(value:CapturedHistory)=>void,rejectCaptured!:(error:unknown)=>void,claimed=false;
+ const responsePromise=new Promise<CapturedHistory>((resolve,reject)=>{resolveCaptured=resolve;rejectCaptured=reject;});
+ const capture=async(route:Route)=>{
+  if(route.request().method()!=='GET'||claimed){await route.continue();return;}claimed=true;
+  try{const response=await route.fetch({maxRedirects:0,maxRetries:0});try{
+   const body=await response.body(),captured={ok:response.ok(),history:JSON.parse(body.toString('utf8')) as CapturedHistory['history']};
+   await route.fulfill({status:response.status(),headers:response.headers(),body});resolveCaptured(captured);
+  }finally{await response.dispose();}}catch(error){rejectCaptured(error);await route.abort('failed').catch(()=>{});}
+ };
+ await page.route(matches,capture);let captured:CapturedHistory;
+ try{const result=await Promise.all([page.getByRole('link',{name:'Review milestone history',exact:true}).click(),responsePromise]);captured=result[1];}finally{await page.unroute(matches,capture);}
+ expect(claimed).toBe(true);expect(captured.ok).toBeTruthy();const history=captured.history;expect(history.entries.length).toBeGreaterThan(0);expect(history.entries.every(entry=>entry.entityType==='milestone'&&entry.entityId===milestone.id)).toBeTruthy();
+ await expect(page.getByRole('article').filter({hasText:milestone.id}).first()).toBeVisible();
+ await expect(page.getByRole('heading',{name:history.entries[0].kind,exact:true}).first()).toBeVisible();
  await expect(page.getByRole('heading',{name:'History',exact:true})).toBeVisible();await expect(page.getByLabel('History entity type',{exact:true})).toHaveValue('milestone');await expect(page.getByLabel('History entity ID',{exact:true})).toHaveValue(milestone.id);
  expect(new URL(page.url()).searchParams.get('view')).toBe('history');expect(new URL(page.url()).searchParams.get('id')).toBe(milestone.id);
  await page.reload();await expect(page.getByLabel('History entity ID',{exact:true})).toHaveValue(milestone.id);
