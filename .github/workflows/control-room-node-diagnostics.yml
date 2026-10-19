@@ -1,0 +1,30 @@
+name: Control Room Node file diagnostics
+on:
+  push:
+    branches: ['diagnostics/**']
+    paths:
+      - '.github/workflows/control-room-node-diagnostics.yml'
+      - 'scripts/test-reporter.mjs'
+permissions:
+  contents: read
+concurrency:
+  group: node-diagnostics-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  node:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CONTROL_ROOM_SOURCE_COMMIT: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Verify native reporter event contract
+        run: node scripts/test-reporter.mjs --self-test
+      - name: Diagnose full Node suite without changing runner options
+        timeout-minutes: 9
+        run: npm test

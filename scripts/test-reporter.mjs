@@ -1,5 +1,10 @@
 import {inspect} from 'node:util';
 import {pathToFileURL} from 'node:url';
+import {readdirSync} from 'node:fs';
+// Diagnostics expose only static repository test basenames, never event paths.
+const diagnosticFiles=new Set(readdirSync(new URL('../tests/',import.meta.url)).filter(name=>/^[A-Za-z0-9_.-]+\.test\.[cm]?[jt]s$/.test(name)));
+diagnosticFiles.add('synthetic-reporter-slow.test.mjs');
+function diagnosticFile(data){const raw=data.entryFile??data.file??data.name;if(typeof raw!=='string')return null;const name=raw.replaceAll('\\','/').split('/').at(-1);return diagnosticFiles.has(name)?name:null;}
 // Native Node 24 event contract: https://nodejs.org/download/release/v24.21.0/docs/api/test.html
 const DETAIL_LIMIT=12288;
 function short(value,limit=1000){const text=typeof value==='string'?value:String(value??'');return text.length<=limit?text:text.slice(0,limit)+'[truncated]';}
@@ -25,9 +30,12 @@ function failure(data,stderr=''){
 }
 /** Presentation only. Never changes scheduling, assertions, runner options or exit status. */
 export default async function* reporter(events){
- let completed=0,failed=0;const displayed=new Set(),stderr=new Map();
- for await(const event of events){
-  const data=event.data??{},file=data.entryFile??data.file??'<unknown>';
+ let completed=0,failed=0;const displayed=new Set(),stderr=new Map(),active=new Set();
+ const heartbeat=setInterval(()=>{if(active.size)process.stdout.write('TEST FILE ACTIVE '+JSON.stringify([...active].sort().slice(0,1024))+'\n');},15000);heartbeat.unref();
+ try{for await(const event of events){
+  const data=event.data??{},file=data.entryFile??data.file??'<unknown>',known=diagnosticFile(data);
+  if(event.type==='test:dequeue'&&known&&!active.has(known)){active.add(known);yield 'TEST FILE START '+JSON.stringify(known)+'\n';}
+  if((event.type==='test:summary'||event.type==='test:complete'&&data.nesting===0&&diagnosticFile({name:data.name})===known)&&known&&active.delete(known))yield 'TEST FILE DONE '+JSON.stringify(known)+'\n';
   if(event.type==='test:stderr'){if(!stderr.has(file)&&stderr.size>=128)stderr.delete(stderr.keys().next().value);stderr.set(file,(stderr.get(file)??'').concat(short(data.message,8192)).slice(-8192));}
   // test:complete is execution-ordered; test:fail may wait behind an earlier
   // long-running sibling. De-duplicate its later declaration-ordered twin.
@@ -37,7 +45,7 @@ export default async function* reporter(events){
    if(completed%100===0)yield 'TEST PROGRESS '+JSON.stringify({results:completed,failedResults:failed})+'\n';
   }
   if(event.type==='test:summary'&&data.file===undefined)yield 'TEST SUMMARY '+JSON.stringify({counts:data.counts,duration_ms:data.duration_ms,success:data.success})+'\n';
- }
+ }}finally{clearInterval(heartbeat);}
 }
 async function selfTest(){
  const assert=(await import('node:assert/strict')).default,{mkdtemp,writeFile,rm}=await import('node:fs/promises'),{tmpdir}=await import('node:os'),{join}=await import('node:path'),{fileURLToPath}=await import('node:url'),{spawn}=await import('node:child_process');
@@ -47,7 +55,7 @@ async function selfTest(){
   const child=spawn(process.execPath,['--test','--test-reporter='+reporterFile,file],{stdio:['ignore','pipe','pipe'],shell:false});let output='',stderr='',liveFailure=false,timer;
   child.stdout.on('data',chunk=>{output+=chunk.toString();if(output.length>1000000)child.kill();if(output.includes('TEST FAIL')&&!output.includes('TEST SUMMARY')&&child.exitCode===null)liveFailure=true;});
   child.stderr.on('data',chunk=>{stderr+=chunk.toString();if(stderr.length>1000000)child.kill();});
-  try{const code=await new Promise((resolve,reject)=>{timer=setTimeout(()=>{child.kill();reject(new Error('Synthetic reporter subprocess did not settle.'));},10000);child.once('error',reject);child.once('close',resolve);});return {code,output,stderr,liveFailure};}finally{clearTimeout(timer);}
+  try{const code=await new Promise((resolve,reject)=>{timer=setTimeout(()=>{child.kill();reject(new Error('Synthetic reporter subprocess did not settle.'));},25000);child.once('error',reject);child.once('close',resolve);});return {code,output,stderr,liveFailure};}finally{clearTimeout(timer);}
  }
  try{
   const failing=join(directory,'failure.test.mjs'),passing=join(directory,'pass.test.mjs'),broken=join(directory,'bootstrap.test.mjs');
@@ -57,6 +65,9 @@ async function selfTest(){
   const failed=await execute(failing);assert.equal(failed.code,1);assert.equal(failed.liveFailure,true);assert.match(failed.output,/actual-synthetic/);assert.match(failed.output,/expected-synthetic/);assert.match(failed.output,/synthetic inner cause/);assert.match(failed.output,/TEST SUMMARY/);
   assert.equal(failed.output.split('\n').filter(line=>line.startsWith('TEST FAIL "synthetic nested assertion"')).length,1,'Immediate and ordered twins must not duplicate a failure.');
   const passed=await execute(passing);assert.equal(passed.code,0);assert.match(passed.output,/TEST PROGRESS/);assert.match(passed.output,/"skipped":1/);assert.match(passed.output,/"todo":1/);
+  const slow=join(directory,'synthetic-reporter-slow.test.mjs');
+  await writeFile(slow,"import test from 'node:test';\ntest('synthetic slow file',async()=>{await new Promise(resolve=>setTimeout(resolve,15200));});\n");
+  const delayed=await execute(slow);assert.equal(delayed.code,0);assert.match(delayed.output,/TEST FILE START \"synthetic-reporter-slow.test.mjs\"/);assert.match(delayed.output,/TEST FILE ACTIVE \["synthetic-reporter-slow.test.mjs"\]/);assert.match(delayed.output,/TEST FILE DONE \"synthetic-reporter-slow.test.mjs\"/);assert.match(delayed.output,/TEST SUMMARY/);assert.equal(delayed.output.includes(directory),false,'file diagnostics never expose absolute paths');
   const bootstrap=await execute(broken);assert.equal(bootstrap.code,1);assert.match(bootstrap.output,/synthetic-missing-module/);assert.match(bootstrap.output,/TEST STDERR/);
   async function* bounded(){yield {type:'test:fail',data:{name:'synthetic bound',details:{error:new Error('x'.repeat(100000),{cause:new Error('synthetic cause')})}}};}
   let rendered='';for await(const part of reporter(bounded()))rendered+=part;assert.ok(rendered.length<DETAIL_LIMIT+3000);
