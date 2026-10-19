@@ -1,0 +1,23 @@
+import {canonical,contentHash} from '../canonical-json.ts';
+import {ownerReader,type RegisteredOwnerTable} from '../workspace-modules.ts';
+import {readCurrent,type SqlDatabase} from '../workspace-store.ts';
+import {readOperationalWatermarks} from '../operational-watermarks.ts';
+import {sourceObservationSchema,sourceTargetSchema} from '../sources/validation.ts';
+import {readSourceSyncState} from '../sources/store.ts';
+import {evidenceVersionSchema,evidenceLinkSchema} from '../evidence-validation.ts';
+import {decisionVersionSchema} from '../decisions.ts';
+import {reviewScopeSchema} from './validation.ts';
+import {REVIEW_LIMITS,type ReviewAssemblyInput,type ReviewScope,type FrozenAuditRecord} from './contracts.ts';
+/** Captures owner data between equal editor revision and complete operational vectors.
+ * Commit must repeat the same boundary checks atomically; this read is not a lock. */
+export async function readReviewInput(db:SqlDatabase,owner:string,rawScope:ReviewScope,now:string):Promise<ReviewAssemblyInput>{
+ const scope=reviewScopeSchema.parse(rawScope),envelope=await readCurrent(db,owner,now),operationalWatermarks=await readOperationalWatermarks(db,owner),reader=ownerReader(db,owner);let count=0,bytes=0;
+ async function rows(table:RegisteredOwnerTable){const result:unknown[]=[];let after='';for(;;){const page=await reader.list(table,{after,limit:200});for(const row of page){if(row.id<=after)throw new Error('Review input pagination differs.');after=row.id;if(++count>REVIEW_LIMITS.assemblyRows||(bytes+=new TextEncoder().encode(row.payload_json).length)>REVIEW_LIMITS.assemblyBytes)throw new Error('Review input capacity exceeded.');const value=JSON.parse(row.payload_json);if(await contentHash(canonical(value))!==row.content_hash)throw new Error('Review input digest differs.');result.push(value);}if(page.length<200)break;}return result;}
+ const observations=(await rows('source_observations')).map(value=>sourceObservationSchema.parse(value)),sourceTargets=(await rows('source_targets')).map(value=>sourceTargetSchema.parse(value)),evidence=(await rows('evidence_versions')).map(value=>evidenceVersionSchema.parse(value)),evidenceLinks=(await rows('evidence_links')).map(value=>evidenceLinkSchema.parse(value)),decisions=(await rows('decision_versions')).map(value=>decisionVersionSchema.parse(value)),sourceStates=[];
+ for(const target of sourceTargets){const state=await readSourceSyncState(db,owner,target.id);if(state)sourceStates.push(state);}
+ const auditRows=(await db.prepare(`SELECT a.event_id,a.workspace_revision,a.ordinal,a.stream_id,a.stream_sequence,a.payload_json FROM audit_events a WHERE a.user_id=? AND EXISTS(SELECT 1 FROM audit_project_links p WHERE p.user_id=a.user_id AND p.event_id=a.event_id AND p.project_id IN(SELECT value FROM json_each(?))) ORDER BY a.occurred_at DESC,a.event_id DESC LIMIT 1001`).bind(owner,canonical(scope.projectIds)).all<{event_id:string;workspace_revision:number|null;ordinal:number|null;stream_id:string|null;stream_sequence:number|null;payload_json:string}>()).results;
+ const auditRecords:FrozenAuditRecord[]=[];for(const row of auditRows.slice(0,1000)){const value=JSON.parse(row.payload_json),contentHashValue=await contentHash(canonical(value));if(row.workspace_revision!==null){if(row.ordinal===null)throw new Error('Review audit editor position differs.');auditRecords.push({ref:{eventId:row.event_id,contentHash:contentHashValue,workspaceRevision:row.workspace_revision,ordinal:row.ordinal,streamId:null,sequence:null},value});}else{if(row.stream_id===null||row.stream_sequence===null)continue;auditRecords.push({ref:{eventId:row.event_id,contentHash:contentHashValue,workspaceRevision:null,ordinal:null,streamId:row.stream_id,sequence:row.stream_sequence},value});}}
+ for(const target of sourceTargets.filter(target=>scope.projectIds.includes(target.projectId))){const state=await readSourceSyncState(db,owner,target.id),original=sourceStates.find(row=>row.sourceId===target.id);if((state?.operationalRevision??null)!==(original?.operationalRevision??null))throw new Error('Source runtime changed while assembling the review. Retry the same request.');}
+ const after=await readCurrent(db,owner,now),afterWatermarks=await readOperationalWatermarks(db,owner);if(after.revision!==envelope.revision||canonical(afterWatermarks)!==canonical(operationalWatermarks))throw new Error('Workspace changed while assembling the review. Retry the same request.');
+ return {envelope,projectIds:scope.projectIds,filterDigest:scope.filterDigest,operationalWatermarks,observations,sourceTargets,sourceStates,evidence,evidenceLinks,decisions,assessments:[],auditRecords,historyTruncated:auditRows.length>1000,now};
+}

@@ -35,3 +35,8 @@ Independent backend review found no actionable defects. Integrated review identi
 The local mock-user QA workspace was reset after verification. Hosted initialization will use the approved seed, with no QA records, assumed deadlines or weekly commitments. Publication is tracked by the Sites saved version and deployment record.
 
 Browser checks use Chromium emulation, not physical phone or tablet hardware. Save-error checks deliberately produced HTTP 400, 409 and 503 responses. Automated source synchronization and PC activity remain explicitly disconnected.
+
+
+## Later completion work
+
+This dated record remains historical. Current completion-source evidence, remaining gates and deployment identity are tracked in [the completion checkpoint](superpowers/plans/2026-10-18-control-room-completion/cloud-interruption-checkpoint.md) and [the gap ledger](superpowers/plans/2026-10-18-control-room-completion/09-gap-coverage.md). Historical mock/viewport checks do not establish a later private deployment or physical-device acceptance.

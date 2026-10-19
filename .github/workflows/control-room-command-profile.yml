@@ -1,0 +1,48 @@
+name: Control Room workspace command profiling
+on:
+  push:
+    branches: [main, 'feat/**', 'diagnostics/**']
+    paths:
+      - '.github/workflows/control-room-command-profile.yml'
+      - 'scripts/benchmark-workspace.mjs'
+      - 'lib/operational-watermarks.ts'
+      - 'lib/workspace-store.ts'
+      - 'lib/workspace-transaction.ts'
+      - 'lib/private-capacity.ts'
+      - 'lib/recoverability-*.ts'
+      - 'lib/workspace-export.ts'
+      - 'lib/*-module.ts'
+      - 'lib/**/module.ts'
+      - 'lib/private-*.ts'
+  workflow_dispatch:
+concurrency:
+  group: control-room-command-profile-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CONTROL_ROOM_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+      CONTROL_ROOM_PROFILE_COMMANDS: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm run install:ci
+      - run: node --experimental-strip-types scripts/benchmark-workspace.mjs
+        timeout-minutes: 15
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: synthetic-command-profile
+          path: benchmark-results/workspace.json
+          if-no-files-found: error
+          retention-days: 14

@@ -1,0 +1,78 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {database} from './helpers/sqlite.ts';
+import {loadWorkspace,readCurrent} from '../lib/workspace-store.ts';
+import {encodePlanning} from '../lib/workspace-codec.ts';
+import {createSeedWorkspace} from '../lib/seed.ts';
+import {canonical,contentHash} from '../lib/canonical-json.ts';
+import {agentCapabilitySchema} from '../lib/agents/contracts.ts';
+import {buildAgentJobSpec,agentJobSpecSha256,buildAgentExecutionBinding,agentExecutionBindingSha256,buildAgentApprovalEnvelope} from '../lib/agents/policy.ts';
+import {readOperationalWatermarks} from '../lib/operational-watermarks.ts';
+import {captureRecoveryPrivateContinuity} from '../lib/recovery-private-continuity.ts';
+import {inactiveRecoveryDatabase,installRecoveryPrivateContinuity} from '../lib/recovery-install.ts';
+import {inspectRecoveryMaintenanceSchema,freezeRecoveryDatabase,bindFrozenPrivateContinuity,prepareInactiveRecoveryTarget,recoveryTargetInventorySha256,markRecoveryTargetReady} from '../lib/recovery-maintenance.ts';
+const OWNER='synthetic-private-continuity-owner',NOW='2026-10-18T12:00:00.000Z',SHA='a'.repeat(64);
+test('privileged installer retains unknown journal, event receipt, occupied slot and reservation while revoking dispatch and fencing the target',async()=>{
+ const source=database(),target=database();try{
+ await loadWorkspace(source.db,OWNER,()=>createSeedWorkspace(NOW),NOW);
+  const workspace=(await readCurrent(source.db,OWNER,NOW)).workspace,task=workspace.tasks.find(row=>row.status!=='archived'&&workspace.projects.some(project=>project.id===row.projectId&&project.archivedAt===null)&&(!row.milestoneId||workspace.milestones.some(milestone=>milestone.id===row.milestoneId&&milestone.archivedAt===null)))!;assert.ok(task);const deviceId='synthetic-private-device',jobId='synthetic-private-job',attemptId='synthetic-private-attempt',budgetId='synthetic-private-budget',intentId='synthetic-private-intent';
+  const cap=agentCapabilitySchema.parse({schemaVersion:1,deviceId,configurationSha256:SHA,provider:'codex',runtime:{version:'synthetic-1',sourceCommit:'b'.repeat(40),packageSha256:SHA,toolPolicy:'synthetic-policy',executableSha256:SHA,executableVersion:'synthetic 1',toolPolicySha256:SHA},operations:['project.inspect'],models:[{id:'synthetic-model',efforts:['medium']}],repositoryKeys:['synthetic-repo'],observedAt:NOW,expiresAt:'2026-10-18T12:05:00.000Z',maxConcurrent:1,availableSlots:1,maxTimeoutSeconds:600,maxOutputBytesLimit:2048,allowedPathsSha256ByRepositoryKey:{'synthetic-repo':SHA},modelIdentityPolicy:'require-observed',subscriptionOnly:true,extraUsageOffAttested:true});
+  const spec=await buildAgentJobSpec({operation:'project.inspect',projectId:task.projectId,taskId:task.id,repositoryKey:'synthetic-repo',baseCommit:'b'.repeat(40),inputArtifactIds:[],requestedModel:'synthetic-model',effort:'medium',timeoutSeconds:120,outputBytesLimit:2048,dependsOnJobIds:[]},{workspace,workspaceRevision:1,acceptanceInputs:{}});
+  const specHash=await agentJobSpecSha256(spec),binding=await buildAgentExecutionBinding(spec,cap,{artifactRefs:[],budget:{jobs:1,timeoutSeconds:120,outputBytesLimit:2048,inputBytesLimit:32768,payment:'subscription-only',costDollars:null},now:NOW}),bindingHash=await agentExecutionBindingSha256(binding);
+  const record={id:jobId,intentId,spec,specSha256:specHash,createdAt:NOW,retryOfJobId:null,historical:false},envelope=await buildAgentApprovalEnvelope(spec,{approval:{id:'synthetic-private-approval',jobId,deviceId,specSha256:specHash,capabilitySha256:await contentHash(canonical(cap)),configurationSha256:SHA,taskSnapshotSha256:spec.taskSnapshotSha256,approvedAt:NOW,expiresAt:'2026-10-19T12:00:00.000Z',revokedAt:null,attempts:1,budget:{jobs:1,timeoutSeconds:120},origin:'native-owner'},executionBinding:binding,reservationId:budgetId,approverId:OWNER},NOW);
+  source.sqlite.prepare("INSERT INTO workspace_job_intents(user_id,id,kind,dedupe_key,payload_json,not_before,status,execution_epoch,cancel_requested) VALUES(?,?,'agent.execute',?,?,?,'running',0,0)").run(OWNER,intentId,jobId,canonical({jobId,specSha256:specHash}),NOW);
+  source.sqlite.prepare('INSERT INTO agent_job_state(user_id,job_id,intent_id,status,operational_revision,spec_hash,task_hash,device_id,approval_id,attempt_id,execution_epoch,updated_at) VALUES(?,?,?,?,2,?,?,?,?,?,0,?)').run(OWNER,jobId,intentId,'running',specHash,spec.taskSnapshotSha256,deviceId,envelope.approval.id,attemptId,NOW);
+  source.sqlite.prepare('INSERT INTO job_approvals(user_id,id,job_id,device_id,spec_hash,binding_hash,payload_json,created_at,expires_at,consumed_at,reserved_seconds) VALUES(?,?,?,?,?,?,?,?,?,?,120)').run(OWNER,envelope.approval.id,jobId,deviceId,specHash,bindingHash,canonical(envelope),NOW,envelope.approval.expiresAt,NOW);
+  const identity=canonical({record,executionBinding:binding,budgetId});
+  source.sqlite.prepare('INSERT INTO job_attempts(user_id,id,job_id,device_id,approval_id,execution_epoch,journal_nonce_hash,lease_token_hash,lease_expires_at,deadline_at,created_at,launched_at,last_applied_sequence,operational_revision,identity_json) VALUES(?,?,?,?,?,0,?,?,?,?,?,?,1,2,?)').run(OWNER,attemptId,jobId,deviceId,envelope.approval.id,SHA,SHA,'2026-10-18T12:01:00.000Z','2026-10-18T12:02:00.000Z',NOW,NOW,identity);
+  source.sqlite.prepare('INSERT INTO agent_device_slots(user_id,device_id,attempt_id,reserved_at) VALUES(?,?,?,?)').run(OWNER,deviceId,attemptId,NOW);
+  source.sqlite.prepare('INSERT INTO agent_budgets(user_id,id,operational_revision,payload_json,maximum_jobs,maximum_seconds,reserved_jobs,reserved_seconds,charged_seconds,enabled,updated_at) VALUES(?,?,1,?,1,600,1,120,0,1,?)').run(OWNER,budgetId,canonical({maximumJobs:1,maximumSeconds:600,enabled:true}),NOW);
+  const event={schemaVersion:1,attemptId,epoch:0,sequence:1,observedAt:NOW,diagnostic:'ok',kind:'accepted',details:{specSha256:specHash,capabilitySha256:await contentHash(canonical(cap))}},eventHash=await contentHash(canonical(event)),receipt={attemptId,epoch:0,sequence:1,payloadSha256:eventHash,receivedAt:NOW};
+  source.sqlite.prepare('INSERT INTO job_events(user_id,attempt_id,epoch,sequence,payload_hash,payload_json,receipt_json,received_at,applied_at) VALUES(?,?,0,1,?,?,?,?,?)').run(OWNER,attemptId,eventHash,canonical(event),canonical(receipt),NOW,NOW);
+
+ const pendingToken=crypto.randomUUID(),pendingId=crypto.randomUUID(),pendingKey='attachments/'+crypto.randomUUID()+'/'+pendingId;
+ const pendingNamespace=pendingKey.split('/')[1];
+ source.sqlite.prepare('INSERT INTO attachment_blob_objects(user_id,storage_key,attachment_id,namespace,bytes,sha256,created_at,verified_at,purged_at) VALUES(?,?,?,?,0,NULL,?,NULL,NULL)').run(OWNER,pendingKey,pendingId,pendingNamespace,NOW);
+ // A definite no-PUT journal is original owner history, captured before freeze.
+ source.sqlite.prepare('INSERT INTO attachment_upload_attempts(user_id,token,attachment_id,storage_key,created_at,settled_at) VALUES(?,?,?,?,?,?)').run(OWNER,pendingToken,pendingId,pendingKey,NOW,NOW);
+ const previousBytes=encodePlanning(workspace);
+ source.sqlite.prepare('INSERT INTO workspace_recovery(user_id,content,revision,updated_at) VALUES(?,?,1,?)').run(OWNER,previousBytes,NOW);
+ const schema=await inspectRecoveryMaintenanceSchema(source.db);
+ const sourceContext={workspaceRevision:1,executionEpoch:0,operationalWatermarks:await readOperationalWatermarks(source.db,OWNER)},ownerContextHash=await contentHash(OWNER);
+ const sourceReceipt=await freezeRecoveryDatabase(source.db,{operationId:crypto.randomUUID(),token:'b'.repeat(64),ownerId:OWNER,manifestSha256:SHA,ownerContextHash,schemaFingerprint:schema.schemaFingerprint,sourceContext,now:NOW});
+ const continuity=await captureRecoveryPrivateContinuity(source.db,OWNER,{manifestSha256:SHA,ownerContextHash,sourceContext},NOW);
+ await bindFrozenPrivateContinuity(source.db,sourceReceipt,continuity,continuity.sha256);
+ const targetReceipt=await prepareInactiveRecoveryTarget(target.db,source.db,sourceReceipt,{operationId:crypto.randomUUID(),token:'c'.repeat(64),expectedPrivateSha256:continuity.sha256});
+ const writable=inactiveRecoveryDatabase(target.db,targetReceipt);
+ // Native results and atomic rollback, rather than success-shaped mock values.
+ await assert.rejects(writable.batch([writable.prepare("INSERT INTO workspace_assertions(user_id,mutation_id,valid) VALUES(?,?,0)").bind(OWNER,'synthetic-invalid')]),/CHECK/);
+ assert.equal(target.sqlite.prepare('SELECT COUNT(*) n FROM workspace_assertions').get()!.n,0);
+ assert.throws(()=>target.sqlite.prepare("INSERT INTO workspaces(user_id,content,revision,updated_at) VALUES(?,'{}',1,?)").run(OWNER,NOW),/operator_recovery_frozen/);
+ await assert.rejects(writable.batch([source.db.prepare('SELECT 1')]),/different database boundary/);
+ await loadWorkspace(writable,OWNER,()=>workspace,NOW);
+ const result=await installRecoveryPrivateContinuity(source.db,sourceReceipt,target.db,targetReceipt,continuity,continuity.sha256);
+ assert.equal(result.retainedAttempts,1);
+ assert.deepEqual({...target.sqlite.prepare('SELECT content,revision,updated_at FROM workspace_recovery WHERE user_id=?').get(OWNER)!},{content:previousBytes,revision:1,updated_at:NOW});
+ const restored=target.sqlite.prepare('SELECT * FROM agent_job_state WHERE user_id=?').get(OWNER)!;
+ assert.equal(restored.status,'reconcile_required');assert.equal(restored.attempt_id,attemptId);
+ assert.equal(target.sqlite.prepare('SELECT identity_json FROM job_attempts').get()!.identity_json,identity);
+ assert.equal(target.sqlite.prepare('SELECT receipt_json FROM job_events').get()!.receipt_json,canonical(receipt));
+ assert.equal(target.sqlite.prepare('SELECT released_at FROM agent_device_slots').get()!.released_at,null);
+ const budget=target.sqlite.prepare('SELECT enabled,reserved_jobs,reserved_seconds,charged_seconds FROM agent_budgets').get()!;
+ assert.deepEqual({...budget},{enabled:0,reserved_jobs:1,reserved_seconds:120,charged_seconds:0});
+ assert.equal(target.sqlite.prepare('SELECT revoked_at FROM job_approvals').get()!.revoked_at,NOW);
+ assert.equal(target.sqlite.prepare('SELECT epoch FROM workspace_execution_state').get()!.epoch,1);
+ // Simulate an incomplete target journal copy without inventing a new history row.
+ // Independent source/body comparison rejects this before the later pending-PUT check.
+ await writable.prepare('UPDATE attachment_upload_attempts SET settled_at=NULL WHERE user_id=? AND token=?').bind(OWNER,pendingToken).run();
+ const pendingInventory=await recoveryTargetInventorySha256(target.db,targetReceipt);
+ await assert.rejects(markRecoveryTargetReady(target.db,source.db,sourceReceipt,targetReceipt,{privateSha256:continuity.sha256,inventorySha256:pendingInventory,actualInventorySha256:()=>recoveryTargetInventorySha256(target.db,targetReceipt)}),/Private owner history differs at target: attachment_upload_attempts/);
+ // Restore the exact source's original definitive no-write settlement.
+ await writable.prepare('UPDATE attachment_upload_attempts SET settled_at=? WHERE token=?').bind(NOW,pendingToken).run();
+ assert.deepEqual(target.sqlite.prepare('SELECT * FROM attachment_upload_attempts WHERE user_id=? AND token=?').get(OWNER,pendingToken),source.sqlite.prepare('SELECT * FROM attachment_upload_attempts WHERE user_id=? AND token=?').get(OWNER,pendingToken));
+ const inventorySha256=await recoveryTargetInventorySha256(target.db,targetReceipt);
+ await markRecoveryTargetReady(target.db,source.db,sourceReceipt,targetReceipt,{privateSha256:continuity.sha256,inventorySha256,actualInventorySha256:()=>recoveryTargetInventorySha256(target.db,targetReceipt)});
+ await assert.rejects(writable.prepare('UPDATE agent_budgets SET enabled=1').run(),/maintenance|state|inactive/i);
+ assert.throws(()=>target.sqlite.prepare('UPDATE agent_budgets SET enabled=1').run(),/operator_recovery_frozen/);
+ }finally{source.sqlite.close();target.sqlite.close();}
+});

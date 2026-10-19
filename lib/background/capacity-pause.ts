@@ -1,0 +1,21 @@
+import {privateUpdateGrowth,combinePrivateGrowth} from '../private-growth.ts';
+import {requirePrivateCapacity,PrivateCapacityError,type PrivateGrowth} from '../private-capacity.ts';
+import type {ScheduledBackupClaim} from '../automations/contracts.ts';
+import type {SqlDatabase} from '../workspace-store.ts';
+import type {IntegrationJobClaim} from './job-contract.ts';
+import type {ReviewJobClaim} from '../reviews/job-store.ts';
+/** Private failure path requires no growing portable record. It never erases data,
+ * advances a committed cursor, marks success, or creates a replacement intent. */
+export async function pauseJobForRecoveryCapacity(db:SqlDatabase,claim:IntegrationJobClaim|ReviewJobClaim|ScheduledBackupClaim,now:string):Promise<boolean>{
+ const source='sourceId'in claim,backup='backupId'in claim,authority=source?await(await import('./job-store.ts')).integrationJobClaimGuard(db,claim,now):backup?await(await import('../automations/backup-job-store.ts')).scheduledBackupClaimGuard(db,claim,now):await(await import('../reviews/job-store.ts')).reviewJobClaimGuard(db,claim,now);if(!authority)return false;
+ const growth:PrivateGrowth[]=[await privateUpdateGrowth(db,claim.ownerId,'workspace_job_intents','id=?',[claim.intentId],{status:'pending'}),await privateUpdateGrowth(db,claim.ownerId,'integration_jobs','intent_id=?',[claim.intentId],{lease_token:null,lease_expires_at:null,lease_access_mode:null,lease_principal_ref:null,retry_after:null},true),await privateUpdateGrowth(db,claim.ownerId,'integration_job_attempts','intent_id=? AND attempt=?',[claim.intentId,claim.attempt],{finished_at:now,outcome:'failed',failure:'storage_capacity'})];
+ if(source)growth.push(await privateUpdateGrowth(db,claim.ownerId,'source_sync_state','source_id=?',[claim.sourceId],{paused:1,failure:'storage_capacity',retry_at:null},true));
+ if('scheduleId'in claim&&claim.scheduleId!=null)growth.push(await privateUpdateGrowth(db,claim.ownerId,'automation_runtime','schedule_id=?',[claim.scheduleId],{paused:1,failure:'storage_capacity',retry_at:null},true));
+ let capacity:Awaited<ReturnType<typeof requirePrivateCapacity>>;try{capacity=await requirePrivateCapacity(db,claim.ownerId,{growth:combinePrivateGrowth(...growth)});}catch(error){if(error instanceof PrivateCapacityError)return false;throw error;}
+ const token=crypto.randomUUID(),id=`capacity_${claim.intentId}`,binds=[claim.ownerId,id,token],gate='EXISTS(SELECT 1 FROM workspace_command_guards WHERE user_id=? AND mutation_id=? AND claim_token=? AND valid=1)';
+ const statements=[db.prepare(`WITH capacity_authority AS MATERIALIZED(SELECT 1 WHERE ${authority.sql} AND ${capacity.sql}) INSERT INTO workspace_command_guards(user_id,mutation_id,claim_token,valid) SELECT ?,?,?,1 WHERE EXISTS(SELECT 1 FROM capacity_authority)`).bind(...authority.bindings,...capacity.bindings,...binds)];
+ if(source)statements.push(db.prepare(`UPDATE source_sync_state SET paused=1,failure='storage_capacity',retry_at=NULL,operational_revision=operational_revision+1 WHERE user_id=? AND source_id=? AND ${gate}`).bind(claim.ownerId,claim.sourceId,...binds));if('scheduleId'in claim&&claim.scheduleId!=null)statements.push(db.prepare(`UPDATE automation_runtime SET paused=1,failure='storage_capacity',retry_at=NULL,operational_revision=operational_revision+1 WHERE user_id=? AND schedule_id=? AND ${gate}`).bind(claim.ownerId,claim.scheduleId,...binds));
+ statements.push(db.prepare(`UPDATE workspace_job_intents SET status='pending' WHERE user_id=? AND id=? AND ${gate}`).bind(claim.ownerId,claim.intentId,...binds));
+ statements.push(db.prepare(`UPDATE integration_jobs SET operational_revision=operational_revision+1,lease_token=NULL,lease_expires_at=NULL,lease_access_mode=NULL,lease_principal_ref=NULL,retry_after=NULL WHERE user_id=? AND intent_id=? AND ${gate}`).bind(claim.ownerId,claim.intentId,...binds));
+ statements.push(db.prepare(`UPDATE integration_job_attempts SET finished_at=?,outcome='failed',failure='storage_capacity' WHERE user_id=? AND intent_id=? AND attempt=? AND finished_at IS NULL AND ${gate}`).bind(now,claim.ownerId,claim.intentId,claim.attempt,...binds));statements.push(db.prepare('DELETE FROM workspace_command_guards WHERE user_id=? AND mutation_id=? AND claim_token=?').bind(...binds));const result=await db.batch(statements);return result[0]?.meta.changes===1;
+}

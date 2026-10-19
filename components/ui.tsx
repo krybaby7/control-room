@@ -36,7 +36,7 @@ export function TaskRow({ task, workspace, reason, onEdit, onPin, busy, showProj
         {blockers.length > 0 && <span className="blocker-text">Blocked: {blockers.join(' · ')}</span>}
       </span>
     </button>
-    <button className={`icon-button pin-button ${pinned ? 'pinned' : ''}`} aria-label={`${pinned ? 'Remove from' : 'Add to'} this week's focus: ${task.title}`} title={pinned ? "Remove from this week's focus" : "Add to this week's focus"} aria-pressed={pinned} disabled={busy || task.status === 'archived'} onClick={() => onPin(task)}><Pin size={16} /></button>
+    <button className={`icon-button pin-button ${pinned ? 'pinned' : ''}`} aria-label={`${pinned ? 'Remove from' : 'Add to'} this week's focus: ${task.title}`} title={task.status==='proposed'&&!pinned?'Accept this task before committing it to a week':pinned ? "Remove from this week's focus" : "Add to this week's focus"} aria-pressed={pinned} disabled={busy || task.status === 'archived'||(task.status==='proposed'&&!pinned)} onClick={() => onPin(task)}><Pin size={16} /></button>
   </article>;
 }
 export function ProjectCard({ project, workspace, onOpen }: { project: Project; workspace: Workspace; onOpen: () => void }) {

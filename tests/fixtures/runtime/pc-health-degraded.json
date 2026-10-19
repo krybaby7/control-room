@@ -1,0 +1,14 @@
+{
+  "fixture": "synthetic; no physical device queried",
+  "health": {
+    "app": "pc-command-center",
+    "version": "2.1.1",
+    "ready": false,
+    "status": "degraded",
+    "last_sample_at": null,
+    "sample_age_seconds": null,
+    "collector_state": "warming",
+    "worker_alive": true
+  },
+  "summary": null
+}

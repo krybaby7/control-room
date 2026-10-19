@@ -17,7 +17,7 @@ export interface ProjectBaselineData {
   checkedAt: string; status: string; accomplishments: string[]; blockers: string[];
   provenance: string; sources: BaselineSource[]; actions: BaselineAction[];
 }
-export interface BaselineProposal extends BaselineAction { id: string; milestoneId: string | null; milestoneNote: string; exists: boolean; }
+export interface BaselineProposal extends BaselineAction { id: string; milestoneId: string | null; milestoneNote: string; exists: boolean; removed:boolean; currentProjectId?:string; }
 export interface BaselineApplicationState {
   status: 'available' | 'applied' | 'incomplete' | 'conflict' | 'unsupported';
   markerId: string | null; existingCount: number; missingCount: number; message: string;
@@ -150,41 +150,44 @@ export function baselineRecordId(projectId: string, action: string): string {
   return `baseline:${BASELINE_ID}:${scope(projectId)}:${action}`;
 }
 
-export function previewProjectBaseline(workspace: Workspace, projectId: string): BaselineProposal[] {
+export function previewProjectBaseline(workspace: Workspace, projectId: string, removedIds:readonly string[] = []): BaselineProposal[] {
   const project = workspace.projects.find(candidate => candidate.id === projectId);
   const baseline = project && getProjectBaseline(project);
   if (!baseline) return [];
   return baseline.actions.map(action => {
-    const matches = action.milestoneTitle ? workspace.milestones.filter(m => m.projectId === projectId && m.title === action.milestoneTitle) : [];
+    const matches = action.milestoneTitle ? workspace.milestones.filter(m => m.projectId === projectId && m.title === action.milestoneTitle && !m.archivedAt) : [];
     const milestoneId = matches.length === 1 ? matches[0].id : null;
     const milestoneNote = milestoneId ? action.milestoneTitle! : action.milestoneTitle
-      ? `Unlinked: original milestone “${action.milestoneTitle}” is missing, renamed or ambiguous.`
+      ? `Unlinked: original milestone “${action.milestoneTitle}” is missing, renamed, archived or ambiguous.`
       : 'Unlinked: broader release scope; choose a milestone when appropriate.';
     const id = baselineRecordId(projectId, action.key);
-    return { ...action, id, milestoneId, milestoneNote, exists: workspace.tasks.some(task => task.id === id && task.projectId === projectId) };
+    const existing=workspace.tasks.find(task=>task.id===id);
+    return { ...action, id, milestoneId, milestoneNote, exists:Boolean(existing), removed:!existing&&removedIds.includes(id), ...(existing?{currentProjectId:existing.projectId}:{}) };
   });
 }
 
-export function baselineApplicationState(workspace: Workspace, projectId: string): BaselineApplicationState {
+export function baselineApplicationState(workspace: Workspace, projectId: string, removedIds:readonly string[] = []): BaselineApplicationState {
   const project = workspace.projects.find(candidate => candidate.id === projectId);
   if (!project || !getProjectBaseline(project)) return { status: 'unsupported', markerId: null, existingCount: 0, missingCount: 0, message: 'Baseline requires exactly one supported project identity from a verified repository URL.' };
-  const proposals = previewProjectBaseline(workspace, projectId);
+  const proposals = previewProjectBaseline(workspace, projectId, removedIds);
   const markerId = baselineRecordId(projectId, 'context');
   const expected = new Map([...proposals.map(p => [p.id, 'task'] as const), [markerId, 'capture'] as const]);
   for (const [kind, records] of [['project', workspace.projects], ['milestone', workspace.milestones], ['task', workspace.tasks], ['capture', workspace.captures], ['activity', workspace.activity]] as const) {
     for (const entry of records) {
       const expectedKind = expected.get(entry.id);
-      if (expectedKind && (kind !== expectedKind || !('projectId' in entry) || entry.projectId !== projectId)) {
-        return { status: 'conflict', markerId, existingCount: 0, missingCount: proposals.length, message: 'Baseline record ID collision with another project or record type. Nothing can be added.' };
+      if (expectedKind && kind !== expectedKind) {
+        return { status: 'conflict', markerId, existingCount: 0, missingCount: proposals.length, message: 'Baseline record ID collision with another record type. Nothing can be added.' };
       }
     }
   }
-  const marker = workspace.captures.some(capture => capture.id === markerId && capture.projectId === projectId);
-  const existingCount = proposals.filter(p => p.exists).length;
+  const marker = workspace.captures.some(capture => capture.id === markerId);
+  const markerRemoved=!marker&&removedIds.includes(markerId);
+  const removedCount=proposals.filter(p=>p.removed).length;
+  const existingCount = proposals.filter(p => p.exists||p.removed).length;
   const missingCount = proposals.length - existingCount;
   if (marker && missingCount) return { status: 'incomplete', markerId, existingCount, missingCount, message: 'Saved baseline context exists but proposal records are missing. Review the restored/exported data; existing decisions will not be silently reinserted.' };
-  if (marker) return { status: 'applied', markerId, existingCount, missingCount, message: 'Dated context and all five proposal records are saved. Later edits and archives are preserved.' };
-  return { status: 'available', markerId, existingCount, missingCount, message: existingCount ? `${existingCount} existing proposal record(s) will be preserved; only missing records and dated context will be added.` : 'Adds five proposed tasks and one filed context. Existing plans, progress and commitments stay intact.' };
+  if ((marker||markerRemoved)&&!missingCount) return { status: 'applied', markerId, existingCount, missingCount, message: removedCount ? `${removedCount} previously applied; task removed. Owner deletion tombstones prevent these proposals from being recreated. Existing records and dated source lineage are preserved.` : markerRemoved ? 'Previously applied; dated context removed. Owner deletion tombstone prevents context recreation. Existing proposals are preserved.' : 'Dated context and all five proposal records are saved. Later edits, moves and archives are preserved.' };
+  return { status: 'available', markerId, existingCount, missingCount, message: existingCount ? `${existingCount} existing or explicitly removed proposal record(s) will be preserved; only genuinely missing records${markerRemoved?'':' and dated context'} will be added.${removedCount?' Previously applied; task removed. Owner deletion tombstones prevent recreation.':''}` : 'Adds five proposed tasks and one filed context. Existing plans, progress and commitments stay intact.' };
 }
 
 function sourceText(source: BaselineSource): string {
@@ -206,24 +209,26 @@ function contextText(baseline: ProjectBaselineData): string {
 }
 
 /** All checks precede any returned change. Deterministic records make retries independent of mutation receipts. */
-export function applyProjectBaseline(workspace: Workspace, projectId: string, baselineId: string, at: string): Workspace {
+export function applyProjectBaseline(workspace: Workspace, projectId: string, baselineId: string, at: string, removedIds:readonly string[] = []): Workspace {
   if (baselineId !== BASELINE_ID) throw new Error('Select the supported baseline dated 2026-10-17.');
   const project = workspace.projects.find(candidate => candidate.id === projectId);
   if (!project) throw new Error('Select an existing project.');
-  const state = baselineApplicationState(workspace, projectId);
+  const state = baselineApplicationState(workspace, projectId, removedIds);
   if (state.status === 'unsupported') throw new Error('A baseline requires a verified repository URL for one supported project; multiple identities are ambiguous.');
   if (state.status === 'conflict' || state.status === 'incomplete') throw new Error(state.message);
   if (state.status === 'applied') return structuredClone(workspace);
   const baseline = getProjectBaseline(project)!;
-  const proposals = previewProjectBaseline(workspace, projectId).filter(proposal => !proposal.exists);
+  const proposals = previewProjectBaseline(workspace, projectId, removedIds).filter(proposal => !proposal.exists&&!proposal.removed);
   if (workspace.tasks.length + proposals.length > WORKSPACE_LIMITS.tasks) throw new Error('Baseline exceeds the workspace task limit; nothing was added.');
-  if (workspace.captures.length + 1 > WORKSPACE_LIMITS.captures) throw new Error('Baseline exceeds the workspace capture limit; nothing was added.');
+  const addContext=!workspace.captures.some(capture=>capture.id===state.markerId)&&!removedIds.includes(state.markerId!);
+  if(project.archivedAt&&(proposals.length||addContext))throw new Error('Restore this project before adding baseline records.');
+  if (workspace.captures.length + (addContext?1:0) > WORKSPACE_LIMITS.captures) throw new Error('Baseline exceeds the workspace capture limit; nothing was added.');
   const body = contextText(baseline);
   if (body.length > 10000) throw new Error('Bundled baseline context exceeds the capture limit.');
   const tasks: Task[] = proposals.map(proposal => {
     const sources = baseline.sources.filter(source => proposal.sourceIds.includes(source.id));
     return {
-      id: proposal.id, projectId, milestoneId: proposal.milestoneId, title: proposal.title,
+      id: proposal.id, estimateMinutes:null, projectId, milestoneId: proposal.milestoneId, title: proposal.title,
       notes: `Proposed from baseline ${BASELINE_ID}. Existing work: ${proposal.existingWork}.\n\nAcceptance: ${proposal.acceptance}\n\nMilestone: ${proposal.milestoneNote}\n\nSource evidence (dated; not a new verification):\n${sources.map(sourceText).join('\n\n')}`,
       status: 'proposed', horizon: proposal.horizon, priority: 'normal', dueDate: null,
       weekly: false, weeklyWeek: null, dependsOn: [], blocker: '', sourceUrl: sources.find(source => source.url)?.url ?? null,
@@ -236,7 +241,7 @@ export function applyProjectBaseline(workspace: Workspace, projectId: string, ba
   };
   const next = structuredClone(workspace);
   next.tasks.push(...tasks);
-  next.captures.push(capture);
+  if(addContext)next.captures.push(capture);
   // The same strict contract as persistence/export also catches byte capacity and global ID/reference issues.
   parseWorkspaceExport(next);
   return next;

@@ -1,0 +1,962 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/krybaby7/control-room/docs/releases/release-status.schema.json",
+  "title": "Control Room release evidence (structural; recorder rechecks GitHub or exact reviewed observation record provenance)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "version",
+    "candidate",
+    "sourceCommit",
+    "artifactSha256",
+    "artifact",
+    "phases",
+    "checks"
+  ],
+  "properties": {
+    "format": {
+      "const": "control-room-release-status"
+    },
+    "version": {
+      "const": 1
+    },
+    "candidate": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,79}$"
+    },
+    "sourceCommit": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "artifactSha256": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "artifact": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "name",
+            "sha256",
+            "bytes",
+            "runId"
+          ],
+          "properties": {
+            "id": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "bytes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "runId": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "phases": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "implementation",
+        "localVerification",
+        "hostedAcceptance"
+      ],
+      "properties": {
+        "implementation": {
+          "enum": [
+            "in-progress",
+            "complete"
+          ]
+        },
+        "localVerification": {
+          "enum": [
+            "not-run",
+            "passed",
+            "failed"
+          ]
+        },
+        "hostedAcceptance": {
+          "enum": [
+            "not-run",
+            "passed",
+            "failed",
+            "owner-dependent",
+            "unavailable"
+          ]
+        }
+      }
+    },
+    "checks": {
+      "type": "array",
+      "minItems": 13,
+      "maxItems": 13,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "status",
+          "environment",
+          "observedAt",
+          "commandOrProcedure",
+          "evidencePath",
+          "limitation",
+          "disabledScope",
+          "evidence"
+        ],
+        "properties": {
+          "id": {
+            "enum": [
+              "node-tests",
+              "bridge-tests",
+              "typecheck",
+              "lint",
+              "build",
+              "d1-recovery",
+              "r2-recovery",
+              "chromium",
+              "r2-chromium",
+              "oversized-owner-recovery",
+              "performance",
+              "hosted-private-acceptance",
+              "owner-device-acceptance"
+            ]
+          },
+          "status": {
+            "enum": [
+              "not-run",
+              "passed",
+              "failed",
+              "unavailable",
+              "owner-dependent",
+              "not-applicable"
+            ]
+          },
+          "environment": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "observedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "commandOrProcedure": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "evidencePath": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "limitation": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "disabledScope": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "evidence": {
+            "anyOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind",
+                  "repository",
+                  "sourceCommit",
+                  "runId",
+                  "runAttempt",
+                  "jobId",
+                  "stepNumber",
+                  "stepName",
+                  "runUrl",
+                  "jobUrl",
+                  "artifact",
+                  "verifiedAt"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "github-actions"
+                  },
+                  "repository": {
+                    "const": "krybaby7/control-room"
+                  },
+                  "sourceCommit": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{40}$"
+                  },
+                  "runId": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  "runAttempt": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  "jobId": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  "stepNumber": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  "stepName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  },
+                  "runUrl": {
+                    "type": "string",
+                    "format": "uri",
+                    "pattern": "^https://github\\.com/krybaby7/control-room/actions/runs/[1-9][0-9]*$"
+                  },
+                  "jobUrl": {
+                    "type": "string",
+                    "format": "uri",
+                    "pattern": "^https://github\\.com/krybaby7/control-room/actions/runs/[1-9][0-9]*/job/[1-9][0-9]*$"
+                  },
+                  "artifact": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "id",
+                      "name",
+                      "sha256",
+                      "bytes",
+                      "runId"
+                    ],
+                    "properties": {
+                      "id": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 9007199254740991
+                      },
+                      "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 255
+                      },
+                      "sha256": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$"
+                      },
+                      "bytes": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "runId": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 9007199254740991
+                      }
+                    }
+                  },
+                  "verifiedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind",
+                  "record",
+                  "recordSha256"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "observed-attestation"
+                  },
+                  "record": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "format",
+                      "version",
+                      "candidate",
+                      "sourceCommit",
+                      "artifact",
+                      "checkId",
+                      "environment",
+                      "procedure",
+                      "result",
+                      "observedAt",
+                      "observerRole",
+                      "observations"
+                    ],
+                    "properties": {
+                      "format": {
+                        "const": "control-room-observed-release-attestation"
+                      },
+                      "version": {
+                        "const": 1
+                      },
+                      "candidate": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9][a-z0-9-]{0,79}$"
+                      },
+                      "sourceCommit": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{40}$"
+                      },
+                      "artifact": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "id",
+                          "name",
+                          "sha256",
+                          "bytes",
+                          "runId"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 9007199254740991
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 255
+                          },
+                          "sha256": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{64}$"
+                          },
+                          "bytes": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "runId": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 9007199254740991
+                          }
+                        }
+                      },
+                      "checkId": {
+                        "enum": [
+                          "hosted-private-acceptance",
+                          "owner-device-acceptance"
+                        ]
+                      },
+                      "environment": {
+                        "enum": [
+                          "private-staging",
+                          "owner-device"
+                        ]
+                      },
+                      "procedure": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      },
+                      "result": {
+                        "const": "passed"
+                      },
+                      "observedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "observerRole": {
+                        "enum": [
+                          "owner",
+                          "authorized-operator"
+                        ]
+                      },
+                      "observations": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 32,
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 1000
+                        }
+                      }
+                    }
+                  },
+                  "recordSha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "passed"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "observedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "evidencePath": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2000
+                },
+                "evidence": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "kind",
+                        "repository",
+                        "sourceCommit",
+                        "runId",
+                        "runAttempt",
+                        "jobId",
+                        "stepNumber",
+                        "stepName",
+                        "runUrl",
+                        "jobUrl",
+                        "artifact",
+                        "verifiedAt"
+                      ],
+                      "properties": {
+                        "kind": {
+                          "const": "github-actions"
+                        },
+                        "repository": {
+                          "const": "krybaby7/control-room"
+                        },
+                        "sourceCommit": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{40}$"
+                        },
+                        "runId": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 9007199254740991
+                        },
+                        "runAttempt": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 9007199254740991
+                        },
+                        "jobId": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 9007199254740991
+                        },
+                        "stepNumber": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 9007199254740991
+                        },
+                        "stepName": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 2000
+                        },
+                        "runUrl": {
+                          "type": "string",
+                          "format": "uri",
+                          "pattern": "^https://github\\.com/krybaby7/control-room/actions/runs/[1-9][0-9]*$"
+                        },
+                        "jobUrl": {
+                          "type": "string",
+                          "format": "uri",
+                          "pattern": "^https://github\\.com/krybaby7/control-room/actions/runs/[1-9][0-9]*/job/[1-9][0-9]*$"
+                        },
+                        "artifact": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "id",
+                            "name",
+                            "sha256",
+                            "bytes",
+                            "runId"
+                          ],
+                          "properties": {
+                            "id": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 9007199254740991
+                            },
+                            "name": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 255
+                            },
+                            "sha256": {
+                              "type": "string",
+                              "pattern": "^[a-f0-9]{64}$"
+                            },
+                            "bytes": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "runId": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 9007199254740991
+                            }
+                          }
+                        },
+                        "verifiedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "kind",
+                        "record",
+                        "recordSha256"
+                      ],
+                      "properties": {
+                        "kind": {
+                          "const": "observed-attestation"
+                        },
+                        "record": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "format",
+                            "version",
+                            "candidate",
+                            "sourceCommit",
+                            "artifact",
+                            "checkId",
+                            "environment",
+                            "procedure",
+                            "result",
+                            "observedAt",
+                            "observerRole",
+                            "observations"
+                          ],
+                          "properties": {
+                            "format": {
+                              "const": "control-room-observed-release-attestation"
+                            },
+                            "version": {
+                              "const": 1
+                            },
+                            "candidate": {
+                              "type": "string",
+                              "pattern": "^[a-z0-9][a-z0-9-]{0,79}$"
+                            },
+                            "sourceCommit": {
+                              "type": "string",
+                              "pattern": "^[a-f0-9]{40}$"
+                            },
+                            "artifact": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "id",
+                                "name",
+                                "sha256",
+                                "bytes",
+                                "runId"
+                              ],
+                              "properties": {
+                                "id": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 9007199254740991
+                                },
+                                "name": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 255
+                                },
+                                "sha256": {
+                                  "type": "string",
+                                  "pattern": "^[a-f0-9]{64}$"
+                                },
+                                "bytes": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "runId": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 9007199254740991
+                                }
+                              }
+                            },
+                            "checkId": {
+                              "enum": [
+                                "hosted-private-acceptance",
+                                "owner-device-acceptance"
+                              ]
+                            },
+                            "environment": {
+                              "enum": [
+                                "private-staging",
+                                "owner-device"
+                              ]
+                            },
+                            "procedure": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2000
+                            },
+                            "result": {
+                              "const": "passed"
+                            },
+                            "observedAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "observerRole": {
+                              "enum": [
+                                "owner",
+                                "authorized-operator"
+                              ]
+                            },
+                            "observations": {
+                              "type": "array",
+                              "minItems": 1,
+                              "maxItems": 32,
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 1000
+                              }
+                            }
+                          }
+                        },
+                        "recordSha256": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "limitation": {
+                  "type": "null"
+                },
+                "disabledScope": {
+                  "type": "null"
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "evidence": {
+                  "type": "null"
+                }
+              }
+            }
+          },
+          {
+            "not": {
+              "properties": {
+                "status": {
+                  "const": "not-applicable"
+                }
+              },
+              "required": [
+                "status"
+              ]
+            }
+          }
+        ]
+      },
+      "allOf": [
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "const": "node-tests"
+              }
+            },
+            "required": [
+              "id"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "const": "bridge-tests"
+              }
+            },
+            "required": [
+              "id"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "const": "typecheck"
+              }
+            },
+            "required": [
+              "id"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "const": "lint"
+              }
+            },
+            "required": [
+              "id"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "const": "build"
+              }
+            },
+            "required": [
+              "id"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "const": "d1-recovery"
+              }
+            },
+            "required": [
+              "id"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "const": "r2-recovery"
+              }
+            },
+            "required": [
+              "id"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "const": "chromium"
+              }
+            },
+            "required": [
+              "id"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "const": "r2-chromium"
+              }
+            },
+            "required": [
+              "id"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "const": "oversized-owner-recovery"
+              }
+            },
+            "required": [
+              "id"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "const": "performance"
+              }
+            },
+            "required": [
+              "id"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "const": "hosted-private-acceptance"
+              }
+            },
+            "required": [
+              "id"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "const": "owner-device-acceptance"
+              }
+            },
+            "required": [
+              "id"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        }
+      ]
+    }
+  },
+  "$comment": "JSON schema checks structure. Cross-field exact source/artifact/run/job/step identity and live API evidence require scripts/record-release-check.mjs; structural validity alone never establishes acceptance."
+}

@@ -1,0 +1,87 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {database} from './helpers/sqlite.ts';
+import {workspaceFixture} from './helpers/workspace.ts';
+import {loadWorkspace} from '../lib/workspace-store.ts';
+import {exportWorkspaceBundle} from '../lib/workspace-export.ts';
+import {canonical,contentHash} from '../lib/canonical-json.ts';
+import {inspectAttachmentArchive} from '../lib/attachment-archive-import.ts';
+import {writeAttachmentArchive} from '../lib/attachment-archive-export.ts';
+import {backupArchiveKey} from '../lib/backup-archive-storage.ts';
+import {ownerAttachmentServices} from '../lib/attachment-services.ts';
+import {ownerPrepareContext} from '../lib/workspace-context.ts';
+import {readCurrent} from '../lib/workspace-store.ts';
+import {handleRetiredBackupHttp} from '../lib/backup-cleanup-http.ts';
+const now='2026-10-18T12:00:00.000Z',origin='https://synthetic.example.invalid',endpoint=origin+'/api/workspace/backups/retired-files';
+const post=(body:unknown,headers:Record<string,string>={})=>new Request(endpoint,{method:'POST',headers:{Origin:origin,'Content-Type':'application/json',...headers},body:JSON.stringify(body)});
+async function seed(f:ReturnType<typeof database>,owner:string){
+ await loadWorkspace(f.db,owner,()=>workspaceFixture(),now);const bundle=await exportWorkspaceBundle(f.db,owner,{now:()=>now}),content=JSON.stringify(bundle),sourceSha=await contentHash(content),id=crypto.randomUUID(),namespace=crypto.randomUUID();
+ const reader=writeAttachmentArchive(bundle,[],async()=>{throw new Error('Zero-file fixture must not request bytes');}).getReader(),chunks:Uint8Array[]=[];let length=0;try{for(;;){const item=await reader.read();if(item.done)break;chunks.push(item.value);length+=item.value.byteLength;assert.ok(length<1_800_000);}}finally{reader.releaseLock();}
+ const zip=new Uint8Array(length);let offset=0;for(const part of chunks){zip.set(part,offset);offset+=part.length;}
+ const index={format:'workspace-archive-chunks',version:1,archiveId:id,metadataSha256:sourceSha,manifestSha256:await contentHash(JSON.stringify((await inspectAttachmentArchive(new ReadableStream<Uint8Array>({start(controller){controller.enqueue(zip);controller.close();}}),async()=>{throw new Error('No attachment in zero-file fixture');})).manifest)),zipBytes:zip.length,files:0,fileBytes:0,chunks:[{part:0,bytes:zip.length,sha256:await contentHash(zip)}]},indexHash=await contentHash(canonical(index));
+ // Synthetic already-retired zero-file archive, not a claim of a live scheduled run or physical purge.
+ f.sqlite.prepare("INSERT INTO backup_archives(user_id,id,namespace,intent_id,source_revision,source_sha256,metadata_content,metadata_bytes,execution_epoch,status,created_at,updated_at,zip_bytes,files,file_bytes,chunk_count,index_json,index_sha256) VALUES(?,?,?,?,?,?,NULL,0,0,'retired',?,?,?,?,0,1,?,?)").run(owner,id,namespace,'synthetic-retired-intent-'+id,bundle.source.workspaceRevision,sourceSha,now,now,zip.length,0,canonical(index),indexHash);
+ f.sqlite.prepare('INSERT INTO backup_archive_objects(user_id,archive_id,part_number,storage_key,bytes,sha256,created_at,verified_at,purged_at,pending_token,settled_at) VALUES(?,?,0,?,?,?,?,?,NULL,?,?)').run(owner,id,backupArchiveKey(namespace,0),zip.length,index.chunks[0].sha256,now,now,crypto.randomUUID(),now);
+ return {id,indexHash,bytes:zip.length,content,index,namespace,sourceSha,zip};
+}
+test('actual SQLite retired history is owner-scoped and sanitizes private namespace/key/token fields',async()=>{const f=database();try{const a=await seed(f,'a'),b=await seed(f,'b'),response=await handleRetiredBackupHttp(new Request(endpoint),{db:f.db,ownerId:'a',now:()=>now});assert.equal(response.status,200);const body=await response.json() as Record<string,unknown>;assert.deepEqual(Object.keys(body).sort(),['items','nextAfter']);assert.ok(Array.isArray(body.items));assert.equal(body.items.length,1);assert.equal(body.items[0].id,a.id);assert.equal(body.items[0].chargedBytes,a.bytes);assert.equal(body.nextAfter,null);const text=JSON.stringify(body);assert.ok(!text.includes(b.id));for(const field of ['storage_key','namespace','pending_token','user_id','intent_id'])assert.ok(!text.includes(field));assert.match(response.headers.get('cache-control')!,/no-store/);}finally{f.sqlite.close();}});
+test('explicit cleanup with absent private binding remains blocked and charged; no fabricated deletion',async()=>{const f=database();try{const a=await seed(f,'a'),before=f.sqlite.prepare('SELECT * FROM backup_archive_objects').all(),response=await handleRetiredBackupHttp(post({id:a.id,indexHash:a.indexHash,confirmed:true}),{db:f.db,ownerId:'a',now:()=>now});assert.equal(response.status,200);assert.deepEqual(await response.json(),{status:'blocked',reason:'storage_unavailable',purgedParts:0,retainedBytes:a.bytes,physicalDeletion:false});assert.deepEqual(f.sqlite.prepare('SELECT * FROM backup_archive_objects').all(),before);assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM backup_archive_cleanup_claims').get()!.n,0);}finally{f.sqlite.close();}});
+test('unauthenticated, spoofed owner/authority, cross-origin, unconfirmed and oversized cleanup requests reject without storage writes',async()=>{const f=database();try{const a=await seed(f,'a'),before=f.sqlite.prepare('SELECT total_changes() n').get()!.n;const requests=[{request:post({id:a.id,indexHash:a.indexHash,confirmed:true}),ownerId:null,status:401},{request:post({id:a.id,indexHash:a.indexHash,confirmed:true,ownerId:'b'}),ownerId:'a',status:400},{request:post({id:a.id,indexHash:a.indexHash,confirmed:false}),ownerId:'a',status:400},{request:post({id:a.id,indexHash:a.indexHash,confirmed:true},{Origin:'https://foreign.invalid'}),ownerId:'a',status:403},{request:post({id:'x'.repeat(2000),indexHash:a.indexHash,confirmed:true}),ownerId:'a',status:413}];for(const item of requests){const response=await handleRetiredBackupHttp(item.request,{db:f.db,ownerId:item.ownerId,now:()=>now});assert.equal(response.status,item.status);assert.ok(!JSON.stringify(await response.json()).includes(a.indexHash));}assert.equal(f.sqlite.prepare('SELECT total_changes() n').get()!.n,before);}finally{f.sqlite.close();}});
+test('foreign retired identity cannot authorize cleanup or disclose private proof errors',async()=>{const f=database();try{const b=await seed(f,'b');await loadWorkspace(f.db,'a',()=>workspaceFixture(),now);const response=await handleRetiredBackupHttp(post({id:b.id,indexHash:b.indexHash,confirmed:true}),{db:f.db,ownerId:'a',now:()=>now});assert.equal(response.status,409);const text=await response.text();assert.ok(!text.includes(b.id)&&!text.includes(b.indexHash)&&!text.includes('namespace'));assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM backup_archive_cleanup_claims').get()!.n,0);}finally{f.sqlite.close();}});
+test('authenticated never-closing cleanup body has a short injected deadline and no private effects',async()=>{const f=database();try{let cancelled=false;const body=new ReadableStream<Uint8Array>({pull(){return new Promise(()=>{});},cancel(){cancelled=true;}}),request=new Request(endpoint,{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body,duplex:'half'} as RequestInit),response=await handleRetiredBackupHttp(request,{db:f.db,ownerId:'a',now:()=>now,bodyMs:5});assert.equal(response.status,408);assert.equal(cancelled,true);assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM backup_archive_cleanup_claims').get()!.n,0);}finally{f.sqlite.close();}});
+
+test('trusted file services retain only the actual owner bucket and remain read-only; a supplied binding is not removal proof',async()=>{const f=database();try{await loadWorkspace(f.db,'a',()=>workspaceFixture(),now);let calls=0;const bucket={async put(){calls++;throw new Error('No object I/O expected');},async get(){calls++;throw new Error('No object I/O expected');},async head(){calls++;throw new Error('No object I/O expected');},async delete(){calls++;throw new Error('No object I/O expected');}},before=f.sqlite.prepare('SELECT total_changes() n').get()!.n;
+ assert.equal((await ownerAttachmentServices(f.db,'a',now)).fileBackupServices,undefined);const services=await ownerAttachmentServices(f.db,'a',now,bucket);assert.equal(services.fileBackupServices?.bucket,bucket);assert.equal(services.fileBackupServices?.attachmentBucket,bucket);
+ const context=ownerPrepareContext(f.db,'a',await readCurrent(f.db,'a',now),{type:'workspace.backup.remove',id:'missing',sha256:'a'.repeat(64),targetRevision:1},now,services);assert.ok(context.backups?.prepareFileRemoval);await assert.rejects(context.backups!.prepareFileRemoval!({id:'missing',sha256:'a'.repeat(64),newerId:'missing-newer',newerSha256:'b'.repeat(64)}));assert.equal(calls,0);assert.equal(f.sqlite.prepare('SELECT total_changes() n').get()!.n,before);
+ }finally{f.sqlite.close();}});
+
+async function seedRetained(f:ReturnType<typeof database>,owner:string){
+ const value=await seed(f,owner),oldNamespace=crypto.randomUUID();
+ f.sqlite.prepare("UPDATE backup_archives SET status='ready',metadata_content=?,metadata_bytes=? WHERE user_id=? AND id=?").run(value.content,new TextEncoder().encode(value.content).length,owner,value.id);
+ f.sqlite.prepare("INSERT INTO workspace_backups(user_id,id,source_revision,created_at,reason,bytes,sha256,content,status,pinned) VALUES(?,?,1,?,'manual',?,?,?,'ready',0)").run(owner,value.id,now,new TextEncoder().encode(value.content).length,value.sourceSha,value.content);
+ f.sqlite.prepare('INSERT INTO backup_archive_retained_objects(user_id,storage_key,source_archive_id,part_number,namespace,bytes,sha256,created_at,verified_at,purged_at) VALUES(?,?,?,0,?,?,?,?,?,NULL)').run(owner,backupArchiveKey(oldNamespace,0),value.id,oldNamespace,value.bytes,value.index.chunks[0].sha256,now,now);
+ const generationHash=await contentHash(canonical([{archiveId:value.id,namespace:oldNamespace,part:0,bytes:value.bytes,sha256:value.index.chunks[0].sha256}]));
+ return {...value,generationHash};
+}
+test('retained action lists only owned redundant generation digests and cannot delete without actual private services',async()=>{const f=database();try{
+ const a=await seedRetained(f,'a'),b=await seedRetained(f,'b'),before=f.sqlite.prepare('SELECT total_changes() n').get()!.n,response=await handleRetiredBackupHttp(new Request(endpoint+'?action=retained'),{db:f.db,ownerId:'a',now:()=>now});assert.equal(response.status,200);
+ const body=await response.json() as Record<string,unknown>;assert.deepEqual(Object.keys(body).sort(),['items','nextAfter']);assert.ok(Array.isArray(body.items));assert.equal(body.items.length,1);assert.equal(body.items[0].id,a.id);assert.equal(body.items[0].generationHash,a.generationHash);assert.equal(body.items[0].chargedBytes,a.bytes);assert.equal(body.nextAfter,null);
+ const text=JSON.stringify(body);assert.ok(!text.includes(b.id));for(const field of ['namespace','storage_key','user_id','pending_token'])assert.ok(!text.includes(field));
+ const result=await handleRetiredBackupHttp(post({action:'retained',id:a.id,indexHash:a.indexHash,generationHash:a.generationHash,confirmed:true}),{db:f.db,ownerId:'a',now:()=>now});assert.equal(result.status,200);assert.deepEqual(await result.json(),{status:'blocked',reason:'storage_unavailable',purgedParts:0,retainedBytes:a.bytes,physicalDeletion:false});assert.equal(f.sqlite.prepare('SELECT total_changes() n').get()!.n,before);assert.equal(f.sqlite.prepare('SELECT status FROM workspace_backups WHERE user_id=? AND id=?').get('a',a.id)!.status,'ready');
+ }finally{f.sqlite.close();}});
+test('retained cleanup requires its exact action and generation hash, and rejects request-supplied proof/binding/owner fields',async()=>{const f=database();try{
+ const a=await seedRetained(f,'a'),before=f.sqlite.prepare('SELECT total_changes() n').get()!.n,valid={action:'retained',id:a.id,indexHash:a.indexHash,generationHash:a.generationHash,confirmed:true};
+ for(const body of [{...valid,action:null},{...valid,action:['retained']},{...valid,generationHash:undefined},{...valid,confirmed:false},{...valid,services:{}},{...valid,ownerId:'b'},{...valid,namespace:'forged'},{...valid,verified:true},{...valid,action:'retired'},{...valid,generationHash:'f'.repeat(64)}]){const response=await handleRetiredBackupHttp(post(body),{db:f.db,ownerId:'a',now:()=>now});assert.ok([400,409].includes(response.status));const text=await response.text();assert.ok(!text.includes(a.generationHash)&&!text.includes(a.indexHash));}
+ assert.equal(f.sqlite.prepare('SELECT total_changes() n').get()!.n,before);assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM backup_archive_cleanup_claims').get()!.n,0);
+ }finally{f.sqlite.close();}});
+test('retained action cannot select another owner current generation and retired legacy requests remain separate',async()=>{const f=database();try{
+ const b=await seedRetained(f,'b');await loadWorkspace(f.db,'a',()=>workspaceFixture(),now);const response=await handleRetiredBackupHttp(post({action:'retained',id:b.id,indexHash:b.indexHash,generationHash:b.generationHash,confirmed:true}),{db:f.db,ownerId:'a',now:()=>now});assert.equal(response.status,409);assert.ok(!(await response.text()).includes(b.id));
+ const malformed=await handleRetiredBackupHttp(new Request(endpoint+'?action=retained&action=retired'),{db:f.db,ownerId:'a',now:()=>now});assert.equal(malformed.status,400);
+ const legacy=await seed(f,'legacy'),result=await handleRetiredBackupHttp(post({id:legacy.id,indexHash:legacy.indexHash,confirmed:true}),{db:f.db,ownerId:'legacy',now:()=>now});assert.equal(result.status,200);assert.equal((await result.json() as {status:string}).status,'blocked');
+ }finally{f.sqlite.close();}});
+
+test('reauthorization requires closed explicit owner consent and never treats a binding or JSON metadata as proof',async()=>{const f=database();try{
+ const old=await seed(f,'reauthorize-owner'),newer=await seedRetained(f,'reauthorize-owner'),valid={action:'reauthorize',id:old.id,indexHash:old.indexHash,newerId:newer.id,newerSha256:newer.sourceSha,confirmed:true};
+ const before=f.sqlite.prepare('SELECT total_changes() n').get()!.n;
+ for(const body of [{...valid,confirmed:false},{...valid,newerId:undefined},{...valid,newerSha256:undefined},{...valid,newerId:old.id},{...valid,newerSha256:'not-a-hash'},{...valid,ownerId:'foreign'},{...valid,verified:true},{...valid,epoch:123},{...valid,generationHash:'a'.repeat(64)}]){
+  assert.equal((await handleRetiredBackupHttp(post(body),{db:f.db,ownerId:'reauthorize-owner',now:()=>now})).status,400);
+ }
+ assert.equal((await handleRetiredBackupHttp(post(valid),{db:f.db,ownerId:null,now:()=>now})).status,401);
+ assert.equal((await handleRetiredBackupHttp(post(valid,{Origin:'https://foreign.invalid'}),{db:f.db,ownerId:'reauthorize-owner',now:()=>now})).status,403);
+ assert.equal((await handleRetiredBackupHttp(post(valid),{db:f.db,ownerId:'reauthorize-owner',now:()=>now})).status,409);
+ assert.equal(f.sqlite.prepare('SELECT total_changes() n').get()!.n,before);
+ assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM backup_archive_cleanup_claims').get()!.n,0);
+ }finally{f.sqlite.close();}});
+test('actual owner HTTP reauthorization verifies full newer ZIP then stamps only epoch; separate cleanup remains required',async()=>{const f=database();try{
+ const owner='reauthorize-http-owner',old=await seed(f,owner),newer=await seedRetained(f,owner);
+ f.sqlite.prepare("UPDATE backup_archives SET created_at=? WHERE user_id=? AND id=?").run('2026-10-18T11:00:00.000Z',owner,old.id);
+ f.sqlite.prepare('INSERT INTO workspace_execution_state(user_id,epoch,restored_at) VALUES(?,1,?)').run(owner,now);
+ f.sqlite.prepare('UPDATE backup_archives SET execution_epoch=1 WHERE user_id=? AND id=?').run(owner,newer.id);
+ const objectsBefore=f.sqlite.prepare('SELECT * FROM backup_archive_objects ORDER BY archive_id,part_number').all(),logicalBefore=f.sqlite.prepare('SELECT * FROM workspace_backups ORDER BY id').all();let gets=0,deletes=0;
+ // Labelled in-memory bucket; SQLite, archive parser, hashes and HTTP handler are actual.
+ const bucket={async put(){throw new Error('Reauthorization may not PUT');},async head(){return null;},async delete(){deletes++;},async get(key:string){gets++;if(key!==backupArchiveKey(newer.namespace,0))return null;return {size:newer.zip.length,httpMetadata:{contentType:'application/octet-stream'},customMetadata:{sha256:newer.index.chunks[0].sha256},body:new ReadableStream<Uint8Array>({start(controller){controller.enqueue(newer.zip.slice());controller.close();}})};}};
+ const response=await handleRetiredBackupHttp(post({action:'reauthorize',id:old.id,indexHash:old.indexHash,newerId:newer.id,newerSha256:newer.sourceSha,confirmed:true}),{db:f.db,ownerId:owner,fileBackupServices:{bucket,attachmentBucket:bucket},now:()=>now});
+ assert.equal(response.status,200);assert.deepEqual(await response.json(),{status:'authorized',id:old.id,indexHash:old.indexHash,executionEpoch:1});assert.ok(gets>0);assert.equal(deletes,0);
+ assert.equal(f.sqlite.prepare('SELECT execution_epoch FROM backup_archives WHERE user_id=? AND id=?').get(owner,old.id)!.execution_epoch,1);
+ assert.deepEqual(f.sqlite.prepare('SELECT * FROM backup_archive_objects ORDER BY archive_id,part_number').all(),objectsBefore);assert.deepEqual(f.sqlite.prepare('SELECT * FROM workspace_backups ORDER BY id').all(),logicalBefore);assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM backup_archive_cleanup_claims').get()!.n,0);
+ }finally{f.sqlite.close();}});

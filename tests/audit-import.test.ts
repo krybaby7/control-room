@@ -1,0 +1,32 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {prepareHistoricalAuditRows} from '../lib/audit-import.ts';
+import {canonical,contentHash} from '../lib/workspace-export.ts';
+const namespace='fb33ae93-1a28-4881-89c8-840e75e58ff1';
+const hashA='a'.repeat(64),hashB='b'.repeat(64);
+const original={id:'original-event',event_id:'original-event',workspace_revision:4,ordinal:0,stream_id:null,stream_sequence:null,kind:'task.update',entity_type:'task',entity_id:'task-a',occurred_at:'2026-10-18T12:00:00.000Z',payload:{id:'original-event',kind:'task.update',entityType:'task',entityId:'task-a',changes:[],origin:'owner',actorId:'owner',occurredAt:'2026-10-18T12:00:00.000Z',sourceRef:null,undoOf:null}};
+function exportedImport(source:unknown){return {id:'local-import-wrapper',event_id:'local-import-wrapper',workspace_revision:20,ordinal:2,stream_id:null,stream_sequence:null,kind:'imported-history',entity_type:'historical-claim',entity_id:null,occurred_at:'2026-11-01T00:00:00.000Z',payload:{id:'local-import-wrapper',kind:'imported-history',entityType:'historical-claim',entityId:null,changes:[{path:['sourceClaim'],before:{exists:false,value:null},after:{exists:true,value:source}}],origin:'owner',actorId:'owner',occurredAt:'2026-11-01T00:00:00.000Z',sourceRef:hashA,undoOf:null}};}
+test('same source namespace/event retains stable identity across changed bundles; payload digest is separate',async()=>{
+ const [a]=await prepareHistoricalAuditRows([original],namespace,hashA);const [b]=await prepareHistoricalAuditRows([original],namespace,hashB);assert.equal(a.id,b.id);assert.equal(a.sourceIdentity,b.sourceIdentity);assert.equal(a.sourceHash,b.sourceHash);assert.equal(a.sourceHash,await contentHash(canonical(original)));assert.notEqual(a.importHash,b.importHash);assert.ok(a.id.length<=128);assert.equal(a.sourceIdentity,`audit:${namespace}:original-event`);assert.equal((await prepareHistoricalAuditRows([original,structuredClone(original)],namespace,hashA)).length,1);
+ const [other]=await prepareHistoricalAuditRows([original],'2de44222-9801-460d-adc8-927cd57b5c11',hashA);assert.notEqual(a.sourceIdentity,other.sourceIdentity);
+});
+test('same known event identity with altered content rejects in-batch and exposes a conflict key for later DB assertion',async()=>{
+ const changed={...original,payload:{...original.payload,changes:[{claimed:'different'}]}};await assert.rejects(prepareHistoricalAuditRows([original,changed],namespace,hashA),/Conflicting/);const [a]=await prepareHistoricalAuditRows([original],namespace,hashA),[b]=await prepareHistoricalAuditRows([changed],namespace,hashB);assert.equal(a.sourceIdentity,b.sourceIdentity);assert.equal(a.id,b.id);assert.notEqual(a.sourceHash,b.sourceHash);
+});
+test('explicit typed provenance flattens reexports to the exact original event without nested wrappers',async()=>{
+ const [first]=await prepareHistoricalAuditRows([original],namespace,hashA);const reexport=exportedImport(first.source);const [second]=await prepareHistoricalAuditRows([reexport],'2de44222-9801-460d-adc8-927cd57b5c11',hashB);assert.equal(second.id,first.id);assert.equal(second.sourceIdentity,first.sourceIdentity);assert.equal(second.sourceHash,first.sourceHash);assert.deepEqual(second.source,first.source);const [third]=await prepareHistoricalAuditRows([exportedImport(second.source)],namespace,hashA);assert.deepEqual(third.source,first.source);
+});
+test('legacy unknown origin is honestly labelled and content-derived, independent of bundle hashes and owner guesses',async()=>{
+ const [a]=await prepareHistoricalAuditRows([original],null,hashA),[b]=await prepareHistoricalAuditRows([original],null,hashB);assert.equal(a.id,b.id);assert.equal(a.sourceIdentity,`legacy-unknown:${a.sourceHash}`);assert.equal((a.source as {historicalAudit:{namespace:null}}).historicalAudit.namespace,null);assert.ok(!a.sourceIdentity.includes('original-event'));const [roundtrip]=await prepareHistoricalAuditRows([exportedImport(a.source)],namespace,hashB);assert.equal(roundtrip.id,a.id);assert.deepEqual(roundtrip.source,a.source);
+ const untyped=exportedImport({sourceClaim:original,namespace:'untrusted-owner-id'});const [kept]=await prepareHistoricalAuditRows([untyped],namespace,hashA);assert.notEqual(kept.id,a.id);assert.equal(kept.sourceIdentity,`audit:${namespace}:local-import-wrapper`);
+});
+test('malformed explicit digests, provenance, ID mismatches and unsafe non-JSON data reject',async()=>{
+ const [first]=await prepareHistoricalAuditRows([original],namespace,hashA);const envelope=first.source as {historicalAudit:{version:number;namespace:string;eventId:string;payloadHash:string};sourceClaim:unknown};
+ for(const bad of [{...envelope,historicalAudit:{...envelope.historicalAudit,payloadHash:hashB}},{...envelope,historicalAudit:{...envelope.historicalAudit,eventId:'another'}},{...envelope,historicalAudit:{...envelope.historicalAudit,namespace:'owner-id'}},{...envelope,historicalAudit:{...envelope.historicalAudit,version:2}}])await assert.rejects(prepareHistoricalAuditRows([exportedImport(bad)],namespace,hashA));
+ for(const bad of [{...original,event_id:'different'},{...original,id:'x'.repeat(161),event_id:'x'.repeat(161)},{...original,payload:null},{...original,credentials:'secret'}])await assert.rejects(prepareHistoricalAuditRows([bad],namespace,hashA));await assert.rejects(prepareHistoricalAuditRows([original],'owner-derived',hashA));await assert.rejects(prepareHistoricalAuditRows([original],namespace,'invalid'));
+});
+
+test('new claimed actor IDs are pseudonymized before hashing and remain stable on reexport',async()=>{
+ const claimed={...original,payload:{...original.payload,actorId:'private-claimed-owner',changes:[{path:['nested'],before:{exists:true,value:{actorId:'another-private-claim'}},after:{exists:false,value:null}}]}};const [prepared]=await prepareHistoricalAuditRows([claimed],namespace,hashA);assert.ok(!JSON.stringify(prepared.source).includes('private-'));const [reexported]=await prepareHistoricalAuditRows([exportedImport(prepared.source)],namespace,hashB);assert.equal(reexported.id,prepared.id);assert.equal(reexported.sourceHash,prepared.sourceHash);assert.deepEqual(reexported.source,prepared.source);
+ const unsafeEnvelope={historicalAudit:{version:1,namespace,eventId:claimed.id,payloadHash:await contentHash(canonical(claimed))},sourceClaim:claimed};await assert.rejects(prepareHistoricalAuditRows([exportedImport(unsafeEnvelope)],namespace,hashA),/nonportable actor/);
+});

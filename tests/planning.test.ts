@@ -2,23 +2,23 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { applyCommand, getBlockers, getRecommendations } from '../lib/planning.ts';
 import { createSeedWorkspace } from '../lib/seed.ts';
+import { projectFixture, taskInputFixture, taskFixture, milestoneFixture } from './helpers/workspace.ts';
 import type { Workspace, Task, TaskInput, CaptureInput, MilestoneInput } from '../lib/types.ts';
 
 const NOW = '2026-10-17T12:00:00.000Z';
 const LATER = '2026-10-18T12:00:00.000Z';
 
 function workspace(): Workspace {
-  return { schemaVersion: 1, projects: [
-    { id: 'p1', name: 'TAMENNI', description: '', goal: '', color: 'orange', priority: 'equal', repositories: [] },
-    { id: 'p2', name: 'Trade Graph', description: '', goal: '', color: 'teal', priority: 'equal', repositories: [] },
+  return { schemaVersion: 4, projects: [
+    projectFixture({ id: 'p1', name: 'TAMENNI' }),
+    projectFixture({ id: 'p2', name: 'Trade Graph', color: 'teal' }),
   ], milestones: [], tasks: [], captures: [], activity: [] };
 }
 function input(patch: Partial<TaskInput> = {}): TaskInput {
-  return { projectId: 'p1', milestoneId: null, title: 'Review acceptance criteria', notes: '', status: 'todo', horizon: 'now', priority: 'normal', dueDate: null, weekly: false, dependsOn: [], blocker: '', sourceUrl: null, evidence: '', ...patch };
+  return taskInputFixture(patch);
 }
 function task(id: string, patch: Partial<TaskInput> = {}): Task {
-  const data = input(patch);
-  return { ...data, id, createdAt: NOW, updatedAt: NOW, completedAt: data.status === 'done' ? NOW : null };
+  return taskFixture(id, { ...patch, createdAt: NOW, updatedAt: NOW });
 }
 function capture(patch: Partial<CaptureInput> = {}): CaptureInput {
   return { title: 'An operating criterion', body: 'Keep this complete source text.', projectId: 'p1', kind: 'idea', sourceUrl: 'https://example.com/evidence', ...patch };
@@ -65,20 +65,37 @@ test('dates must be actual calendar dates and source URLs must be HTTP or HTTPS'
 
 test('milestone references must exist and belong to the task project', () => {
   const original = workspace();
-  original.milestones = [{ ...milestone({ projectId: 'p2' }), id: 'm2', updatedAt: NOW }];
+  original.milestones = [milestoneFixture({ ...milestone({ projectId: 'p2' }), id: 'm2', updatedAt: NOW })];
   for (const milestoneId of ['missing', 'm2']) {
     assert.throws(() => applyCommand(original, { type: 'task.create', task: input({ milestoneId }) }, NOW), /milestone/i);
   }
 });
 
-test('missing, foreign, self and cyclic dependencies are rejected without mutation', () => {
+test('missing, self and cyclic dependencies are rejected without mutation', () => {
   const original = workspace();
-  original.tasks = [task('a'), task('b', { dependsOn: ['a'] }), task('foreign', { projectId: 'p2' })];
+  original.tasks = [task('a'), task('b', { dependsOn: ['a'] }), task('cross-project', { projectId: 'p2' })];
   const before = structuredClone(original);
-  for (const dependsOn of [['missing'], ['foreign'], ['a'], ['b']]) {
+  for (const dependsOn of [['missing'], ['a'], ['b']]) {
     assert.throws(() => applyCommand(original, { type: 'task.update', id: 'a', patch: { dependsOn } }, NOW), /depend|cycle/i);
     assert.deepEqual(original, before);
   }
+});
+
+test('ordinary task create and update allow same-owner cross-project prerequisites and reject cross-project cycles', () => {
+  const original=workspace();
+  original.tasks=[task('a'),task('p2-prerequisite',{projectId:'p2'})];
+  const before=structuredClone(original);
+  const updated=applyCommand(original,{type:'task.update',id:'a',patch:{dependsOn:['p2-prerequisite']}},NOW);
+  assert.deepEqual(updated.tasks[0].dependsOn,['p2-prerequisite']);
+  assert.equal(updated.tasks[0].projectId,'p1');
+  assert.deepEqual(original,before);
+  const created=applyCommand(updated,{type:'task.create',task:input({title:'Cross-project follow-up',dependsOn:['p2-prerequisite']})},LATER);
+  assert.deepEqual(created.tasks.at(-1)!.dependsOn,['p2-prerequisite']);
+  assert.equal(created.tasks.at(-1)!.projectId,'p1');
+  assert.ok(getBlockers(created.tasks.at(-1)!,created).some(message=>message.includes('Review acceptance criteria')));
+  assert.throws(()=>applyCommand(updated,{type:'task.update',id:'p2-prerequisite',patch:{dependsOn:['a']}},LATER),/cycle/i);
+  assert.throws(()=>applyCommand(updated,{type:'task.create',task:input({projectId:'p2',dependsOn:['outside-owner-scope']})},LATER),/depend|missing|unavailable/i);
+  assert.deepEqual(updated.tasks[1].dependsOn,[]);
 });
 
 test('duplicate dependency references are rejected', () => {
@@ -124,7 +141,7 @@ test('editing a done task preserves its completion date and reopening clears it'
 
 test('reopening a completed predecessor cannot invalidate completed dependents; archive preserves completion', () => {
   const original = workspace();
-  original.tasks = [task('a', { title: 'Operating review', status: 'done' }), task('b', { title: 'Profit evaluation', status: 'done', dependsOn: ['a'] })];
+  original.tasks = [task('a', { title: 'Operating review', status: 'done' }), task('b', { title: 'Profit evaluation', projectId:'p2', status: 'done', dependsOn: ['a'] })];
   for (const status of ['todo']) {
     assert.throws(() => applyCommand(original, { type: 'task.update', id: 'a', patch: { status } }, LATER), /Profit evaluation|dependent/i);
   }
@@ -147,7 +164,7 @@ test('archiving a task clears its weekly commitment and can be reversed', () => 
 test('existing task and milestone cannot be reassigned to a different project', () => {
   const original = workspace();
   original.tasks = [task('a')];
-  original.milestones = [{ ...milestone(), id: 'm1', updatedAt: NOW }];
+  original.milestones = [milestoneFixture({ ...milestone(), id: 'm1', updatedAt: NOW })];
   assert.throws(() => applyCommand(original, { type: 'task.update', id: 'a', patch: { projectId: 'p2' } }, NOW), /project/i);
   assert.throws(() => applyCommand(original, { type: 'milestone.update', id: 'm1', patch: { projectId: 'p2' } }, NOW), /project/i);
 });
@@ -218,7 +235,7 @@ test('conversion can assign an unassigned capture and create its task in one com
 
 test('the selected project overrides the capture project and validates its selected milestone', () => {
   const captured = applyCommand(workspace(), { type: 'capture.create', capture: capture({ projectId: 'p1' }) }, NOW);
-  captured.milestones = [{ ...milestone({ projectId: 'p2' }), id: 'm2', updatedAt: NOW }];
+  captured.milestones = [milestoneFixture({ ...milestone({ projectId: 'p2' }), id: 'm2', updatedAt: NOW })];
   const converted = applyCommand(captured, { type: 'capture.convert', id: captured.captures[0].id, projectId: 'p2', milestoneId: 'm2', horizon: 'now' }, LATER);
   assert.equal(captured.captures[0].projectId, 'p1');
   assert.equal(converted.captures[0].projectId, 'p2');
@@ -239,7 +256,7 @@ test('an invalid selected project cannot change the capture or create a task', (
 
 test('a foreign milestone in a conversion rejects the project reassignment too', () => {
   const captured = applyCommand(workspace(), { type: 'capture.create', capture: capture({ projectId: 'p1' }) }, NOW);
-  captured.milestones = [{ ...milestone({ projectId: 'p1' }), id: 'm1', updatedAt: NOW }];
+  captured.milestones = [milestoneFixture({ ...milestone({ projectId: 'p1' }), id: 'm1', updatedAt: NOW })];
   const before = structuredClone(captured);
   assert.throws(() => applyCommand(captured, { type: 'capture.convert', id: captured.captures[0].id, projectId: 'p2', milestoneId: 'm1', horizon: 'now' }, LATER), /milestone belonging to this project/i);
   assert.deepEqual(captured, before);
@@ -261,7 +278,7 @@ test('workspace size and activity bounds prevent unbounded writes', () => {
   captures.captures = Array.from({ length: 1000 }, (_, i) => ({ ...capture(), id: `c${i}`, status: 'inbox', createdAt: NOW, convertedTaskId: null }));
   assert.throws(() => applyCommand(captures, { type: 'capture.create', capture: capture() }, NOW), /1000|limit/i);
   const milestones = workspace();
-  milestones.milestones = Array.from({ length: 100 }, (_, i) => ({ ...milestone(), id: `m${i}`, updatedAt: NOW }));
+  milestones.milestones = Array.from({ length: 100 }, (_, i) => milestoneFixture({ ...milestone(), id: `m${i}`, updatedAt: NOW, sortKey:i }));
   assert.throws(() => applyCommand(milestones, { type: 'milestone.create', milestone: milestone() }, NOW), /100|limit/i);
   const logged = workspace();
   logged.activity = Array.from({ length: 100 }, (_, i) => ({ id: `a${i}`, text: `Old ${i}`, at: NOW, projectId: null }));
@@ -290,8 +307,8 @@ test('recommendations interleave projects for equal exposure even when scores di
     ...Array.from({ length: 5 }, (_, i) => task(`p2-${i}`, { projectId: 'p2', priority: 'low', horizon: 'later' })),
   ];
   const picks = getRecommendations(original, '2026-10-17');
-  assert.equal(picks.length, 6);
-  assert.deepEqual(picks.map((item) => item.taskId.slice(0, 2)), ['p1', 'p2', 'p1', 'p2', 'p1', 'p2']);
+  assert.equal(picks.length, 10);
+  assert.deepEqual(picks.map((item) => item.taskId.slice(0, 2)), ['p1', 'p2', 'p1', 'p2', 'p1', 'p2', 'p1', 'p2', 'p1', 'p2']);
 });
 
 test('ranking reflects weekly commitments, priority, pending review, horizon and near dates', () => {
@@ -347,4 +364,13 @@ test('seed expresses editable suggestions, equal projects and dated historical e
   assert.ok(getBlockers(profitability, seed).length > 0);
   assert.equal(seed.activity.length > 0, true);
   assert.notEqual(createSeedWorkspace(NOW), seed);
+});
+
+test('milestone creation normalizes project identity before rejecting archived destinations',()=>{
+  const original=workspace();original.projects[0].archivedAt=NOW;const before=structuredClone(original);
+  for(const projectId of ['p1',' p1 ','\tp1\n'])assert.throws(()=>applyCommand(original,{type:'milestone.create',milestone:milestone({projectId})},NOW),/active project/);
+  assert.deepEqual(original,before);
+  // Existing archived-project records stay editable without moving or inventing acceptance.
+  original.milestones=[milestoneFixture()];const edited=applyCommand(original,{type:'milestone.update',id:original.milestones[0].id,patch:{description:'Historical clarification'}},LATER);
+  assert.equal(edited.milestones[0].description,'Historical clarification');assert.equal(edited.milestones[0].projectId,'p1');assert.equal(edited.milestones[0].status,'planned');
 });

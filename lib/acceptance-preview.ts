@@ -1,0 +1,35 @@
+import {z} from 'zod';
+import type {PrepareContext} from './workspace-transaction.ts';
+import {OWNER_TABLES,type ModuleRow,type RegisteredOwnerTable} from './workspace-modules.ts';
+import {canonical,contentHash} from './canonical-json.ts';
+import {versionRowId} from './version-identity.ts';
+import {evidenceSubjectSchema,evidenceHeadSchema,evidenceVersionSchema,evidenceLinkSchema} from './evidence-validation.ts';
+import {evidenceRequirementSchema,evaluateRequirements,sameSubject,type VerifiedAttachment} from './evidence-requirements.ts';
+import {acceptanceRecordSchema,acceptanceEvidenceRefSchema,acceptanceExceptionSchema,previewAcceptance} from './acceptance.ts';
+import {assessAcceptanceFreshness} from './acceptance-freshness.ts';
+import {decisionVersionSchema} from './decisions.ts';
+import {attachmentRecordSchema} from './evidence-module.ts';
+import type {AcceptanceEvidenceRef,AcceptanceException,EvidenceSubject,DecisionVersion} from './evidence-contract.ts';
+export interface OwnerAcceptancePreviewInput {subject:EvidenceSubject;candidate:string|null;evidenceRefs:AcceptanceEvidenceRef[];supersedesId?:string|null;exceptions?:AcceptanceException[];decision?:'accepted'|'rejected'|'needs-review'}
+const inputSchema=z.object({subject:evidenceSubjectSchema,candidate:z.string().min(1).max(500).refine(v=>!!v.trim()).nullable(),evidenceRefs:z.array(acceptanceEvidenceRefSchema).max(200),supersedesId:z.string().min(1).max(128).nullable().optional(),exceptions:z.array(acceptanceExceptionSchema).max(200).optional(),decision:z.enum(['accepted','rejected','needs-review']).optional()}).strict();
+async function scan(ctx:PrepareContext){const tables=new Map<RegisteredOwnerTable,ModuleRow[]>();let count=0,bytes=0;for(const table of OWNER_TABLES){const rows:ModuleRow[]=[];let after='';for(;;){const page=await ctx.query.list(table,{after,limit:200});if(page.length>200)throw new Error('Acceptance preview page exceeds bound.');for(const row of page){if(row.id<=after||!Number.isSafeInteger(row.row_revision)||row.row_revision<1)throw new Error('Acceptance preview row ordering differs.');after=row.id;if(++count>10000||(bytes+=new TextEncoder().encode(row.payload_json).length)>8_000_000)throw new Error('Acceptance preview exceeds bounded metadata limit.');if(await contentHash(canonical(JSON.parse(row.payload_json)))!==row.content_hash)throw new Error('Acceptance preview metadata hash differs.');rows.push(row);}if(page.length<200)break;}tables.set(table,rows);}return tables;}
+/** No writes, audit events, jobs or historical record timestamp substitution. Root must recheck owner revision. */
+export async function previewOwnerAcceptance(ctx:PrepareContext,input:OwnerAcceptancePreviewInput){
+ const parsed=inputSchema.parse(input);const workspace=ctx.before.workspace;const subjects={project:workspace.projects,milestone:workspace.milestones,task:workspace.tasks,capture:workspace.captures};if(!subjects[parsed.subject.type].some(s=>s.id===parsed.subject.id))throw new Error('Acceptance subject is unavailable for this owner.');
+ const tables=await scan(ctx);const rows=(table:RegisteredOwnerTable)=>tables.get(table)!;
+ function typed<T extends {id:string}>(table:RegisteredOwnerTable,schema:z.ZodType<T>){return rows(table).map(row=>{const value=schema.parse(JSON.parse(row.payload_json));if(value.id!==row.id)throw new Error('Acceptance preview record identity differs.');return value;});}
+ const requirements=typed('evidence_requirements',evidenceRequirementSchema),heads=typed('evidence_records',evidenceHeadSchema),links=typed('evidence_links',evidenceLinkSchema),decisionHeads=typed('decision_records',evidenceHeadSchema),allPrior=typed('acceptance_records',acceptanceRecordSchema);
+ const evidence=await Promise.all(rows('evidence_versions').map(async row=>{const value=evidenceVersionSchema.parse(JSON.parse(row.payload_json));if(row.id!==await versionRowId(value.id,value.version))throw new Error('Evidence version identity differs.');return value;}));
+ const trustedDecisionVersions:DecisionVersion[]=[];for(const row of rows('decision_versions')){const value=decisionVersionSchema.parse(JSON.parse(row.payload_json));if(row.id!==await versionRowId(value.id,value.version))throw new Error('Decision version identity differs.');if(await ctx.trustedDecisionVersion?.(value.id,value.version,row.content_hash))trustedDecisionVersions.push(value);}
+ const selectedPrior=allPrior.filter(r=>sameSubject(r.subject,parsed.subject)).sort((a,b)=>b.recordedAt.localeCompare(a.recordedAt)||a.id.localeCompare(b.id));
+ const selectedRefs=[...parsed.evidenceRefs,...selectedPrior.flatMap(r=>r.evidenceRefs)];const attachmentIds=new Set(selectedRefs.flatMap(ref=>evidence.filter(e=>e.id===ref.id&&e.version===ref.version).flatMap(e=>e.attachmentIds)));const attachments:VerifiedAttachment[]=[];
+ for(const record of typed('attachments',attachmentRecordSchema)){if(record.status!=='ready'||!attachmentIds.has(record.id)||!ctx.verifyAttachment)continue;const proof=await ctx.verifyAttachment(record);if(proof&&canonical(proof.record)===canonical(record))attachments.push(proof);}
+ const context={trustedOrigin:'owner' as const,subject:parsed.subject,candidate:parsed.candidate,asOf:ctx.now,requirements,evidence,heads,links,attachments,trustedDecisionVersions,trustedDecisionHeads:decisionHeads,priorAcceptances:allPrior};
+ const assessment=await evaluateRequirements({...context,evidenceRefs:parsed.evidenceRefs});
+ const preview=await previewAcceptance({id:crypto.randomUUID(),subject:parsed.subject,decision:parsed.decision??'accepted',statement:'Preview only',candidate:parsed.candidate,criteriaHash:assessment.criteriaHash,evidenceRefs:parsed.evidenceRefs,recordedAt:ctx.now,supersedesId:parsed.supersedesId??null,exceptions:parsed.exceptions??[]},context);
+ const prior=[];for(const record of selectedPrior){const row=rows('acceptance_records').find(row=>row.id===record.id)!;const authority=Boolean(await ctx.trustedAcceptanceRecord?.(record.id,row.content_hash));const freshness=await assessAcceptanceFreshness(record,{...context,candidate:record.candidate,trustedRecord:authority});prior.push({record,authority,freshness});}
+ const again=await scan(ctx);if(canonical([...tables])!==canonical([...again]))throw new Error('Acceptance metadata changed during preview. Refresh before reviewing.');
+ const moduleDigest=await contentHash(canonical([...tables].map(([table,rows])=>({table,rows:rows.map(row=>({id:row.id,rowRevision:row.row_revision,contentHash:row.content_hash}))}))));
+ const result={revision:ctx.before.revision,asOf:ctx.now,criteriaHash:assessment.criteriaHash,findings:assessment.findings,canAccept:preview.canAccept,canRecord:preview.canRecord,errors:preview.errors,waivedRequirementIds:preview.waivedRequirementIds,exceptionsErrors:preview.errors.filter(error=>error.startsWith('Exception ')),requirements:assessment.requirements,prior,priorTotal:prior.length,priorTruncated:false,moduleDigest};
+ if(new TextEncoder().encode(canonical(result)).length>8_000_000)throw new Error('Acceptance preview output exceeds bounded limit; narrow the subject history.');return result;
+}

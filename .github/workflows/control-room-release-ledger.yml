@@ -1,0 +1,80 @@
+name: Record release gate evidence (not release acceptance)
+on:
+  workflow_dispatch:
+    inputs:
+      candidate:
+        description: Sanitized candidate identity
+        required: true
+        type: string
+      runId:
+        description: Completed successful source verification run ID
+        required: true
+        type: string
+      artifactId:
+        description: Nonexpired control-room-candidate-FULLSHA artifact ID
+        required: true
+        type: string
+      jobId:
+        description: Successful job in the exact latest run attempt
+        required: true
+        type: string
+      stepNumber:
+        description: Exact successful gate step number
+        required: true
+        type: string
+      check:
+        description: CI gate to record
+        required: true
+        type: choice
+        options: [node-tests, bridge-tests, typecheck, lint, build, d1-recovery, r2-recovery, chromium, r2-chromium]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      CANDIDATE: ${{ inputs.candidate }}
+      SOURCE_RUN: ${{ inputs.runId }}
+      SOURCE_ARTIFACT: ${{ inputs.artifactId }}
+      SOURCE_JOB: ${{ inputs.jobId }}
+      SOURCE_STEP: ${{ inputs.stepNumber }}
+      SOURCE_CHECK: ${{ inputs.check }}
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - id: source
+        name: Resolve actual completed source run
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import {appendFileSync} from 'node:fs';
+          if(!/^[a-z0-9][a-z0-9-]{0,79}$/.test(process.env.CANDIDATE))throw new Error('Invalid candidate.');
+          for(const key of ['SOURCE_RUN','SOURCE_ARTIFACT','SOURCE_JOB','SOURCE_STEP'])if(!/^[1-9][0-9]{0,15}$/.test(process.env[key]??'')||!Number.isSafeInteger(Number(process.env[key])))throw new Error('Invalid exact identifier.');
+          const response=await fetch('https://api.github.com/repos/krybaby7/control-room/actions/runs/'+process.env.SOURCE_RUN,{headers:{Accept:'application/vnd.github+json',Authorization:'Bearer '+process.env.GH_TOKEN},redirect:'error',signal:AbortSignal.timeout(15000)});
+          if(!response.ok)throw new Error('Source run lookup failed.');
+          const run=await response.json();
+          if(run.repository?.full_name!=='krybaby7/control-room'||run.status!=='completed'||run.conclusion!=='success'||!/^[a-f0-9]{40}$/.test(run.head_sha))throw new Error('Run does not identify a successful exact source.');
+          appendFileSync(process.env.GITHUB_OUTPUT,'commit='+run.head_sha+'\n');
+          NODE
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.source.outputs.commit }}
+          persist-credentials: false
+      - run: npm run install:ci
+      - name: Bind exact candidate artifact
+        run: node --experimental-strip-types scripts/record-release-check.mjs init --candidate "$CANDIDATE" --run "$SOURCE_RUN" --artifact "$SOURCE_ARTIFACT"
+      - name: Record verified completed gate
+        run: node --experimental-strip-types scripts/record-release-check.mjs record --candidate "$CANDIDATE" --check "$SOURCE_CHECK" --status passed --run "$SOURCE_RUN" --job "$SOURCE_JOB" --artifact "$SOURCE_ARTIFACT" --step "$SOURCE_STEP"
+      - name: Required release acceptance remains blocking
+        run: node --experimental-strip-types scripts/record-release-check.mjs verify --candidate "$CANDIDATE"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sanitized-release-ledger-${{ github.run_id }}
+          path: docs/releases/*/status.json
+          if-no-files-found: ignore
+          retention-days: 30
