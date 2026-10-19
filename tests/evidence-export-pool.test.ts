@@ -1,3 +1,4 @@
+import {createSerializationHashContext,closeSerializationHashContext} from '../lib/serialization-hash.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {database} from './helpers/sqlite.ts';
@@ -53,4 +54,32 @@ test('ordered asynchronous physical-identity failure wins over a later synchrono
   context.mock.method(crypto.subtle,'digest',(...args:DigestArgs)=>{active++;maximum=Math.max(maximum,active);return original(...args).finally(()=>{active--;});});
   await assert.rejects(f.adapter.exportRows(f.context()),/Version physical identity differs/);assert.ok(maximum<=32);assert.equal(active,0);assert.equal(f.sqlite.prepare('SELECT id FROM evidence_versions WHERE user_id=? AND id=?').get(owner,'000-corrupt-physical-key')!.id,'000-corrupt-physical-key');assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM workspace_mutations').get()!.n,0);
  }finally{f.sqlite.close();}
+});
+
+test('explicit operation-local serialization context reuses exact native digests across exports without reusing owner rows or skipping validation',async context=>{
+ const f=await fixture();const scope=createSerializationHashContext(),otherScope=createSerializationHashContext();
+ try{
+  const native=crypto.subtle.digest.bind(crypto.subtle);let calls=0,active=0;
+  context.mock.method(crypto.subtle,'digest',(...args:DigestArgs)=>{calls++;active++;return native(...args).finally(()=>{active--;});});
+  const selected={...f.context(),serializationHashContext:scope};
+  assert.deepEqual(await f.adapter.exportRows(selected),f.expected);assert.equal(calls,768,'256 logical IDs plus512 exact wrapper strings, all genuine native SHA');assert.equal(active,0);
+  assert.deepEqual(await f.adapter.exportRows(selected),f.expected);assert.equal(calls,768,'same operation may reuse digests, but schema/identity comparisons still execute');
+  assert.deepEqual(await f.adapter.exportRows({...f.context(),serializationHashContext:otherScope}),f.expected);assert.equal(calls,1536,'a later operation gets no previous digests');
+  const corrupt=f.versions[39];f.sqlite.prepare('UPDATE evidence_versions SET id=? WHERE user_id=? AND id=?').run('000-corrupt-cached-physical',owner,corrupt.key);
+  await assert.rejects(f.adapter.exportRows(selected),/Version physical identity differs/);assert.equal(active,0);
+  assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM workspace_mutations').get()!.n,0);
+ }finally{closeSerializationHashContext(scope);closeSerializationHashContext(otherScope);f.sqlite.close();}
+});
+test('cached serialization still chooses earliest original row failure and waits for all native workers to settle',async context=>{
+ const f=await fixture(40),scope=createSerializationHashContext();try{
+  await f.adapter.exportRows({...f.context(),serializationHashContext:scope});
+  const first=f.versions[0],last=f.versions[39];
+  f.sqlite.prepare('UPDATE evidence_versions SET id=? WHERE user_id=? AND id=?').run('000-corrupt-physical-key',owner,first.key);
+  f.sqlite.prepare('UPDATE evidence_versions SET id=?,payload_json=? WHERE user_id=? AND id=?').run('zzz-corrupt-original-json','not original JSON',owner,last.key);
+  const native=crypto.subtle.digest.bind(crypto.subtle);let active=0,settled=0;
+  context.mock.method(crypto.subtle,'digest',(...args:DigestArgs)=>{active++;return native(...args).finally(()=>{active--;settled++;});});
+  await assert.rejects(f.adapter.exportRows({...f.context(),serializationHashContext:scope}),/Version physical identity differs/);
+  assert.equal(active,0);assert.ok(settled>0,'changed physical wrapper is actually hashed before its identity comparison rejects');
+  assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM workspace_mutations').get()!.n,0);
+ }finally{closeSerializationHashContext(scope);f.sqlite.close();}
 });
