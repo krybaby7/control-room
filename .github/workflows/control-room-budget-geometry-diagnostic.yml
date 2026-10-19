@@ -1,0 +1,33 @@
+name: Control Room native budget dialog geometry
+on:
+  push:
+    branches: ['diagnostics/control-room-budget-geometry*']
+    paths: ['.github/workflows/control-room-budget-geometry-diagnostic.yml']
+permissions:
+  contents: read
+jobs:
+  geometry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm run install:ci
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test --config playwright.config.ts tests/e2e/agents.spec.ts --grep 'finite execution budget'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: synthetic-budget-dialog-geometry
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: warn
+          retention-days: 7
