@@ -32,7 +32,7 @@ test('typed corruption and missing immutable versions fail closed without silent
  }
 });
 test('workspace revision changes retry a torn read, then return the stable updated view',async()=>{
- const {db,sqlite}=await fixture();try{await seedEvidence(db);let reads=0,changed=false;const wrapped=intercept(db,sql=>{if(sql.startsWith('SELECT content, revision'))reads++;if(!changed&&sql.includes('FROM evidence_versions')){changed=true;sqlite.prepare('UPDATE workspaces SET revision=revision+1 WHERE user_id=?').run('synthetic-a');}});const snapshot=await readEvidenceSnapshot(wrapped,'synthetic-a',now);assert.equal(snapshot.revision,2);assert.ok(reads>=4);}finally{sqlite.close();}
+ const {db,sqlite}=await fixture();try{await seedEvidence(db);let reads=0,changed=false;const wrapped=intercept(db,sql=>{if(sql.startsWith('SELECT content, revision')||sql.startsWith('SELECT w.content,w.revision,w.updated_at,'))reads++;if(!changed&&sql.includes('FROM evidence_versions')){changed=true;sqlite.prepare('UPDATE workspaces SET revision=revision+1 WHERE user_id=?').run('synthetic-a');}});const snapshot=await readEvidenceSnapshot(wrapped,'synthetic-a',now);assert.equal(snapshot.revision,2);assert.ok(reads>=4);}finally{sqlite.close();}
 });
 test('operational module CAS changes are detected even without a workspace revision bump',async()=>{
  const {db,sqlite}=await fixture();try{await seedEvidence(db);let visits=0;const wrapped=intercept(db,sql=>{if(sql.includes('FROM evidence_records')){visits++;if(visits===2)sqlite.prepare('UPDATE evidence_records SET row_revision=row_revision+1 WHERE user_id=?').run('synthetic-a');}});const result=await readEvidenceSnapshot(wrapped,'synthetic-a',now);assert.equal(result.revision,1);assert.ok(visits>=4);}finally{sqlite.close();}

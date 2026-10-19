@@ -32,7 +32,8 @@ test('one owner-bound database read freezes heads and all maxima; a concurrent z
 test('negative, fractional, nonnumeric and unsafe row maxima still reject the single-statement source proof',async()=>{
  for(const sequence of [-1,1.5,'invalid',Number.MAX_SAFE_INTEGER+1]){const f=await fixture();try{
   f.head('a',10);await f.put('source_sync_runs',f.run('malformed'),'a',0);f.sqlite.prepare('UPDATE source_sync_runs SET stream_sequence=? WHERE user_id=?').run(sequence,'a');
-  await assert.rejects(readOperationalWatermarks(f.db,'a'),/Source rows exceed/);
+  if(sequence===Number.MAX_SAFE_INTEGER+1)await assert.rejects(readOperationalWatermarks(f.db,'a'),error=>error instanceof RangeError&&error.message.includes('9007199254740992'));
+  else await assert.rejects(readOperationalWatermarks(f.db,'a'),/Source rows exceed/);
  }finally{f.sqlite.close();}}
 });
 test('agent audit above its committed head is rejected and a foreign owner audit cannot affect the selected owner',async()=>{
