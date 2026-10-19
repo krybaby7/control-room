@@ -1,16 +1,17 @@
-# Cloud checkpoint — source gates and current diagnostics
+# Cloud checkpoint — exact native diagnosis
 
-Primary `3b170542115137b95b83f10b6c9e302af5c21e19`, PR1 draft/unmerged. Separate docs-only checkpoint; no deployment.
+Primary `3b170542115137b95b83f10b6c9e302af5c21e19`; PR1 draft/unmerged. Separate docs-only checkpoint.
 
 Coherent candidate296fd5654b8f457187cf12b4d5b9ab46044c8c03 run39192051800: Chromium63/63 and R2 3/3(job117866794907), targeted3/3(job117866794977), mobile2/2(job117866794902), p95maximum2737.6ms. Original full budget/recovery/save, scoped history and saved review assertions pass; actual deferred loading/retry/deadline journeys pass. Corrected real late-race fixture candidatece865844216cbce5a002bfd9fcdd33006daf4da6 run39192352370: full1773/1773(job117867696715), no failures/cancellations/skips,249056.284ms; targeted107/107+typecheck/lint0errors8warnings(job117867696557). Production transaction guards unchanged.
 Native historical-scope706505ea697896637ad218ebd5f91e53fcb1f16f run39192869059/job117869259962 terminalPASS: actual27-migration Miniflare D1 historical NULL/bulk attribution,55-event frozen pagination,owner isolation, malformed/ambiguous exclusion and exact stored payload preservation;1test3047.719101ms,typecheckPASS,lint0errors8warnings.
 Exact primary3b170542115137b95b83f10b6c9e302af5c21e19 normal run39193244373/job117870396369 FAILED onlyD1savep952410.695566ms>2000;SQLite953.989242ms,D1read798.646104ms PASS;100outcomes/sixrestores perengine/errors[];artifact12161111300. Controlled browser run39193244400/job117870387962 FAILED mobilep953205ms>3000,otherHTTPcasePASS; same-source earlier39193240126/job117870374637 PASS retained separately. QA39193244500 Chromium117870398447 FAILED three viewport focus-restoration assertions after execution-budget Escape; diagnosis ongoing. Main full/package still running.
 Exact3b main39193244377/job117870390296:1774/1774Node,no fail/skip/cancel,195062.377ms;146/146bridge,type/lint/buildPASS. Generation/workspace/source/review/scheduled-backup native gatesPASS. test:scheduled-source-d1 FAILED second wake expectedcompleted1; actualcompleted0/uncertain1 after first five-page admission succeeded; laterHTTP/browser/package not reached. Focus fix308d807b state-based opener passed independent review; original3engineQA+type/lint diagnostic5ed6a1b9/run39193622120 running. Current source-specific focused489/489+type/lint and runtime/artifact/agents/maintenance/streaming PASS; segmented pending.
 Exact3b segmented39193244376/job117870388009 terminalPASS27migrations/33modules/79segments/10080rows/17,767,591bytes/10022auditrows;actualfiles/stagedZIPproofs preserved,targetSTILLFENCED.
+Correction from actual numbered native diagnostic76a7f13c run39193905521/job117872390535: failing assertion is FIRST wake admission, not second continuation. Native D1 reports bind-limit in six-statement atomic admission batch; no second-wake marker emitted. Earlier second-wake inference is superseded; production fix still under diagnosis. Three-file focus closure6e4b source independently reviewed, diagnostic e5c302de/original3engineQA+type/lint running.
 
 Known failures:
 
-- Scheduled-source native continuation/completion gate failed at3b; codec is diagnosing before any source change or retry.
+- Scheduled-source FIRST-wake native admission exceeds actual D1 bind limit in a six-statement batch; codec is preparing a bounded atomic fix. Previous second-wake inference was incorrect.
 
 - Exact primary3b170542115137b95b83f10b6c9e302af5c21e19 normal run39193244373/job117870396369 FAILED onlyD1savep952410.695566ms>2000;SQLite953.989242ms,D1read798.646104ms PASS;100outcomes/sixrestores perengine/errors[];artifact12161111300. Controlled browser run39193244400/job117870387962 FAILED mobilep953205ms>3000,otherHTTPcasePASS; same-source earlier39193240126/job117870374637 PASS retained separately. QA39193244500 Chromium117870398447 FAILED three viewport focus-restoration assertions after execution-budget Escape; diagnosis ongoing. Main full/package still running.
 
@@ -18,6 +19,6 @@ Known failures:
 
 - Supported Sites source/package helper execution remains unavailable although metadata/deployment access exists. Original private Site remains activeversion2/effectiveowneronly. Approved separate runtime extraction/pin and Windows owned-process/sandbox integration/acceptance, live provider consent/renewable ingress/hosted SSE and actual Windows/mobile/passkey tests remain not-run. Paid inference, operational/trading effects and external alerts remain disabled.
 
-Correction: scheduled-source failure is the SECOND wake's completion (expected completed=1), after first five-page admission succeeded. Initial admitted=0 on the second wake is expected; uncertain=1 is the actual failure. Codec is preparing bounded native-D1 diagnostic counters/error classes without raw SQL/bindings/provider data. No production fix or weakened assertion yet.
+Next: Inspect codec bounded native-D1 admission fix and runtime_probe e5c302de three-engine focus results. Preserve every atomic guard and original QA assertion; integrate only reviewed tested fixes. Retain failed latency metrics and exact source identities; no release/deployment yet.
 
-Next: Inspect codec scheduled-source continuation/completion diagnosis and runtime_probe 5ed6 three-engine focus verification. Integrate only reviewed, verified actual fixes; preserve source-specific failed latency results. Main3b produced no release artifacts.
+Exact gpt-6.1-sol selections persist; actual execution is Node24 GitHub Actions. No private data/IDs/host information recorded. Existing private Site remains unchangedversion2/owneronly; paid inference and operational/trading effects remain disabled. Supported Sites helper execution unavailable although metadata/deployment access exists. Original migrations/hosting/owner records preserved.
