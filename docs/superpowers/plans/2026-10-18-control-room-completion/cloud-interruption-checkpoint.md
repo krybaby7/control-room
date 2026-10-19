@@ -1,27 +1,26 @@
 # Cloud implementation checkpoint
 
-Parent source: 5dda97b1a370d33fdec9d5e544454bf95103659f. Resolve the branch ref for this checkpoint's own commit.
+Parent source:872c2ae3087677887d212e9a12385dbb14595f3b. Resolve the branch ref for this checkpoint's own commit.
 
-Execution uses GitHub source APIs and actual Node24 GitHub Actions cloud runners. Supported workspace/Sites helper execution remains unavailable. Accepted explicit gpt-6.1-sol selections and six worker IDs are recorded in progress.json; no substitute implementation model is used.
+Execution uses GitHub source APIs and actual Node24 GitHub Actions cloud runners. Supported workspace/Sites helper execution remains unavailable. Explicit gpt-6.1-sol selections were accepted for the integrator and six worker IDs recorded in progress.json; no substitute model is used.
 
 ## Exact verification
 
-Exact5dda focused39182915900/job117839300688 passed442/442 Node, typecheck and lint. Native bounded-hash and D1 grouped-assertion boundary/race tests passed. Segmented39182919765 passed10080rows/79segments/17,767,523bytes; both mobile gates passed p952761.7/2621.4ms with HTTP336.16/256.36ms. Normal benchmark39182919608 failed onlyD1savep954017.12ms (SQLite840.93ms passed); all100outcomes and6restores perengine passed. Diagnostic84901ad branch differs ONLYprofilingworkflow from5dda; its realprofile39183204164 confirms18/20RPC, commit51→18SQL, hashmedian2435→13ms but originalserializerp951287ms remains. Full5dda Node run still in_progress when this checkpoint was prepared; no complete application package.
+Exact872c2ae3087677887d212e9a12385dbb14595f3b: focused39183950579/job117842337594 passed445/445 Node, typecheck and lint. Three-browser39183954211, segmented39183954194, maintenance39183954098, agents D139183954165, runtime D139183950533, artifact39183950588 and streaming39183954148 passed. Mobile push/PR passed first-usable p952560.8/2991.0ms. Normal39183954120 failed onlyD1savep953125.165054ms against unchanged2000ms (SQLite789.28948ms passed); all100outcomes and six restores perengine correct. Full39183954108 remains unfinished/stalled in Node; no final source package.
 
-## Included source awaiting native verification
+## Included changes awaiting coherent native acceptance
 
-- Per-spec composite evidence export performs every identical portable identity/canonical SHA/schema/exactIdentity check through a local ordered32-worker pool
-- Existing row bounds and original first-overflow-row validation, final sort/provenance, earliest-index failure and full worker settlement retained
-- Profiling workflow path coverage corrected for recovery helpers and module validators; no missing-profile assumption used as proof
+- Closed36-table physical capture now includes exactly one fixed frozen audit firstpage; independent cursors, limits, full final image/audit equality and final namespace read retained. Two fewer RPCs targeted; native verification pending.
+- Presentation-only static test basenames and periodic active-file reporting. Native Node24 event self-test passed in isolated diagnostic39184413279 atc7355f01b6c5896467a34c3753637057519b1771; full diagnostic still running. No assertions, runner scheduling, timeouts or result counters changed.
+- Sanitized phase-by-phase cloud status report links immutable872 verification; it does not claim a final package or new deployment.
 
-No physical UNION redesign or serializer-result cache is included. Every validation and digest still runs against actual captured bytes. The normal benchmark retains all samples, fixtures and original budgets.
+## Known failures and remaining work
 
-## Known failures and next work
+- Normal D1 save p95 still fails2000ms; no budget, sample count or fixture reduction.
+- Full integrated Node/bridge/type/lint/build/D1/R2/HTTP/default-browser/application-package gate awaits a terminal coherent pass. Prior partial/cancelled runs are not passes.
+- Supported Sites workflow helper execution remains unavailable; deployment metadata access exists but is not a substitute. No new publication.
+- Actual upstream runtime adapter/owned-process sandbox, provider consent, renewable private ingress, hosted SSE and owner Windows/mobile/passkey acceptance remain unavailable/not-run. Paid inference, operational/trading effects and external alert delivery remain disabled.
 
-- Normal D1 save target remains failed on last measured source; exporter pool awaits actual native/regression/performance gates.
-- Full integrated Node/bridge/type/lint/build/D1/R2/HTTP/default-browser/application-package gates still require a terminal coherent pass; the long-running5dda Node job is not a pass.
-- Supported Sites helper execution remains unavailable. Provider/runtime/owner-device/private ingress/SSE and actual hosted acceptance remain external; no new deployment, paid inference, operational/trading effect or external alert delivery.
+Original private Site remains active version2 with one owner and no visitors/groups. Hosting identity, original applied migrations and owner records are preserved. Rejected local inspection history remains excluded from published ancestry.
 
-Original private Site remains active version2, one owner and no visitors/groups; hosting identity and original migrations are unchanged. Owner records were not reset. Rejected local inspection history remains excluded.
-
-Next command: GET https://api.github.com/repos/krybaby7/control-room/git/ref/heads/feat/control-room-completion-cloud; inspect the exact returned SHA's focused/full Actions, normal benchmark, separate RPC profile, and five mobile timing samples.
+Next command: GET https://api.github.com/repos/krybaby7/control-room/git/ref/heads/feat/control-room-completion-cloud; inspect returned SHA's full/focused/normal benchmark runs and isolated diagnostic39184413279 file activity, then fix the identified test stall and unchanged D1 latency gate.

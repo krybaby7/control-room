@@ -4,7 +4,7 @@ import {compareSqliteText} from './sqlite-text-order.ts';
 import {REFERENCE_LIMITS} from './workspace-references.ts';
 import {prepareHistoricalAuditRows} from './audit-import.ts';
 import type {Workspace} from './types.ts';
-import type {SqlDatabase} from './workspace-store.ts';
+import type {SqlDatabase,SqlStatement} from './workspace-store.ts';
 import {readRecoverabilityAuxiliary} from './recoverability-auxiliary.ts';
 import {OWNER_TABLES,ownerTable,type GuardedWrite,type ModuleRow,type OwnerScopedReader,type RegisteredOwnerTable} from './workspace-modules.ts';
 import type {AuditEventDraft,JsonValue} from './workspace-protocol.ts';
@@ -23,18 +23,28 @@ const streams:Partial<Record<RegisteredOwnerTable,string>>={agent_results:'agent
 type CapturedPhysicalRow=ModuleRow&{stream_sequence?:number};
 /** Closed read-only batches retain independent key cursors, exact row shapes,
  * source sequence, page and row bounds. No JSON aggregate exceeds a row limit. */
-async function readPhysicalImage(db:SqlDatabase,owner:string):Promise<Map<RegisteredOwnerTable,CapturedPhysicalRow[]>>{
- // One compiled 36-table batch; adding tables requires an explicit bound review.
+async function readPhysicalImage(db:SqlDatabase,owner:string,auditStatement:SqlStatement):Promise<{physical:Map<RegisteredOwnerTable,CapturedPhysicalRow[]>;auditPage:Record<string,unknown>[]} >{
+ // One compiled batch of 36 physical tables plus one audit page. Adding
+ // tables or sidecar reads requires an explicit bound review.
  if(OWNER_TABLES.length>36)throw new Error('Physical snapshot table batch bound exceeded.');
  const image=new Map<RegisteredOwnerTable,CapturedPhysicalRow[]>(),after=new Map<RegisteredOwnerTable,string>();
- let pending=[...OWNER_TABLES],retainedBytes=0;
+ let pending=[...OWNER_TABLES],retainedBytes=0,auditPage:Record<string,unknown>[]|undefined;
  for(const table of pending){image.set(table,[]);after.set(table,'');}
  while(pending.length){
   const following:RegisteredOwnerTable[]=[];
   for(let offset=0;offset<pending.length;offset+=36){
    const tables=pending.slice(offset,offset+36),statements=tables.map(table=>db.prepare(`SELECT id, row_revision, payload_json, content_hash${streams[table]?', stream_sequence':''} FROM ${ownerTable(table)} WHERE user_id = ? AND id > ? ORDER BY id LIMIT ?`).bind(owner,after.get(table)!,BUNDLE_LIMITS.pageSize));
+   // One fixed audit SELECT shares the first physical batch. Its frozen vector,
+   // own cursor, page cap and later complete-rowset verification remain separate.
+   const includesAudit=auditPage===undefined;
+   if(includesAudit)statements.push(auditStatement);
    const batches=await db.batch(statements);
-   if(!Array.isArray(batches)||batches.length!==tables.length)throw new Error('Invalid physical snapshot batch.');
+   if(!Array.isArray(batches)||batches.length!==tables.length+(includesAudit?1:0))throw new Error('Invalid physical snapshot batch.');
+   if(includesAudit){
+    const page=batches[tables.length]?.results;
+    if(!Array.isArray(page)||page.length>BUNDLE_LIMITS.pageSize)throw new Error('Invalid audit snapshot batch rows.');
+    auditPage=page;
+   }
    for(const [index,table]of tables.entries()){
     const page=batches[index].results;
     if(!Array.isArray(page)||page.length>BUNDLE_LIMITS.pageSize)throw new Error('Physical snapshot batch must return bounded rows.');
@@ -51,7 +61,8 @@ async function readPhysicalImage(db:SqlDatabase,owner:string):Promise<Map<Regist
   }
   pending=following;
  }
- return image;
+ if(auditPage===undefined)throw new Error('Missing audit snapshot batch.');
+ return {physical:image,auditPage};
 }
 
 export interface ProspectiveRecoverabilityInput {
@@ -80,11 +91,15 @@ export async function measureProspectiveRecoverability(db:SqlDatabase,owner:stri
  // independent live export. The final read verifies the whole image before the
  // caller receives exact atomic row-set preconditions.
  const auditColumns='event_id,workspace_revision,ordinal,stream_id,stream_sequence,kind,entity_type,entity_id,occurred_at,payload_json';
- const readAudit=()=>boundedPages<Record<string,unknown>&{id:string}>(async after=>(await db.prepare(`SELECT ${auditColumns} FROM audit_events WHERE user_id=? AND event_id>? AND NOT EXISTS(SELECT 1 FROM json_each(?) frozen WHERE frozen.key=audit_events.stream_id AND audit_events.stream_sequence>frozen.value) ORDER BY event_id LIMIT ?`).bind(owner,after,canonical(boundaryWatermarks),BUNDLE_LIMITS.pageSize).all<Record<string,unknown>>()).results.map(row=>({id:row.event_id as string,...row})));
- const capturedAudit=await readAudit();
+ const auditStatement=(after:string)=>db.prepare(`SELECT ${auditColumns} FROM audit_events WHERE user_id=? AND event_id>? AND NOT EXISTS(SELECT 1 FROM json_each(?) frozen WHERE frozen.key=audit_events.stream_id AND audit_events.stream_sequence>frozen.value) ORDER BY event_id LIMIT ?`).bind(owner,after,canonical(boundaryWatermarks),BUNDLE_LIMITS.pageSize);
+ const readAudit=(firstPage:Record<string,unknown>[])=>boundedPages<Record<string,unknown>&{id:string}>(async after=>{
+  const page=after===''?firstPage:(await auditStatement(after).all<Record<string,unknown>>()).results;
+  return page.map(row=>({id:row.event_id as string,...row}));
+ });
+
  const watermarks={...(input.operationalWatermarksAfter??boundaryWatermarks)};validateOperationalWatermarks(watermarks);
  for(const [stream,sequence]of Object.entries(boundaryWatermarks))if((watermarks[stream]??-1)<sequence)throw new Error('Prospective operational watermarks cannot move backwards.');
- const capturedPhysical=await readPhysicalImage(db,owner);
+ const capturedRows=await readPhysicalImage(db,owner,auditStatement('')),capturedPhysical=capturedRows.physical,capturedAudit=await readAudit(capturedRows.auditPage);
  const physical=new Map<RegisteredOwnerTable,Map<string,ModuleRow>>(),beforeRows=new Map<RegisteredOwnerTable,ModuleRow[]>(),sequences=new Map<string,number>();
  const finishHashCurrent=startRecoverabilityPhase(db,'hash-current');
  await verifyRecoverabilityRowHashes([...capturedPhysical.values()].flat());
@@ -171,9 +186,9 @@ export async function measureProspectiveRecoverability(db:SqlDatabase,owner:stri
  if(current.revision!==boundaryRevision||canonical(current.workspace)!==canonical(original.planning)||canonical(latestAuxiliary.watermarks)!==canonical(boundaryWatermarks))throw new Error('Workspace boundary changed during recoverability measurement.');
  // Re-read all physical sets: the returned revision/vector alone does not detect an
  // unguarded same-revision mutation, and must never certify a stale normalized set.
- const latestPhysical=await readPhysicalImage(db,owner);
+ const latestRows=await readPhysicalImage(db,owner,auditStatement('')),latestPhysical=latestRows.physical;
  for(const table of OWNER_TABLES)if(canonical(latestPhysical.get(table))!==canonical(capturedPhysical.get(table)))throw new Error('Normalized row set changed (including operational sequence) during recoverability measurement.');
- if(canonical(await readAudit())!==canonical(capturedAudit))throw new Error('Audit row set changed during recoverability measurement.');
+ if(canonical(await readAudit(latestRows.auditPage))!==canonical(capturedAudit))throw new Error('Audit row set changed during recoverability measurement.');
  if((await getWorkspaceNamespaces(db,owner))?.auditNamespace!==namespaces?.auditNamespace)throw new Error('Audit namespace changed during recoverability measurement.');
  finishFinalReads();
  return {agentTerminalReserveRows:terminalReserveRows,measurement,boundaryRevision,boundaryWatermarks:{...boundaryWatermarks},boundaryRows:OWNER_TABLES.map(table=>({table,rows:beforeRows.get(table)!.map(({id,row_revision,content_hash})=>({id,row_revision,content_hash}))}))};
