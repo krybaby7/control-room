@@ -1,6 +1,6 @@
 # Control Room Completion Implementation Plan
 
-> **For agentic workers:** Use `superpowers:subagent-driven-development` or `superpowers:executing-plans` when available. Execute the phase checklists, retain evidence, and update `progress.json`. The user requested this plan for later cloud implementation; this document is not a record of completed implementation.
+> **For agentic workers:** Use `superpowers:subagent-driven-development` or `superpowers:executing-plans` when available. Execute the phase checklists, retain evidence, and update `progress.json`. The user requested this plan for later cloud implementation; the historical plan is followed by source-specific implementation and verification checkpoints below.
 
 **Goal:** Complete every actionable gap in the 18 October 2026 Control Room audit: richer planning, durable recovery and evidence, current source information, useful automated reviews, PC visibility and controlled agent execution.
 
@@ -91,16 +91,16 @@ flowchart LR
 
 **Create during implementation:** `docs/implementation/control-room/{environment.md,contracts.md,decisions.md}`, `.github/workflows/control-room-ci.yml` only if a real GitHub repository is selected, and phase-specific verification records under `docs/superpowers/verification/`.
 
-- [ ] Clone the owner-specified GitHub repository and inspect `AGENTS.md`, its current commit, and `docs/source-import.json`. Verify imported baseline file hashes before modifying them; preserve newer work if the repository has advanced. For the archive fallback, verify `SOURCE-MANIFEST.json` and safe paths before initialization. If opening current source through Sites instead, compare its SHA with the audit baseline and adapt without overwriting newer work.
-- [ ] In a managed cloud environment, read the installed cloud-environment skill, inspect environment readiness/network policy, and use configured identities. Do not print credentials or assume access to the Windows source directories.
-- [ ] Use Node 24. Preserve `package-lock.json` and install through `npm run install:ci`; repair only an evidenced platform failure. Do not perform an unrelated dependency upgrade.
-- [ ] Run the existing baseline commands below and record exact results. If they fail in cloud, isolate environment differences before changing product code.
-- [ ] Read current installed Sites guidance for source opening, private deployment, D1/R2, request identity and connectors. Copy verified environment capability results into `environment.md` without secrets.
-- [ ] Create isolated test data and synthetic owner A/B fixtures. Do not place the owner's production workspace export in source control, the source archive, CI artifacts or public screenshots.
-- [ ] Lock Phase 1 transaction, actor, export registry and event contracts before delegating dependent modules. Derive owner identity server-side. Define module routes so no raw provider proxy or arbitrary shell endpoint can be created accidentally.
-- [ ] Create a migration preservation fixture containing v1/v2 documents, archived completed prerequisites, proposal/baseline markers, near-limit content, unknown optional fields rejection and valid foreign-owner records. Use synthetic IDs/text.
-- [ ] Establish test scripts per phase before invoking new names. Current scripts are `test`, `typecheck`, `lint`, `build`, `install:ci`, `dev`, `start`, `db:generate`; additional names in phase plans are implementation deliverables, not already-installed commands. Standard browser location is `tests/e2e/` and script `test:e2e`; Phase 1 defines the harness and Phase 8 broadens it.
-- [ ] Update `progress.json`: baseline SHA, branch, phase state, completed tasks, test evidence, capability blockers and next action. Commit the plan and progress checkpoint to the selected implementation repository. No remote is presumed.
+The bootstrap below is completed setup evidence, not a list of outstanding application work. Live deployment and device/provider acceptance remain separate requirements.
+
+- [x] Selected repository and imported baseline provenance are recorded; frozen source and review-package byte identity were independently verified.
+- [x] Cloud capability boundaries and configured GitHub/Actions identities were checked. Managed workspace/helper execution remains unavailable; no Windows source access is implied.
+- [x] Node 24 and locked CI installation are established; original and expanded tests, typecheck, lint and build have actual cloud results.
+- [x] Sites metadata/deployment capability and unavailable supported helper execution are distinguished in the environment/checkpoint records.
+- [x] Synthetic owner-isolation, migration-preservation, near-limit, legacy v1/v2 and malformed-input fixtures exist; production owner exports are not test inputs.
+- [x] Owner-derived transaction, actor, export-registry, event and bounded route contracts are implemented and reviewed.
+- [x] Phase-specific scripts and actual repository workflows are established; their results remain tied to exact source/run identities.
+- [x] Plan, progress, verification and interruption checkpoints are maintained. Phase 0 setup is complete; this does not make later failed acceptance gates pass.
 
 ```bash
 node --version
@@ -169,3 +169,27 @@ Documentation prepared from clean source `eb6755432f3e0989b1c722ac56fe745b7f4a71
 - Mobile run39193244400 at the same 3b source **FAILED** the unchanged 3000ms budget at 3205ms; its other HTTP checks passed. Separate same-source run39193240126 **PASSED** at 2746.3ms. Keep both observations; the passing run does not erase the failure or establish final integrated performance.
 
 No final integrated exact-source gate, accepted source/build package or new deployment is claimed. The existing private Site remains unchanged at version 2/effective owner-only. Metadata/deployment access exists; supported source/package helper execution remains unavailable. Separate runtime extraction/registration and Windows owned-process/sandbox integration code remain missing; provider, private ingress and actual owner-device acceptance remain external. Paid inference, operational/trading effects and external alerts stay disabled.
+
+## Frozen-source verification — 2026-10-19
+
+Current application source is `e4af1fc5ae344a029f9677576963700c92aaefee`; this documentation checkpoint does not change that source. Earlier results above retain their own source identities.
+
+- Focused tests passed 491/491 with typecheck and lint (job117874233566). QA run39194510945 passed all 11 original cases: four Chromium, three Firefox and four WebKit.
+- Both mobile runs at this same source passed 2/2: run39194510972/job117874244687 recorded p95 2761.9ms; run39194507161/job117874233407 recorded 2739.8ms. These do not erase the separately recorded 3b mobile failure.
+- Stream tests (14), actual runtime D1, artifact tests (16) plus D1/R2, agents D1 and maintenance passed. Maintenance retained the 97-table/291-guard profile. Segmented run39194510962/job117874244413 passed with 27 migrations, 33 modules, 79 segments, 10080 rows and 17767591 bytes; the target remained fenced.
+- Normal performance run39194510942/job117874255539 **FAILED only the unchanged D1 save p95 gate**: 2499.678949ms exceeds 2000ms (p50 1797.99ms). SQLite p95 978.53ms and D1 read 859.97ms passed. The run retained 100 outcomes, six restores and errors[]. Evidence artifact12161845635 has digest `325994989f843e4becbaa72d22b4f77751d0ee98619434ce99f068de4cedcfe4`. Prior 3b and earlier failures remain historical evidence; no passing source is substituted for this failed performance gate.
+- **FINAL MAIN RUN FAILED:** run39194510987/job117874247405 passed 1776/1776 Node tests with zero skips/cancellations (312917.923094ms), 146 bridge tests, typecheck, lint, build and all native D1 fixtures, including original scheduled-source and runtime checks. Default attachment HTTP and attachment HTTP/R2 passed. The default browser suite passed 62/63: the budget case at agents.spec.ts:61 failed when the first GET /api/jobs after saving a budget returned a non-success status after approximately 15.4 seconds. The response was an empty 502 after approximately 15 seconds; its exact cause remains under investigation and the internal jobs-read acceptance gate is open. R2 browser tests separately passed 3/3 (52.2s). Bridge/candidate packaging steps were skipped, so this run produced no accepted candidate package. Failure artifact12161927116 has SHA-256 `34814a0c847b0876b44565b85571128ddb8c1b62f8437d51b7922d92c525c8e1`. Step advancement did not establish success; the terminal failure governs this run.
+
+Runtime extraction/registration and Windows owned-process/sandbox invocation code remain missing. Actual provider consent, renewable private ingress and owner-device acceptance remain external checks. The existing private Site stays unchanged at version 2/effective owner-only: metadata/deployment access exists, while supported source/package helper execution remains unavailable. Paid inference, operational/trading effects and external alerts remain disabled. No final integrated acceptance, accepted source/build package or new deployment is claimed.
+
+## Review packages and diagnostic status — 2026-10-19
+
+Canonical application source remains `e4af1fc5ae344a029f9677576963700c92aaefee`. Its main run remains failed at 62/63 default browser cases: the jobs read returned an empty 502 after approximately 15 seconds. Its unchanged normal D1 save p95 remains 2499.678949ms, above the 2000ms gate. Other source-specific passes above remain valid; neither diagnostic work nor a review package changes these failures.
+
+Independent exact-e4 **UNVALIDATED review packages** now exist for source, build and bridge. Integrity verification checked 1032 source files, 332 build files and 34 bridge files, plus two tamper controls. The complete evidence index is `verification-e4af1fc5.json`. These packages are available for review; they are not accepted release artifacts, a passing full gate or a deployment. The failed main run itself skipped packaging.
+
+Corrected jobs diagnostic 9b98/run39197094431/job117882154116 TERMINAL SUCCESS: 1776 Node tests (309249.212968ms),146 bridge tests,typecheck/lint/build/all native checks;63/63 default browser (4.4m),3/3 R2 (51.2s) and HTTP passed. Captured351 closed events and25 GET /api/jobs requests: all200,headers29–72ms,all25 reader validations,no deadline/error. This is NONREPRODUCTION ONLY: no causal fix and no canonical-source pass. Profile diagnostic `20c9` finished with 19 contract tests, typecheck and lint passing, while its diagnostic p95 remained approximately 2360ms and failed the unchanged gate. Measured serializer CPU was 24.6–32.9ms; the SHA-promise union was 868–1049ms, with queue/service/resume inseparable. Truncated synchronous unions remain null, not zero or measured durations.
+
+Native-SHA experiment817/run39198054055: contractsjob117884994482 passed41/41 (8085.558832ms),Worker parity,typecheck/lint/build/runtime27migrations. Normaljob117884994781 FAILED D1savep952976.172820ms>2000,p502244.327927ms;SQLite972.609903ms and D1read925.253108ms passed,100outcomes/sixrestores perengine/errors[]. Artifact12162961643 SHA25635fadef0b16c4051c9d38320e45a63238f11a481c7bb8d4b5a7a86b3ca46fc6c. Static review of462 files/100 client entries found no client path. DECISION: no integration,no improvement,no rerun;canonical e4 remains frozen.
+
+Private runtime extraction/registration and Windows owned-process/sandbox invocation remain missing code, separate from owner installation and actual-device acceptance. Provider/device consent and supported helper execution remain unavailable; Site metadata/deployment access exists. Paid inference, execution/trading effects and external alerts remain off.

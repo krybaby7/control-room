@@ -34,7 +34,8 @@
     "test:recovery-segments-d1": "node --experimental-strip-types scripts/test-recovery-segments-d1.mjs",
     "test:recovery-maintenance-d1": "node --experimental-strip-types scripts/test-recovery-maintenance-d1.mjs",
     "test:agent-artifacts-r2": "node --experimental-strip-types scripts/test-agent-artifacts-r2.mjs",
-    "test:benchmark": "node --experimental-strip-types scripts/benchmark-workspace.mjs"
+    "test:benchmark": "node --experimental-strip-types scripts/benchmark-workspace.mjs",
+    "test:fixture-proxy": "node --test tests/fixture-proxy-lifecycle.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

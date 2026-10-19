@@ -40,6 +40,7 @@ jobs:
       - id: runtime_d1
         run: npm run test:runtime-d1
         timeout-minutes: 5
+      - run: npm run test:fixture-proxy
       - run: npm run test:fixture
       - run: npm run test:attachments-r2
       - run: npm run test:attachment-recovery-r2

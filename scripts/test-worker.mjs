@@ -35,10 +35,16 @@ export function fixtureProxy({requestTimeoutMs=FIXTURE_REQUEST_TIMEOUT_MS}={}){
   // Preserve external/missing origins so production same-origin checks still reject them.
   if(headers.origin===FIXTURE_ORIGIN)headers.origin=WORKER_ORIGIN;
   const upstream=http.request(new URL(request.url??'/',WORKER_ORIGIN),{method:request.method,headers},incoming=>{const outgoing={...incoming.headers};if(typeof outgoing.location==='string'&&outgoing.location.startsWith(WORKER_ORIGIN))outgoing.location=FIXTURE_ORIGIN+outgoing.location.slice(WORKER_ORIGIN.length);response.writeHead(incoming.statusCode??502,outgoing);incoming.on('error',()=>response.destroy());incoming.pipe(response);});
-  const deadline=setTimeout(()=>upstream.destroy(new Error('Synthetic fixture upstream deadline exceeded.')),requestTimeoutMs);
-  upstream.setTimeout(requestTimeoutMs,()=>upstream.destroy(new Error('Synthetic fixture upstream socket timed out.')));
+  let failureKind='transport';
+  const deadline=setTimeout(()=>{failureKind='deadline';upstream.destroy(new Error('Synthetic fixture upstream deadline exceeded.'));},requestTimeoutMs);
+  upstream.setTimeout(requestTimeoutMs,()=>{failureKind='socket-timeout';upstream.destroy(new Error('Synthetic fixture upstream socket timed out.'));});
   response.once('finish',()=>clearTimeout(deadline));response.once('close',()=>{clearTimeout(deadline);upstream.destroy();});
-  upstream.on('error',()=>{if(!response.headersSent)response.writeHead(502);response.end();});request.on('aborted',()=>upstream.destroy());request.pipe(upstream);
+  upstream.on('error',()=>{
+   // Once headers/body escaped, ending normally would certify a truncated stream as complete.
+   if(response.headersSent){response.destroy();return;}
+   response.writeHead(502,{'Content-Type':'application/json','Cache-Control':'no-store'});
+   response.end(JSON.stringify({error:'Synthetic fixture upstream failed.',stage:'headers',cause:failureKind}));
+  });request.on('aborted',()=>upstream.destroy());request.pipe(upstream);
  });
 }
 async function waitReady(child){const deadline=Date.now()+60000;while(Date.now()<deadline){if(child.exitCode!==null)throw new Error('Fixture worker exited before readiness.');try{const response=await fixtureFetch(`${WORKER_ORIGIN}/api/workspace`,{signal:AbortSignal.timeout(1500)});if(response.status===401)return;}catch{}await pause(200);}throw new Error('Fixture worker readiness timed out.');}

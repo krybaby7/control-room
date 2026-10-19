@@ -1,0 +1,70 @@
+{
+  "format": "control-room-resume-checkpoint",
+  "version": 1,
+  "date": "2026-10-19",
+  "baselineSource": "e4af1fc5ae344a029f9677576963700c92aaefee",
+  "priorCheckpoint": "09b385af8be40db7b73c166d70406795c2f9363d",
+  "branch": "feat/control-room-completion-resumed",
+  "model": {
+    "integrator": "gpt-6.1-sol",
+    "selection": "Explicit session model control accepted on resume.",
+    "workers": [
+      {
+        "id": "/root/resume_jobs",
+        "modelParameter": "gpt-6.1-sol",
+        "accepted": true
+      },
+      {
+        "id": "/root/resume_performance",
+        "modelParameter": "gpt-6.1-sol",
+        "accepted": true
+      },
+      {
+        "id": "/root/resume_executor",
+        "modelParameter": "gpt-6.1-sol",
+        "accepted": true
+      },
+      {
+        "id": "/root/resume_runtime_extract",
+        "modelParameter": "gpt-6.1-sol",
+        "accepted": true
+      },
+      {
+        "id": "/root/resume_review",
+        "modelParameter": "gpt-6.1-sol",
+        "accepted": true
+      },
+      {
+        "id": "/root/resume_runtime_install",
+        "modelParameter": "gpt-6.1-sol",
+        "accepted": true
+      }
+    ]
+  },
+  "environment": {
+    "runner": "Restored managed cloud command runner",
+    "node": "24.19.0",
+    "lockedInstall": "passed; 690 packages",
+    "privateUpstream": "Authorized source API access available; independent private extraction in progress."
+  },
+  "currentWork": [
+    "Reviewed proxy partial-response correction committed; original jobs stall is not claimed fixed.",
+    "Actual private runtime extraction and compatibility package delivered for review; production verified installation, bounded executor composition and native supervisor integration underway.",
+    "One bounded serializer/SQL critical-path diagnostic approved on isolated source; no benchmark budget, fixture, concurrency or assertion changes."
+  ],
+  "disabled": [
+    "paid inference",
+    "operational/trading effects",
+    "external alerts"
+  ],
+  "deployed": false,
+  "nextCommand": "Complete Windows canonical-fixture/native lifecycle checks and runtime installation/composition review; inspect isolated causal profile; integrate only justified changes, then run exact-candidate canonical regression/performance/package gates.",
+  "currentCommit": "5a608704d1ea99adca0131a51e2c0461180f8cd7",
+  "tests": {
+    "proxy": "Dedicated regression passed; original negative control fails as expected; existing harness/typecheck pass. Original pre-header hang remains unexplained.",
+    "privateRuntime": "51/51 on actual Linux and Windows Actions; separate private draft PR and source-only artifact exist. No real provider call.",
+    "nativeSupervisor": "Windows compilation succeeded, but all eight execution tests blocked at canonical helper-directory guard; fixture correction pending, no native pass.",
+    "digestReuseExperiment": "39 focused tests passed; one working-candidate normal D1savep95=2543.508383ms failed. Isolated branch, not integrated.",
+    "serverDigestExperiment": "42 focused/parity/client-closure/type/build checks passed; exact local source9753fddb65b15f7edc1a010588d41ce43b4919bc normal D1savep95=2837.936316ms failed. Isolated branch, not integrated."
+  }
+}
