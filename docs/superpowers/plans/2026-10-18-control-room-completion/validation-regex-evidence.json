@@ -1,0 +1,36 @@
+{
+  "base": "98f9986f12b2088c69bdb7e5e4671694b5bcbba2",
+  "paths": [
+    "lib/workspace-validation.ts",
+    "tests/workspace-text-validation-parity.test.ts"
+  ],
+  "patchSha256": "c786d8dae57635b6a5d6511ecfb0abe528d0f11e23d74c026d287883e8615ba2",
+  "checks": {
+    "focusedPassed": 141,
+    "failed": 0,
+    "skipped": 0,
+    "typecheck": "passed",
+    "targetedLint": "passed",
+    "diffCheck": "passed",
+    "independentReview": "resume_review: no blockers, differential4/4 rerun passed"
+  },
+  "pairedCpu": {
+    "medianOldCpu": 35.88,
+    "medianNewCpu": 27.994,
+    "medianPairedCpuSaving": 7.994999999999997,
+    "newCpuLowerPairs": 20
+  },
+  "limits": "Paired parser CPU is not whole-path or canonical benchmark acceptance. No normal benchmark run. All prior normal failures and diagnostic observer caveats retained.",
+  "preflightFailures": [
+    "Initial3 parity setup failures: generic workspace fixture lacked task/milestone rows; corrected test to actual seed fixture.",
+    "Initial paired diagnostic fixture exceeded unchanged1MB storage cap and correctly refused before timing; retained log."
+  ],
+  "diagnostic": {
+    "report": "diagnostic-coarse-98f9986.json",
+    "summary": "diagnostic-coarse-98f9986-summary.json",
+    "overlaySha256": "cca3965e14a4e7cbd66b1c5331d698d04d59762331a03b3afa1a861e95b95933",
+    "status": "failed",
+    "d1SaveP95Milliseconds": 3450.2082930000033,
+    "errors": []
+  }
+}

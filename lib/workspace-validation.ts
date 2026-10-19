@@ -6,8 +6,8 @@ import type { Workspace } from './types.ts';
 import { migratePlanningV1ToV2, migratePlanningV2ToV3, measurePlanning } from './workspace-migrations.ts';
 export const WORKSPACE_LIMITS = { tasks: 2000, captures: 1000, milestones: 100, bytes: 1_000_000, serializedBytes: 1_250_000 } as const;
 export class WorkspaceValidationError extends Error {}
-const id = z.string().min(1).max(128).refine(s => s.trim() === s);
-const text = (max: number, required = false) => z.string().max(max).refine(s => !required || s.trim().length > 0);
+const id = z.string().min(1).max(128).regex(/^\S(?:[\s\S]*\S)?(?![\s\S])/u, 'Invalid input');
+const text = (max: number, required = false) => required ? z.string().max(max).regex(/\S/u, 'Invalid input') : z.string().max(max);
 const stamp = z.string().datetime({ offset: true });
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(s => { try { return new Date(`${s}T00:00:00Z`).toISOString().slice(0,10) === s; } catch { return false; } });
 const url = z.string().max(2048).refine(s => { try { const u = new URL(s); return ['https:', 'http:'].includes(u.protocol) && !u.username && !u.password && !/[\u0000-\u0020\u007f]/.test(s); } catch { return false; } });

@@ -51,10 +51,11 @@
     "preCutoverRecovery": "Native read-only DB projection truncates saved workspace; cannot create complete backup. Full owner/provider D1 snapshot/export required before cutover. No owner record copied to repository or mutated."
   },
   "currentWork": [
-    "Reviewed finite manual Sites adapter, opaque server boundary, policy-derived capability reporting and cutoff enforcement committed. Configuration defaults closed; no activation, credentials imported, model calls or deployment.",
-    "Reviewed fixture transport isolation/deadline correction committed; deterministic original-code negative controls fail. Original e4 internal cause remains unknown.",
-    "Publish this coherent sanitized tree as next PR1 source (parent currentpublic3c), then run final exact-source Node/bridge/nativeWindows/D1R2HTTP/browser/performance/artifact-integrity gates.",
-    "Keep all rejected performance experiments separate. Prepare supported private saved version only after validation; do not deploy without complete verified private pre-cutover snapshot."
+    "Public98main canonical stillrunning; waitterminal andretain its exactresult/artifacts beforeupdatingPR. Current98normalD1andbrowserperformancefailuresremainreleaseblockers.",
+    "Reviewed2-helperregexvalidationimplementation and differentialtests committed; exactvalues/publicfirstrefusalmessagespreserved. PairedparserCPU35.880to27.994ms,20/20lower; NOTwholepathor2sacceptance.",
+    "Reviewedboundedstream-redactedfixturelogcapture committed;10proxy/logregressions pass,includingchunk/truncationsecrets. Thisfixesevidence-loss,NOTprovenWorkerfatalcause.",
+    "Newintegratedlocalcandidate typecheck/lint0errors8existingwarnings/build and4differentialtests pass; worker141focusedtests passed. No normalbenchmark executed.",
+    "After98terminal, publishcoherentcorrectioncandidate andrunONEexact-source canonicalnormalbenchmark/browser/native/package/integritycycle. Supportedprivate98archive remainsUNVALIDATED/not saved/deployed."
   ],
   "disabled": [
     "paid inference",
@@ -62,8 +63,8 @@
     "external alerts"
   ],
   "deployed": false,
-  "nextCommand": "Publish reviewed committed tree to PR1 using expected current publichead3c, then run exact public-source canonical/Windows/D1R2HTTP/browser/performance/package-integrity gates. Retain all failed observations. Supported private saved package only after gates; deploy only after complete verified pre-cutover snapshot.",
-  "currentCommit": "873d8d61dcc21b5917aa9b4cd21294eb487b5ff8",
+  "nextCommand": "Wait98main39249240628terminal andretain outcomes/artifacts. Publishnewcommittedreviewedcorrectiontree(parent98)toPR1; runONEintegratednormalD1benchmark pluscanonical/native/browser/packageintegrity unchangedthresholds. Do notsave/deployfailed98; pre-cutoversnapshotstillrequired.",
+  "currentCommit": "0082f1290a8b240a75cec6339a5258a5eaa688d3",
   "tests": {
     "proxy": "Dedicated regression passed; original negative control fails as expected; existing harness/typecheck pass. Original pre-header hang remains unexplained.",
     "privateRuntime": "Actual cloud extraction artifact outer archive, inner archive SHA, immutable source pin and five reviewed source files verified. Cloud artifact installed, reopened, byte-verified and actual RuntimeAdapter loaded through strict public installer; zero provider calls.",
@@ -147,9 +148,73 @@
       "nativeSitesIngressAcceptance": false,
       "ownerDeviceAcceptance": false,
       "providerExecution": false
+    },
+    "currentPerformance": {
+      "source": "98f9986f12b2088c69bdb7e5e4671694b5bcbba2",
+      "run": 39249240888,
+      "job": 118048666758,
+      "passed": false,
+      "D1saveP95Ms": 2800.471638,
+      "D1saveP50Ms": 2158.847242,
+      "limitMs": 2000,
+      "outcomesPerEngine": 100,
+      "restoresPerEngine": 6,
+      "errors": [],
+      "artifact": 12184836729,
+      "archiveSha256": "b53188b58ee3b10086d2336fdcf31f7b23876e28496dc5333b77b2d1e03acc99"
+    },
+    "currentBrowserPerformance": {
+      "source": "98f9986f12b2088c69bdb7e5e4671694b5bcbba2",
+      "run": 39249240576,
+      "job": 118048662496,
+      "passed": false,
+      "scope": "Workerexit1 aftersample0;secondrequestECONNREFUSED;noacceptedperformancepass",
+      "artifact": 12184558111,
+      "archiveSha256": "a588e7a837caf8d54e7f35223e688f33544dd41a53dfa6206f577bc48c54e3fb"
+    },
+    "currentWindows": {
+      "source": "98f9986f12b2088c69bdb7e5e4671694b5bcbba2",
+      "run": 39249240794,
+      "job": 118048663014,
+      "passed": true,
+      "native": "10pass/0fail/1platformskip",
+      "portable": "200pass/0fail/8platformskips",
+      "helperArtifact": 12184009867,
+      "helperArchiveSha256": "3b69a86a8f5ee0b91dd1e738cc4e27d1ef3dde2eac8e873dc5253de3049c2b62",
+      "ownerDeviceAcceptance": false
+    },
+    "regexCorrection": {
+      "base": "98f9986f12b2088c69bdb7e5e4671694b5bcbba2",
+      "patchSha256": "c786d8dae57635b6a5d6511ecfb0abe528d0f11e23d74c026d287883e8615ba2",
+      "focusedPassed": 141,
+      "differentialPassed": 4,
+      "pairedCpuOldMedianMs": 35.88,
+      "pairedCpuNewMedianMs": 27.994,
+      "pairsNewLower": 20,
+      "normalBenchmarkRun": false,
+      "wholePathImprovementClaimed": false,
+      "independentReview": "no blocking findings"
+    },
+    "coarseDiagnostic": {
+      "source": "98f9986f12b2088c69bdb7e5e4671694b5bcbba2",
+      "diagnosticOnly": true,
+      "D1saveP95Ms": 3450.208293,
+      "passed": false,
+      "overlaySha256": "cca3965e14a4e7cbd66b1c5331d698d04d59762331a03b3afa1a861e95b95933",
+      "claim": "Observer overhead remains; await unions are not database service CPU. Overlay restored and absent from candidate."
+    },
+    "failureEvidenceCorrection": {
+      "proxyAndLogPassed": 10,
+      "existingHarnessAndDiagnosticPassed": 11,
+      "rawLimitBytes": 8388608,
+      "redactionBeforeTruncation": true,
+      "transportChanged": false,
+      "historicalCauseFixedClaimed": false,
+      "independentReview": "no blocking findings"
     }
   },
-  "uncommittedWork": "None besides synthetic benchmark outputs excluded from source publication.",
-  "publicSource": "3c6681a39d05b9b40ace26b49e5482aa2a4d40ed",
-  "publicPr": "https://github.com/krybaby7/control-room/pull/1"
+  "uncommittedWork": "Sanitizedpendingcandidatecheckpoint/master/ledger only; syntheticbenchmarkoutputs excluded.",
+  "publicSource": "98f9986f12b2088c69bdb7e5e4671694b5bcbba2",
+  "publicPr": "https://github.com/krybaby7/control-room/pull/1",
+  "checkpointBranch": "checkpoints/control-room-cloud-98"
 }

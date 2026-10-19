@@ -59,6 +59,7 @@ jobs:
           path: |
             test-results/
             test-results-r2/
+            benchmark-results/fixture-worker-*.log
           if-no-files-found: ignore
           retention-days: 3
       - run: npm run package:bridge

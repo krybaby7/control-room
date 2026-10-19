@@ -62,3 +62,6 @@ next-env.d.ts
 /blob-report/
 
 /release/
+
+# Finite synthetic fixture failure evidence, uploaded only by CI.
+/benchmark-results/fixture-worker-*.log

@@ -353,7 +353,7 @@
     "date": "2026-10-19",
     "branch": "feat/control-room-completion-cloud",
     "checkpoint": "resume-checkpoint.json",
-    "status": "implementation_complete_final_candidate_verification_pending",
+    "status": "reviewed_correction_candidate_prepared_canonical_pending",
     "canonicalCheckpoint": {
       "source": "3c6681a39d05b9b40ace26b49e5482aa2a4d40ed",
       "run": 39244318516,
@@ -387,7 +387,7 @@
       "status": "passed",
       "ownerDeviceAcceptance": false
     },
-    "sites": "Supported existing private Site source helper restored; no deployment or audience change.",
+    "sites": "SupportedexistingprivateSite helper preparedexact98sourcearchive; UNVALIDATEDafterfailedgates, notsaved/deployed; completeprecutoversnapshot unavailable.",
     "external": [
       "Real native Sites dispatch canonical URL, consumed bearer, private audience and finite manual window acceptance still require an actual validated deployment; no activation performed.",
       "Unattended renewal/wakeup requires separately supported renewable authority; finite manual access does not supply it.",
@@ -400,7 +400,7 @@
       "external alerts"
     ],
     "storage": "Existing Site identity and DB preserved; logical BUCKET declaration added without deployment or owner data writes.",
-    "publicSource": "3c6681a39d05b9b40ace26b49e5482aa2a4d40ed",
+    "publicSource": "98f9986f12b2088c69bdb7e5e4671694b5bcbba2",
     "draftPr": 1,
     "rejectedPerformanceExperiment": {
       "source": "6f2a5c83c64bc9414ab1e263d41b0c8be6e9671b",
@@ -408,6 +408,69 @@
       "D1saveP95Ms": 3199.614369,
       "integrated": false
     },
-    "preCutoverRecovery": "No owner data changed. Bounded native DB read marks saved workspace truncated, so a complete owner/provider snapshot is required before cutover; no incomplete backup claimed."
+    "preCutoverRecovery": "No owner data changed. Bounded native DB read marks saved workspace truncated, so a complete owner/provider snapshot is required before cutover; no incomplete backup claimed.",
+    "currentPerformance": {
+      "source": "98f9986f12b2088c69bdb7e5e4671694b5bcbba2",
+      "run": 39249240888,
+      "job": 118048666758,
+      "passed": false,
+      "D1saveP95Ms": 2800.471638,
+      "D1saveP50Ms": 2158.847242,
+      "limitMs": 2000,
+      "outcomesPerEngine": 100,
+      "restoresPerEngine": 6,
+      "errors": [],
+      "artifact": 12184836729,
+      "archiveSha256": "b53188b58ee3b10086d2336fdcf31f7b23876e28496dc5333b77b2d1e03acc99"
+    },
+    "currentBrowserPerformance": {
+      "source": "98f9986f12b2088c69bdb7e5e4671694b5bcbba2",
+      "run": 39249240576,
+      "job": 118048662496,
+      "passed": false,
+      "scope": "Workerexit1 aftersample0;secondrequestECONNREFUSED;noacceptedperformancepass",
+      "artifact": 12184558111,
+      "archiveSha256": "a588e7a837caf8d54e7f35223e688f33544dd41a53dfa6206f577bc48c54e3fb"
+    },
+    "currentWindows": {
+      "source": "98f9986f12b2088c69bdb7e5e4671694b5bcbba2",
+      "run": 39249240794,
+      "job": 118048663014,
+      "passed": true,
+      "native": "10pass/0fail/1platformskip",
+      "portable": "200pass/0fail/8platformskips",
+      "helperArtifact": 12184009867,
+      "helperArchiveSha256": "3b69a86a8f5ee0b91dd1e738cc4e27d1ef3dde2eac8e873dc5253de3049c2b62",
+      "ownerDeviceAcceptance": false
+    },
+    "pendingCorrection": {
+      "base": "98f9986f12b2088c69bdb7e5e4671694b5bcbba2",
+      "patchSha256": "c786d8dae57635b6a5d6511ecfb0abe528d0f11e23d74c026d287883e8615ba2",
+      "focusedPassed": 141,
+      "differentialPassed": 4,
+      "pairedCpuOldMedianMs": 35.88,
+      "pairedCpuNewMedianMs": 27.994,
+      "pairsNewLower": 20,
+      "normalBenchmarkRun": false,
+      "wholePathImprovementClaimed": false,
+      "independentReview": "no blocking findings"
+    },
+    "failureEvidenceCorrection": {
+      "proxyAndLogPassed": 10,
+      "existingHarnessAndDiagnosticPassed": 11,
+      "rawLimitBytes": 8388608,
+      "redactionBeforeTruncation": true,
+      "transportChanged": false,
+      "historicalCauseFixedClaimed": false,
+      "independentReview": "no blocking findings"
+    },
+    "coarseDiagnostic": {
+      "source": "98f9986f12b2088c69bdb7e5e4671694b5bcbba2",
+      "diagnosticOnly": true,
+      "D1saveP95Ms": 3450.208293,
+      "passed": false,
+      "overlaySha256": "cca3965e14a4e7cbd66b1c5331d698d04d59762331a03b3afa1a861e95b95933",
+      "claim": "Observer overhead remains; await unions are not database service CPU. Overlay restored and absent from candidate."
+    }
   }
 }

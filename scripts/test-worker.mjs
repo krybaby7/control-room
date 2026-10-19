@@ -1,3 +1,6 @@
+import {mkdir,writeFile} from 'node:fs/promises';
+import {join} from 'node:path';
+import {createFixtureWorkerLog} from './fixture-worker-log.mjs';
 import http from 'node:http';
 import assert from 'node:assert/strict';
 import {createHash,randomUUID} from 'node:crypto';
@@ -114,17 +117,21 @@ export async function smokeAttachments(){
 /** Fixture output contains only isolated synthetic identities/configuration. */
 export function fixtureFailure(error,logs){
  const message=error instanceof Error?error.message:String(error);
+ if(typeof logs!=='string')return new Error(`${message}\n${logs.summary()}`,{cause:error});
  return new Error(`${message}\nSynthetic local Worker logs (last 12000 characters):\n${logs.slice(-12000)||'[no Worker output captured]'}`,{cause:error});
 }
 export async function startFixture(args){
- const {serve,withR2}=parseFixtureArgs(args);await requireFreePort(4173);await requireFreePort(4174);const fixture=await prepareFixtures({withR2});let child;let proxy;let cleaning;let logs='';
+ const {serve,withR2}=parseFixtureArgs(args);await requireFreePort(4173);await requireFreePort(4174);const fixture=await prepareFixtures({withR2});let child;let proxy;let cleaning;const logs=createFixtureWorkerLog();
  const cleanup=()=>cleaning??=(async()=>{if(proxy){proxy.closeAllConnections();await new Promise(resolve=>proxy.close(resolve));}if(child&&child.exitCode===null){child.kill('SIGTERM');await Promise.race([new Promise(resolve=>child.once('exit',resolve)),pause(3000)]);if(child.exitCode===null){child.kill('SIGKILL');await new Promise(resolve=>child.once('exit',resolve));}}await fixture.cleanup();})();
  const onSignal=()=>{void cleanup().then(()=>process.exit(0));};process.once('SIGTERM',onSignal);process.once('SIGINT',onSignal);
  try{
-  child=spawn(process.execPath,[fixture.wrangler,'dev','--local','--config',fixture.configPath,'--persist-to',fixture.statePath,'--ip','127.0.0.1','--port','4174','--inspector-port','0','--log-level','debug'],{shell:false,cwd:ROOT,env:fixture.environment,stdio:['ignore','pipe','pipe']});for(const stream of [child.stdout,child.stderr])stream.on('data',data=>{logs=(logs+data.toString()).slice(-12000);});child.on('error',error=>{logs+=error.message;});
+  child=spawn(process.execPath,[fixture.wrangler,'dev','--local','--config',fixture.configPath,'--persist-to',fixture.statePath,'--ip','127.0.0.1','--port','4174','--inspector-port','0','--log-level','debug'],{shell:false,cwd:ROOT,env:fixture.environment,stdio:['ignore','pipe','pipe']});for(const stream of [child.stdout,child.stderr])stream.on('data',data=>{logs.append(data);});child.on('error',error=>{logs.append(error.message);});
   await waitReady(child);
   proxy=fixtureProxy();await new Promise((resolve,reject)=>{proxy.once('error',reject);proxy.listen(4173,'127.0.0.1',resolve);});
   if(!serve){await smokeFixture();if(withR2)await smokeAttachments();await cleanup();}else{console.log(`Synthetic local fixture ready at ${FIXTURE_ORIGIN}`);await new Promise((resolve,reject)=>{child.once('exit',code=>{if(!cleaning)reject(new Error(`Fixture worker exited ${code}`));else resolve();});});}
- }catch(error){throw fixtureFailure(error,logs);}finally{await cleanup();process.removeListener('SIGTERM',onSignal);process.removeListener('SIGINT',onSignal);}
+ }catch(error){
+  try{const directory=join(ROOT,'benchmark-results');await mkdir(directory,{recursive:true});await writeFile(join(directory,'fixture-worker-'+randomUUID()+'.log'),logs.raw(),{flag:'wx',mode:0o600});}catch{logs.append('\nError: synthetic Worker log artifact could not be saved.\n');}
+  throw fixtureFailure(error,logs);
+ }finally{await cleanup();process.removeListener('SIGTERM',onSignal);process.removeListener('SIGINT',onSignal);}
 }
 if(process.argv[1]===fileURLToPath(import.meta.url))startFixture(process.argv.slice(2)).catch(error=>{console.error(error.message);process.exitCode=1;});
