@@ -1,0 +1,38 @@
+name: Prepare blocked review package only
+on:
+  push:
+    branches: ['diagnostics/control-room-blocked-package*']
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CONTROL_ROOM_SOURCE_COMMIT: e4af1fc5ae344a029f9677576963700c92aaefee
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: e4af1fc5ae344a029f9677576963700c92aaefee
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm run install:ci
+      - run: npm run build
+      - run: npm run package:bridge
+      - run: node scripts/package-candidate.mjs
+      - run: echo 'REVIEW ONLY - main browser and D1 latency gates failed; no release acceptance or deployment.'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: UNVALIDATED-review-windows-bridge-e4af1fc5ae344a029f9677576963700c92aaefee
+          path: release/bridge/
+          if-no-files-found: error
+          retention-days: 90
+      - uses: actions/upload-artifact@v4
+        with:
+          name: UNVALIDATED-review-candidate-e4af1fc5ae344a029f9677576963700c92aaefee
+          path: release/candidate/
+          if-no-files-found: error
+          retention-days: 90
