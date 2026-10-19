@@ -1,3 +1,4 @@
+import {createSerializationHashContext,closeSerializationHashContext} from './serialization-hash.ts';
 import {verifyRecoverabilityRowHashes} from './recoverability-row-hashes.ts';
 import {startRecoverabilityPhase} from './recoverability-diagnostics.ts';
 import {compareSqliteText} from './sqlite-text-order.ts';
@@ -87,6 +88,8 @@ export interface ProspectiveRecoverabilityResult {agentTerminalReserveRows?:Arra
  * An allowed measurement does not itself authorize a write, restoration or paid action.
  */
 export async function measureProspectiveRecoverability(db:SqlDatabase,owner:string,input:ProspectiveRecoverabilityInput):Promise<ProspectiveRecoverabilityResult>{
+ const serializationHashContext=createSerializationHashContext();
+ try{
  if(!owner||!Number.isFinite(Date.parse(input.now)))throw new Error('An owner and valid measurement timestamp are required.');
  if(REFERENCE_LIMITS.rows!==BUNDLE_LIMITS.rows)throw new Error('Reference and recovery row bounds require an explicit serializer update.');
  if((input.writes?.length??0)>200||(input.events?.length??0)>2000||(input.replacements?.length??0)>OWNER_TABLES.length||(input.historyImports?.length??0)>BUNDLE_LIMITS.rows||(input.operationalWrites?.length??0)>BUNDLE_LIMITS.rows||(input.operationalEvents?.length??0)>BUNDLE_LIMITS.rows)throw new Error('Prospective operation count exceeds its bounded serializer scope.');
@@ -120,7 +123,7 @@ export async function measureProspectiveRecoverability(db:SqlDatabase,owner:stri
  // Omit operationalWatermarks intentionally: the virtual owner reader already filters
  // stream rows. Adapter serializers therefore never need an SQL imitation.
  const blockedDb:SqlDatabase={prepare(){throw new Error('Prospective serializer unexpectedly requested SQL.');},async batch(){throw new Error('Prospective measurement cannot write.');}};
- const serializeModules=async()=>{const modules:WorkspaceBundle['modules']={};for(const adapter of exportRegistry.entries()){if(adapter.key==='audit_events')continue;modules[adapter.key]={schemaVersion:adapter.schemaVersion,records:await adapter.exportRows({userId:owner,sourceRevision:boundaryRevision,query:virtual,db:blockedDb})};}return modules;};
+ const serializeModules=async()=>{const modules:WorkspaceBundle['modules']={};for(const adapter of exportRegistry.entries()){if(adapter.key==='audit_events')continue;modules[adapter.key]={schemaVersion:adapter.schemaVersion,records:await adapter.exportRows({userId:owner,sourceRevision:boundaryRevision,query:virtual,db:blockedDb,serializationHashContext})};}return modules;};
  for(const table of OWNER_TABLES)if(beforeRows.get(table)!.length&&!exportRegistry.entries().some(adapter=>moduleTables(adapter).includes(table)))throw new Error('Current populated module has no export adapter.');
  finishHashCurrent();
  const finishOriginalSerializer=startRecoverabilityPhase(db,'originalserializer');
@@ -128,7 +131,7 @@ export async function measureProspectiveRecoverability(db:SqlDatabase,owner:stri
  baseline.audit_events={schemaVersion:exportRegistry.get('audit_events').schemaVersion,records:capturedAudit.map(({id:_,...row})=>{void _;return serializePortableAuditRow(row as Record<string,unknown>&{event_id:string;payload_json:string});})};
  finishOriginalSerializer();
  const finishBundleOriginal=startRecoverabilityPhase(db,'bundleoriginal');
- const original=await buildWorkspaceBundle({planning:captured.workspace,modules:baseline,workspaceRevision:boundaryRevision,operationalWatermarks:boundaryWatermarks,...(namespaces?{auditNamespace:namespaces.auditNamespace}:{}),exportedAt:input.now});
+ const original=await buildWorkspaceBundle({planning:captured.workspace,modules:baseline,workspaceRevision:boundaryRevision,operationalWatermarks:boundaryWatermarks,...(namespaces?{auditNamespace:namespaces.auditNamespace}:{}),exportedAt:input.now},{serializationHashContext});
  finishBundleOriginal();
  const finishProjectPlan=startRecoverabilityPhase(db,'projectplan');
  const replaced=new Set<RegisteredOwnerTable>(),changed=new Set<string>();
@@ -165,7 +168,7 @@ export async function measureProspectiveRecoverability(db:SqlDatabase,owner:stri
  }
  for(const {event,streamId,sequence}of input.operationalEvents??[]){if(!/^[a-z][a-z0-9_-]{0,63}$/.test(streamId)||!Number.isSafeInteger(sequence)||sequence<1||sequence<=(boundaryWatermarks[streamId]??0)||sequence>(watermarks[streamId]??0)||audit.has(event.id))throw new Error('Operational audit is outside its prospective watermark.');audit.set(event.id,eventRow(event,null,null,streamId,sequence));}
  modules.audit_events={schemaVersion:exportRegistry.get('audit_events').schemaVersion,records:[...audit.values()].sort((a,b)=>compareSqliteText((a as {id:string}).id,(b as {id:string}).id))};
- const bundle=await buildWorkspaceBundle({planning,modules,workspaceRevision:prospectiveRevision,operationalWatermarks:watermarks,...(original.source.auditNamespace?{auditNamespace:original.source.auditNamespace}:{}),exportedAt:input.now},{enforceByteLimit:false});
+ const bundle=await buildWorkspaceBundle({planning,modules,workspaceRevision:prospectiveRevision,operationalWatermarks:watermarks,...(original.source.auditNamespace?{auditNamespace:original.source.auditNamespace}:{}),exportedAt:input.now},{enforceByteLimit:false,serializationHashContext});
  finishBundleAfter();
  const finishExpandFuture=startRecoverabilityPhase(db,'expandfuture');
  const tables:RecoverabilityTableInput[]=[],expandedRecords:string[]=[],futureTableArguments:Array<{name:string;serialized:string}>=[];
@@ -200,4 +203,5 @@ export async function measureProspectiveRecoverability(db:SqlDatabase,owner:stri
  if((await getWorkspaceNamespaces(db,owner))?.auditNamespace!==namespaces?.auditNamespace)throw new Error('Audit namespace changed during recoverability measurement.');
  finishFinalReads();
  return {agentTerminalReserveRows:terminalReserveRows,measurement,boundaryRevision,boundaryWatermarks:{...boundaryWatermarks},boundaryRows:OWNER_TABLES.map(table=>({table,rows:beforeRows.get(table)!.map(({id,row_revision,content_hash})=>({id,row_revision,content_hash}))}))};
+ }finally{closeSerializationHashContext(serializationHashContext);}
 }
