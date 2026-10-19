@@ -14,13 +14,15 @@ Normal benchmark 39194510942/job 117874255539 failed only D1 save p95: 2,499.678
 
 Independent packaging run 39196349095 built exact e4 source. Candidate artifact 12161504710 and Windows bridge artifact 12161808777 are explicitly UNVALIDATED review packages. Actual archive inspection 39196532648/job 117880419325 verified 1,032 source files, 332 build files and 34 bridge files, exact hashes and both tampering controls. Integrity is not release acceptance or publication. Full identities are in verification-e4af1fc5.json.
 
-## Current diagnosis and next action
+## Terminal diagnosis and decision
 
-Captured-stderr jobs diagnostic 9b98f8ea34b04ce681d3893f445bfa7e9111ae92, run 39197094431/job 117882154116, is running the original full pipeline. Earlier stdout-only diagnostic 601d95 was superseded and provides no request-phase proof. No fixture deadline or assertions were relaxed.
+Corrected jobs diagnostic 9b98/run39197094431/job117882154116 TERMINAL SUCCESS: 1776 Node tests (309249.212968ms),146 bridge tests,typecheck/lint/build/all native checks;63/63 default browser (4.4m),3/3 R2 (51.2s) and HTTP passed. Captured351 closed events and25 GET /api/jobs requests: all200,headers29–72ms,all25 reader validations,no deadline/error. This is NONREPRODUCTION ONLY: no causal fix and no canonical-source pass.
 
-Bounded SHA/SQL profile 20c9e24b93c9211a52517940043134603569d040, run 39197190916/job 117882391501, terminated: 19 contracts/typecheck/lint passed; diagnostic D1 p95 2,360.012035 ms failed and is not acceptance. Serializer synchronous CPU was 24.6–32.9 ms, while whole-command SHA Promise wait union was 868–1,049 ms. Those intervals include queue, service and resume. Truncated synchronous interval unions are null, not fabricated. A bounded server-only small-string native SHA-256 experiment is being reviewed; shared/client hashing, large/binary WebCrypto, authority checks and budgets remain unchanged.
+Profile20c9 finished with19contracts/typecheck/lint passing and diagnosticp952360.012035ms failing. SerializerCPU24.6–32.9ms versusSHApromiseunion868–1049ms;queue/service/resume inseparable and truncatedsyncunionsnull.
 
-Next: review the four-path experimental candidate, run real Worker parity/contracts/build and one unchanged normal benchmark; inspect terminal jobs diagnostic before proposing a causal fix. Do not rerun to green, waive budgets, or promote review artifacts.
+Native-SHA experiment817/run39198054055: contractsjob117884994482 passed41/41 (8085.558832ms),Worker parity,typecheck/lint/build/runtime27migrations. Normaljob117884994781 FAILED D1savep952976.172820ms>2000,p502244.327927ms;SQLite972.609903ms and D1read925.253108ms passed,100outcomes/sixrestores perengine/errors[]. Artifact12162961643 SHA25635fadef0b16c4051c9d38320e45a63238f11a481c7bb8d4b5a7a86b3ca46fc6c. Static review of462 files/100 client entries found no client path. DECISION: no integration,no improvement,no rerun;canonical e4 remains frozen.
+
+Preserve frozen canonical e4. No native-SHA integration or rerun; no causal jobs fix established. Review packages remain UNVALIDATED, not release acceptance.
 
 ## Remaining external and engineering work
 

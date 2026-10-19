@@ -1,6 +1,6 @@
 # Control Room Completion Implementation Plan
 
-> **For agentic workers:** Use `superpowers:subagent-driven-development` or `superpowers:executing-plans` when available. Execute the phase checklists, retain evidence, and update `progress.json`. The user requested this plan for later cloud implementation; this document is not a record of completed implementation.
+> **For agentic workers:** Use `superpowers:subagent-driven-development` or `superpowers:executing-plans` when available. Execute the phase checklists, retain evidence, and update `progress.json`. The user requested this plan for later cloud implementation; the historical plan is followed by source-specific implementation and verification checkpoints below.
 
 **Goal:** Complete every actionable gap in the 18 October 2026 Control Room audit: richer planning, durable recovery and evidence, current source information, useful automated reviews, PC visibility and controlled agent execution.
 
@@ -91,16 +91,16 @@ flowchart LR
 
 **Create during implementation:** `docs/implementation/control-room/{environment.md,contracts.md,decisions.md}`, `.github/workflows/control-room-ci.yml` only if a real GitHub repository is selected, and phase-specific verification records under `docs/superpowers/verification/`.
 
-- [ ] Clone the owner-specified GitHub repository and inspect `AGENTS.md`, its current commit, and `docs/source-import.json`. Verify imported baseline file hashes before modifying them; preserve newer work if the repository has advanced. For the archive fallback, verify `SOURCE-MANIFEST.json` and safe paths before initialization. If opening current source through Sites instead, compare its SHA with the audit baseline and adapt without overwriting newer work.
-- [ ] In a managed cloud environment, read the installed cloud-environment skill, inspect environment readiness/network policy, and use configured identities. Do not print credentials or assume access to the Windows source directories.
-- [ ] Use Node 24. Preserve `package-lock.json` and install through `npm run install:ci`; repair only an evidenced platform failure. Do not perform an unrelated dependency upgrade.
-- [ ] Run the existing baseline commands below and record exact results. If they fail in cloud, isolate environment differences before changing product code.
-- [ ] Read current installed Sites guidance for source opening, private deployment, D1/R2, request identity and connectors. Copy verified environment capability results into `environment.md` without secrets.
-- [ ] Create isolated test data and synthetic owner A/B fixtures. Do not place the owner's production workspace export in source control, the source archive, CI artifacts or public screenshots.
-- [ ] Lock Phase 1 transaction, actor, export registry and event contracts before delegating dependent modules. Derive owner identity server-side. Define module routes so no raw provider proxy or arbitrary shell endpoint can be created accidentally.
-- [ ] Create a migration preservation fixture containing v1/v2 documents, archived completed prerequisites, proposal/baseline markers, near-limit content, unknown optional fields rejection and valid foreign-owner records. Use synthetic IDs/text.
-- [ ] Establish test scripts per phase before invoking new names. Current scripts are `test`, `typecheck`, `lint`, `build`, `install:ci`, `dev`, `start`, `db:generate`; additional names in phase plans are implementation deliverables, not already-installed commands. Standard browser location is `tests/e2e/` and script `test:e2e`; Phase 1 defines the harness and Phase 8 broadens it.
-- [ ] Update `progress.json`: baseline SHA, branch, phase state, completed tasks, test evidence, capability blockers and next action. Commit the plan and progress checkpoint to the selected implementation repository. No remote is presumed.
+The bootstrap below is completed setup evidence, not a list of outstanding application work. Live deployment and device/provider acceptance remain separate requirements.
+
+- [x] Selected repository and imported baseline provenance are recorded; frozen source and review-package byte identity were independently verified.
+- [x] Cloud capability boundaries and configured GitHub/Actions identities were checked. Managed workspace/helper execution remains unavailable; no Windows source access is implied.
+- [x] Node 24 and locked CI installation are established; original and expanded tests, typecheck, lint and build have actual cloud results.
+- [x] Sites metadata/deployment capability and unavailable supported helper execution are distinguished in the environment/checkpoint records.
+- [x] Synthetic owner-isolation, migration-preservation, near-limit, legacy v1/v2 and malformed-input fixtures exist; production owner exports are not test inputs.
+- [x] Owner-derived transaction, actor, export-registry, event and bounded route contracts are implemented and reviewed.
+- [x] Phase-specific scripts and actual repository workflows are established; their results remain tied to exact source/run identities.
+- [x] Plan, progress, verification and interruption checkpoints are maintained. Phase 0 setup is complete; this does not make later failed acceptance gates pass.
 
 ```bash
 node --version
@@ -188,8 +188,8 @@ Canonical application source remains `e4af1fc5ae344a029f9677576963700c92aaefee`.
 
 Independent exact-e4 **UNVALIDATED review packages** now exist for source, build and bridge. Integrity verification checked 1032 source files, 332 build files and 34 bridge files, plus two tamper controls. The complete evidence index is `verification-e4af1fc5.json`. These packages are available for review; they are not accepted release artifacts, a passing full gate or a deployment. The failed main run itself skipped packaging.
 
-The corrected jobs diagnostic `9b98` is running its full pipeline; no terminal pass is claimed. Profile diagnostic `20c9` finished with 19 contract tests, typecheck and lint passing, while its diagnostic p95 remained approximately 2360ms and failed the unchanged gate. Measured serializer CPU was 24.6–32.9ms; the SHA-promise union was 868–1049ms, with queue/service/resume inseparable. Truncated synchronous unions remain null, not zero or measured durations.
+Corrected jobs diagnostic 9b98/run39197094431/job117882154116 TERMINAL SUCCESS: 1776 Node tests (309249.212968ms),146 bridge tests,typecheck/lint/build/all native checks;63/63 default browser (4.4m),3/3 R2 (51.2s) and HTTP passed. Captured351 closed events and25 GET /api/jobs requests: all200,headers29–72ms,all25 reader validations,no deadline/error. This is NONREPRODUCTION ONLY: no causal fix and no canonical-source pass. Profile diagnostic `20c9` finished with 19 contract tests, typecheck and lint passing, while its diagnostic p95 remained approximately 2360ms and failed the unchanged gate. Measured serializer CPU was 24.6–32.9ms; the SHA-promise union was 868–1049ms, with queue/service/resume inseparable. Truncated synchronous unions remain null, not zero or measured durations.
 
-Experimental physical-only server small-string native SHA work (`b112`/`817ffba`) is isolated on `diagnostics/control-room-native-sha-e4`, run39198054055. Contracts, build, runtime and one unchanged normal run are currently running. Shared client behavior is unchanged; this experiment is not integrated and has no claimed pass or performance improvement.
+Native-SHA experiment817/run39198054055: contractsjob117884994482 passed41/41 (8085.558832ms),Worker parity,typecheck/lint/build/runtime27migrations. Normaljob117884994781 FAILED D1savep952976.172820ms>2000,p502244.327927ms;SQLite972.609903ms and D1read925.253108ms passed,100outcomes/sixrestores perengine/errors[]. Artifact12162961643 SHA25635fadef0b16c4051c9d38320e45a63238f11a481c7bb8d4b5a7a86b3ca46fc6c. Static review of462 files/100 client entries found no client path. DECISION: no integration,no improvement,no rerun;canonical e4 remains frozen.
 
 Private runtime extraction/registration and Windows owned-process/sandbox invocation remain missing code, separate from owner installation and actual-device acceptance. Provider/device consent and supported helper execution remain unavailable; Site metadata/deployment access exists. Paid inference, execution/trading effects and external alerts remain off.
