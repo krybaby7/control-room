@@ -1,0 +1,36 @@
+name: Native Windows owned-process checks
+on:
+  push:
+    branches: ['diagnostics/control-room-owned-process-native']
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - run: node --test --test-timeout=180000 bridge/test/owned-process-native.test.mjs
+      - run: node --test --test-timeout=30000 bridge/test/executor-*.test.mjs
+      - name: Build single-file owned helper
+        run: dotnet publish bridge/windows/owned-process/OwnedProcess.csproj --configuration Release --output release/owned-process --runtime win-x64 --self-contained false -p:PublishSingleFile=true
+      - name: Record exact helper bytes
+        shell: pwsh
+        run: |
+          $exe = 'release/owned-process/OwnedProcess.exe'
+          $hash = (Get-FileHash -Algorithm SHA256 $exe).Hash.ToLower()
+          @{ sourceCommit=$env:GITHUB_SHA; sha256=$hash; runtimeRequirement='.NET 8'; ownerDeviceAcceptance=$false; providerExecution=$false } | ConvertTo-Json | Set-Content release/owned-process/manifest.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: synthetic-validated-owned-helper-${{ github.sha }}
+          path: |
+            release/owned-process/OwnedProcess.exe
+            release/owned-process/manifest.json
+          if-no-files-found: error
+          retention-days: 90
