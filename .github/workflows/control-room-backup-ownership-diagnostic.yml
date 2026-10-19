@@ -39,4 +39,4 @@ jobs:
       - run: npm test
         timeout-minutes: 9
 
-# Verify deterministic body-ownership regressions against actual D1/R2.
+# Apply the reviewed cleanup modules at their original automations paths.

@@ -119,8 +119,9 @@ export async function reauthorizeRetiredFileBackup(db:SqlDatabase,owner:string,i
  if(Date.parse(archive.created_at)>Date.parse(now)||Date.parse(newer.logical.created_at)>Date.parse(now))throw new Error('Recovery point timestamps exceed the server clock.');
  const epoch=(await db.prepare('SELECT COALESCE((SELECT epoch FROM workspace_execution_state WHERE user_id=?),0) epoch').bind(owner).first<{epoch:number}>())!.epoch;z.number().int().nonnegative().safe().parse(epoch);
  const verified=await readReadyFileBackup(db,owner,command.newerId,options.services,options.signal);
- if(!verified||verified.indexHash!==newer.archive.index_sha256||verified.index.metadataSha256!==command.newerSha256)throw new Error('The newer complete file recovery point could not be verified.');
+ if(!verified)throw new Error('The newer complete file recovery point could not be verified.');
  await verified.stream.cancel();
+ if(verified.indexHash!==newer.archive.index_sha256||verified.index.metadataSha256!==command.newerSha256)throw new Error('The newer complete file recovery point could not be verified.');
  if(options.signal?.aborted)throw new Error('Authorization cancelled.');
  // Retired parsing independently validates the old index hash and exact closed
  // namespace keys; capture all physical columns for the subsequent atomic CAS.
