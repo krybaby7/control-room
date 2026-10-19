@@ -54,7 +54,7 @@ jobs:
                   await inspect(join(path,name),relative+'/'+name);
                 }
               }else if(stat.isFile()){
-                try{validateCandidateBuildPath(relative);}catch{if(rejectedPaths.length<20)rejectedPaths.push({path:safe(relative),reason:'build-path-policy'});}
+                try{validateCandidateBuildPath(relative);}catch{if(rejectedPaths.length<20)rejectedPaths.push({path:safe(relative),pathUtf8Base64:Buffer.from(relative,'utf8').toString('base64'),reason:'build-path-policy'});}
               }
             }
             try{await inspect('dist','dist');console.log('UNVALIDATED_BUILD_PATH_DIAGNOSTIC '+JSON.stringify({sourceCommit:process.env.CONTROL_ROOM_SOURCE_COMMIT,visited,rejectedPaths,maximumReportedPaths:20}));}
