@@ -54,7 +54,7 @@ public static class SyntheticOwner {
  $targets=@($directory)+@($entries|ForEach-Object{$_.FullName})
  $wasCurrent=$true;$wasAdmin=$false
  foreach($path in $targets){
-  $h=[SyntheticOwner]::Open($path,$true);$handles.Add($h);$i=[SyntheticOwner]::Inspect($h);$isDirectory=[String]::Equals($path,$directory,[StringComparison]::OrdinalIgnoreCase)
+  $h=[SyntheticOwner]::Open($path,$true);$handles.Add($h);$i=[SyntheticOwner]::Inspect($h);$isDirectory=[String]::Equals($path,$directory,[StringComparison]::OrdinalIgnoreCase) -or ($AppendInheritedFile -and [String]::Equals($path,(Join-Path $directory '.control-room-workspaces'),[StringComparison]::OrdinalIgnoreCase))
   if(($i.Attributes -band  0x400) -ne  0  -or  ((($i.Attributes -band  0x10) -ne  0) -ne  $isDirectory)  -or  ( -not  $isDirectory  -and  $i.Links -ne  1)){throw 'invalid_fixture_object'}
   $created=[DateTime]::FromFileTimeUtc(([Int64]$i.CreationHigh  -shl  32) -bor  [Int64]$i.CreationLow)
   if($created  -gt  [DateTime]::UtcNow  -or  ([DateTime]::UtcNow-$created).TotalMinutes -gt  10){throw 'stale_fixture'}
@@ -77,4 +77,4 @@ public static class SyntheticOwner {
   }
  }
  [Console]::Out.WriteLine(('{"ownerWasCurrent":'+$wasCurrent.ToString().ToLowerInvariant()+',"ownerWasAdmin":'+$wasAdmin.ToString().ToLowerInvariant()+'}'))
-}catch{[Console]::Error.WriteLine('synthetic_fixture_owner_unavailable');exit 1}finally{foreach($h in $handles){$h.Dispose()}}
+}catch{$known=@('invalid_fixture','invalid_fixture_parent','invalid_fixture_inventory','invalid_fixture_digest','invalid_fixture_object','stale_fixture','foreign_fixture_owner','fixture_owner_unconfirmed','fresh_empty_fixture_required','fixture_file_exists');$reason=if($_.Exception.Message -in $known){$_.Exception.Message}else{'native_failure'};[Console]::Error.WriteLine(('synthetic_fixture_'+$reason));exit 1}finally{foreach($h in $handles){$h.Dispose()}}

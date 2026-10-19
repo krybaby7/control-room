@@ -65,7 +65,7 @@ test('native Windows registration refuses an unbound mutable application sidecar
 test('native Windows joins deferred durable callback after helper exits and never resumes afterward', {skip:!windows},async()=>{
  const controller=new AbortController();let release,started;const barrier=new Promise(resolve=>{release=resolve;}),entered=new Promise(resolve=>{started=resolve;});let settled=false;
  const pending=owner.run(request(['silent'],{signal:controller.signal,onStarted:async()=>{started();controller.abort();await barrier;}})).then(value=>{settled=true;return value;});
- await Promise.race([entered,pending.then(()=>{throw Error('owned callback not entered');})]);await new Promise(resolve=>setTimeout(resolve,250));assert.equal(settled,false);release();const result=await pending;assert.equal(result.processExitConfirmed,false);assert.equal(result.terminationUnconfirmed,true);
+ try{await Promise.race([entered,pending.then(()=>{throw Error('owned callback not entered');})]);await new Promise(resolve=>setTimeout(resolve,250));assert.equal(settled,false);}finally{release();}const result=await pending;assert.equal(result.processExitConfirmed,false);assert.equal(result.terminationUnconfirmed,true);
  await assert.rejects(owner.run(request()),/owned_process_slot_unavailable/);
 });
 test('native Windows stale or reused PID text cannot select a process to stop', {skip:!windows},async()=>{
@@ -76,7 +76,7 @@ test('native Windows stale or reused PID text cannot select a process to stop', 
 test('native Windows selected workspace exceeds256 nested files, accepts inherited private ACL, refuses junction/cross-root', {skip:!windows},async()=>{
  const directory=await realpath(await mkdtemp(join(tmpdir(),'owned-native-build-'))),workspaceRoot=join(directory,'.control-room-workspaces'),repo=join(workspaceRoot,'repo-'+ 'a'.repeat(32)),worktrees=join(repo,'worktrees'),attempt=join(worktrees,'attempt-'+ 'b'.repeat(32));
  const script=fileURLToPath(new URL('./fixtures/prepare-owned-native-fixture.ps1',import.meta.url)),powershell=join(process.env.SystemRoot??'C:\\Windows','System32','WindowsPowerShell','v1.0','powershell.exe');
- const createFixture=flag=>{const result=spawnSync(powershell,['-NoLogo','-NoProfile','-NonInteractive','-File',script,'-DirectoryPath',directory,flag],{encoding:'utf8',shell:false,timeout:10000,maxBuffer:4096});assert.equal(result.status,0,'synthetic_scope_fixture_unavailable');};
+ const createFixture=flag=>{const result=spawnSync(powershell,['-NoLogo','-NoProfile','-NonInteractive','-File',script,'-DirectoryPath',directory,flag],{encoding:'utf8',shell:false,timeout:10000,maxBuffer:4096});if(result.status!==0){const diagnostic=result.stderr.trim();console.log(JSON.stringify({syntheticScopeFixtureDiagnostic:/^synthetic_fixture_[a-z_]{1,64}$/u.test(diagnostic)?diagnostic:'synthetic_fixture_unknown'}));}assert.equal(result.status,0,'synthetic_scope_fixture_unavailable');};
  try{
   createFixture('-WorkspaceFixture');
   for(const [path,scope]of [[workspaceRoot,'workspace-root'],[repo,'workspace-repository'],[worktrees,'workspace-attempts'],[attempt,'workspace-tree']])await prepareWindowsExecutorStateDirectory(path,{scope});
