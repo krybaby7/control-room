@@ -1,0 +1,25 @@
+name: Control Room native source admission verification
+on:
+  push:
+    branches: ['diagnostics/control-room-source-admission-fix*']
+permissions:
+  contents: read
+jobs:
+  source-admission:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm run install:ci
+      - run: node --experimental-strip-types --test tests/automation-admission-parameters.test.ts tests/automation-runner.test.ts tests/source-controls.test.ts tests/source-schedule-authority.test.ts tests/scheduled-source-executor.test.ts
+      - run: npm run test:scheduled-source-d1
+      - run: npm run typecheck
+        if: always()
+      - run: npm run lint
+        if: always()
