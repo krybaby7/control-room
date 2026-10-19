@@ -1,24 +1,25 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {spawn,spawnSync} from 'node:child_process';
-import {readFile,mkdtemp,rm,access,readdir,writeFile} from 'node:fs/promises';
+import {readFile,mkdtemp,rm,access,readdir,writeFile,realpath} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {once} from 'node:events';
-import {createWindowsOwnedProcessSupervisor} from '../executor/owned-process.mjs';
+import {createWindowsOwnedProcessSupervisor,prepareWindowsOwnedHelperDirectory,assertWindowsOwnedProcessSupervisor} from '../executor/owned-process.mjs';
 const windows=process.platform==='win32',fixture=fileURLToPath(new URL('./fixtures/owned-child.mjs',import.meta.url));
 let owner,buildDirectory,registration;
 test.before(async()=>{
  if(!windows)return;
- buildDirectory=await mkdtemp(join(tmpdir(),'owned-native-build-'));
+ const selected=await mkdtemp(join(tmpdir(),'owned-native-build-'));buildDirectory=await realpath(selected);
+ console.log(JSON.stringify({canonicalFixture:{shortAliasUsed:/~[0-9]+(?:[\\/]|$)/u.test(selected)&&selected.toLowerCase()!==buildDirectory.toLowerCase(),caseChanged:selected!==buildDirectory&&selected.toLowerCase()===buildDirectory.toLowerCase(),sepChanged:selected.toLowerCase()!==buildDirectory.toLowerCase()&&selected.replaceAll('\\','/').toLowerCase()===buildDirectory.replaceAll('\\','/').toLowerCase()}}));
  const project=fileURLToPath(new URL('../windows/owned-process/OwnedProcess.csproj',import.meta.url));
  const build=spawnSync('dotnet',['publish',project,'--configuration','Release','--output',buildDirectory,'--runtime','win-x64','--self-contained','false','-p:PublishSingleFile=true'],{encoding:'utf8',shell:false,timeout:120000});
  assert.equal(build.status,0,build.stdout+'\n'+build.stderr);
  assert.deepEqual((await readdir(buildDirectory)).filter(name=>name!=='OwnedProcess.pdb'),['OwnedProcess.exe']);
  const helperExecutable=join(buildDirectory,'OwnedProcess.exe'),helperSha256=createHash('sha256').update(await readFile(helperExecutable)).digest('hex');
- registration={helperExecutable,helperSha256};
+ await prepareWindowsOwnedHelperDirectory(buildDirectory);registration={helperExecutable,helperSha256};
 });
 test.beforeEach(async()=>{if(windows)owner=await createWindowsOwnedProcessSupervisor(registration);});
 test.after(async()=>{if(buildDirectory)await rm(buildDirectory,{recursive:true,force:true});});
@@ -26,6 +27,7 @@ function request(args=[],overrides={}){
  const env={};for(const key of ['SystemRoot','WINDIR','TEMP','TMP','PATH'])if(process.env[key])env[key]=process.env[key];
  return {executable:process.execPath,args:[fixture,...args],cwd:resolve(tmpdir()),env,input:'synthetic input',timeoutMs:5000,outputBytesLimit:65536,signal:new AbortController().signal,onStarted:async identity=>{assert.ok(identity.pid>0);assert.match(identity.ownershipSha256,/^[a-f0-9]{64}$/u);},onStdout(){},onStderr(){},...overrides};
 }
+test('native owner JSON, copied methods and flags cannot mint supervisor provenance',()=>{for(const value of [{},{run(){}},{native:true,run(){}},null])assert.throws(()=>assertWindowsOwnedProcessSupervisor(value),/native_owned_supervisor_required/);});
 test('non-Windows owner construction refuses to manufacture native ownership', {skip:windows},async()=>{await assert.rejects(createWindowsOwnedProcessSupervisor({helperExecutable:'/synthetic',helperSha256:'a'.repeat(64)}),/windows_owned_process_unavailable/);});
 test('native Windows suspended process does not execute until durable callback completes', {skip:!windows},async()=>{
  const directory=await mkdtemp(join(tmpdir(),'owned-marker-')),marker=join(directory,'marker');

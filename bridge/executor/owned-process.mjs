@@ -1,8 +1,24 @@
-import {spawn} from 'node:child_process';
+import {spawn,execFile} from 'node:child_process';
 import {lstat,readFile,readdir,realpath} from 'node:fs/promises';
 import {isAbsolute,dirname,basename,extname,join} from 'node:path';
 import {createHash,randomUUID} from 'node:crypto';
+import {promisify} from 'node:util';
+import {fileURLToPath} from 'node:url';
+import {win32} from 'node:path';
 import {shape,digest,integer,fail,sha} from './codec.mjs';
+
+const executeFile=promisify(execFile);
+async function protectHelperDirectory(directory,{protect=false}={}){
+ const system=process.env.SystemRoot??'C:\\Windows',environment={};
+ for(const [key,value]of Object.entries(process.env))if(['systemroot','windir','userprofile','localappdata','appdata','temp','tmp','homedrive','homepath','username','userdomain','programdata','programfiles','programfiles(x86)','commonprogramfiles'].includes(key.toLowerCase()))environment[key]=value;
+ environment.PSModulePath=win32.join(system,'System32','WindowsPowerShell','v1.0','Modules');environment.Path=win32.join(system,'System32');
+ try{const result=await executeFile(win32.join(system,'System32','WindowsPowerShell','v1.0','powershell.exe'),['-NoLogo','-NoProfile','-NonInteractive','-File',fileURLToPath(new URL('../windows/protect-owned-helper.ps1',import.meta.url)),'-DirectoryPath',directory,...(protect?['-Protect']:[])],{shell:false,windowsHide:true,env:environment,timeout:10000,maxBuffer:4096,encoding:'utf8'});const value=JSON.parse(result.stdout.trim());shape(value,['protected','entries']);if(value.protected!==true||!Number.isInteger(value.entries)||value.entries<2||value.entries>3)throw Error();}catch{fail('owned_helper_acl_unverified');}
+}
+
+export async function prepareWindowsOwnedHelperDirectory(directory){if(process.platform!=='win32')fail('windows_owned_process_unavailable');if(typeof directory!=='string'||!isAbsolute(directory)||/[\r\n\0]/u.test(directory))fail('invalid_owned_helper');await protectHelperDirectory(directory,{protect:true});}
+
+const nativeSupervisors=new WeakSet();
+export function assertWindowsOwnedProcessSupervisor(owner){if(!nativeSupervisors.has(owner))fail('native_owned_supervisor_required');return owner;}
 
 /** Trusted local native helper registration. No cloud executable/config selector.
  * Job ownership controls process lifetime; it does not establish a sandbox. */
@@ -17,11 +33,12 @@ export async function createWindowsOwnedProcessSupervisor({helperExecutable,help
   // A framework-dependent single-file app embeds its private DLL/config. Never
   // hash only an apphost while accepting mutable sibling application code.
   for(const entry of await readdir(directory)){if(![name,stem+'.pdb'].includes(entry))fail('unexpected_owned_helper_sidecar');const stat=await lstat(join(directory,entry));if(!stat.isFile()||stat.isSymbolicLink())fail('unsafe_owned_helper_entry');}
+  await protectHelperDirectory(directory);
   const file=await lstat(helperExecutable);if(!file.isFile()||file.isSymbolicLink()||file.size>32*1024*1024||createHash('sha256').update(await readFile(helperExecutable)).digest('hex')!==helperSha256)fail('owned_helper_identity_differs');
  }
  await verifyHelper();
  let active=false,poisoned=false;
- return Object.freeze({async run(request){
+ const supervisor=Object.freeze({async run(request){
   if(active||poisoned)fail('owned_process_slot_unavailable');
   shape(request,['executable','args','cwd','env','input','timeoutMs','outputBytesLimit','signal','onStarted','onStdout','onStderr']);
   for(const key of ['executable','cwd'])if(typeof request[key]!=='string'||!isAbsolute(request[key])||/[\r\n\0]/u.test(request[key]))fail('invalid_owned_request');
@@ -65,4 +82,5 @@ export async function createWindowsOwnedProcessSupervisor({helperExecutable,help
    if(request.signal.aborted)abort();
   });
  }});
+ nativeSupervisors.add(supervisor);return supervisor;
 }
