@@ -1,4 +1,5 @@
+import {createManualSitesIngress} from '../../../../lib/devices/private-ingress';
 import {env} from 'cloudflare:workers';
 import {handleAgentHttp} from '../../../../lib/agents/http';
 export const dynamic='force-dynamic';
-export async function POST(request:Request){return handleAgentHttp('evaluations',request,{db:env.DB??null});}
+export async function POST(request:Request){return handleAgentHttp('evaluations',request,{db:env.DB??null,ingress:createManualSitesIngress(env.CONTROL_ROOM_MANUAL_SITES_WINDOW)});}

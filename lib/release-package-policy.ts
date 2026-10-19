@@ -26,7 +26,7 @@ const bridgePath=/^(?:package\.json|README\.md|config\.example\.json|src\/[a-z0-
  * binaries and owner state never belong in this immutable source inventory. */
 export const BRIDGE_03_SOURCE_PATHS:readonly string[]=Object.freeze([
  'package.json','README.md','config.example.json',
- ...['agent-lab-import','agent-lab','cli','config','credentials','execution-policy','outbox','pc-command-center','transport','windows-state'].map(name=>'src/'+name+'.mjs'),
+ ...['agent-lab-import','agent-lab','cli','config','credentials','execution-policy','outbox','pc-command-center','site-identity','sites-access','transport','windows-state'].map(name=>'src/'+name+'.mjs'),
  ...['artifact-upload','artifacts','claims','cli','codec','completion','connection','content-policy','executor','journal','launch-config','lease','operations','owned-process','recovery','runner','runtime-install','runtime','store','transport','wire','workspace'].map(name=>'executor/'+name+'.mjs'),
  'executor/README.md','executor/config.example.json','executor/launch-config.example.json',
  ...['install-task','protect-credential','protect-owned-helper','protect-state','run-bridge','uninstall-task'].map(name=>'windows/'+name+'.ps1'),

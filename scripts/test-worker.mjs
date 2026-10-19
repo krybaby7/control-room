@@ -18,9 +18,18 @@ export function fixtureFetch(input,init={},timeoutMs=FIXTURE_REQUEST_TIMEOUT_MS)
  return fetch(input,{...init,signal}).then(response=>{console.log(`[fixture-http] sequence=${sequence} method=${safeMethod} route=${route} phase=headers`);return response;},error=>{console.log(`[fixture-http] sequence=${sequence} method=${safeMethod} route=${route} phase=failed`);throw error;});
 }
 export async function requireFreePort(port){await new Promise((resolve,reject)=>{const server=net.createServer();server.once('error',()=>reject(new Error(`Fixture port ${port} is occupied.`)));server.listen(port,'127.0.0.1',()=>server.close(resolve));});}
+const fixtureHopHeaders=new Set(['connection','keep-alive','proxy-connection','proxy-authenticate','proxy-authorization','te','trailer','transfer-encoding','upgrade']);
+function withoutFixtureHopHeaders(source){
+ const headers={...source},nominated=new Set();
+ for(const [name,value] of Object.entries(source))if(name.toLowerCase()==='connection')for(const token of String(value??'').split(','))nominated.add(token.trim().toLowerCase());
+ for(const name of Object.keys(headers))if(fixtureHopHeaders.has(name.toLowerCase())||nominated.has(name.toLowerCase()))delete headers[name];
+ return headers;
+}
 export function fixtureProxy({requestTimeoutMs=FIXTURE_REQUEST_TIMEOUT_MS}={}){
  if(!Number.isSafeInteger(requestTimeoutMs)||requestTimeoutMs<1||requestTimeoutMs>FIXTURE_REQUEST_TIMEOUT_MS)throw new Error('Invalid fixture proxy deadline.');
- return http.createServer((request,response)=>{
+ // Isolated localhost fixtures must not share application/global socket pools.
+ const agent=new http.Agent({keepAlive:false});
+ const server=http.createServer((request,response)=>{
   if(request.headers.host!=='127.0.0.1:4173'){response.writeHead(421).end();return;}
   if(!request.url?.startsWith('/')||request.url.startsWith('//')){response.writeHead(400).end();return;}
   const url=new URL(request.url,FIXTURE_ORIGIN);if(url.origin!==FIXTURE_ORIGIN){response.writeHead(400).end();return;}
@@ -29,23 +38,28 @@ export function fixtureProxy({requestTimeoutMs=FIXTURE_REQUEST_TIMEOUT_MS}={}){
    const owner=url.searchParams.get('owner');response.writeHead(204,{'Set-Cookie':`fixture_session=${owner}; HttpOnly; SameSite=Strict; Path=/`,'Cache-Control':'no-store'}).end();return;
   }
   if(url.pathname.startsWith('/__test/')){response.writeHead(404).end();return;}
-  const headers={...request.headers,host:'127.0.0.1:4174'};for(const name of Object.keys(headers))if(name.startsWith('oai-authenticated-'))delete headers[name];
-  const session=request.headers.cookie?.split(';').map(value=>value.trim()).find(value=>value.startsWith('fixture_session='))?.slice('fixture_session='.length);
+  const headers={...withoutFixtureHopHeaders(request.headers),host:'127.0.0.1:4174',connection:'close'};for(const name of Object.keys(headers))if(name.startsWith('oai-authenticated-'))delete headers[name];
+  const session=headers.cookie?.split(';').map(value=>value.trim()).find(value=>value.startsWith('fixture_session='))?.slice('fixture_session='.length);
   if(session==='a'||session==='b'){headers['oai-authenticated-user-id']=`synthetic-${session}`;headers['oai-authenticated-user-email']=`synthetic-${session}@example.invalid`;}
   // Preserve external/missing origins so production same-origin checks still reject them.
   if(headers.origin===FIXTURE_ORIGIN)headers.origin=WORKER_ORIGIN;
-  const upstream=http.request(new URL(request.url??'/',WORKER_ORIGIN),{method:request.method,headers},incoming=>{const outgoing={...incoming.headers};if(typeof outgoing.location==='string'&&outgoing.location.startsWith(WORKER_ORIGIN))outgoing.location=FIXTURE_ORIGIN+outgoing.location.slice(WORKER_ORIGIN.length);response.writeHead(incoming.statusCode??502,outgoing);incoming.on('error',()=>response.destroy());incoming.pipe(response);});
+  const upstream=http.request(new URL(request.url??'/',WORKER_ORIGIN),{method:request.method,headers,agent},incoming=>{if(response.destroyed||response.writableEnded){incoming.destroy();return;}const outgoing=withoutFixtureHopHeaders(incoming.headers);if(typeof outgoing.location==='string'&&outgoing.location.startsWith(WORKER_ORIGIN))outgoing.location=FIXTURE_ORIGIN+outgoing.location.slice(WORKER_ORIGIN.length);response.writeHead(incoming.statusCode??502,outgoing);incoming.on('error',()=>response.destroy());incoming.pipe(response);});
   let failureKind='transport';
-  const deadline=setTimeout(()=>{failureKind='deadline';upstream.destroy(new Error('Synthetic fixture upstream deadline exceeded.'));},requestTimeoutMs);
-  upstream.setTimeout(requestTimeoutMs,()=>{failureKind='socket-timeout';upstream.destroy(new Error('Synthetic fixture upstream socket timed out.'));});
-  response.once('finish',()=>clearTimeout(deadline));response.once('close',()=>{clearTimeout(deadline);upstream.destroy();});
-  upstream.on('error',()=>{
+  const failUpstream=()=>{
+   if(response.destroyed||response.writableEnded)return;
    // Once headers/body escaped, ending normally would certify a truncated stream as complete.
    if(response.headersSent){response.destroy();return;}
    response.writeHead(502,{'Content-Type':'application/json','Cache-Control':'no-store'});
    response.end(JSON.stringify({error:'Synthetic fixture upstream failed.',stage:'headers',cause:failureKind}));
-  });request.on('aborted',()=>upstream.destroy());request.pipe(upstream);
+  };
+  // A queued ClientRequest may have no socket and emit no error on destroy yet.
+  // Bound the downstream response directly, including that pre-socket phase.
+  const deadline=setTimeout(()=>{failureKind='deadline';failUpstream();upstream.destroy(new Error('Synthetic fixture upstream deadline exceeded.'));},requestTimeoutMs);
+  upstream.setTimeout(requestTimeoutMs,()=>{failureKind='socket-timeout';failUpstream();upstream.destroy(new Error('Synthetic fixture upstream socket timed out.'));});
+  response.once('finish',()=>clearTimeout(deadline));response.once('close',()=>{clearTimeout(deadline);upstream.destroy();});
+  upstream.on('error',failUpstream);request.on('aborted',()=>upstream.destroy());request.pipe(upstream);
  });
+ server.once('close',()=>agent.destroy());return server;
 }
 async function waitReady(child){const deadline=Date.now()+60000;while(Date.now()<deadline){if(child.exitCode!==null)throw new Error('Fixture worker exited before readiness.');try{const response=await fixtureFetch(`${WORKER_ORIGIN}/api/workspace`,{signal:AbortSignal.timeout(1500)});if(response.status===401)return;}catch{}await pause(200);}throw new Error('Fixture worker readiness timed out.');}
 export async function smokeFixture(){

@@ -168,13 +168,16 @@
         "Exact60e50fc full cloud CI39167082234/job117792158864 terminalsuccess:1370 Node,39bridge,type/lint/build,23migration D1/R2/HTTP,50default+3R2Chromium and bridgepackage generated."
       ],
       "blockers": [
+        "Supported renewable private service ingress and actual owner bridge/device installation remain external; managed cloud runner is restored."
+      ],
+      "historicalBlockers": [
         "Workspace command runner unavailable. GitHub source APIs and actual Actions cloud execution remain functional; implementation continues there, no local runtime/model substitution.",
         "Private service ingress/default bridge connection remains unavailable until supported acquisition/renewal verified."
       ]
     },
     {
       "id": 7,
-      "status": "in_progress",
+      "status": "implemented_external_acceptance_pending",
       "evidence": [
         "Exact fourteen-field job contracts, full provider/runtime/executable/tool-policy binding, pure transitions, sanitized evaluation import and result-artifact validation integrated for cloud regression; owner commands, private leases, UI and executor journal remain in bounded implementation.",
         "Source0a03f05afcb25a3dad78512f8d909d585e8f1576 agent checks39168864253/job117797532444 terminalsuccess:82 agent/evaluation tests including real D1 lease/lifecycle; typecheck/lint pass. Isolated agents D1 39168864334 terminalsuccess.",
@@ -191,13 +194,26 @@
         "Coherent candidate296fd5654b8f457187cf12b4d5b9ab46044c8c03 run39192051800: Chromium63/63 and R2 3/3(job117866794907), targeted3/3(job117866794977), mobile2/2(job117866794902), p95maximum2737.6ms. Original full budget/recovery/save, scoped history and saved review assertions pass; actual deferred loading/retry/deadline journeys pass. Corrected real late-race fixture candidatece865844216cbce5a002bfd9fcdd33006daf4da6 run39192352370: full1773/1773(job117867696715), no failures/cancellations/skips,249056.284ms; targeted107/107+typecheck/lint0errors8warnings(job117867696557). Production transaction guards unchanged.",
         "Exact3b170542115137b95b83f10b6c9e302af5c21e19 main39193244377/job117870390296:1774/1774Node195062.377ms,146/146bridge,type/lint/buildPASS; nativegeneration/workspace/source/reviews/scheduledbackupPASS. MainthenFAILED FIRSTwake scheduledsource admission dueD1>100bindguard; no laterbrowser/package. Focused489/489/type/lint39193240090; isolatedagents/runtime/artifactD1R2/maintenance97tables291guards/streaming14 PASS. Segmented39193244376/job117870388009 PASS27migrations/33modules/79segments/10080rows/17,767,591bytes,targetSTILLFENCED.",
         "Focus fix e5c302de83332a904b530d365d92b9404b704c3f run39193959740 TERMINALSUCCESS original11QA:Chromium1178725611294/4,Firefox1178725609603/3,WebKit1178725610724/4;type/lint/build EACHpass. Original390/768/1280budget+enrollmentEscape/focus/keyboard/axe assertions unchanged; precapturedperinstanceopener coverssharedFormDialog andcustomenrollment.",
-        "Atomic D1 admission fix d2d35c21515790ffe754ae4d84392c0341e7bf91 run39194122483/job117873042518 TERMINALSUCCESS34/34targettests/no skips+ORIGINAL27migrationnative scheduledsource admission/page/restart/sameintent/digest/replay/lease/capacity/revocation/archive/epoch/SQLrollbackretry/planningunchangedPASS;typecheckPASS/lint0errors8warnings. Guard4boundparams withmaterializedcanonicalscalarvector preservesALLconditions/order/sixstatementatomicbatch."
+        "Atomic D1 admission fix d2d35c21515790ffe754ae4d84392c0341e7bf91 run39194122483/job117873042518 TERMINALSUCCESS34/34targettests/no skips+ORIGINAL27migrationnative scheduledsource admission/page/restart/sameintent/digest/replay/lease/capacity/revocation/archive/epoch/SQLrollbackretry/planningunchangedPASS;typecheckPASS/lint0errors8warnings. Guard4boundparams withmaterializedcanonicalscalarvector preservesALLconditions/order/sixstatementatomicbatch.",
+        "Actual private runtime extraction51/51Linux+Windows; cloud package outer/inner/source-pin/fivefile verification and actual strict installation/load pass, zero providercalls.",
+        "Public pinned runtime installer, suspended JobObject supervisor, exact models/budgets/approvals, cancellation, immutable artifact mapping and nonce-only recovery are implemented and independently reviewed.",
+        "Exact3c6681a Windows native10pass/1skip plus portable192pass/8skip; real D1/R2 HTTP upload/cancel/61event nonce recovery gates pass.",
+        "Finite manual Sites ingress source is in integration, defaultclosed. Opaque server boundary retains device authorization; native D1/R2 synthetic admission/artifact/expiry test passes. Client review/final exactsource gates pending.",
+        "Finite manual Sites adapter implemented and reviewed: fixedproject/origin/routes; separate DPAPIrecord; opaque serverboundary; exactpolicy/runtime/budget-derived capabilityreport; activecutoff and suspendedcallback expiry regression. Real nativeSites/device/provider acceptance remains separate."
       ],
       "blockers": [
+        "Real native Sites dispatch canonical URL, consumed bearer, private audience and finite manual window acceptance still require an actual validated deployment; no activation performed.",
+        "Unattended renewal/wakeup requires separately supported renewable authority; finite manual access does not supply it.",
+        "Owner Windows installation, provider executable/login/exact model and actual sandbox/device acceptance require the owner environment."
+      ],
+      "historicalBlockers": [
         "Approved separate pinned runtime extraction and Windows owned-process/sandbox invocation integration plus real device acceptance remain missing; no live model/evaluation/job invocation.",
         "Live renewable private ingress and selected provider authority remain unconfigured; paid inference disabled.",
         "Canonical main failed one fixture-proxy 502 at 15 seconds; request-stall diagnosis remains open. Main packaging was skipped. Independent exact-e4 source/build/Windows review packages exist and passed byte-integrity checks; they are UNVALIDATED for release."
-      ]
+      ],
+      "implementation": "complete",
+      "localVerification": "passed_at_3c6681a",
+      "hostedAcceptance": "owner_provider_dependent"
     },
     {
       "id": 8,
@@ -236,6 +252,11 @@
         "Exacte4 firstnormal39194510942/job117874255539 FAILED ONLYD1savep952499.678949ms>2000,p501797.993855;SQLite978.531809,D1read859.966659 PASS;100outcomes/sixrestores perengine/errors[]. Artifact12161845635 sha256325994989f843e4becbaa72d22b4f77751d0ee98619434ce99f068de4cedcfe4. No rerun or latency waiver; release acceptance blocked."
       ],
       "blockers": [
+        "Final proxy-hardened exact candidate canonical/package-integrity gates pending; current3c canonical performance and Windows gates pass.",
+        "Production cutover requires a complete verified existing-data snapshot. Native read API truncates the saved workspace value, so it cannot establish a complete recovery point. Obtain owner/provider full D1 snapshot before deployment.",
+        "Owner authenticated hosted smoke, physical devices, private service/provider consent and enabled-scope acceptance remain external."
+      ],
+      "historicalBlockers": [
         "Canonical main failed one fixture-proxy 502 at 15 seconds; request-stall diagnosis remains open. Main packaging was skipped. Independent exact-e4 source/build/Windows review packages exist and passed byte-integrity checks; they are UNVALIDATED for release.",
         "Exacte4 firstnormal39194510942/job117874255539 FAILED ONLYD1savep952499.678949ms>2000,p501797.993855;SQLite978.531809,D1read859.966659 PASS;100outcomes/sixrestores perengine/errors[]. Artifact12161845635 sha256325994989f843e4becbaa72d22b4f77751d0ee98619434ce99f068de4cedcfe4. No rerun or latency waiver; release acceptance blocked.",
         "Supported Sites helper execution unavailable although metadata/deployment access exists. Existing owner-private Site unchangedversion2. Approved separate pinned runtime extraction and Windows owned-process/sandbox invocation code/integration plus real owner device acceptance remain missing; installing bridge alone does not supply invocation. Selectedprovider consent/renewable ingress/closedbrowserwakeup/hostedSSE/physicalmobile-passkey acceptance not-run. Paid inference/operational-trading effects/externalalerts remain disabled."
@@ -330,41 +351,48 @@
   "updatedAt": "2026-10-19",
   "resumeIteration": {
     "date": "2026-10-19",
-    "branch": "feat/control-room-completion-resumed",
+    "branch": "feat/control-room-completion-cloud",
     "checkpoint": "resume-checkpoint.json",
-    "status": "implementation_in_progress_release_blocked",
+    "status": "implementation_complete_final_candidate_verification_pending",
     "canonicalCheckpoint": {
-      "source": "a55dc09dfda1c6e8d66f4eb4260250c3dd8de272",
-      "run": 39239122725,
+      "source": "3c6681a39d05b9b40ace26b49e5482aa2a4d40ed",
+      "run": 39244318516,
       "passed": true,
+      "nodePassed": 1800,
+      "bridgePassed": 202,
+      "bridgePlatformSkipped": 9,
       "browser": "63/63 + 3/3 R2",
-      "scope": "Before pending Phase 7 integration; original timeout cause unproven"
+      "scope": "Prior coherent Phase7 source; newer proxy/manual Sites changes require fresh exact-source gates."
     },
     "performanceCheckpoint": {
-      "source": "6939d4575dc4a933f5f035e1795c699fd8f945b1",
-      "run": 39243158846,
-      "D1saveP95Ms": 2071.47182,
+      "source": "3c6681a39d05b9b40ace26b49e5482aa2a4d40ed",
+      "run": 39244318665,
+      "D1saveP95Ms": 1750.767601,
       "limitMs": 2000,
-      "passed": false
+      "passed": true,
+      "causalLatencyFixClaimed": false
     },
     "phase7": [
-      "Separate actual private runtime extraction draft PR; 51 tests pass on Linux and Windows, source-only artifact; no provider calls.",
-      "Strict archive installer and actual private package local interoperability verified.",
-      "Finite native supervisor/coordinator, sibling private state/workspace boundaries, durable uploader/completion, additive model evidence and production result verifier implemented; exact integrated gates pending.",
-      "Authenticated cancellation integration implemented with unchanged expiry and exit-before-ack proof; focused server24 and bridge44 tests pass; actual HTTP regression pending.",
-      "Reviewed nonce-only exited recovery precedes runtime/provider/capability/native construction; genuine D1/R2 HTTP61-event lostreply/restart gate passes.",
-      "Linux bridge201pass/9explicitplatformskips, packaging11pass; coherent0.3 package47files bytebound to local4df3e07; final publiccandidate gates pending."
+      "Separate actual private runtime extraction draft PR;51tests pass on Linux and Windows, cloud source archive verified and installed/loaded through strict public installer;zero provider calls.",
+      "Native supervisor/coordinator, sibling private state/workspace boundaries, model evidence, approvals/budgets, physical result verifier, artifact journals, authenticated cancellation and nonce-only recovery implemented and reviewed.",
+      "Exact3c full canonical/nativeWindows/D1R2HTTP/browser/performance/package creation gates pass; source-specific evidence in verification-3c6681a.json.",
+      "Finite manual owner-private Sites server/client adapter implemented and independently reviewed, defaultclosed; independent device credentials retained, no visitor/service identity inference or renewal claim.",
+      "Preflight:4/4genuine nativeD1R2HTTP;219bridge(210pass/9platformskips);46serverfocused;37independentclientfocused;11package/boundary;type/lint/build pass. Final publicexactsource canonical gates pending."
     ],
     "nativeCandidate": {
-      "source": "bd2ad00cb738f640fa9d3e31edf71634488b6fc7",
-      "run": 39241765240,
-      "native": "10pass/0fail/1platformskip including300fileACL/junction",
-      "overall": "failed subsequent portable noncanonical-temp fixtures; reviewed fixture-only repairs now committed, coherent Windows gate pending"
+      "source": "3c6681a39d05b9b40ace26b49e5482aa2a4d40ed",
+      "run": 39244318555,
+      "native": "10pass/0fail/1platformskip",
+      "portable": "192pass/0fail/8platformskips",
+      "status": "passed",
+      "ownerDeviceAcceptance": false
     },
     "sites": "Supported existing private Site source helper restored; no deployment or audience change.",
     "external": [
-      "Supported renewable private Site service credential adapter remains unavailable; default connection closed.",
-      "Owner Windows installation, real provider/model and sandbox acceptance require actual owner environment."
+      "Real native Sites dispatch canonical URL, consumed bearer, private audience and finite manual window acceptance still require an actual validated deployment; no activation performed.",
+      "Unattended renewal/wakeup requires separately supported renewable authority; finite manual access does not supply it.",
+      "Owner Windows installation, provider executable/login/exact model and actual sandbox/device acceptance require the owner environment.",
+      "Complete verified private pre-cutover snapshot required; native DB projection truncates existing workspace."
     ],
     "disabled": [
       "paid inference",
@@ -372,7 +400,14 @@
       "external alerts"
     ],
     "storage": "Existing Site identity and DB preserved; logical BUCKET declaration added without deployment or owner data writes.",
-    "publicSource": "6939d4575dc4a933f5f035e1795c699fd8f945b1",
-    "draftPr": 1
+    "publicSource": "3c6681a39d05b9b40ace26b49e5482aa2a4d40ed",
+    "draftPr": 1,
+    "rejectedPerformanceExperiment": {
+      "source": "6f2a5c83c64bc9414ab1e263d41b0c8be6e9671b",
+      "run": 39244523686,
+      "D1saveP95Ms": 3199.614369,
+      "integrated": false
+    },
+    "preCutoverRecovery": "No owner data changed. Bounded native DB read marks saved workspace truncated, so a complete owner/provider snapshot is required before cutover; no incomplete backup claimed."
   }
 }

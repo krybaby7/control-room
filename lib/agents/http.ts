@@ -1,3 +1,4 @@
+import {privateIngressBoundaryKey} from '../devices/private-ingress.ts';
 import {z} from 'zod';
 import {AgentResultVerificationError} from './result-verifier.ts';
 import {ownerAgentContext} from './context.ts';
@@ -51,14 +52,15 @@ export async function handleAgentHttp(action:AgentHttpAction,request:Request,dep
   if(!actions.has(action))return rejected(400);if(request.headers.has('Cookie'))return rejected(403);
   if(new URL(request.url).search)return rejected(400);if(!deps.db)return rejected(503,'agent_unavailable');
   const now=deps.now??(()=>new Date().toISOString()),before=evidenceDateSchema.parse(now()),ingress=deps.ingress??unavailablePrivateIngress;
-  let verified:{serviceIdentity:string}|null;try{verified=await ingress.verify(request);}catch{return rejected(401,'agent_unauthorized');}
-  if(!verified||typeof verified.serviceIdentity!=='string'||!verified.serviceIdentity||verified.serviceIdentity.length>256)return rejected(401,'agent_unauthorized');
+  let verified:import('../devices/contracts.ts').PrivateIngressVerdict|null;try{verified=await ingress.verify(request);}catch{return rejected(401,'agent_unauthorized');}
+  if(!verified||!privateIngressBoundaryKey(verified,before))return rejected(401,'agent_unauthorized');
   const principal=await authenticateDevice(request,action==='evaluations'?'evaluations:write':'jobs:poll',deps.db,{async verify(){return verified;}},before);
   if(!principal)return rejected(401,'agent_unauthorized');if(action!=='evaluations'&&!principal.scopes.includes('jobs:report'))return rejected(403,'agent_scope_mismatch');
   const timeout=deps.bodyTimeoutMs??DEVICE_LIMITS.requestMs;if(!Number.isSafeInteger(timeout)||timeout<1||timeout>15000)throw new Error('Invalid server body deadline.');
-  const value=parseAction(action,await readBody(request,timeout)),fresh=evidenceDateSchema.parse(now());
-  if(Date.parse(fresh)<Date.parse(before)||!await deviceAuthorityGuard(deps.db,principal,fresh))return rejected(401,'agent_unauthorized');
+  const value=parseAction(action,await readBody(request,timeout));let fresh=evidenceDateSchema.parse(now());
+  if(!verified||!privateIngressBoundaryKey(verified,fresh)||Date.parse(fresh)<Date.parse(before)||!await deviceAuthorityGuard(deps.db,principal,fresh))return rejected(401,'agent_unauthorized');
   if(action==='capabilities'&&agentCapabilityUploadSchema.parse(value).capability.deviceId!==principal.deviceId)return rejected(403,'agent_scope_mismatch');
+  const admitted=evidenceDateSchema.parse(now());if(Date.parse(admitted)<Date.parse(fresh)||!privateIngressBoundaryKey(await ingress.verify(request),admitted))return rejected(401,'agent_unauthorized');fresh=admitted;
   let result:unknown;
   if(action==='evaluations')result=await commitEvaluationSummary(deps.db,principal,evaluationUploadSchema.parse(value),fresh);
   else if(deps.operations?.[action])result=await deps.operations[action]!(principal,value,fresh);

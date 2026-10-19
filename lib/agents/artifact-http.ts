@@ -1,3 +1,4 @@
+import {privateIngressBoundaryKey} from '../devices/private-ingress.ts';
 import {inspectAgentArtifactContent} from './artifact-content-policy.ts';
 import {z} from 'zod';
 import type {SqlDatabase} from '../workspace-store.ts';
@@ -54,7 +55,7 @@ export async function handleAgentArtifactHttp(action:AgentArtifactHttpAction,req
    const store=createR2BlobStore(deps.bucket);if(!store.available)return rejected(503,'agent_artifact_storage_unavailable');
    const bytes=await readAttachmentStream(request.body,{maxBytes:first.material.bytes,deadlineMs:15000});validateAttachmentContent(bytes,first.attachment.mimeType,first.material.bytes);if(await attachmentHash(bytes)!==first.material.sha256)return rejected(422,'artifact_digest_differs');
    if(!inspectAgentArtifactContent(bytes).allowed)return rejected(422,'artifact_sensitive_content');
-   const fresh=evidenceDateSchema.parse(clock());if(Date.parse(fresh)<Date.parse(before))return rejected(401);const current=await readOwnedAgentArtifact(db,principal,credentials,id,fresh);if(current.row.row_revision!==first.row.row_revision||current.row.content_hash!==first.row.content_hash||current.material.sha256!==first.material.sha256)return rejected(409);
+   const fresh=evidenceDateSchema.parse(clock());if(Date.parse(fresh)<Date.parse(before)||!privateIngressBoundaryKey(await (deps.ingress??unavailablePrivateIngress).verify(request),fresh))return rejected(401);const current=await readOwnedAgentArtifact(db,principal,credentials,id,fresh);if(current.row.row_revision!==first.row.row_revision||current.row.content_hash!==first.row.content_hash||current.material.sha256!==first.material.sha256)return rejected(409);
    const namespaces=await getWorkspaceNamespaces(db,principal.ownerId);if(!namespaces)return rejected(503,'agent_artifact_storage_unavailable');
    const token=await beginUpload(db,principal.ownerId,{record:current.attachment,rowRevision:current.row.row_revision,ownerNamespace:namespaces.blobNamespace,now:fresh},current.material.guard);if(!token)return rejected(409);
    let writing=false,settled=false;const guarded={...store,async put(...args:Parameters<typeof store.put>){writing=true;const result=await store.put(...args);settled=true;return result;}};
@@ -62,7 +63,7 @@ export async function handleAgentArtifactHttp(action:AgentArtifactHttpAction,req
    if(staged.status!=='staged')return rejected(staged.status==='quarantined'?422:503,'artifact_stage_unconfirmed');
    if(staged.blob.sha256!==current.material.sha256||staged.blob.bytes!==current.material.bytes)return rejected(422,'artifact_digest_differs');return response({status:'staged',id,bytes:staged.blob.bytes,sha256:staged.blob.sha256,finalized:false});
   }
-  const raw=await json(request),fresh=evidenceDateSchema.parse(clock());if(Date.parse(fresh)<Date.parse(before))return rejected(401);
+  const raw=await json(request),fresh=evidenceDateSchema.parse(clock());if(Date.parse(fresh)<Date.parse(before)||!privateIngressBoundaryKey(await (deps.ingress??unavailablePrivateIngress).verify(request),fresh))return rejected(401);
   if(action==='mutation-id'){const input=lease.parse(raw),auth=await authorizeAgentArtifactAttempt(db,principal,input,fresh),id=await issueMutationId(db,principal.ownerId,fresh),current=await readCurrent(db,principal.ownerId,fresh);if(!await db.prepare('SELECT 1 WHERE '+auth.guard.sql).bind(...auth.guard.bindings).first())return rejected(409);return response({mutationId:id,revision:current.revision});}
   const input=action==='reserve'?reserve.parse(raw):finalize.parse(raw),credentials={attemptId:input.attemptId,leaseToken:input.leaseToken};await activeMutation(db,principal.ownerId,input.mutationId);
   let material:AgentArtifactMaterial,command:unknown;

@@ -7,7 +7,7 @@ import {agentIdSchema,agentResultRecordSchema,agentJobResultSchema} from './cont
 import {validateEvaluationObservation} from './evaluation-import.ts';
 import {jobReadModelSchema,type JobReadModel} from './read-model.ts';
 /** Owner-only safe projection. Private tokens/process identity never leave this boundary. */
-export async function readAgentJobs(db:SqlDatabase,owner:string,now:string,options:{afterJob?:string;afterEvaluation?:string;executionAvailable?:boolean;jobId?:string}={}):Promise<JobReadModel>{
+export async function readAgentJobs(db:SqlDatabase,owner:string,now:string,options:{afterJob?:string;afterEvaluation?:string;executionAvailable?:boolean;manualWindow?:{mode:'manual-owner-private-sites';confirmedAt:string;releaseUntil:string};jobId?:string}={}):Promise<JobReadModel>{
  if(!owner)throw new Error('An authenticated owner is required.');
  for(const id of [options.afterJob,options.afterEvaluation,options.jobId])if(id!==undefined)agentIdSchema.parse(id);
  const before=await readCurrent(db,owner,now),services=ownerAgentContext(db,owner,now);
@@ -45,7 +45,8 @@ export async function readAgentJobs(db:SqlDatabase,owner:string,now:string,optio
  const evaluationsRaw=options.jobId?[]:(await db.prepare('SELECT id,payload_json,content_hash FROM evaluation_runs WHERE user_id=? AND id>? ORDER BY id LIMIT 201').bind(owner,options.afterEvaluation??'').all<{id:string;payload_json:string;content_hash:string}>()).results,nextEvaluationAfter=evaluationsRaw.length>200?evaluationsRaw[199].id:null,evaluations=[];
  for(const row of evaluationsRaw.slice(0,200)){const value=await validateEvaluationObservation(JSON.parse(row.payload_json));if(value.id!==row.id||await contentHash(canonical(value))!==row.content_hash)throw new Error('Evaluation history digest differs.');evaluations.push(value);}
  const after=await readCurrent(db,owner,now);if(after.revision!==before.revision)throw new Error('Owner job read changed. Refresh again.');
- const value=jobReadModelSchema.parse({revision:before.revision,generatedAt:now,jobs,evaluations,budgets:budgetDisplays,nextJobAfter,nextEvaluationAfter,execution:{enabled:options.executionAvailable===true,diagnostic:options.executionAvailable?'ready':'not_installed'}});
+ const ready=options.manualWindow?options.executionAvailable===true&&jobs.some(job=>job.approvalCandidate!==null):options.executionAvailable===true;
+ const value=jobReadModelSchema.parse({revision:before.revision,generatedAt:now,jobs,evaluations,budgets:budgetDisplays,nextJobAfter,nextEvaluationAfter,execution:{enabled:ready,diagnostic:ready?'ready':options.manualWindow?'not_configured':'not_installed',...(options.manualWindow?{manualWindow:options.manualWindow}:{})}});
  if(new TextEncoder().encode(JSON.stringify(value)).byteLength>2*1024*1024)throw new Error('Owner job page exceeds its byte bound.');
  return value;
 }

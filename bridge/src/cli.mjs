@@ -6,18 +6,19 @@ import {pathToFileURL} from 'node:url';
 import {createBridgeTransport,unavailablePrivateIngress,BridgeTransportError} from './transport.mjs';
 import {createCredentialStore} from './credentials.mjs';
 import {BRIDGE_LIMITS,validateConfig} from './config.mjs';
+import {resolveManualSitesAccess,saveManualSitesAccess,removeManualSitesAccess} from './sites-access.mjs';
 function canonical(value){if(Array.isArray(value))return '['+value.map(canonical).join(',')+']';if(value&&typeof value==='object')return '{'+Object.keys(value).sort().map(key=>JSON.stringify(key)+':'+canonical(value[key])).join(',')+'}';return JSON.stringify(value);}
 function identity(value){return typeof value==='string'&&value.length>0&&value.length<=128&&!/[\u0000-\u0020\u007f]/u.test(value);}
 function receiptMatches(receipt,heartbeat){return receipt&&receipt.bootId===heartbeat.bootId&&receipt.generation===heartbeat.generation&&receipt.sequence===heartbeat.sequence&&['live','history'].includes(receipt.classification)&&receipt.heartbeatHash===createHash('sha256').update(canonical(heartbeat)).digest('hex');}
 /** Never echo enrollment input, accept it in argv, or log it. */
-export async function readMaskedSecret(input=process.stdin,output=process.stderr){
+export async function readMaskedSecret(input=process.stdin,output=process.stderr,{prompt='One-use enrollment secret: ',maxLength=512}={}){
   if(!input.isTTY||typeof input.setRawMode!=='function')throw new Error('Enrollment requires an interactive masked prompt.');
-  output.write('One-use enrollment secret: ');const wasRaw=!!input.isRaw;input.setRawMode(true);input.resume();
+  if(typeof prompt!=='string'||!Number.isSafeInteger(maxLength)||maxLength<1||maxLength>8192)throw new Error('Invalid masked input policy.');output.write(prompt);const wasRaw=!!input.isRaw;input.setRawMode(true);input.resume();
   return new Promise((resolve,reject)=>{
     let secret='',finished=false;
     function finish(error){if(finished)return;finished=true;input.removeListener('data',data);input.removeListener('end',ended);input.setRawMode(wasRaw);input.pause();output.write('\n');if(error)reject(new Error('Enrollment input cancelled.'));else resolve(secret);}
     function ended(){finish(true);}
-    function data(chunk){for(const character of chunk.toString('utf8')){if(character==='\r'||character==='\n'){finish();return;}if(character==='\u0003'){finish(true);return;}if(character==='\u007f'||character==='\b')secret=secret.slice(0,-1);else if(character>=' '&&secret.length<512)secret+=character;}}
+    function data(chunk){for(const character of chunk.toString('utf8')){if(character==='\r'||character==='\n'){finish();return;}if(character==='\u0003'){finish(true);return;}if(character==='\u007f'||character==='\b')secret=secret.slice(0,-1);else if(character>=' '){if(secret.length>=maxLength){finish(true);return;}secret+=character;}}}
     input.on('data',data);input.once('end',ended);
   });
 }
@@ -109,18 +110,21 @@ export async function doctorBridge({config,credentialStore,ingressAdapter=unavai
 
 export async function main(argv=process.argv.slice(2),dependencies={}){
   const [command,...flags]=argv;
-  if(!['doctor','enroll','run','revoke-local'].includes(command))throw new Error('Use doctor, enroll, run [--once], or revoke-local --config <absolute.json>.');
-  let configPath=null,once=false;
-  for(let i=0;i<flags.length;i++){if(flags[i]==='--config'&&configPath===null)configPath=flags[++i];else if(flags[i]==='--once'&&command==='run'&&!once)once=true;else throw new Error('Unsupported bridge option.');}
+  if(!['doctor','enroll','run','revoke-local','sites-access','sites-access-remove'].includes(command))throw new Error('Use doctor, enroll, run [--once], or revoke-local --config <absolute.json>.');
+  let configPath=null,once=false,releaseUntil=null,ownerPrivateConfirmed=false;
+  for(let i=0;i<flags.length;i++){if(flags[i]==='--config'&&configPath===null)configPath=flags[++i];else if(flags[i]==='--once'&&command==='run'&&!once)once=true;else if(flags[i]==='--until'&&command==='sites-access'&&releaseUntil===null)releaseUntil=flags[++i];else if(flags[i]==='--confirm-owner-private'&&command==='sites-access'&&!ownerPrivateConfirmed)ownerPrivateConfirmed=true;else throw new Error('Unsupported bridge option.');}
   if(!configPath||!isAbsolute(configPath))throw new Error('An absolute --config path is required.');
   const print=dependencies.print??(text=>process.stdout.write(text+'\n'));
   if(command==='run'||command==='enroll')requireSupportedNode();
   const stateDirectory=join(dirname(configPath),'.control-room-bridge');
   const {readConfig}=await import('./config.mjs');let config;
   try{await ensurePrivateWindowsState({configPath,stateDirectory});config=command==='doctor'?await boundedRead(()=>readConfig(configPath),2200):await readConfig(configPath);}catch(error){if(command!=='doctor')throw error;const report=unavailableDoctor(nodeVersionStatus());print(JSON.stringify(report));return report;}
+  if(command==='sites-access'){if(!ownerPrivateConfirmed||releaseUntil===null)throw new Error('A current native owner-private confirmation and finite --until are required.');const bearer=await(dependencies.readSitesBearer??(()=>readMaskedSecret(process.stdin,process.stderr,{prompt:'Sites service bearer (masked): ',maxLength:8192})))();const result=await saveManualSitesAccess({configPath,origin:config.cloudBaseUrl,releaseUntil,bearer,ownerPrivateConfirmed,store:dependencies.sitesCredentialStore});print(JSON.stringify(result));return result;}
+  if(command==='sites-access-remove'){const result=await removeManualSitesAccess({configPath});print(JSON.stringify(result));return result;}
   const store=dependencies.credentialStore??createCredentialStore({path:join(stateDirectory,'credentials.dpapi')});
   if(command==='revoke-local'){await store.remove();print('Local protected credential removed. Revoke the device in Control Room to revoke server access.');return;}
-  const ingress=dependencies.ingressAdapter??unavailablePrivateIngress;
+  const ingress=dependencies.ingressAdapter??await resolveManualSitesAccess({configPath,origin:config.cloudBaseUrl});
+  if(ingress?.mode==='manual-owner-private-sites'&&command==='run'&&!once)throw new Error('Manual Sites access permits run --once only.');
   if(command==='doctor'){const {samplePcCommandCenter}=await import('./pc-command-center.mjs');const report=await doctorBridge({config,credentialStore:store,ingressAdapter:ingress,sample:dependencies.sample??samplePcCommandCenter,now:dependencies.now});print(JSON.stringify(report));return report;}
   if(!config.cloudBaseUrl)throw new Error('Configure a private cloud origin first.');
   if(command==='enroll'){

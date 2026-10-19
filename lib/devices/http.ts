@@ -1,3 +1,4 @@
+import {privateIngressBoundaryKey} from './private-ingress.ts';
 import {z} from 'zod';
 import {PrivateCapacityError} from '../private-capacity.ts';
 import type {SqlDatabase} from '../workspace-store.ts';
@@ -32,12 +33,12 @@ export async function handleDeviceHttp(action:DeviceHttpAction,request:Request,d
   if(request.headers.has('Cookie'))return rejected(403);
   if(new URL(request.url).search)return rejected(400);
   if(!deps.db)return rejected(503);
-  let verified:{serviceIdentity:string}|null;try{verified=await deps.ingress.verify(request);}catch{return rejected(401);}
-  if(!verified||typeof verified.serviceIdentity!=='string'||!verified.serviceIdentity||verified.serviceIdentity.length>256)return rejected(401);
-  let now=deps.now();if(!await admitDeviceRequest(deps.db,'device-http:'+verified.serviceIdentity,now,600))return rejected(429);let principal:DevicePrincipal|null=null;
+  let verified:import('./contracts.ts').PrivateIngressVerdict|null;try{verified=await deps.ingress.verify(request);}catch{return rejected(401);}
+  if(!verified||!privateIngressBoundaryKey(verified,deps.now()))return rejected(401);
+  let now=deps.now();if(!await admitDeviceRequest(deps.db,'device-http:'+privateIngressBoundaryKey(verified,now),now,600))return rejected(429);let principal:DevicePrincipal|null=null;
   if(action!=='enroll'){principal=await authenticateDevice(request,'telemetry:write',deps.db,{async verify(){return verified;}},now);if(!principal)return rejected(401);}
   const timeout=deps.bodyTimeoutMs??DEVICE_LIMITS.requestMs;if(!Number.isSafeInteger(timeout)||timeout<1||timeout>DEVICE_LIMITS.requestMs)throw new Error('Invalid server body deadline.');
-  const bytes=await readBody(request,timeout);now=deps.now();let raw:unknown;
+  const bytes=await readBody(request,timeout);now=deps.now();if(!verified||!privateIngressBoundaryKey(verified,now))return rejected(401);let raw:unknown;
   try{raw=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));}catch{return rejected(400);}
   if(action==='enroll'){const result=await redeemDeviceEnrollment(deps.db,enrollment.parse(raw),{now,verifiedIngress:verified});return Response.json(result,{status:201,headers:deviceHttpHeaders});}
   if(action==='session')return Response.json(await registerDeviceSession(deps.db,principal!,deviceSessionInputSchema.parse(raw),now),{headers:deviceHttpHeaders});

@@ -4,7 +4,7 @@
   "date": "2026-10-19",
   "baselineSource": "e4af1fc5ae344a029f9677576963700c92aaefee",
   "priorCheckpoint": "09b385af8be40db7b73c166d70406795c2f9363d",
-  "branch": "feat/control-room-completion-resumed",
+  "branch": "feat/control-room-completion-cloud",
   "model": {
     "integrator": "gpt-6.1-sol",
     "selection": "Explicit session model control accepted on resume.",
@@ -47,13 +47,14 @@
     "lockedInstall": "passed; 690 packages",
     "privateUpstream": "Authorized extraction completed in separate private draft PR; 51 tests pass on actual Linux and Windows Actions. Source-bound local package installation verified; zero provider calls.",
     "sites": "Existing private Site reopened through supported source helper; owner-only access preserved. No deployment.",
-    "storage": "Existing project identity and DB binding preserved. Added logical BUCKET declaration for implemented artifacts/backups; no deployment or owner-data mutation."
+    "storage": "Existing project identity and DB binding preserved. Added logical BUCKET declaration for implemented artifacts/backups; no deployment or owner-data mutation.",
+    "preCutoverRecovery": "Native read-only DB projection truncates saved workspace; cannot create complete backup. Full owner/provider D1 snapshot/export required before cutover. No owner record copied to repository or mutated."
   },
   "currentWork": [
-    "Final Windows portable fixture canonicalization without production guard changes; exact integrated native/bridge gate pending.",
-    "Nonce recovery implemented before runtime/provider/capability construction and independently reviewed; real HTTP multi-batch regression underway.",
-    "Isolated closed read-only transport batching being implemented from measured16/14RPC committed paths; no new benchmark until review.",
-    "Freeze coherent source, publish reviewable branch/PR update, exact-candidate canonical/performance/package-integrity checks, then private Sites release only if gates pass."
+    "Reviewed finite manual Sites adapter, opaque server boundary, policy-derived capability reporting and cutoff enforcement committed. Configuration defaults closed; no activation, credentials imported, model calls or deployment.",
+    "Reviewed fixture transport isolation/deadline correction committed; deterministic original-code negative controls fail. Original e4 internal cause remains unknown.",
+    "Publish this coherent sanitized tree as next PR1 source (parent currentpublic3c), then run final exact-source Node/bridge/nativeWindows/D1R2HTTP/browser/performance/artifact-integrity gates.",
+    "Keep all rejected performance experiments separate. Prepare supported private saved version only after validation; do not deploy without complete verified private pre-cutover snapshot."
   ],
   "disabled": [
     "paid inference",
@@ -61,12 +62,12 @@
     "external alerts"
   ],
   "deployed": false,
-  "nextCommand": "Publish reviewed R2 fixture and Windows file-URL harness fixes, preserve earlier CI failures, run exact-source gates. Create isolated Phase7 plus measured performance aggregate for first canonical-environment verification; do not promote without evidence.",
-  "currentCommit": "876f4617590b9301e2113b945899f5efe8b501ed",
+  "nextCommand": "Publish reviewed committed tree to PR1 using expected current publichead3c, then run exact public-source canonical/Windows/D1R2HTTP/browser/performance/package-integrity gates. Retain all failed observations. Supported private saved package only after gates; deploy only after complete verified pre-cutover snapshot.",
+  "currentCommit": "873d8d61dcc21b5917aa9b4cd21294eb487b5ff8",
   "tests": {
     "proxy": "Dedicated regression passed; original negative control fails as expected; existing harness/typecheck pass. Original pre-header hang remains unexplained.",
-    "privateRuntime": "51/51 actual Linux/Windows; original cloud artifact outerSHA, innerarchiveSHA, immutable source pin and all five actual reviewed files now verified against authorized source. Zero provider calls.",
-    "nativeSupervisor": "Windows bd2ad00cb738f640fa9d3e31edf71634488b6fc7 run39241765240/job118024024712: native lifecycle/scoped ACL10pass/0fail/1platformskip, including300nestedfiles and junction refusal. Subsequent old portable executor fixtures failed noncanonical temporary paths; fixture-only corrections pending. Overall workflow failed; no helper package from this run.",
+    "privateRuntime": "Actual cloud extraction artifact outer archive, inner archive SHA, immutable source pin and five reviewed source files verified. Cloud artifact installed, reopened, byte-verified and actual RuntimeAdapter loaded through strict public installer; zero provider calls.",
+    "nativeSupervisor": "Exact3c native Windows10pass/0fail/1platformskip plus portable192pass/0fail/8platformskips; helper artifact source-bound. Real owner-device/provider acceptance not run.",
     "digestReuseExperiment": "39 focused tests passed; one working-candidate normal D1savep95=2543.508383ms failed. Isolated branch, not integrated.",
     "serverDigestExperiment": "42 focused/parity/client-closure/type/build checks passed; exact local source9753fddb65b15f7edc1a010588d41ce43b4919bc normal D1savep95=2837.936316ms failed. Isolated branch, not integrated.",
     "checkpointCanonical": {
@@ -95,17 +96,60 @@
       "sha256": "c2e4815a9c5f312c9480d8c2fa70a769f8626be922860069397401e1e9e2a4fd",
       "acceptance": "Source-bound review package only; release performance gate still failed."
     },
-    "phase7Canonical": "6939 exact-source workflows underway. Native10pass/1platformskip; portableWindows188pass/3CLIloader URL failures/8skips. Browser fixture startup rejects newly declared R2. Both harness-only defects corrected with regressions; new source validation pending. Original jobs-read cause remains unknown; its trace preceding response has3jobs and31.738ms normal GET, failed GET15.004s/empty502.",
-    "phase7CanonicalPerformance": {
-      "source": "6939d4575dc4a933f5f035e1795c699fd8f945b1",
-      "run": 39243158846,
-      "D1saveP95Ms": 2071.47182,
-      "limitMs": 2000,
-      "passed": false
+    "phase7Canonical": {
+      "source": "3c6681a39d05b9b40ace26b49e5482aa2a4d40ed",
+      "run": 39244318516,
+      "job": 118032426729,
+      "conclusion": "success",
+      "nodePassed": 1800,
+      "bridgePassed": 202,
+      "bridgePlatformSkipped": 9,
+      "browser": "63/63 + 3/3 R2",
+      "scope": "Before newer proxy/manual Sites changes; final candidate gates required."
     },
-    "readBatchingExperiment": "Isolated79ef4714d3725620aa01482ff3e72ac50991ad0e:206 correctness tests/type/lint/build/clientgraph pass; actualsteady RPC12/11 vs16/14 with finalnamespace/race/CAS guarantees retained. ONE local normal failed p95=2861.940452ms; not integrated. First exact aggregate GitHub canonical verification proposed on separate experiment branch; all local failures retained."
+    "phase7CanonicalPerformance": {
+      "source": "3c6681a39d05b9b40ace26b49e5482aa2a4d40ed",
+      "run": 39244318665,
+      "D1saveP95Ms": 1750.767601,
+      "limitMs": 2000,
+      "passed": true,
+      "claim": "Exact-source passing measurement; harness corrections do not establish a causal application latency improvement. All historical failures retained."
+    },
+    "readBatchingExperiment": "Isolated79ef4714d3725620aa01482ff3e72ac50991ad0e:206 correctness tests/type/lint/build/clientgraph pass; actualsteady RPC12/11 vs16/14 with finalnamespace/race/CAS guarantees retained. ONE local normal failed p95=2861.940452ms; not integrated. First exact aggregate GitHub canonical verification proposed on separate experiment branch; all local failures retained.",
+    "phase7Windows": {
+      "source": "3c6681a39d05b9b40ace26b49e5482aa2a4d40ed",
+      "run": 39244318555,
+      "native": "10pass/0fail/1platformskip",
+      "portable": "192pass/0fail/8explicitplatformskips",
+      "helperArtifact": 12183255798,
+      "helperArchiveSha256": "47e4e5d7dd20c12838907c6d7bf68948d5b17ac512e618dbedf99cfda09f6a9a",
+      "ownerDeviceAcceptance": false
+    },
+    "readBatchingCanonicalExperiment": {
+      "source": "6f2a5c83c64bc9414ab1e263d41b0c8be6e9671b",
+      "run": 39244523686,
+      "D1saveP95Ms": 3199.614369,
+      "limitMs": 2000,
+      "passed": false,
+      "integrated": false
+    },
+    "proxyHardening": "Four dedicated regressions pass, including unchanged deadline for queued-no-socket request. Original-code occupied-pool/queued deadline negative controls fail. Existing15 harness/diagnostic tests and type/lint passed. Original e4 cause remains unknown.",
+    "finiteSitesPreflight": {
+      "scope": "Committed working candidate; not final public-source canonical acceptance.",
+      "nativeD1R2HTTP": "All4tests pass,0fail/skip,29516.185667ms; includes actual opaque finite boundary with real auth/claim/artifacts/expiry.",
+      "bridge": "219total/210pass/0fail/9explicitplatformskips,5615.807547ms",
+      "serverFocused": "46/46pass; manual boundary6/6 independentlyrerun",
+      "clientReview": "37/37 focused independentlyrerun; exact49packedpaths; no blockingfindings",
+      "packageAndBoundary": "11/11pass,0skip; sourcepackageidentity and finite boundary",
+      "typecheck": "passed",
+      "lint": "0errors/8existingwarnings",
+      "build": "passed",
+      "nativeSitesIngressAcceptance": false,
+      "ownerDeviceAcceptance": false,
+      "providerExecution": false
+    }
   },
-  "uncommittedWork": "Sanitized ledger/checkpoint only; coherent Phase7 source committed, isolated performance experiment separate.",
-  "publicSource": "6939d4575dc4a933f5f035e1795c699fd8f945b1",
+  "uncommittedWork": "None besides synthetic benchmark outputs excluded from source publication.",
+  "publicSource": "3c6681a39d05b9b40ace26b49e5482aa2a4d40ed",
   "publicPr": "https://github.com/krybaby7/control-room/pull/1"
 }

@@ -23,7 +23,7 @@ The starting content is editable. User goals are confirmed; task suggestions and
 
 The implementation branch adds reviewed planning/evidence/history workflows, bounded source adapters, reviews and automation, the installable Windows bridge, guarded agent coordination, and complete recovery tooling. [Progress and checkpoints](docs/superpowers/plans/2026-10-18-control-room-completion/progress.json) and the [gap ledger](docs/superpowers/plans/2026-10-18-control-room-completion/09-gap-coverage.md) distinguish implemented source, exact automated evidence and external acceptance.
 
-This candidate has not replaced the private hosted version. Provider connections, renewable private ingress, actual Windows installation, physical-device/passkey acceptance and hosted scheduling require their own observed checks. Paid inference and operational/trading effects remain disabled. A fixture or saved schedule does not prove external execution. See the [release runbook](docs/operations/release.md).
+This candidate has not replaced the private hosted version. The finite manual Sites service adapter and private runtime/Windows invocation integration are implemented with default-disabled configuration. Native private ingress, provider connections, actual Windows installation, physical-device/passkey acceptance and hosted scheduling require their own observed checks; unattended renewal remains unsupported. Paid inference and operational/trading effects remain disabled. A fixture or saved schedule does not prove external execution. See the [release runbook](docs/operations/release.md).
 
 ## Local development
 

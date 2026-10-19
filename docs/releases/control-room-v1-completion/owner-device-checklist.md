@@ -17,7 +17,7 @@ For each owned device, record only sanitized OS/browser/version, actual date, so
 - Test server draft recovery and explicit discard in isolation. Trusted-device storage stays off until explicitly enabled; verify lock/unlock/Forget and session-expiry behavior without placing secrets in drafts.
 - On Windows, follow the packaged [bridge instructions](../../../bridge/README.md) and [executor boundary](../../../bridge/executor/README.md). Validate package/source hashes before installation. Confirm the actual account-scoped DPAPI credential, scheduled task, collector allowlist, boot/session identity and private ingress connection. A Linux or synthetic Windows runner is not that installation.
 - Verify actual heartbeat/telemetry arrival, disconnect/offline labeling and credential revocation. Do not infer physical GPU/process/runtime behavior from fixture JSON.
-- General agent execution remains unavailable until the exact pinned runtime, executable, sandbox, owned-process supervisor, renewable ingress and owner budget/approval are installed and verified. Never replace that boundary with a remote shell.
+- General agent execution remains unavailable until the exact pinned runtime, executable, sandbox, owned-process supervisor, confirmed finite private ingress window (or separately verified renewable access) and owner budget/approval are installed and verified. Never replace that boundary with a remote shell.
 
 ## Recording observations
 

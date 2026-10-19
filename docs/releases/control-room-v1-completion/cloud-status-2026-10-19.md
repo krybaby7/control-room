@@ -1,4 +1,6 @@
-# Control Room cloud result checkpoint — 2026-10-19
+# Historical checkpoint: Control Room cloud result checkpoint — 2026-10-19
+
+This report retains its original source-specific observations. Current resumed verification is recorded in the completion plan’s `resume-checkpoint.json` and `verification-3c6681a.json`; current runtime/source-helper implementation facts supersede this historical report.
 
 Documentation prepared from clean source `eb6755432f3e0989b1c722ac56fe745b7f4a7102`. The adjacent progress/checkpoint records identify the next integrated source. Each result below belongs to its named tested source; this document does not certify the final integrated checkout or its package. Cloud checks run through Node24 GitHub Actions. Supported Sites source/package helper execution is unavailable while native metadata/deployment access exists.
 

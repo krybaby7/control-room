@@ -1,3 +1,4 @@
+import {privateIngressBoundaryKey} from './private-ingress.ts';
 import type {SqlDatabase} from '../workspace-store.ts';
 import {canonical,contentHash} from '../canonical-json.ts';
 import {evidenceDateSchema} from '../evidence-validation.ts';
@@ -33,9 +34,9 @@ export async function deviceAuthorityGuard(db:SqlDatabase,raw:DevicePrincipal,no
 /** Gateway identity and application device identity are separate, mandatory gates. No browser owner is inferred. */
 export async function authenticateDevice(request:Request,requiredScope:DeviceScope,db:SqlDatabase,ingress:PrivateIngressVerifier,now:string):Promise<DevicePrincipal|null>{
  if(!deviceScopeSchema.safeParse(requiredScope).success||!evidenceDateSchema.safeParse(now).success)return null;
- let verified:{serviceIdentity:string}|null;try{verified=await ingress.verify(request);}catch{return null;}
- if(!verified||typeof verified.serviceIdentity!=='string'||!verified.serviceIdentity||verified.serviceIdentity.length>256)return null;
- if(!await admitDeviceRequest(db,'device-ingress:'+verified.serviceIdentity,now,600))return null;
+ let verified:import('./contracts.ts').PrivateIngressVerdict|null;try{verified=await ingress.verify(request);}catch{return null;}
+ if(!verified||!privateIngressBoundaryKey(verified,now))return null;
+ if(!await admitDeviceRequest(db,'device-ingress:'+privateIngressBoundaryKey(verified,now),now,600))return null;
  const token=request.headers.get('X-Control-Room-Device');if(request.headers.has('Cookie')||typeof token!=='string'||!/^[A-Za-z0-9_-]{32,512}$/.test(token))return null;
  const hash=await contentHash(token),rows=(await db.prepare('SELECT user_id,device_id,id,token_hash,scopes_json FROM device_credentials WHERE token_hash=? LIMIT 2').bind(hash).all<{user_id:string;device_id:string;id:string;token_hash:string;scopes_json:string}>()).results;
  if(rows.length!==1||!equalDeviceDigest(rows[0].token_hash,hash))return null;

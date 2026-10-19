@@ -6,16 +6,19 @@ export function createLocalExecutor(){
  return Object.freeze({enabled:false,async probeLocalExecution(){return runtime.probeLocalExecution();},async execute(){return {status:'blocked',diagnostic:'not_installed',processStarted:false,processExitConfirmed:false,modelVerified:false};}});
 }
 
-import {open,readdir} from 'node:fs/promises';
+import {open,readdir,rename,unlink} from 'node:fs/promises';
 import {constants} from 'node:fs';
 import {join,dirname} from 'node:path';
+import {randomUUID} from 'node:crypto';
+import {ensurePrivateWindowsState} from '../src/windows-state.mjs';
+import {parseCapability,capabilitySha256,executionPolicySha256} from '../src/execution-policy.mjs';
 import {readConfig} from '../src/config.mjs';
 import {createCredentialStore} from '../src/credentials.mjs';
 import {unavailablePrivateIngress} from '../src/transport.mjs';
 import {createInstalledSubscriptionRuntime,deriveInstalledToolPolicyEvidence} from './runtime.mjs';
 import {openLocalRuntimeInstallation,installLocalRuntime} from './runtime-install.mjs';
 import {createWindowsOwnedProcessSupervisor,prepareWindowsOwnedHelperDirectory} from './owned-process.mjs';
-import {openLaunchManifest,readPrivateLaunchJson,launchLocalPath} from './launch-config.mjs';
+import {openLaunchManifest,readPrivateLaunchJson,launchLocalPath,parseLaunchManifest} from './launch-config.mjs';
 import {resolveExecutionPrivateIngress} from './connection.mjs';
 import {createAgentExecutionTransport,bindAuthenticatedAgentGrant} from './transport.mjs';
 import {prepareDurableClaim} from './claims.mjs';
@@ -48,7 +51,7 @@ export async function installConfiguredLocalRuntime({manifestPath,archivePath}){
 export async function createConfiguredLocalExecutor({manifestPath}){
  const {manifest,verifyPrivateState,verifyPrivateWorkspace}=await openLaunchManifest(manifestPath);
  if(!manifest.enabled)return createLocalExecutor();
- const connection=await readConfig(manifest.bridgeConfigPath),ingressAdapter=resolveExecutionPrivateIngress(connection.cloudBaseUrl);
+ const connection=await readConfig(manifest.bridgeConfigPath),ingressAdapter=await resolveExecutionPrivateIngress(connection.cloudBaseUrl,{configPath:manifest.bridgeConfigPath});
  if(ingressAdapter===unavailablePrivateIngress)return Object.freeze({enabled:false,async execute(){return {status:'needs_connection',diagnostic:'private_ingress_unavailable',processStarted:false,processExitConfirmed:false,modelVerified:false};}});
  if(!connection.cloudBaseUrl||!connection.deviceId||manifest.capability.deviceId!==connection.deviceId)fail('device_connection_unavailable');
  const stateRoot=manifest.stateDirectory,credentials=await createCredentialStore({path:join(dirname(manifestPath),'.control-room-bridge','credentials.dpapi')}).load();
@@ -57,7 +60,16 @@ export async function createConfiguredLocalExecutor({manifestPath}){
  const loadRuntime=()=>runtimePromise??=(async()=>{const installation=await openLocalRuntimeInstallation({...manifest.installation,verifyPrivateState}),owner=await createWindowsOwnedProcessSupervisor({helperExecutable:manifest.helper.executable,helperSha256:manifest.helper.sha256});return createInstalledSubscriptionRuntime({installation,owner,policy:manifest.policy,providerConfiguration:manifest.providerConfiguration,executableEvidence:manifest.executableEvidence,now});})();
  const transportOptions={enabled:true,baseUrl:connection.cloudBaseUrl,deviceCredential:credentials.deviceCredential,ingressAdapter},transport=createAgentExecutionTransport(transportOptions),artifactTransport=createArtifactUploadTransport(transportOptions);
  let consumed=false;
- return Object.freeze({enabled:true,probeLocalExecution:async()=>{const runtime=await loadRuntime();return runtime.probeLocalExecution(manifest.providerConfiguration);},async execute({jobId,signal=new AbortController().signal}={}){
+ return Object.freeze({enabled:true,probeLocalExecution:async()=>{const runtime=await loadRuntime();return runtime.probeLocalExecution(manifest.providerConfiguration);},async reportCapability({expectedOperationalRevision=null}={}){
+  if(consumed)fail('executor_once_consumed');consumed=true;if(expectedOperationalRevision!==null)integer(expectedOperationalRevision,1,Number.MAX_SAFE_INTEGER-1);ingressAdapter.assertAvailable?.();
+  const runtime=await loadRuntime(),probe=await runtime.probeLocalExecution(manifest.providerConfiguration);if(!probe.ready)fail('provider_probe_unavailable');ingressAdapter.assertAvailable?.();
+  await directory(stateRoot,verifyPrivateState);const attempts=await directory(join(stateRoot,'attempts'),verifyPrivateState),reservations=await directory(join(stateRoot,'reservations'),verifyPrivateState);await directory(join(stateRoot,'claims'),verifyPrivateState);const store=await openExecutorStore({directory:attempts,verifyPrivateState});
+  try{const budget=await readProtectedLocalBudget({reservations,attempts,current:null,verifyPrivateState,signal:new AbortController().signal}),observedAt=now(),end=Math.min(Date.parse(observedAt)+300000,Date.parse(ingressAdapter.releaseUntil??new Date(Date.parse(observedAt)+300000).toISOString()));
+   if(end<=Date.parse(observedAt))fail('private_ingress_unavailable');const capability=deriveConfiguredCapability({policy:manifest.policy,runtimeIdentity:runtime.identity,deviceId:connection.deviceId,budget,observedAt,expiresAt:new Date(end).toISOString()});
+   const receipt=await transport.capabilities({capability,expectedOperationalRevision});shape(receipt,['sha256','operationalRevision']);if(receipt.sha256!==capabilitySha256(capability)||receipt.operationalRevision!==(expectedOperationalRevision??0)+1)fail('capability_receipt_differs');
+   await writeReportedCapability(manifestPath,manifest,capability);return {status:'capability_reported',sha256:receipt.sha256,operationalRevision:receipt.operationalRevision,observedAt,expiresAt:capability.expiresAt,modelExecutionVerified:false};
+  }finally{await store.close();}
+ },async execute({jobId,signal=new AbortController().signal}={}){
   id(jobId);if(consumed)fail('executor_once_consumed');consumed=true;if(!(signal instanceof AbortSignal))fail('invalid_abort_signal');if(signal.aborted)return {status:'blocked',diagnostic:'cancel_requested'};
   await directory(stateRoot,verifyPrivateState);const attempts=await directory(join(manifest.stateDirectory,'attempts'),verifyPrivateState),reservations=await directory(join(manifest.stateDirectory,'reservations'),verifyPrivateState),claims=await directory(join(manifest.stateDirectory,'claims'),verifyPrivateState),store=await openExecutorStore({directory:attempts,verifyPrivateState});let journal,mappings,report;const conclude=value=>(report=value);
   try{
@@ -75,7 +87,7 @@ export async function createConfiguredLocalExecutor({manifestPath}){
    const repository=manifest.policy.repositories[lease.spec.repositoryKey];if(!repository)fail('repository_not_registered');
    let workspaceManager={async prepare(){fail('launch_not_admissible');}};
    if(lease.mayLaunch){const workspaceParent=await directory(join(dirname(manifestPath),'.control-room-workspaces'),verifyPrivateWorkspace),workspaceRoot=await directory(join(workspaceParent,'repo-'+sha({repositoryKey:lease.spec.repositoryKey}).slice(0,32)),verifyPrivateWorkspace);workspaceManager=await createWorkspaceManager({gitExecutable:manifest.gitExecutable,repository,stateRoot:workspaceRoot,verifyPrivateWorkspace});}
-   const runner=createBoundedAttemptRunner({lease,journal,workspaceManager,runtime,artifacts,config:{enabled:true,...manifest.providerConfiguration},transport,now}),outcome=await runner.run({signal});
+   const runner=createBoundedAttemptRunner({lease,journal,workspaceManager,runtime,artifacts,config:{enabled:true,...manifest.providerConfiguration},transport,now,authority:ingressAdapter}),outcome=await runner.run({signal});
    if(outcome.mode==='upload_only'){
     const ownerContextHash=grant.frozenAdmission.ownerContextHash;
     mappings=await openArtifactUploadJournal({directory:attemptDirectory,identity,ownerContextHash,verifyPrivateState});
@@ -92,3 +104,15 @@ export async function createConfiguredLocalExecutor({manifestPath}){
 
 export async function prepareConfiguredLocalHelper({manifestPath}){const {manifest}=await openLaunchManifest(manifestPath);if(!manifest.enabled)fail('local_execution_disabled');await prepareWindowsOwnedHelperDirectory(dirname(manifest.helper.executable));await createWindowsOwnedProcessSupervisor({helperExecutable:manifest.helper.executable,helperSha256:manifest.helper.sha256});return {status:'prepared',windowsAcceptanceVerified:false};}
 export async function inspectConfiguredToolPolicy({manifestPath}){const {manifest,verifyPrivateState}=await openLaunchManifest(manifestPath);if(!manifest.enabled)fail('local_execution_disabled');const installation=await openLocalRuntimeInstallation({...manifest.installation,verifyPrivateState});return deriveInstalledToolPolicyEvidence(installation,{provider:manifest.providerConfiguration.provider,platform:process.platform});}
+
+async function writeReportedCapability(manifestPath,manifest,capability){
+ const temporary=join(dirname(manifestPath),'.capability-'+randomUUID()+'.json');let file;
+ try{if(canonical(parseLaunchManifest(await readPrivateLaunchJson(manifestPath)))!==canonical(manifest))fail('local_configuration_changed');file=await open(temporary,'wx',0o600);await file.writeFile(canonical({...manifest,capability})+'\n');await file.sync();await file.close();file=null;await ensurePrivateWindowsState({configPath:temporary,stateDirectory:join(dirname(manifestPath),'.control-room-bridge')});if(canonical(parseLaunchManifest(await readPrivateLaunchJson(manifestPath)))!==canonical(manifest))fail('local_configuration_changed');await rename(temporary,manifestPath);if(process.platform!=='win32'){const parent=await open(dirname(manifestPath),'r');try{await parent.sync();}finally{await parent.close();}}}finally{await file?.close();await unlink(temporary).catch(error=>{if(error.code!=='ENOENT')throw error;});}
+}
+
+/** Trusted local composition derives capability scope; launch templates are never fresh evidence. */
+export function deriveConfiguredCapability({policy,runtimeIdentity,deviceId,budget,observedAt,expiresAt}){
+ const remaining=Math.max(0,policy.maxBatchSeconds-budget.usedRuntimeSeconds),repositoryKeys=Object.keys(policy.repositories);
+ if(canonical(runtimeIdentity)!==canonical(policy.runtime))fail('runtime_identity_differs');
+ return parseCapability({schemaVersion:1,deviceId,configurationSha256:executionPolicySha256(policy),runtime:runtimeIdentity,operations:policy.operations,models:policy.models,repositoryKeys,observedAt,expiresAt,maxConcurrent:1,availableSlots:budget.otherActiveAttempts===0&&budget.usedJobs<policy.maxJobs&&remaining>=30?1:0,maxTimeoutSeconds:Math.max(30,Math.min(policy.maxTimeoutSeconds,remaining)),maxOutputBytesLimit:policy.maxOutputBytesLimit,provider:policy.provider,allowedPathsSha256ByRepositoryKey:Object.fromEntries(repositoryKeys.map(key=>[key,sha(policy.repositories[key].allowedPaths)])),modelIdentityPolicy:policy.modelIdentityPolicy,subscriptionOnly:policy.subscriptionOnly,extraUsageOffAttested:policy.extraUsageOffAttested});
+}

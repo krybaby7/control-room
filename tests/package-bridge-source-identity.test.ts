@@ -14,10 +14,11 @@ async function fixture(current=false,extra?:string,missing?:string){
  for(const path of (current?BRIDGE_03_SOURCE_PATHS.filter(path=>!['package.json','README.md'].includes(path)):required).filter(path=>path!==missing)){await mkdir(dirname(join(root,'bridge',path)),{recursive:true});await writeFile(join(root,'bridge',path),path.endsWith('.json')?'{}\n':'// Synthetic packaging fixture only.\n');}
  await writeFile(join(root,'bridge/src/config.mjs'),'export function validateConfig(value){if(!value||typeof value!=="object")throw Error("Invalid synthetic config");}\n');
  await writeFile(join(root,'bridge/README.md'),'Synthetic package identity fixture.\n');
+ if(current){await mkdir(join(root,'.openai'));await writeFile(join(root,'.openai/hosting.json'),JSON.stringify({project_id:'appgprj_'+ '0'.repeat(32)})+'\n');await writeFile(join(root,'bridge/src/site-identity.mjs'),"export const SITE_PROJECT_ID='appgprj_"+'0'.repeat(32)+"',SITE_ORIGIN='https://synthetic.chatgpt.site';\n");}
  await writeFile(join(root,'bridge/package.json'),JSON.stringify({name:'control-room-windows-bridge',version:current?'0.3.0':'0.0.1',private:true,type:'module',files:['src/*.mjs','windows/*.ps1','README.md','config.example.json','executor/*.mjs','executor/config.example.json',...(current?['executor/README.md','executor/launch-config.example.json','windows/owned-process/*']:[])]},null,2)+'\n');
  if(extra){await mkdir(dirname(join(root,'bridge',extra)),{recursive:true});await writeFile(join(root,'bridge',extra),'// Synthetic forbidden private runtime source.\n');}
  const git=(...args:string[])=>execFileSync('git',args,{cwd:root,encoding:'utf8',timeout:10000});
- git('init','--quiet');git('add','scripts','bridge','lib');git('-c','user.name=Synthetic Fixture','-c','user.email=fixture@example.invalid','commit','--quiet','-m','Synthetic tracked package');
+ git('init','--quiet');git('add','scripts','bridge','lib');if(current)git('add','.openai');git('-c','user.name=Synthetic Fixture','-c','user.email=fixture@example.invalid','commit','--quiet','-m','Synthetic tracked package');
  const commit=git('rev-parse','HEAD').trim();
  const run=(env:Partial<NodeJS.ProcessEnv>={})=>spawnSync(process.execPath,[join(root,'scripts/package-bridge.mjs')],{cwd:root,env:{...process.env,CONTROL_ROOM_SOURCE_COMMIT:commit,...env},encoding:'utf8',timeout:60000,maxBuffer:2*1024*1024});
  return {directory,root,commit,run};

@@ -3,7 +3,8 @@ export interface DeviceDisplay {id:string;label:string;createdAt:string;archived
 export type DeviceScope='telemetry:write'|'evaluations:write'|'jobs:poll'|'jobs:report';
 export interface DevicePrincipal {ownerId:string;deviceId:string;credentialId:string;scopes:readonly DeviceScope[]}
 /** Platform-specific verification is separate from application device identity. */
-export interface PrivateIngressVerifier {verify(request:Request):Promise<{serviceIdentity:string}|null>}
+export type PrivateIngressVerdict={serviceIdentity:string}|import('./private-ingress.ts').ManualSitesVerdict;
+export interface PrivateIngressVerifier {verify(request:Request):Promise<PrivateIngressVerdict|null>}
 export const unavailablePrivateIngress:PrivateIngressVerifier={async verify(){return null;}};
 export interface DeviceSession {deviceId:string;bootId:string;generation:number;bridgeVersion:string;createdAt:string}
 export interface DeviceLiveWindow {windowId:string;bootId:string;generation:number;sequence:number;issuedAt:string;expiresAt:string}

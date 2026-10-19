@@ -64,7 +64,7 @@ export function createBridgeTransport({baseUrl,deviceCredential=null,ingressAdap
       }
       if(response.ok)return readJson(response);
       await response.body?.cancel();
-      if(response.status===401||response.status===403)throw new BridgeTransportError('authentication_stopped',{status:response.status});
+      if(response.status===401||response.status===403){try{await ingressAdapter.invalidate?.();}catch{}throw new BridgeTransportError('authentication_stopped',{status:response.status});}
       const delay=response.status===429?retryAfter(response.headers.get('retry-after'),now()):null;
       if((response.status===429||response.status>=500)&&attempt+1<attempts){
         await sleep(delay??Math.min(5000,250*2**attempt+Math.floor(Math.max(0,Math.min(1,random()))*250)));

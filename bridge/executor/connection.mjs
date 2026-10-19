@@ -1,4 +1,3 @@
-import {unavailablePrivateIngress} from '../src/transport.mjs';
-/** Reviewed local source registry only. No launch JSON, cookies, arbitrary module
- * paths or caller headers can establish platform ingress. */
-export function resolveExecutionPrivateIngress(){return unavailablePrivateIngress;}
+import {resolveManualSitesAccess} from '../src/sites-access.mjs';
+/** Fixed documented Sites header only; absent protected manual record is closed. */
+export async function resolveExecutionPrivateIngress(origin,{configPath}={}){return resolveManualSitesAccess({origin,configPath});}

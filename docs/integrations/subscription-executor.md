@@ -1,6 +1,6 @@
 # Subscription executor integration
 
-The Phase 7 implementation connects the bounded public coordinator to a separately reviewed private subscription-runtime package. Execution remains disabled by default. The connection registry has no supported private Site service adapter installed, so the shipped CLI reports `needs_connection` instead of borrowing browser credentials or weakening private access. Source, synthetic HTTP tests and Windows CI do not establish owner-device, provider authentication or sandbox acceptance.
+The Phase 7 implementation connects the bounded public coordinator to a separately reviewed private subscription-runtime package. Execution remains disabled by default. The shipped finite manual Sites adapter uses only the documented same-Site service bearer header and independently enrolled device credentials. It reports `needs_connection` until its separate protected manual record and matching server release window are configured. It supplies no visitor identity, connected-app consent or unattended renewal. Source, synthetic HTTP tests and Windows CI do not establish owner-device, provider authentication or sandbox acceptance.
 
 ## Independent installation evidence
 
@@ -21,7 +21,17 @@ node bridge/executor/cli.mjs runtime-policy --config ABSOLUTE_LOCAL_MANIFEST
 node bridge/executor/cli.mjs run --enable-execution --once --config ABSOLUTE_LOCAL_MANIFEST --job-id OWNER_APPROVED_JOB_ID
 ```
 
-Review the derived tool-policy descriptor and hash before independently approving the matching runtime identity. These commands do not supply a missing private ingress adapter. Install and validate a supported renewable service-credential adapter before activating a finite execution. Do not paste session cookies, credentials or arbitrary headers into the manifest.
+Review the derived tool-policy descriptor and hash before independently approving the matching runtime identity. Configure and validate the finite manual Sites connection described below before attempting a run. Do not paste session cookies, credentials or arbitrary headers into the manifest.
+
+## Finite manual private Sites access
+
+This adapter is deliberately disabled by default. First use native Sites metadata to confirm the existing project, exact published origin and current owner-only audience. The server-only `CONTROL_ROOM_MANUAL_SITES_WINDOW` record must have exactly `mode`, `projectId`, `siteOrigin`, `confirmedAt` and `releaseUntil`; mode is `manual-owner-private-sites`, project/origin must match the checked static identity, and the confirmation-to-cutoff window is at most15minutes. Configure it only through supported server environment configuration. Missing, stale, malformed or mismatched configuration denies every bridge route. A public/direct Worker deployment is unsupported and must remain unconfigured.
+
+Obtain a current service bearer only through the existing Site's native metadata. Import it through the bridge's masked/stdin command into a separate Windows CurrentUser-DPAPI record. Never use argv, cookies, browser profiles, public Actions secrets, launch-manifest fields or arbitrary headers. The fixed client sends `OAI-Sites-Authorization: Bearer ...` only to the statically bound existing Site and finite bridge methods/paths. Dispatch validates/consumes that header; the application does not infer an owner or service principal from it. Enrollment secrets and device credentials continue to supply their original independent owner/scope authorization.
+
+The cutoff is a local operator release limit, **not verified issuer expiry**. There is no token-renewal API claim or automatic renewal. The client rejects continuous execution, stops on authentication rejection and enforces the earliest cutoff through the runner's authority loop. A later explicit manual window may reconcile a retained exited attempt using its original nonce; it never relaunches an uncertain attempt. Unattended collection/scheduling remains disabled until a real supported renewable access path is separately validated.
+
+Report a capability only after the installed runtime, executable, native helper and local policy are genuinely probed. Fresh capability claims derive from the protected local configuration; the server's exact receipt/revision must match before updating the protected launch manifest. A capability claim or configured window does not prove model execution. Exact CLI commands are documented in the packaged bridge and executor READMEs.
 
 ## Durable execution and recovery
 
@@ -35,4 +45,4 @@ Successful inspection artifacts use a closed bounded report format. Patch result
 
 ## Remaining activation evidence
 
-Run the exact source-specific native supervisor/ACL, bridge, D1/R2/HTTP, browser, performance and package-integrity gates before publication. A passing synthetic provider fixture is not a real provider call. On the owner's Windows device, separately verify provider login/version/model observation, the unchanged sandbox/tool restrictions, approved worktree scope, cancellation/tree exit, output bounds, disconnect/reconciliation, durable artifact receipts and private service credential renewal. Use isolated synthetic repositories and data for failure tests. Keep inference disabled until the owner selects exact models and budgets; retain explicit proposal review after execution.
+Run the exact source-specific native supervisor/ACL, bridge, D1/R2/HTTP, browser, performance and package-integrity gates before publication. A passing synthetic provider fixture is not a real provider call. On the owner's Windows device, separately verify provider login/version/model observation, the unchanged sandbox/tool restrictions, approved worktree scope, cancellation/tree exit, output bounds, disconnect/reconciliation, durable artifact receipts and finite service-window expiry/recovery. Renewable service credentials and closed-browser scheduling require separate supported access and acceptance. Use isolated synthetic repositories and data for failure tests. Keep inference disabled until the owner selects exact models and budgets; retain explicit proposal review after execution.

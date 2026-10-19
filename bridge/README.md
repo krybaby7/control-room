@@ -9,3 +9,12 @@ Run node src/cli.mjs doctor --config ABSOLUTE_CONFIG_PATH before enabling teleme
 Windows DPAPI, Task Scheduler, power/reconnect, collector and real private ingress acceptance remain local operator checks. See repository docs/verification/windows-bridge-acceptance.md and docs/integrations/windows-bridge.md. No trade, shell, deployment or paid inference capability is enabled.
 
 The separate execution entry point is `executor/cli.mjs`. Version 0.3 includes the bounded coordinator, verified private-runtime installer, nonce recovery and original Windows owned-process helper source. See `docs/integrations/subscription-executor.md` in the repository and `windows/owned-process/README.md` in this package for the installation boundary. The private runtime itself is supplied separately under its own review and exact archive/source pins. The disabled launch example is `executor/launch-config.example.json`; the legacy invocation remains disabled. No private ingress adapter or provider account is supplied by this package.
+
+Manual owner-private Sites access is optional and disabled by default. Immediately after confirming this deployment is still owner-private with the native Sites service, import its supported service bearer through the masked prompt:
+
+```powershell
+node src/cli.mjs sites-access --config C:\private\bridge.json --confirm-owner-private --until 2026-10-19T12:15:00.000Z
+node src/cli.mjs sites-access-remove --config C:\private\bridge.json
+```
+
+Choose a future cutoff at most 15 minutes from import. This is a local release cutoff, not verified issuer expiry. The separate Windows DPAPI record sends the documented Sites authorization header only to the fixed Site and supported bridge routes. Device credentials and consent remain independently required. A 401/403 invalidates the record. Manual access permits `run --once`; it supplies no unattended renewal or continuous scheduling.

@@ -36,3 +36,12 @@ The low-level `bindAgentLease` accepts explicit trusted admission inputs for iso
 The helper exposes a 15-second monotonic renewal cadence and preserves the original server hard deadline. An ambiguous renewal stops local permission; it does not prove cancellation or exit. `flushJournalEvents` retries the same pending sequence/hash bytes and journals acknowledgements only for an exact complete receipt set matching attempt, epoch, sequence and canonical event hash. Unchanged persisted receipts survive response loss. This is a polling protocol boundary, not proof of a running supervisor or live private ingress.
 
 A resumed authenticated lease checks the frozen capability and approval at original admission time, with unchanged pin hashes, current local stops/budgets, current server lease authority and the original hard deadline. It does not require a newly hashed capability after the five-minute admission TTL, and never grants another launch.
+
+After the native Sites owner-private confirmation and masked `sites-access` import described in the bridge README, explicitly report the current local capability before admitting a job:
+
+```powershell
+node executor/cli.mjs report-capability --once --config C:\private\launch.json --expected-revision null
+node executor/cli.mjs report-capability --once --config C:\private\launch.json --expected-revision 1
+```
+
+Use `null` only for an initial report; otherwise supply the independently observed current operational revision. Reporting authenticates the installed package, native supervisor and configured provider probe, then derives scope from current policy, verified runtime identity, protected device identity and retained local budget. It performs no model call and does not claim executed model verification. Only an exact authenticated receipt updates the protected local launch capability. An uncertain receipt requires owner reconciliation rather than an automatic retry. Manual Sites access expires at its local cutoff (at most 15 minutes), actively aborting owned execution; this is not issuer expiry or unattended renewal.

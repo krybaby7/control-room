@@ -1,5 +1,5 @@
+import {createManualSitesIngress} from '../../../../lib/devices/private-ingress';
 import {env} from 'cloudflare:workers';
 import {handleDeviceHttp} from '../../../../lib/devices/http';
-import {unavailablePrivateIngress} from '../../../../lib/devices/contracts';
 export const dynamic='force-dynamic';
-export async function POST(request:Request){return handleDeviceHttp('rotate',request,{db:env.DB??null,ingress:unavailablePrivateIngress,now:()=>new Date().toISOString()});}
+export async function POST(request:Request){return handleDeviceHttp('rotate',request,{db:env.DB??null,ingress:createManualSitesIngress(env.CONTROL_ROOM_MANUAL_SITES_WINDOW),now:()=>new Date().toISOString()});}

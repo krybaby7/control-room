@@ -1,3 +1,4 @@
+import {privateIngressBoundaryKey} from './private-ingress.ts';
 import {z} from 'zod';
 import {requirePrivateCapacity,privateRowGrowth,type PrivateGrowth} from '../private-capacity.ts';
 import type {SqlDatabase,SqlStatement} from '../workspace-store.ts';
@@ -19,10 +20,10 @@ async function atomic(db:SqlDatabase,owner:string,authority:DeviceSqlGuard,build
  return (await db.batch(statements))[0]?.meta.changes===1;
 }
 /** Route must independently verify private ingress. A consumed secret never regenerates a lost plaintext credential. */
-export async function redeemDeviceEnrollment(db:SqlDatabase,raw:{secret:string;bridgeVersion:string},options:{now:string;verifiedIngress:{serviceIdentity:string}}):Promise<DeviceCredentialResult>{
+export async function redeemDeviceEnrollment(db:SqlDatabase,raw:{secret:string;bridgeVersion:string},options:{now:string;verifiedIngress:import('./contracts.ts').PrivateIngressVerdict}):Promise<DeviceCredentialResult>{
  const input=z.object({secret:z.string().regex(/^[A-Za-z0-9_-]{32,512}$/),bridgeVersion:bridgeVersionSchema}).strict().parse(raw);timestamp(options.now);
- if(!options.verifiedIngress||typeof options.verifiedIngress.serviceIdentity!=='string'||!options.verifiedIngress.serviceIdentity||options.verifiedIngress.serviceIdentity.length>256)throw new DeviceStoreError('Private device ingress is unavailable.',401);
- if(!await admitDeviceRequest(db,'enroll:'+options.verifiedIngress.serviceIdentity,options.now,60))throw new DeviceStoreError('Device enrollment rate limit reached.',429);
+ if(!privateIngressBoundaryKey(options.verifiedIngress,options.now))throw new DeviceStoreError('Private device ingress is unavailable.',401);
+ if(!await admitDeviceRequest(db,'enroll:'+privateIngressBoundaryKey(options.verifiedIngress,options.now),options.now,60))throw new DeviceStoreError('Device enrollment rate limit reached.',429);
  const hash=await contentHash(input.secret),row=await db.prepare('SELECT e.user_id,e.id,e.device_id,e.scopes_json,e.execution_epoch,e.created_at,e.expires_at,e.consumed_at,e.revoked_at,d.row_revision,d.payload_json,d.content_hash,d.archived_at FROM device_enrollments e JOIN devices d ON d.user_id=e.user_id AND d.id=e.device_id WHERE e.secret_hash=?').bind(hash).first<{user_id:string;id:string;device_id:string;scopes_json:string;execution_epoch:number;created_at:string;expires_at:string;consumed_at:string|null;revoked_at:string|null;row_revision:number;payload_json:string;content_hash:string;archived_at:string|null}>();
  if(!row)throw new DeviceStoreError('Enrollment is unavailable.',401);
  if(row.consumed_at!==null)throw new DeviceStoreError('Enrollment already consumed. Create a new explicit enrollment if the credential was lost.');

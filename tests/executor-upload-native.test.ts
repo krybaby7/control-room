@@ -8,6 +8,7 @@ import {join} from 'node:path';
 import {Miniflare} from 'miniflare';
 import {artifactSeedFixture,artifactNow,artifactLater} from './fixtures/agent-artifact.ts';
 import {handleAgentArtifactHttp,type AgentArtifactHttpAction} from '../lib/agents/artifact-http.ts';
+import {createManualSitesIngress,MANUAL_SITES_ORIGIN,MANUAL_SITES_PROJECT} from '../lib/devices/private-ingress.ts';
 import {authenticateDevice} from '../lib/devices/auth.ts';
 import {canonical,contentHash} from '../lib/canonical-json.ts';
 import {agentJobResultSchema} from '../lib/agents/contracts.ts';
@@ -217,4 +218,32 @@ test('actual native D1 nonce recovery batches expired immutable evidence without
   assert.deepEqual(await db.prepare('SELECT lease_expires_at,deadline_at FROM job_attempts WHERE user_id=? AND id=?').bind(seed.owner,identity.attemptId).first(),attemptBefore);
   const after=await readCurrent(db,seed.owner,reportNow);assert.deepEqual(after.workspace,before.workspace);assert.equal(after.revision,before.revision+2,'only original artifact reserve/finalize advanced the editor revision');
  }finally{await journal?.close();await mappings?.close();seed.sqlite.close();await mf.dispose();await rm(directory,{recursive:true,force:true});}
+});
+
+
+test('actual native D1/R2 finite opaque Sites ingress preserves device authentication and expires without domain writes',async()=>{
+ const seed=await artifactSeedFixture(),mf=new Miniflare({modules:true,script:'export default {fetch(){return new Response("synthetic opaque ingress fixture");}}',compatibilityDate:'2026-05-15',d1Databases:['DB'],d1Persist:false,r2Buckets:['BUCKET'],r2Persist:false,cf:false});
+ try{
+  const db=await mf.getD1Database('DB') as unknown as SqlDatabase,bucket=await mf.getR2Bucket('BUCKET') as unknown as AttachmentBucket;
+  for(const name of (await readdir(new URL('../drizzle/',import.meta.url))).filter(name=>/^\d+.*\.sql$/u.test(name)).sort())for(const sql of (await readFile(new URL('../drizzle/'+name,import.meta.url),'utf8')).split('--> statement-breakpoint'))if(sql.trim())await db.prepare(sql.trim()).run();
+  for(const table of ['workspaces','workspace_source_namespaces','workspace_execution_state','devices','device_runtime','device_credentials','agent_capabilities','workspace_job_intents','agent_jobs','agent_job_state','job_approvals','agent_budgets'])for(const row of seed.sqlite.prepare('SELECT * FROM '+table).all()){const keys=Object.keys(row);await db.prepare('INSERT INTO '+table+'('+keys.join(',')+') VALUES('+keys.map(()=>'?').join(',')+')').bind(...keys.map(key=>{const value=row[key];assert.ok(value===null||typeof value==='string'||typeof value==='number');return value;})).run();}
+  let time=artifactNow;const clock=()=>time,raw=JSON.stringify({mode:'manual-owner-private-sites',projectId:MANUAL_SITES_PROJECT,siteOrigin:MANUAL_SITES_ORIGIN,confirmedAt:artifactNow,releaseUntil:artifactLater(900)}),ingress=createManualSitesIngress(raw,clock),deps={db,bucket,ingress,now:clock,context:seed.context};
+  const request=(action:string,value:unknown,credential:string|null=seed.deviceSecret)=>new Request(MANUAL_SITES_ORIGIN+'/api/bridge/jobs/'+action,{method:'POST',headers:{'content-type':'application/json',...(credential?{'x-control-room-device':credential}:{})},body:JSON.stringify(value)});
+  const claimBody={jobId:seed.jobId,journalNonce:'synthetic_native_manual_sites_nonce_00001'};
+  const verdict=await ingress.verify(request('claim',claimBody));assert.deepEqual(verdict,{kind:'manual-owner-private-sites'});assert.equal(Object.hasOwn(verdict!,'serviceIdentity'),false);
+  const snapshot=async()=>canonical(await Promise.all(['workspaces','agent_capabilities','job_attempts','job_approvals','agent_job_state','agent_budgets','agent_device_slots','agent_artifacts','attachments','attachment_upload_attempts','attachment_blob_objects','workspace_job_intents','workspace_mutations'].map(async table=>({table,rows:(await db.prepare('SELECT * FROM '+table+' WHERE user_id=? ORDER BY rowid').bind(seed.owner).all()).results}))));
+  const beforeDenied=await snapshot();for(const credential of [null,'wrong_synthetic_device_credential_00000001']){const denied=await handleAgentHttp('claim',request('claim',claimBody,credential),deps);assert.equal(denied.status,401);assert.deepEqual(await denied.json(),{error:'Agent request was rejected.',code:'agent_unauthorized'});}assert.equal(await snapshot(),beforeDenied);
+  const capability=await handleAgentHttp('capabilities',request('capabilities',{capability:seed.capability,expectedOperationalRevision:1}),deps);assert.equal(capability.status,200);const capReceipt=await capability.json() as {sha256:string;operationalRevision:number};assert.equal(capReceipt.operationalRevision,2);assert.equal(capReceipt.sha256,await contentHash(canonical(seed.capability)));
+  const claimed=await handleAgentHttp('claim',request('claim',claimBody),deps);assert.equal(claimed.status,200);const claim=await claimed.json() as {attemptId:string;leaseToken:string};assert.equal(typeof claim.attemptId,'string');assert.equal((await handleAgentHttp('claim',request('claim',claimBody),deps)).status,200);assert.equal((await db.prepare('SELECT COUNT(*) n FROM job_attempts WHERE user_id=?').bind(seed.owner).first<{n:number}>())!.n,1);
+  // Re-read the last once-only claim response's token; same nonce rotates only this attempt.
+  const resumed=await handleAgentHttp('claim',request('claim',claimBody),deps),current=await resumed.json() as typeof claim,credentials={attemptId:current.attemptId,leaseToken:current.leaseToken};
+  const artifactPost=async(action:'mutation-id'|'reserve'|'finalize',value:unknown)=>{const response=await handleAgentArtifactHttp(action,request('artifacts/'+action,value),deps);assert.equal(response.status,200);return await response.json() as {revision:number;mutationId:string;artifact:{id:string}};};
+  const bytes=new TextEncoder().encode('Synthetic finite ingress bytes; no runtime execution.\n'),issued=await artifactPost('mutation-id',credentials),reserved=await artifactPost('reserve',{...credentials,...issued,filename:'finite-window.txt',mimeType:'text/plain',expectedBytes:bytes.length,logicalType:'diagnostic',sha256:await attachmentHash(bytes)}),id=reserved.artifact.id;
+  const content=new Request(MANUAL_SITES_ORIGIN+'/api/bridge/jobs/artifacts/'+id+'/content',{method:'PUT',headers:{'content-type':'text/plain','x-control-room-device':seed.deviceSecret,'x-control-room-attempt':current.attemptId,'x-control-room-lease':current.leaseToken},body:bytes as BodyInit});assert.equal((await handleAgentArtifactHttp('content',content,deps,id)).status,200);
+  await artifactPost('finalize',{...credentials,...await artifactPost('mutation-id',credentials),id});const attachment=JSON.parse((await ownerReader(db,seed.owner).get('attachments',id))!.payload_json),namespace=(await getWorkspaceNamespaces(db,seed.owner))!;assert.deepEqual((await readReadyAttachment(seed.owner,attachment,createR2BlobStore(bucket),{ownerNamespace:namespace.blobNamespace,now:time})).bytes,bytes);
+  const beforeExpiry=await snapshot();time=artifactLater(900);assert.equal(await ingress.verify(request('claim',claimBody)),null);
+  const expired=await handleAgentHttp('renew',request('renew',credentials),deps);assert.equal(expired.status,401);assert.deepEqual(await expired.json(),{error:'Agent request was rejected.',code:'agent_unauthorized'});
+  assert.equal((await handleAgentArtifactHttp('mutation-id',request('artifacts/mutation-id',credentials),deps)).status,401);assert.equal(await snapshot(),beforeExpiry);
+  const after=await readCurrent(db,seed.owner,time),initial=await readCurrent(seed.db,seed.owner,artifactNow);assert.deepEqual(after.workspace,initial.workspace);assert.equal((await db.prepare('SELECT COUNT(*) n FROM job_attempts WHERE user_id=?').bind(seed.owner).first<{n:number}>())!.n,1);
+ }finally{seed.sqlite.close();await mf.dispose();}
 });

@@ -1,0 +1,94 @@
+{
+  "format": "control-room-source-verification",
+  "version": 1,
+  "sourceCommit": "3c6681a39d05b9b40ace26b49e5482aa2a4d40ed",
+  "scope": "Prior public candidate; subsequent source changes require their own canonical gates.",
+  "canonical": {
+    "run": 39244318516,
+    "job": 118032426729,
+    "conclusion": "success",
+    "node": {
+      "passed": 1800,
+      "failed": 0,
+      "skipped": 0
+    },
+    "bridge": {
+      "total": 211,
+      "passed": 202,
+      "failed": 0,
+      "platformSkipped": 9
+    },
+    "browser": {
+      "defaultPassed": 63,
+      "defaultTotal": 63,
+      "r2Passed": 3,
+      "r2Total": 3
+    },
+    "checks": [
+      "locked Node 24 install",
+      "typecheck",
+      "lint: 0 errors, 8 existing warnings",
+      "production build",
+      "generation/workspace/source/review/scheduled-backup/scheduled-source/runtime D1",
+      "fixture proxy",
+      "D1/R2 recovery",
+      "HTTP",
+      "bridge and candidate packaging"
+    ]
+  },
+  "performance": {
+    "run": 39244318665,
+    "conclusion": "success",
+    "D1saveP95Ms": 1750.767601,
+    "D1saveP50Ms": 1278.158387,
+    "limitMs": 2000,
+    "outcomesPerEngine": 100,
+    "restoresPerEngine": 6,
+    "errors": [],
+    "claim": "Passing measurement at this source; no causal application latency improvement established. Historical failures remain recorded."
+  },
+  "nativeWindows": {
+    "run": 39244318555,
+    "nativePassed": 10,
+    "nativeFailed": 0,
+    "nativePlatformSkipped": 1,
+    "portablePassed": 192,
+    "portableFailed": 0,
+    "portablePlatformSkipped": 8,
+    "ownerDeviceAcceptance": false
+  },
+  "additionalSuccessfulRuns": {
+    "threeBrowserAcceptance": 39244318545,
+    "browserPerformance": 39244318488,
+    "isolatedAgentsD1": 39244318587,
+    "segmentedRecovery": 39244318510,
+    "recoveryMaintenance": 39244318539,
+    "workspaceStreaming": 39244318496
+  },
+  "artifacts": [
+    {
+      "kind": "candidate",
+      "id": 12183438040,
+      "zipSha256": "51dd8c42879de84d1dc79cb58ad24ecdef20dae68b175d9061a7122d75868751"
+    },
+    {
+      "kind": "bridge",
+      "id": 12183143463,
+      "zipSha256": "40f729654000971b8763156b4f38b510748267e5136fdedf4b3bce932a09efaa"
+    },
+    {
+      "kind": "windowsHelper",
+      "id": 12183255798,
+      "zipSha256": "47e4e5d7dd20c12838907c6d7bf68948d5b17ac512e618dbedf99cfda09f6a9a"
+    }
+  ],
+  "limitations": [
+    "Final changed candidate requires fresh canonical and artifact-integrity gates.",
+    "Original e4 timeout internal cause remains unknown; newer proxy correction has deterministic negative controls.",
+    "No owner-device, provider/model execution or new private deployment accepted.",
+    "Complete pre-cutover production snapshot is not available through the truncated native DB reader."
+  ],
+  "deployed": false,
+  "providerExecution": false,
+  "ownerDeviceAcceptance": false
+}
