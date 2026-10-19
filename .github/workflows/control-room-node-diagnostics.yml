@@ -1,3 +1,4 @@
+# Full-suite lifecycle comparison: only two backup fixtures differ from c735 source.
 name: Control Room Node file diagnostics
 on:
   push:

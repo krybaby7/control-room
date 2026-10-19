@@ -51,6 +51,8 @@ async function fixture(options:{fileBytes?:number;fileMode?:boolean}={}){
  }catch(error){await mf.dispose();throw error;}
 }
 
+// Presence checks must settle native R2 bodies before disposing the isolated worker.
+async function assertStoredObject(f:Awaited<ReturnType<typeof fixture>>,key:string){const object=await f.bucket.get(key);assert.ok(object);await object.arrayBuffer();}
 const later='2026-10-18T12:01:00.000Z',retiredAt='2026-10-18T12:02:00.000Z',authorizedAt='2026-10-18T12:03:00.000Z';
 async function retiredFixture(){
  const f=await fixture({fileBytes:1024});try{
@@ -72,12 +74,12 @@ test('fresh explicit owner proof reauthorizes an old-epoch retired archive witho
   assert.equal((await cleanupRetiredFileBackup(f.db,principal.ownerId,{id:f.input.id,indexHash:f.input.indexHash},{now:()=>authorizedAt,bucket:f.cleanupBucket})).reason,'authorization_stale');
   let deletes=0;const services={...f.services,bucket:{...f.cleanupBucket,async delete(key:string){deletes++;await f.bucket.delete(key);}}};
   assert.deepEqual(await reauthorizeRetiredFileBackup(f.db,principal.ownerId,f.input,{now:()=>authorizedAt,services}),{status:'authorized',id:f.input.id,indexHash:f.input.indexHash,executionEpoch:1});
-  assert.equal(deletes,0);assert.equal(await f.count('backup_archive_cleanup_claims'),0);assert.ok(await f.bucket.get(oldKey));assert.deepEqual(await readBackupQuotaUsage(f.db,principal.ownerId),quota);
+  assert.equal(deletes,0);assert.equal(await f.count('backup_archive_cleanup_claims'),0);await assertStoredObject(f,oldKey);assert.deepEqual(await readBackupQuotaUsage(f.db,principal.ownerId),quota);
   assert.equal((await f.db.prepare('SELECT execution_epoch FROM backup_archives WHERE user_id=? AND id=?').bind(principal.ownerId,f.input.id).first<{execution_epoch:number}>())!.execution_epoch,1);
   const cleaned=await cleanupRetiredFileBackup(f.db,principal.ownerId,{id:f.input.id,indexHash:f.input.indexHash},{now:()=>authorizedAt,bucket:services.bucket});
   assert.equal(cleaned.status,'completed');assert.equal(deletes,1);assert.equal(await f.bucket.get(oldKey),null);
   assert.equal((await readBackupQuotaUsage(f.db,principal.ownerId)).bytes,quota.bytes-f.control.selected.archive.zip_bytes);
-  const newer=await readReadyFileBackup(f.db,principal.ownerId,f.newer.backupId,f.services);assert.ok(newer);await newer.stream.cancel();
+  const newer=await readReadyFileBackup(f.db,principal.ownerId,f.newer.backupId,f.services);assert.ok(newer);await new Response(newer.stream).arrayBuffer();
   assert.deepEqual(await readCurrent(f.db,principal.ownerId,authorizedAt),before);
  }finally{await f.mf.dispose();}
 });
@@ -89,7 +91,7 @@ test('foreign owner, forged/newer SHA, same point and missing actual newer bytes
   await f.bucket.delete(f.control.newer.objects[0].storage_key);
   await assert.rejects(reauthorizeRetiredFileBackup(f.db,principal.ownerId,f.input,{now:()=>authorizedAt,services:f.services}));
   assert.equal((await f.db.prepare('SELECT execution_epoch FROM backup_archives WHERE user_id=? AND id=?').bind(principal.ownerId,f.input.id).first<{execution_epoch:number}>())!.execution_epoch,0);
-  assert.equal(await f.count('backup_archive_cleanup_claims'),0);assert.ok(await f.bucket.get(f.control.selected.objects[0].storage_key));
+  assert.equal(await f.count('backup_archive_cleanup_claims'),0);await assertStoredObject(f,f.control.selected.objects[0].storage_key);
  }finally{await f.mf.dispose();}
 });
 test('current epoch, old/new ledger and permanent-claim races abort reauthorization without partial epoch stamp',async()=>{
@@ -105,7 +107,7 @@ test('current epoch, old/new ledger and permanent-claim races abort reauthorizat
    }}};
    await assert.rejects(reauthorizeRetiredFileBackup(f.db,principal.ownerId,f.input,{now:()=>authorizedAt,services}));
    assert.equal((await f.db.prepare('SELECT execution_epoch FROM backup_archives WHERE user_id=? AND id=?').bind(principal.ownerId,f.input.id).first<{execution_epoch:number}>())!.execution_epoch,0);
-   assert.ok(await f.bucket.get(f.control.selected.objects[0].storage_key));assert.ok(await f.bucket.get(f.control.newer.objects[0].storage_key));
+   await assertStoredObject(f,f.control.selected.objects[0].storage_key);await assertStoredObject(f,f.control.newer.objects[0].storage_key);
   }finally{await f.mf.dispose();}
  }
 });
