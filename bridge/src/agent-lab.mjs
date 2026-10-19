@@ -1,4 +1,5 @@
 import http from 'node:http';
+import {projectLabReport} from './agent-lab-import.mjs';
 import net from 'node:net';
 import {createHash} from 'node:crypto';
 import {BRIDGE_LIMITS,opaqueId,timestamp,canonicalJson} from './config.mjs';
@@ -19,7 +20,8 @@ function cohort(run){
  return createHash('sha256').update(canonicalJson(fields)).digest('hex');
 }
 /** Source claims are evaluation context, never model readiness or job authority.
- * No grade/usage shape has been verified against the current Lab installation. */
+ * Legacy display projection keeps grades/usage unknown. Explicit selected
+ * imports use the separately bounded projection in agent-lab-import.mjs. */
 export function sanitizeAgentLabRun(raw){
  if(!plain(raw))throw new LabReadError('source_invalid');
  const id=runId(raw.id),provider=providers.has(raw.provider)?raw.provider:null,requestedModel=safe(raw.requestedModel),observedModel=safe(raw.observedModel),reportedModelVerified=typeof raw.modelVerified==='boolean'?raw.modelVerified:null;
@@ -54,7 +56,7 @@ function readFixed(path,{deadlineMs,report=false}){
    let bytes=0;const chunks=[];
    incoming.on('data',chunk=>{bytes+=chunk.length;if(bytes>AGENT_LAB_LIMITS.responseBytes)return done(new LabReadError('source_invalid'));chunks.push(chunk);});
    incoming.on('aborted',()=>done(new LabReadError('source_invalid')));incoming.on('error',()=>done(new LabReadError('source_unreachable')));
-   incoming.on('end',()=>{try{if(length!==undefined&&Number(length)!==bytes)throw new Error();const text=new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks));if(report)return done(null,null);done(null,JSON.parse(text));}catch{done(new LabReadError('source_invalid'));}});
+   incoming.on('end',()=>{try{if(length!==undefined&&Number(length)!==bytes)throw new Error();const text=new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks));if(report)return done(null,{value:json?JSON.parse(text):null,sourceInputSha256:createHash('sha256').update(Buffer.concat(chunks)).digest('hex')});done(null,JSON.parse(text));}catch{done(new LabReadError('source_invalid'));}});
   });request.on('error',()=>done(new LabReadError('source_unreachable')));
  });
 }
@@ -69,6 +71,6 @@ export function createAgentLabReader(options={}){
  return Object.freeze({
   async readState(){const observedAt=dated();if(!enabled)return unavailable(instanceId,observedAt,'not_configured','disabled');try{return sanitizeAgentLabState(await readFixed('/api/state',{deadlineMs}),{instanceId,observedAt});}catch(error){return unavailable(instanceId,observedAt,diagnostic(error));}},
   async readRun(id){const selected=runId(id),observedAt=dated();if(!enabled)return {instanceId,observedAt,available:false,reason:'not_configured',run:null};try{const run=sanitizeAgentLabRun(await readFixed('/api/runs/'+encodeURIComponent(selected),{deadlineMs}));if(run.id!==selected)throw new LabReadError('source_invalid');return {instanceId,observedAt,available:true,reason:'source-claim',run};}catch(error){return {instanceId,observedAt,available:false,reason:diagnostic(error),run:null};}},
-  async readReport(){const observedAt=dated();if(!enabled)return {instanceId,observedAt,available:false,reason:'not_configured'};try{await readFixed('/api/report',{deadlineMs,report:true});return {instanceId,observedAt,available:false,reason:'unsupported-report-schema'};}catch(error){return {instanceId,observedAt,available:false,reason:diagnostic(error)};}},
+  async readReport(){const observedAt=dated();if(!enabled)return {instanceId,observedAt,available:false,reason:'not_configured'};try{const raw=await readFixed('/api/report',{deadlineMs,report:true});if(!plain(raw.value)||!Array.isArray(raw.value.comparisons))return {instanceId,observedAt,available:false,reason:'unsupported-report-schema'};return {instanceId,observedAt,available:true,reason:'source-claim',sourceInputSha256:raw.sourceInputSha256,report:projectLabReport(raw.value)};}catch(error){return {instanceId,observedAt,available:false,reason:diagnostic(error)};}},
  });
 }

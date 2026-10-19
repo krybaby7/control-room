@@ -1,0 +1,41 @@
+name: Control Room captured-planning verification
+on:
+  push:
+    branches: ['diagnostics/control-room-planning-capture*']
+    paths: ['.github/workflows/control-room-planning-capture-diagnostic.yml']
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm run install:ci
+      - run: node --experimental-strip-types --test tests/recoverability-planning-capture.test.ts tests/recoverability-snapshot.test.ts tests/recoverability-auxiliary.test.ts tests/workspace-transaction.test.ts tests/idempotency*.test.ts tests/deletion-recovery.test.ts tests/recovery-staged-inputs.test.ts tests/planning-cas-database.test.ts tests/workspace-admission.test.ts tests/evaluation-import.test.ts tests/agents*.test.ts
+      - run: npm run typecheck
+        if: always()
+      - run: npm run lint
+        if: always()
+  normal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CONTROL_ROOM_SOURCE_COMMIT: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm run install:ci
+      - run: node --experimental-strip-types scripts/benchmark-workspace.mjs
+        timeout-minutes: 15
