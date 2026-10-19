@@ -1,0 +1,25 @@
+name: Verify unvalidated review package integrity
+on:
+  push:
+    branches: ['diagnostics/control-room-review-integrity*']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - run: python3 scripts/verify-unvalidated-review-package.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: UNVALIDATED-review-package-integrity-e4af1fc5
+          path: artifact-verification.json
+          if-no-files-found: ignore
+          retention-days: 90
