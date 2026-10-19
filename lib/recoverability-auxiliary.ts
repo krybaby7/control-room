@@ -1,3 +1,4 @@
+import {consumePlanningCapture,type ScopedPlanningCapture} from './recoverability-planning-capture.ts';
 import {readCurrent,type SqlDatabase,type SqlStatement} from './workspace-store.ts';
 import {readOperationalWatermarks} from './operational-watermarks.ts';
 import {getWorkspaceNamespaces} from './workspace-namespaces.ts';
@@ -11,7 +12,7 @@ export interface RecoverabilityAuxiliary {
 /** These existing owner readers retain their exact SQL and decoders. Only their
  * independent SELECTs share a local read-only batch; dependent weekly/baseline
  * reads join a subsequent batch. Nothing is retained between calls or owners. */
-export async function readRecoverabilityAuxiliary(db:SqlDatabase,owner:string,now:string,options:{includeTerminalReserve?:boolean;includeNamespaces?:boolean}={}):Promise<RecoverabilityAuxiliary>{
+export async function readRecoverabilityAuxiliary(db:SqlDatabase,owner:string,now:string,options:{includeTerminalReserve?:boolean;includeNamespaces?:boolean;planningCapture?:ScopedPlanningCapture}={}):Promise<RecoverabilityAuxiliary>{
  if(!owner||!Number.isFinite(Date.parse(now)))throw new Error('An owner and valid snapshot timestamp are required.');
  type Pending={statement:SqlStatement;maximumRows:number;resolve:(rows:unknown[])=>void;reject:(error:unknown)=>void};
  const pending:Pending[]=[];let requested=0,scheduled=false,inFlight=false,failed:unknown;
@@ -44,6 +45,6 @@ export async function readRecoverabilityAuxiliary(db:SqlDatabase,owner:string,no
   async batch(){throw new Error('Auxiliary readers cannot issue nested batches.');},
  };
  const reserve=options.includeTerminalReserve?reader.prepare("SELECT job_id,operational_revision,status,approval_id FROM agent_job_state WHERE user_id=? AND approval_id IS NOT NULL AND status IN ('queued','leased','running','cancelling','reconcile_required') ORDER BY job_id LIMIT 13").bind(owner).all<ReserveRow>().then(value=>value.results):Promise.resolve<ReserveRow[]>([]);
- const [current,namespaces,watermarks,terminalReserveRows]=await Promise.all([readCurrent(reader,owner,now),options.includeNamespaces===false?Promise.resolve(null):getWorkspaceNamespaces(reader,owner),readOperationalWatermarks(reader,owner),reserve]);
+ const [current,namespaces,watermarks,terminalReserveRows]=await Promise.all([options.planningCapture?Promise.resolve(consumePlanningCapture(db,owner,now,options.planningCapture)):readCurrent(reader,owner,now),options.includeNamespaces===false?Promise.resolve(null):getWorkspaceNamespaces(reader,owner),readOperationalWatermarks(reader,owner),reserve]);
  return {current,namespaces,watermarks,terminalReserveRows};
 }

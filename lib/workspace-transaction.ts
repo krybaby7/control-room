@@ -1,3 +1,4 @@
+import {capturePlanningForRecoverability} from './recoverability-planning-capture.ts';
 import {readMutationAdmission,classifyMutationAdmission} from './mutation-admission-reader.ts';
 import {withWorkspaceAdmission} from './workspace-admission.ts';
 import {workspacePrivateCapacityGrowth} from './workspace-private-capacity.ts';
@@ -83,7 +84,7 @@ async function executeWorkspaceCommandAdmitted(userId:string,input:{protocolVers
   if(decision.status==='retired')throw new RetiredMutationError('This mutation epoch is retired.');
   if(decision.status==='replayed')return {status:'replayed',envelope:await readCurrent(db,userId,now),receipt:{mutationId:id,commandHash:decision.receipt.command_hash,appliedRevision:decision.receipt.revision}};
   if(decision.status==='conflict')return {status:'conflict',currentRevision:decision.currentRevision};
-  const before=await readCurrent(db,userId,now);if(before.revision!==revision)return {status:'conflict',currentRevision:before.revision};
+  const {before,capture:planningCapture}=await capturePlanningForRecoverability(db,userId,{now,mutationId:id,expectedRevision:revision});if(before.revision!==revision)return {status:'conflict',currentRevision:before.revision};
   if(await receiptCount(db,userId)>=RECEIPT_CAPACITY.hard)throw new WorkspaceCapacityError();
   const handler=deps.handlers.get(command.type);if(!handler)throw new CommandValidationError('Unknown command.');
   let plan:MutationPlan;
@@ -113,7 +114,7 @@ async function executeWorkspaceCommandAdmitted(userId:string,input:{protocolVers
   if(plan.agentControls?.action==='cancel'||plan.agentControls?.action==='reject'){const state=await db.prepare("SELECT status,approval_id FROM agent_job_state WHERE user_id=? AND job_id=?").bind(userId,plan.agentControls.jobId).first<{status:string;approval_id:string|null}>();if(state?.status==='queued'&&state.approval_id)agentTerminalReserveDelta=-1;}
   if(plan.restoreEpoch){const count=await db.prepare("SELECT COUNT(*) AS count FROM agent_job_state WHERE user_id=? AND status='queued' AND approval_id IS NOT NULL").bind(userId).first<{count:number}>();agentTerminalReserveDelta=-(count?.count??0);}
   let recovery:Awaited<ReturnType<typeof measureProspectiveRecoverability>>;
-  try{recovery=await measureProspectiveRecoverability(db,userId,{now,agentTerminalReserveDelta,planningAfter:plan.planningAfter,writes:plan.writes,replacements:plan.replacements,events:plan.events,historyImports:plan.historyImports});}
+  try{recovery=await measureProspectiveRecoverability(db,userId,{now,planningCapture,agentTerminalReserveDelta,planningAfter:plan.planningAfter,writes:plan.writes,replacements:plan.replacements,events:plan.events,historyImports:plan.historyImports});}
   catch(error){if((await checkMutationEpoch(db,userId,id)).status==='retired')throw new RetiredMutationError('This mutation epoch is retired.');const concurrentReplay=await checkReceipt();if(concurrentReplay)return concurrentReplay;const current=await readCurrent(db,userId,now);if(current.revision!==revision)return {status:'conflict',currentRevision:current.revision};throw error;}
   if(!recovery.measurement.allowed){if(plan.replacements?.length||plan.historyImports?.length)throw new CommandValidationError('Reviewed import exceeds the verified atomic recovery capacity.');throw new RecoverabilityCapacityError();}
   let preparedBackup:Awaited<ReturnType<typeof prepareWorkspaceBackup>>|null=null;
