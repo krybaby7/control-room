@@ -141,3 +141,8 @@ Dates and effort are intentionally not fabricated. This is a substantial multi-r
 ## Reference authority
 
 Use current repository code to resolve existing behavior; use installed Sites/cloud skills and native tool schemas to resolve host integration. The linked GitHub/Cloudflare documentation was checked on 18 October 2026 and must be rechecked when implementing provider-specific behavior. The design decisions above are proposals for this completion program, not claims of existing features.
+
+
+## Current cloud implementation checkpoint — 2026-10-19
+
+Reviewed source has been integrated through 3a76206448a7a93efb8acf42a55220ee65c4633d; the adjacent progress.json, gap ledger and cloud-interruption-checkpoint.md are authoritative for the exact current branch ref and test identities. Corrected archive ownership passes1765full native tests; closed preflight passes244native and the unchanged normal2s D1 gate. Newly exposed scoped-history create attribution and native budget-dialog pointer obstruction remain internal fixes. No final coherent release, live provider/device execution or new private deployment is claimed. Preserve all original records/IDs and the existing private Site; paid inference and operational/trading effects remain disabled.
