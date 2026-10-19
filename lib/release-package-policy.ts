@@ -7,10 +7,15 @@ function text(raw:unknown,max=256):string{if(typeof raw!=='string'||!raw||raw.le
 function digest(raw:unknown):string{const value=text(raw,64);if(!SHA.test(value))fail();return value;}
 function bytes(raw:unknown,max=128*1024*1024):number{if(typeof raw!=='number'||!Number.isSafeInteger(raw)||raw<0||raw>max)fail();return raw;}
 function file(raw:unknown):CandidatePackageFile{const value=object(raw,['path','bytes','sha256']);return {path:text(value.path,1024),bytes:bytes(value.bytes),sha256:digest(value.sha256)};}
+const generatedMetadata=new Set(['dist/client/.assetsignore','dist/client/.vite/manifest.json','dist/server/.vite/manifest.json','dist/server/BUILD_ID']);
+/** The installed framework emits these tilde-joined virtual-module chunk names.
+ * Tildes remain forbidden for every other directory and filename. */
+export function isGeneratedFrameworkChunkPath(path:string):boolean{return path.length<=1024&&/^dist\/server\/_next\/static\/framework~index[A-Za-z0-9_~-]*\.js$/u.test(path);}
 /** Paths are POSIX relative inventory names. Private build metadata is deliberately excluded. */
 export function validateCandidateBuildPath(raw:unknown):string{
- const path=text(raw,1024),parts=path.split('/');
- if(parts.length<3||parts[0]!=='dist'||!['client','server'].includes(parts[1])||parts.some(part=>!part||part==='.'||part==='..'||!/^[A-Za-z0-9_@+(), .-]+$/u.test(part)||part.endsWith(' ')||part.endsWith('.')))fail();
+ const path=text(raw,1024),parts=path.split('/'),frameworkChunk=isGeneratedFrameworkChunkPath(path);
+ if(parts.length<3||parts[0]!=='dist'||!['client','server'].includes(parts[1])||parts.some((part,index)=>!part||part==='.'||part==='..'||!(/^[A-Za-z0-9_@+(), .-]+$/u.test(part)||frameworkChunk&&index===parts.length-1)||part.endsWith(' ')||part.endsWith('.')))fail();
+ if(generatedMetadata.has(path))return path;
  for(const part of parts.slice(2)){if(part.startsWith('.')||/^(?:\.?(?:env|dev\.vars)(?:\.|$)|\.wrangler$|\.openai$|node_modules$|(?:credentials?|secrets?|tokens?|passwords?|private[-_]?keys?|owner[-_]?data|runtime[-_]?state|outbox|journal)(?:\.|$))/iu.test(part)||/\.(?:sqlite3?|db|pem|key|p12|pfx|log|ndjson|tgz|tar|gz|zip)$/iu.test(part))fail();}
  const name=parts.at(-1)!;
  if(!/\.(?:m?js|cjs|css|map|json|html|txt|xml|webmanifest|wasm|woff2?|ttf|otf|eot|svg|png|jpe?g|gif|webp|avif|ico)$/iu.test(name)&&!['_headers','_redirects'].includes(name))fail();
