@@ -51,3 +51,5 @@ jobs:
             test-results-performance/
           if-no-files-found: error
           retention-days: 7
+
+# Verify closed explicit component props typing.
