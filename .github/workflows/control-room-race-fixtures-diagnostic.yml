@@ -1,0 +1,40 @@
+name: Control Room transaction race fixture verification
+on:
+  push:
+    branches: ['diagnostics/control-room-race-fixtures*']
+    paths: ['.github/workflows/control-room-race-fixtures-diagnostic.yml']
+permissions:
+  contents: read
+jobs:
+  races:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm run install:ci
+      - run: node --experimental-strip-types --test tests/source-controls.test.ts tests/workspace-import-transaction.test.ts tests/workspace-transaction.test.ts tests/recoverability-planning-capture.test.ts tests/history-entity-scope.test.ts
+      - run: npm run typecheck
+        if: always()
+      - run: npm run lint
+        if: always()
+  complete:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm run install:ci
+      - run: node scripts/test-reporter.mjs --self-test
+      - run: npm test
+        timeout-minutes: 9
