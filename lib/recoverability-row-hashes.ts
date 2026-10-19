@@ -1,4 +1,5 @@
-import {canonical,contentHash} from './canonical-json.ts';
+import {canonical} from './canonical-json.ts';
+import {serverContentHash} from './server-content-hash.ts';
 import {BUNDLE_LIMITS} from './workspace-export-core.ts';
 export const RECOVERABILITY_HASH_CONCURRENCY=32;
 export interface RecoverabilityHashRow {readonly payload_json:string;readonly content_hash:string}
@@ -11,7 +12,7 @@ export async function verifyRecoverabilityRowHashes(rows:readonly Recoverability
  let cursor=0;const failure:{index:number;error:unknown}[]=[];
  async function worker(){
   for(;;){const index=cursor++;if(index>=rows.length)return;const row=rows[index];
-   try{if(await contentHash(canonical(JSON.parse(row.payload_json)))!==row.content_hash)throw new Error('Current normalized content hash differs.');}
+   try{if(await serverContentHash(canonical(JSON.parse(row.payload_json)))!==row.content_hash)throw new Error('Current normalized content hash differs.');}
    catch(error){if(!failure.length||index<failure[0].index)failure[0]={index,error};}
   }
  }
