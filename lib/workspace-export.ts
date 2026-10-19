@@ -34,6 +34,8 @@ export interface ExportModule {
  tables?:readonly RegisteredOwnerTable[];
  exportRows(context:ExportContext):Promise<unknown[]>;
  parseAndMigrate(input:{schemaVersion:number;records:unknown[]}):unknown[];
+ /** Explicit whole-context validator: independent of adapter rows and receiver. */
+ referenceValidationScope?:'module'|'bundle';
  validateReferences?(context:ImportContext,rows:unknown[]):void;
  /** Pure split only; the central compiler supplies owner/CAS/backup authority. */
  prepareReplace?(context:ImportContext,rows:unknown[]):Promise<PhysicalImportRows[]>|PhysicalImportRows[];
@@ -52,7 +54,7 @@ function portableAudit(value:unknown):unknown {
 export class ExportRegistry {
   private modules = new Map<string,ExportModule>();
   register(adapter:ExportModule):void {
-    if (!/^[a-z][a-z0-9_]{0,63}$/.test(adapter.key) || (forbiddenModule.test(adapter.key)&&!['agent_jobs','agent_results'].includes(adapter.key)) || this.modules.has(adapter.key) || !Number.isSafeInteger(adapter.schemaVersion) || adapter.schemaVersion<1) throw new Error('Invalid or duplicate export adapter.');
+    if ((adapter.referenceValidationScope!==undefined&&adapter.referenceValidationScope!=='module'&&adapter.referenceValidationScope!=='bundle') || !/^[a-z][a-z0-9_]{0,63}$/.test(adapter.key) || (forbiddenModule.test(adapter.key)&&!['agent_jobs','agent_results'].includes(adapter.key)) || this.modules.has(adapter.key) || !Number.isSafeInteger(adapter.schemaVersion) || adapter.schemaVersion<1) throw new Error('Invalid or duplicate export adapter.');
     const tables=moduleTables(adapter);for(const table of tables)ownerTable(table);
     if(new Set(tables).size!==tables.length||tables.some(table=>this.entries().some(other=>moduleTables(other).includes(table))))throw new Error('Duplicate physical module coverage.');
     this.modules.set(adapter.key,Object.freeze({...adapter,...(adapter.tables?{tables:Object.freeze([...tables])}:{})}));
@@ -66,8 +68,8 @@ export function serializePortableAuditRow(row:Record<string,unknown> & {event_id
  const {payload_json,...metadata}=row;return {id:row.event_id,...metadata,payload:portableAudit(JSON.parse(payload_json))};
 }
 export async function buildWorkspaceBundle(input:{planning:WorkspaceBundle['planning'];modules:WorkspaceBundle['modules'];workspaceRevision:number;operationalWatermarks:Record<string,number>;auditNamespace?:string;exportedAt:string},options:{enforceByteLimit?:boolean;registry?:ExportRegistry}={}):Promise<WorkspaceBundle>{
- const registry=options.registry??exportRegistry,hashes:Record<string,string>={};
- for(const adapter of registry.entries()){const exportedModule=input.modules[adapter.key];if(!exportedModule)throw new Error('Missing export module.');assertPortable(exportedModule.records);if(exportedModule.records.length>BUNDLE_LIMITS.rows)throw new Error('Export row limit exceeded.');adapter.validateReferences?.({planning:input.planning,modules:input.modules},exportedModule.records);hashes[adapter.key]=await contentHash(canonical(exportedModule.records));}
+ const registry=options.registry??exportRegistry,hashes:Record<string,string>={},validated=new Set<NonNullable<ExportModule['validateReferences']>>();
+ for(const adapter of registry.entries()){const exportedModule=input.modules[adapter.key];if(!exportedModule)throw new Error('Missing export module.');assertPortable(exportedModule.records);if(exportedModule.records.length>BUNDLE_LIMITS.rows)throw new Error('Export row limit exceeded.');if(adapter.validateReferences&&(adapter.referenceValidationScope!=='bundle'||!validated.has(adapter.validateReferences))){adapter.validateReferences({planning:input.planning,modules:input.modules},exportedModule.records);if(adapter.referenceValidationScope==='bundle')validated.add(adapter.validateReferences);}hashes[adapter.key]=await contentHash(canonical(exportedModule.records));}
  hashes.planning=await contentHash(canonical(input.planning));
  const bundle:WorkspaceBundle={format:'control-room',bundleVersion:1,exportedAt:input.exportedAt,source:{...(input.auditNamespace?{auditNamespace:input.auditNamespace}:{}),operationalWatermarks:input.operationalWatermarks,workspaceRevision:input.workspaceRevision,planningSchemaVersion:input.planning.schemaVersion,moduleWatermarks:{...hashes},sourceHashes:hashes},planning:input.planning,modules:input.modules,attachments:deriveAttachmentManifest(input.modules),completeness:'metadata-only'};
  if(options.enforceByteLimit!==false&&new TextEncoder().encode(JSON.stringify(bundle)).length>BUNDLE_LIMITS.bytes)throw new Error('Export byte limit exceeded.');return bundle;

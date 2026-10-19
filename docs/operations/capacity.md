@@ -6,11 +6,11 @@ These are current source-format and admission bounds, not platform billing limit
 
 | Boundary | Current limit |
 | --- | --- |
-| Ordinary complete portable JSON | 8 MiB and bounded 10,000-row collections; the tighter prospective D1 recovery bundle/SQL argument bounds also apply |
+| Ordinary complete portable JSON | 8,000,000 bytes and bounded 10,000-row collections; the tighter prospective D1 recovery bundle/SQL argument bounds also apply |
 | Prospective D1 backup bundle and individual measured SQL arguments | 1,800,000 bytes each, including wrappers/escaping/typed projections |
 | D1 metadata snapshots and file backups | 10 snapshots; shared 20,000,000-byte owner backup quota; retained unpurged chunks stay charged |
 | Ordinary ready attachment policy | 20 MiB per file; 200 MiB/500 files per owner; separate reservations/physical retained generations remain accounted |
-| JSON import staging | 8 stages, 20,000,000 raw bytes per owner, 8 MiB per stage, one-hour server TTL |
+| JSON import staging | 8 stages, 20,000,000 raw bytes per owner, 8,000,000 bytes per stage, one-hour server TTL |
 | Protected server drafts | 100 active, 64 KiB each, server-derived retention up to 30 days |
 | Mutation receipts | Soft warning 75,000; hard ceiling 100,000; finite revocation/cancellation reservations can block ordinary growth earlier |
 | Private recovery profile | 64 MiB; 200,000 rows globally; 100,000 per private table, including the closed 46-table profile and separately charged native removal fences |

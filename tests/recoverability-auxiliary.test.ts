@@ -31,10 +31,11 @@ test('closed auxiliary readers co-batch independent SELECTs with exact existing 
 });
 test('dependent baseline removal reads and current weekly hydration retain original IDs and clocks',async()=>{
  const f=database();try{
-  await loadWorkspace(f.db,owner,()=>createSeedWorkspace(now),now);
+  const seeded=createSeedWorkspace(now);seeded.tasks.push(taskFixture('synthetic-explicit-weekly-task',{projectId:seeded.projects[0].id,status:'todo'}));
+  await loadWorkspace(f.db,owner,()=>seeded,now);
   const workspace=(await readCurrent(f.db,owner,now)).workspace,project=workspace.projects.find(value=>getProjectBaseline(value));assert.ok(project);
   const removed=baselineRecordId(project.id,'context');f.sqlite.prepare("INSERT INTO audit_events(user_id,event_id,workspace_revision,ordinal,kind,entity_type,entity_id,occurred_at,payload_json) VALUES(?,?,1,0,'entity.delete','task',?,?,?)").run(owner,'synthetic-original-removal',removed,now,'{}');
-  const task=workspace.tasks.find(value=>value.status!=='done'&&value.status!=='archived'&&value.status!=='proposed');assert.ok(task);const plan={...createWeeklyPlan(currentWeek(now)),taskIds:[task.id]},text=canonical(plan);
+  const task=workspace.tasks.find(value=>value.id==='synthetic-explicit-weekly-task');assert.ok(task);assert.equal(task.status,'todo');const plan={...createWeeklyPlan(currentWeek(now)),taskIds:[task.id]},text=canonical(plan);
   f.sqlite.prepare('INSERT INTO weekly_plans(user_id,id,row_revision,payload_json,content_hash) VALUES(?,?,1,?,?)').run(owner,plan.weekStart,text,await contentHash(text));
   const seen=observe(f.db),actual=await readRecoverabilityAuxiliary(seen.db,owner,now),expected=await readCurrent(f.db,owner,now);
   assert.deepEqual(actual.current,expected);assert.deepEqual(actual.current.baselineRemovedIds,[removed]);assert.equal(actual.current.workspace.tasks.find(value=>value.id===task.id)!.weekly,true);assert.equal(actual.current.workspace.tasks.find(value=>value.id===task.id)!.weeklyWeek,plan.weekStart);

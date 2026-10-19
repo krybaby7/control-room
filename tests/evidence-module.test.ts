@@ -4,7 +4,7 @@ import {database} from './helpers/sqlite.ts';
 import {loadWorkspace,type SqlDatabase} from '../lib/workspace-store.ts';
 import {createSeedWorkspace} from '../lib/seed.ts';
 import {ownerReader,type RegisteredOwnerTable} from '../lib/workspace-modules.ts';
-import {ExportRegistry,exportWorkspaceBundle,parseWorkspaceBundle,type ImportContext,type WorkspaceBundle} from '../lib/workspace-export.ts';
+import {buildWorkspaceBundle,ExportRegistry,exportWorkspaceBundle,parseWorkspaceBundle,type ImportContext,type WorkspaceBundle} from '../lib/workspace-export.ts';
 import {canonical,contentHash} from '../lib/canonical-json.ts';
 import {versionRowId,portableHeadId} from '../lib/version-identity.ts';
 import {evidenceExportAdapters,evidenceReferenceDescriptors,validateEvidenceModuleReferences} from '../lib/evidence-module.ts';
@@ -71,4 +71,17 @@ test('attachment quota is a strict singleton and exactly accounts for charged ty
 
 test('legacy-only attachment metadata remains exportable without guessed bytes or live reference authority',async()=>{
  const f=database();try{await loadWorkspace(f.db,'a',()=>createSeedWorkspace(now),now);const original={name:'Old attachment descriptor',unknownSize:true};await add(f.db,'attachments','old-attachment',original);const bundle=await exportWorkspaceBundle(f.db,'a',{registry:registry(),now:()=>now}),adapter=evidenceExportAdapters.find(row=>row.key==='attachments')!;assert.equal((bundle.modules.attachments.records[0] as {value:{kind:string}}).value.kind,'legacy');assert.deepEqual(await adapter.prepareReplace!(context(bundle),bundle.modules.attachments.records),[{table:'attachments',records:[{id:'old-attachment',value:original}]}]);assert.throws(()=>evidenceReferenceDescriptors.find(row=>row.key==='attachments')!.parse(original));}finally{f.sqlite.close();}
+});
+
+test('actual evidence graph validators share one explicit bundle scope per build and still reject later cross-module changes',async()=>{
+ const f=await fixture();try{
+  let calls=0;const counted=(ctx:ImportContext,rows:unknown[])=>{void rows;calls++;validateEvidenceModuleReferences(ctx);},r=new ExportRegistry();
+  for(const exported of evidenceExportAdapters){assert.equal(exported.referenceValidationScope,'bundle');assert.equal(exported.validateReferences,validateEvidenceModuleReferences);r.register({...exported,validateReferences:counted});}
+  const bundle=await exportWorkspaceBundle(f.db,'a',{registry:r,now:()=>now});assert.equal(calls,1);
+  const input={planning:bundle.planning,modules:bundle.modules,workspaceRevision:bundle.source.workspaceRevision,operationalWatermarks:bundle.source.operationalWatermarks??{sources:0},exportedAt:bundle.exportedAt,...(bundle.source.auditNamespace?{auditNamespace:bundle.source.auditNamespace}:{})};
+  assert.deepEqual(await buildWorkspaceBundle(input,{registry:r}),bundle);assert.equal(calls,2);
+  const changedPlanning={...input.planning,tasks:[]};await assert.rejects(buildWorkspaceBundle({...input,planning:changedPlanning},{registry:r}));assert.equal(calls,3);
+  input.modules.evidence_requirements.records=[];await assert.rejects(buildWorkspaceBundle(input,{registry:r}));assert.equal(calls,4);
+  assert.equal((await ownerReader(f.db,'a').list('evidence_requirements')).length,1,'build validation never writes owner records');
+ }finally{f.sqlite.close();}
 });

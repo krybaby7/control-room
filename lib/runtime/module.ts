@@ -44,7 +44,7 @@ export const runtimeExportAdapters:ExportModule[]=specs.map(spec=>({
  key:spec.key,tables:[spec.key],schemaVersion:1,policy:'replace',legacyOptional:true,
  exportRows:context=>exported(spec,context),
  parseAndMigrate(input){if(input.schemaVersion!==1)throw new Error('Unknown runtime portable module version.');return rows(spec,input.records);},
- validateReferences:validateRuntimeModuleReferences,
+ referenceValidationScope:'bundle' as const,validateReferences:validateRuntimeModuleReferences,
  async prepareReplace(context,input){
   const parsed=rows(spec,input),next={...context,modules:{...context.modules,[spec.key]:{schemaVersion:1,records:parsed}}};
   validateRuntimeModuleReferences(next);
