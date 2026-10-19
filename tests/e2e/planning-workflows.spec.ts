@@ -40,9 +40,9 @@ test('saved milestone history link opens exact owner filter intent and preserves
  await createProject(page,name);await openProject(page,name);await addMilestone(page,title);
  const before=await workspace(page),milestone=before.workspace.milestones.find((row:{title:string})=>row.title===title);expect(milestone).toBeTruthy();
  await page.getByRole('button').filter({has:page.getByRole('heading',{name:title,exact:true})}).click();
- const responsePromise=page.waitForResponse(response=>{const url=new URL(response.url());return url.pathname==='/api/history'&&url.searchParams.get('entityType')==='milestone'&&url.searchParams.get('entityId')===milestone.id;});
- await page.getByRole('link',{name:'Review milestone history',exact:true}).click();const response=await responsePromise;expect(response.ok()).toBeTruthy();
- const history=await response.json();expect(history.entries.length).toBeGreaterThan(0);expect(history.entries.every((entry:{entityType:string;entityId:string})=>entry.entityType==='milestone'&&entry.entityId===milestone.id)).toBeTruthy();
+ const responsePromise=page.waitForResponse(response=>{const url=new URL(response.url());return url.pathname==='/api/history'&&url.searchParams.get('entityType')==='milestone'&&url.searchParams.get('entityId')===milestone.id;}).then(async response=>({ok:response.ok(),history:await response.json()}));
+ const [,captured]=await Promise.all([page.getByRole('link',{name:'Review milestone history',exact:true}).click(),responsePromise]);expect(captured.ok).toBeTruthy();
+ const history=captured.history;expect(history.entries.length).toBeGreaterThan(0);expect(history.entries.every((entry:{entityType:string;entityId:string})=>entry.entityType==='milestone'&&entry.entityId===milestone.id)).toBeTruthy();
  await expect(page.getByRole('heading',{name:'History',exact:true})).toBeVisible();await expect(page.getByLabel('History entity type',{exact:true})).toHaveValue('milestone');await expect(page.getByLabel('History entity ID',{exact:true})).toHaveValue(milestone.id);
  expect(new URL(page.url()).searchParams.get('view')).toBe('history');expect(new URL(page.url()).searchParams.get('id')).toBe(milestone.id);
  await page.reload();await expect(page.getByLabel('History entity ID',{exact:true})).toHaveValue(milestone.id);
