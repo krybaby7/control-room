@@ -53,13 +53,13 @@ test('legacy evaluation bodies and canonical hashes remain byte-identical when o
 });
 test('local selected-run projection is accepted natively as historical objective claims without owner task or model authority',async()=>{
  const raw=await readFile(new URL('./fixtures/agents/lab-wire-synthetic.json',import.meta.url)),projected=projectLabImport(raw,{kind:'summary',sourceInstance:'synthetic-lab',selectedRunIds:['synthetic-objective-pass']});
- assert.ok('upload'in projected);if(!('upload'in projected))return;
- const [record]=await normalizeEvaluationSummary(projected.upload,context);
+ const upload=projected.upload;assert.ok(upload);if(!upload)return;
+ const [record]=await normalizeEvaluationSummary(upload,context);
  assert.equal(record.status,'completed');assert.equal(record.sourceStatus,'passed');assert.deepEqual(record.objective,{assessable:true,passed:true,score:2,checksPassed:2,checksTotal:2});assert.match(record.sourceInputSha256!,/^[a-f0-9]{64}$/);
  assert.equal(record.grade,null);assert.equal(record.usage,null);assert.equal(record.sourceClaimsOnly,true);assert.equal(record.historical,true);assert.equal(Object.hasOwn(record,'accepted'),false);
  assert.deepEqual(await validateEvaluationObservation(record),record);
- const [later]=await normalizeEvaluationSummary(projected.upload,{...context,observedAt:'2026-10-19T01:00:00Z'});assert.equal(later.id,record.id);assert.equal(later.outcomeHash,record.outcomeHash);
- const changed={...projected.upload,runs:projected.upload.runs.map(row=>({...row,sourceInputSha256:'b'.repeat(64)}))};const [correction]=await normalizeEvaluationSummary(changed,context);assert.notEqual(correction.id,record.id);assert.equal(correction.identityKey,record.identityKey);
+ const [later]=await normalizeEvaluationSummary(upload,{...context,observedAt:'2026-10-19T01:00:00Z'});assert.equal(later.id,record.id);assert.equal(later.outcomeHash,record.outcomeHash);
+ const changed={...upload,runs:upload.runs.map(row=>({...row,sourceInputSha256:'b'.repeat(64)}))};const [correction]=await normalizeEvaluationSummary(changed,context);assert.notEqual(correction.id,record.id);assert.equal(correction.identityKey,record.identityKey);
 });
 test('objective summaries are closed, bounded and consistent with the explicitly retained original source status',async()=>{
  const base={...run(),status:'completed',sourceStatus:'passed',sourceInputSha256:'c'.repeat(64),objective:{assessable:true,passed:true,score:1,checksPassed:2,checksTotal:2}};

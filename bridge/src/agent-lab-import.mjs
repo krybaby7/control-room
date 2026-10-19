@@ -65,7 +65,10 @@ export function projectLabReport(raw){
  const result={kind:'report',cohorts,limitations:['Aggregate upstream claims only; no per-run evidence, readiness, cost savings or owner acceptance is inferred.']};const projected=Buffer.from(canonicalJson(result));if(projected.byteLength>LAB_IMPORT_LIMITS.uploadBytes-1024)bad();assertExecutionArtifactContent(projected);return result;
 }
 /** Input must be an explicitly supplied local export, never a state/token fetch.
- * Only selected run summaries are projected; originals remain owner controlled. */
+ * Only selected run summaries are projected; originals remain owner controlled.
+ * @param {Uint8Array} bytes
+ * @param {{kind:'run'|'summary'|'report',sourceInstance:string,selectedRunIds?:string[],version?:string|null}} options
+ */
 export function projectLabImport(bytes,{kind,sourceInstance,selectedRunIds=[],version=null}){
  if(!['run','summary','report'].includes(kind)||!Array.isArray(selectedRunIds)||selectedRunIds.length>LAB_IMPORT_LIMITS.runs||new Set(selectedRunIds).size!==selectedRunIds.length)bad();
  sourceInstance=required(sourceInstance,64);if(!/^[A-Za-z0-9][A-Za-z0-9_-]*$/u.test(sourceInstance))bad();selectedRunIds.forEach(id=>required(id));
@@ -79,7 +82,7 @@ export function projectLabImport(bytes,{kind,sourceInstance,selectedRunIds=[],ve
   if(Buffer.byteLength(canonicalJson(upload))>LAB_IMPORT_LIMITS.uploadBytes)bad();
   result={kind:'runs',sourceInputSha256,upload,limitations:['Historical source claims only. Objective grading, human review and model identity claims are separate. Cost/usage remain unknown. Original-input digests are source claims, not server verification of original bytes.']};
  }
- const projected=Buffer.from(canonicalJson(result));if(projected.byteLength>LAB_IMPORT_LIMITS.uploadBytes)bad();assertExecutionArtifactContent(projected);return result;
+ const projected=Buffer.from(canonicalJson(result));if(projected.byteLength>LAB_IMPORT_LIMITS.uploadBytes-1)bad();assertExecutionArtifactContent(projected);return result;
 }
 async function readLocal(path){
  if(typeof path!=='string'||!isAbsolute(path)||path.startsWith('\\\\')||/[\r\n\0]/u.test(path))bad();
