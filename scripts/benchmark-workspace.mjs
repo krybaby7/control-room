@@ -2,6 +2,7 @@
 // No production latency, private ingress, provider, model or physical-device claim.
 import assert from 'node:assert/strict';
 import {AsyncLocalStorage} from 'node:async_hooks';
+import {createHashCallFrame,finishHashCallFrame,installHashCallDiagnostics,HASH_DIAGNOSTIC_LIMITS} from './lib/hash-call-diagnostics.mjs';
 import {registerRecoverabilityDiagnostics} from '../lib/recoverability-diagnostics.ts';
 import {performance} from 'node:perf_hooks';
 import {cpus,availableParallelism,totalmem,platform,arch} from 'node:os';
@@ -37,7 +38,7 @@ const output=new URL('../benchmark-results/workspace.json',import.meta.url);
 const report={format:'control-room-synthetic-benchmark-v1',source,startedAt:new Date().toISOString(),environment:{node:process.version,v8:process.versions.v8,platform:platform(),arch:arch(),cpuModel:cpus()[0]?.model??'unreported',availableParallelism:availableParallelism(),totalMemoryBytes:totalmem(),miniflareLockedVersion:JSON.parse(await readFile(new URL('../node_modules/miniflare/package.json',import.meta.url),'utf8')).version},method:{warmups,samples,percentile:'nearest rank; p95 is the largest of five measured samples',timing:'host performance.now; includes actual database binding round trips where used; setup excluded',budgetsMilliseconds:budgets,thresholdMeaning:'Explicit coarse CI regression gates, not production service-level objectives.',limits:{planning:WORKSPACE_LIMITS,evidenceRead:EVIDENCE_SNAPSHOT_LIMITS,bundle:BUNDLE_LIMITS,d1Recovery:BACKUP_LIMITS,importStaging:IMPORT_STAGING_LIMITS,ownerTables:OWNER_TABLES.length}},engines:[],errors:[],limitations:['Synthetic isolated metadata only; no live owner, hosted D1/R2 network, physical device, provider or model.','Shared Actions CPU and local Miniflare transport vary; five samples provide a coarse regression signal, not a statistically stable tail estimate.','The large case approaches planning record caps and the default D1 metadata recovery byte bound; it does not claim all independent maxima fit simultaneously.','Restore includes real quarantine, private recovery snapshot, receipt, audit and guarded central command; no fake adapter or timing subtraction.']};
 report.environment.initialNodeMemoryBytes=process.memoryUsage();
 const commandProfiling=process.env.CONTROL_ROOM_PROFILE_COMMANDS==='1';
-report.method.commandProfiling={enabled:commandProfiling,activation:'CONTROL_ROOM_PROFILE_COMMANDS=1',scope:'Node benchmark only; one stable DB wrapper per engine',limits:{commandFrames:100,intervalsPerCommand:1024,sequenceEntriesPerCommand:128,recoveryPhasesPerCommand:64},interpretation:'Binding await durations overlap. Union is used for coverage; outside-observed-await wall includes admission waiting, JS/hash/validation and all other unobserved awaits, and is not a CPU attribution. No SQL, parameters, owner IDs, command bodies or result rows are recorded.'};
+report.method.commandProfiling={enabled:commandProfiling,activation:'CONTROL_ROOM_PROFILE_COMMANDS=1',scope:'Node benchmark only; one stable DB wrapper per engine',limits:{commandFrames:100,intervalsPerCommand:1024,sequenceEntriesPerCommand:128,recoveryPhasesPerCommand:64,exactUtf8HashInputs:HASH_DIAGNOSTIC_LIMITS},interpretation:'Binding await durations overlap. Union is used for coverage; outside-observed-await wall includes admission waiting, JS/hash/validation and all other unobserved awaits, and is not a CPU attribution. No SQL, parameters, owner IDs, command bodies or result rows are recorded. Exact UTF8 SHA inputs are counted in bounded request-local sets and discarded before report projection; EVERY native digest still executes. Duplicate counts do not imply canonical JSON, authority or cached verification.'};
 
 const commandProfileContext=new AsyncLocalStorage();
 function sqlClass(sql){
@@ -83,11 +84,11 @@ function profileDatabase(base){
 }
 function profileSummary(frame,wallMilliseconds,status){
  let covered=0,end=0;for(const [start,stop]of frame.intervals.sort((left,right)=>left[0]-right[0])){covered+=Math.max(0,stop-Math.max(start,end));end=Math.max(end,stop);}
- return {wave:frame.wave,session:frame.session,ownerClass:frame.ownerClass,status,wallMilliseconds,rpcCount:frame.rpcCount,statementCount:frame.statementCount,calls:frame.calls,classes:frame.classes,sumObservedBindingAwaitMilliseconds:frame.sumAwaitMilliseconds,observedAwaitUnionMilliseconds:frame.intervalsTruncated?null:covered,wallOutsideObservedBindingAwaitMilliseconds:frame.intervalsTruncated?null:Math.max(0,wallMilliseconds-covered),intervalsTruncated:frame.intervalsTruncated,sequence:frame.sequence,sequenceTruncated:frame.sequenceTruncated,recoveryPhases:frame.recoveryPhases,recoveryPhasesTruncated:frame.recoveryPhasesTruncated};
+ return {wave:frame.wave,session:frame.session,ownerClass:frame.ownerClass,status,wallMilliseconds,rpcCount:frame.rpcCount,statementCount:frame.statementCount,calls:frame.calls,classes:frame.classes,sumObservedBindingAwaitMilliseconds:frame.sumAwaitMilliseconds,observedAwaitUnionMilliseconds:frame.intervalsTruncated?null:covered,wallOutsideObservedBindingAwaitMilliseconds:frame.intervalsTruncated?null:Math.max(0,wallMilliseconds-covered),intervalsTruncated:frame.intervalsTruncated,sequence:frame.sequence,sequenceTruncated:frame.sequenceTruncated,recoveryPhases:frame.recoveryPhases,recoveryPhasesTruncated:frame.recoveryPhasesTruncated,hashCalls:finishHashCallFrame(frame.hashCallState)};
 }
 async function profiledCommand(engine,session,wave,operation){
  if(!commandProfiling)return operation();
- const frame={startedAt:performance.now(),wave,session:session.index,ownerClass:session.index<10?'contended_near_bound':'independent_small',rpcCount:0,statementCount:0,calls:{},classes:{},sumAwaitMilliseconds:0,intervals:[],intervalsTruncated:false,sequence:[],sequenceTruncated:false,recoveryPhases:[],recoveryPhasesTruncated:false};
+ const frame={startedAt:performance.now(),wave,session:session.index,ownerClass:session.index<10?'contended_near_bound':'independent_small',rpcCount:0,statementCount:0,calls:{},classes:{},sumAwaitMilliseconds:0,intervals:[],intervalsTruncated:false,sequence:[],sequenceTruncated:false,recoveryPhases:[],recoveryPhasesTruncated:false,hashCallState:createHashCallFrame()};
  let status='threw';try{const value=await commandProfileContext.run(frame,operation);status=value.status;return value;}
  finally{engine.commandProfiles??=[];if(engine.commandProfiles.length<100){const row=profileSummary(frame,performance.now()-frame.startedAt,status);engine.commandProfiles.push(row);console.log(JSON.stringify({event:'controlled_command_profile',engine:engine.name,...row}));}}
 }
@@ -223,7 +224,12 @@ async function runEngine(name,db,model,migrations){
    const entry={phase,startedMilliseconds:performance.now()-frame.startedAt,elapsedMilliseconds:null};frame.recoveryPhases.push(entry);
    return elapsedMilliseconds=>{entry.elapsedMilliseconds=elapsedMilliseconds;};
   }):()=>{};
-  try{await concurrentSessions(engine,db);}finally{stopRecoveryDiagnostics();}
+  const stopHashDiagnostics=commandProfiling?installHashCallDiagnostics(crypto.subtle,()=>{
+   const frame=commandProfileContext.getStore();if(!frame)return null;
+   const active=frame.recoveryPhases.findLast(entry=>entry.elapsedMilliseconds===null);
+   return {state:frame.hashCallState,phase:active?.phase??'outside-recovery'};
+  }):()=>{};
+  try{await concurrentSessions(engine,db);}finally{stopHashDiagnostics();stopRecoveryDiagnostics();}
   engine.finalRevision=(await readCurrent(db,owner,now)).revision;
   engine.status=engine.measurements.every(row=>row.passed)?'passed':'regression-budget-exceeded';
  }catch(error){engine.status='failed';engine.error=failure(error);engine.failureStage=engine.stage??'sequential_measurement';throw error;}

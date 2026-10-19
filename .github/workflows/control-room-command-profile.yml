@@ -37,6 +37,7 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm run install:ci
+      - run: node --experimental-strip-types --test tests/hash-call-diagnostics.test.ts
       - run: node --experimental-strip-types scripts/benchmark-workspace.mjs
         timeout-minutes: 15
       - uses: actions/upload-artifact@v4
