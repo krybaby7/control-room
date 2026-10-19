@@ -1,0 +1,313 @@
+{
+  "format": "control-room-cloud-verification-checkpoint",
+  "version": 1,
+  "sourceCommit": "e4af1fc5ae344a029f9677576963700c92aaefee",
+  "implementationBranch": "feat/control-room-completion-cloud",
+  "draftPR": "https://github.com/krybaby7/control-room/pull/1",
+  "modelConfiguration": {
+    "integrator": "gpt-6.1-sol",
+    "workerModelParameter": "gpt-6.1-sol",
+    "acceptedWorkers": [
+      "/root/foundation_review",
+      "/root/codec",
+      "/root/save_client",
+      "/root/export_registry",
+      "/root/drafts",
+      "/root/runtime_probe"
+    ],
+    "evidence": "Explicit supported model selection accepted and worker IDs returned."
+  },
+  "main": {
+    "source": "e4af1fc5ae344a029f9677576963700c92aaefee",
+    "run": 39194510987,
+    "job": 117874247405,
+    "status": "failure",
+    "nodePassed": 1776,
+    "nodeFailed": 0,
+    "nodeSkipped": 0,
+    "nodeDurationMs": 312917.923094,
+    "bridgePassed": 146,
+    "typecheck": "success",
+    "lint": "success",
+    "build": "success",
+    "native": "all passed",
+    "browserPassed": 62,
+    "browserFailed": 1,
+    "r2BrowserPassed": 3,
+    "attachmentHTTP": "success",
+    "failure": "GET /api/jobs gateway502 after15003.982ms",
+    "failureArtifactId": 12161927116,
+    "failureArtifactDigest": "sha256:34814a0c847b0876b44565b85571128ddb8c1b62f8437d51b7922d92c525c8e1",
+    "candidateArtifacts": "none; packaging skipped"
+  },
+  "focused": {
+    "run": 39194507156,
+    "job": 117874233566,
+    "status": "success",
+    "tests": 491,
+    "failed": 0,
+    "skipped": 0,
+    "durationMs": 87945.5,
+    "typecheck": "success",
+    "lintErrors": 0,
+    "lintWarnings": 8
+  },
+  "native": [
+    {
+      "check": "streaming",
+      "run": 39194510951,
+      "job": 117874257790,
+      "status": "success",
+      "tests": 14
+    },
+    {
+      "check": "runtime-d1",
+      "run": 39194507207,
+      "job": 117874233932,
+      "status": "success",
+      "migrations": 27,
+      "scope": "Isolated CLI/HTTP/D1; no real device/provider"
+    },
+    {
+      "check": "agent-artifacts",
+      "run": 39194507225,
+      "job": 117874233655,
+      "status": "success",
+      "tests": 16,
+      "migrations": 27,
+      "scope": "Actual isolated D1/R2; no live provider/device"
+    },
+    {
+      "check": "agents-d1",
+      "run": 39194510973,
+      "job": 117874244734,
+      "status": "success",
+      "migrations": 27
+    },
+    {
+      "check": "recovery-maintenance",
+      "run": 39194510952,
+      "job": 117874244801,
+      "status": "success",
+      "migrations": 27,
+      "tables": 97,
+      "guards": 291
+    },
+    {
+      "check": "segmented-recovery",
+      "run": 39194510962,
+      "job": 117874244413,
+      "status": "success",
+      "migrations": 27,
+      "modules": 33,
+      "segments": 79,
+      "rows": 10080,
+      "bytes": 17767591,
+      "auditRows": 10022,
+      "target": "still-fenced",
+      "hostedBindingChanged": false
+    }
+  ],
+  "qa": {
+    "run": 39194510945,
+    "status": "success",
+    "tests": 11,
+    "jobs": [
+      {
+        "browser": "chromium",
+        "id": 117874246696,
+        "passed": 4,
+        "durationSeconds": 37.2,
+        "artifactId": 12161875455
+      },
+      {
+        "browser": "firefox",
+        "id": 117874246843,
+        "passed": 3,
+        "durationSeconds": 50,
+        "artifactId": 12160869750
+      },
+      {
+        "browser": "webkit",
+        "id": 117874246922,
+        "passed": 4,
+        "durationSeconds": 51.5,
+        "artifactId": 12161591354
+      }
+    ]
+  },
+  "browserPerformance": [
+    {
+      "run": 39194510972,
+      "job": 117874244687,
+      "status": "success",
+      "tests": 2,
+      "mobileP95": 2761.9,
+      "maxLongTask": 137,
+      "artifactId": 12161019047
+    },
+    {
+      "run": 39194507161,
+      "job": 117874233407,
+      "status": "success",
+      "tests": 2,
+      "mobileP95": 2739.8,
+      "maxLongTask": 132,
+      "artifactId": 12161198219
+    }
+  ],
+  "normalBenchmark": {
+    "source": "e4af1fc5ae344a029f9677576963700c92aaefee",
+    "run": 39194510942,
+    "job": 117874255539,
+    "status": "failure",
+    "D1SaveP95": 2499.678949,
+    "D1SaveP50": 1797.993855,
+    "SQLiteSaveP95": 978.531809,
+    "D1ReadP95": 859.966659,
+    "SQLiteReadP95": 556.009709,
+    "outcomesPerEngine": 100,
+    "restoresPerEngine": 6,
+    "errors": [],
+    "failureStage": null,
+    "regressionFailures": [
+      "miniflareD1:concurrentSessionSave"
+    ],
+    "artifactId": 12161845635,
+    "artifactDigest": "sha256:325994989f843e4becbaa72d22b4f77751d0ee98619434ce99f068de4cedcfe4"
+  },
+  "originalFailureTrace": {
+    "commit": "ce71e9b46274f8d55932b0344845b4c73a60d11d",
+    "run": 39195925741,
+    "job": 117878578293,
+    "status": "success",
+    "events": 882,
+    "statusCode": 502,
+    "durationMs": 15003.982,
+    "productRerun": false
+  },
+  "reviewPackage": {
+    "workflowHead": "50c17a8c5239ea05cd71f847b2afd8ac9e2190f9",
+    "sourceCommit": "e4af1fc5ae344a029f9677576963700c92aaefee",
+    "run": 39196349095,
+    "job": 117879852995,
+    "status": "success",
+    "releaseAccepted": false,
+    "deployed": false,
+    "candidate": {
+      "id": 12161504710,
+      "bytes": 3404534,
+      "zipSha256": "3fd91ac8e6756bc20cc8b0caadebfbac7ca6e227dbd6b8241f6851e83d2e632f"
+    },
+    "bridge": {
+      "id": 12161808777,
+      "bytes": 61807,
+      "zipSha256": "1efccc649bc65d3e0a835f8d46658326226f9aaf394a3ebcc50a923bfc3a435a",
+      "tarBytes": 59423,
+      "tarFiles": 34,
+      "tarSha256": "d9a6eb8d066f0ff59e3c0e1c8ba8046e66e064517543b0000feb78cf99751305"
+    },
+    "sourceTar": {
+      "bytes": 11612160,
+      "sha256": "ae8de1a903cea89b755fe9e366313d401d73a6ddd3146beed68acf5c01cf95c9"
+    },
+    "buildTarGz": {
+      "bytes": 1301238,
+      "sha256": "8f13f54957bf7ad2b94262d90f90a88a1a8ef11eba48070fbef507e62584513c"
+    },
+    "inspection": "Independent cloud byte inspection and both negative controls passed; UNVALIDATED for release."
+  },
+  "archiveIntegrity": {
+    "commit": "6e43164a84d555d5b7c4568e1f8684a75b4efa6e",
+    "run": 39196532648,
+    "job": 117880419325,
+    "status": "success",
+    "artifactId": 12162087989,
+    "artifactDigest": "sha256:58b780d4617e2c4a7780af553023e8a6adfe2bc2b048776aab7f36037479247a",
+    "result": {
+      "status": "REVIEWABLE_CANDIDATE",
+      "sourceCommit": "e4af1fc5ae344a029f9677576963700c92aaefee",
+      "outerZipSha256": "3fd91ac8e6756bc20cc8b0caadebfbac7ca6e227dbd6b8241f6851e83d2e632f",
+      "innerArchives": [
+        {
+          "sha256": "ae8de1a903cea89b755fe9e366313d401d73a6ddd3146beed68acf5c01cf95c9",
+          "bytes": 11612160
+        },
+        {
+          "sha256": "8f13f54957bf7ad2b94262d90f90a88a1a8ef11eba48070fbef507e62584513c",
+          "bytes": 1301238
+        }
+      ],
+      "sourceFiles": 1032,
+      "buildFiles": 332,
+      "bridgeFiles": 34,
+      "bridgeSha256": "d9a6eb8d066f0ff59e3c0e1c8ba8046e66e064517543b0000feb78cf99751305",
+      "releaseAccepted": false,
+      "deployed": false,
+      "candidateArtifactId": 12161504710,
+      "packagingRunId": 39196349095,
+      "packagingWorkflowHead": "50c17a8c5239ea05cd71f847b2afd8ac9e2190f9",
+      "negativeControls": {
+        "wrongOuterDigest": "rejected",
+        "changedInnerArchiveWithRecomputedOuterDigest": "rejected"
+      },
+      "releaseGateNote": "UNVALIDATED review package; main browser and D1 latency gates failed."
+    }
+  },
+  "activeDiagnostic": {
+    "source": "9b98f8ea34b04ce681d3893f445bfa7e9111ae92",
+    "run": 39197094431,
+    "job": 117882154116,
+    "status": "running",
+    "scope": "Corrected captured-stderr closed request/socket/read-stage logging in original full pipeline; diagnostic-only.",
+    "superseded": {
+      "source": "601d95f4a12d0cc5400087cc6f98460bf57fe96a",
+      "run": 39196256972,
+      "reason": "Stage stdout was not captured; no phase proof."
+    }
+  },
+  "deployment": {
+    "newDeployment": false,
+    "existingSiteVersion": 2,
+    "existingAccessListsUnchanged": true,
+    "metadataAccess": "available",
+    "deploymentAccess": "available",
+    "supportedHelperExecution": "unavailable"
+  },
+  "disabledCapabilities": [
+    "paid-inference",
+    "operational-trading-effects",
+    "external-alerts"
+  ],
+  "nextAction": "Review and run one bounded server-only small-string native SHA-256 experiment, retaining shared/browser WebCrypto, every row/authority check and unchanged budgets. Await original-context captured-stderr jobs diagnostic terminal. Canonical e4 main and D1 latency remain failed.",
+  "performanceDiagnostic": {
+    "source": "20c9e24b93c9211a52517940043134603569d040",
+    "run": 39197190916,
+    "job": 117882391501,
+    "status": "failure",
+    "scope": "Bounded syncCPU/SHAwait/SQL overlap attribution; no algorithm/concurrency/budget changes; not acceptance.",
+    "limitation": "SHA Promise interval includes queue, service and resume; these are not separately identified.",
+    "contractsPassed": 19,
+    "D1SaveP95": 2360.012035,
+    "artifactId": 12162950062,
+    "artifactDigest": "sha256:13fbcb43670f58b961d5460aa9f169a76613f633344614c4e401dbce5ab9725b",
+    "findings": {
+      "serializerSyncCpuMs": [
+        24.6,
+        32.9
+      ],
+      "wholeCommandShaPromiseWaitUnionMs": [
+        868,
+        1049
+      ],
+      "sqlUnionMs": [
+        511,
+        669
+      ],
+      "syncIntervalUnion": null,
+      "syncIntervalsTruncated": true,
+      "shaIntervalsTruncated": false
+    },
+    "acceptance": false
+  }
+}
