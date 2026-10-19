@@ -87,3 +87,5 @@ jobs:
             playwright-report/
           if-no-files-found: warn
           retention-days: 7
+
+# Verify native pointer reachability and exact UI-requested history response.
