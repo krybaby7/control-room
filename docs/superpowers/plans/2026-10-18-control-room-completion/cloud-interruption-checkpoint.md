@@ -1,27 +1,18 @@
-# Cloud implementation checkpoint
+# Cloud implementation checkpoint — 2026-10-19
 
-Primary parent before these two integration commits: b88ddebdccffc8863990bc63e5b8976d2a5f2456. First integration commit:1457218a828f9f172600b8007c6904ebc4be5905. Resolve the implementation branch ref for this checkpoint's own source SHA.
+Implementation source: `b71a290b2f6126e16ba870a1c2921678963e2e53` on `feat/control-room-completion-cloud`. This separate checkpoint is documentation only; do not substitute its source identity for a tested application archive.
 
-Execution uses GitHub source APIs plus actual Node24 GitHub Actions cloud runners. Supported explicit gpt-6.1-sol selections were accepted for the integrator and six recorded workers; no substitute model or original local Windows execution is used. Workspace/Sites helper execution remains unavailable.
+Primary b71a290b2f6126e16ba870a1c2921678963e2e53: focused471/471 plus reporter/type/lint pass; three-browser11journeys and controlled browser2journeys pass; actual agent/runtime/artifact/maintenance/streaming and segmented recovery pass. Segmented39188372105/job117855517654:27migrations,33modules,79segments,10080rows,17767523bytes with native current/staged-file proofs; target remains fenced. Normal benchmark39188372498/job117855518958 FAILED D1savep952621.885391ms>2000; all100outcomes/sixrestores/errors[] preserved. Mobile push117855506082 failed firstusable3979.6ms; same-content PR passed, not a sustained acceptance claim. Full main39188372074 remains running; no terminal pass.
 
-## Exact evidence
+Supported explicit `gpt-6.1-sol` selections were accepted for the integrator and all six worker IDs recorded in progress.json. Actual Node24 Linux/Windows execution is GitHub Actions; workspace/Sites helper execution remains unavailable. No original local Windows execution or model substitution occurred.
 
-Controlled candidate d190e0dbd5c5393c8e9d1115779b38ebeac169b1: run39187661181 focused/job117853393154 passed460/460 Node,typecheck,lint; normal/job117853393340 passed D1savep951772.252457ms<2000,SQLite674.8287ms,D1read573.718564ms<1500,all100concurrent outcomes and six restores perengine/errors=[]. Actual calibration39187661085/job117853392757 proves nativeD1 true5-arm compound cap: minimal5 passes,6/10/20/30 fail; full37-source capture now8 bounded SELECT statements in one read-only batch. Separate instrumented profile latency failed and is not substituted for normal acceptance.
+## Open gates and work
 
-## Included reviewed changes
+- Latest coherent performance gates are open: D1 save and mobile have actual failures. Bounded source optimization investigation continues without budget/sample/assertion changes.
+- Full b71 main native suite remains pending. Prior7a diagnostic39187780747/job117853750240 passed1737/1737 in294707.584ms, but earlier timing-sensitive stalls remain unexplained; this is not proof of b71 full acceptance. Same-source bounded-file-concurrency diagnostic5b2cd6191c254c9574b910682247792459749874 is running separately; no primary testscript change.
+- Original actual-format Lab projection9eb passed146bridge but native105/106 and type failed. Bounded corrections6b5c50168c2081f041653ce61accc2d37243cf82 are now under coherent diagnosticbf8399a8fcbab8101e00498d299ad32914ef3bb8; no primary integration until terminal checks. Privacy and optional-contract reviews clear.
+- Supported Sites source/package helper execution remains unavailable; original private Site version2 and effective owner-only access are unchanged. Approved separate runtime package extraction, Windows process/sandbox integration/acceptance, provider consent/renewable ingress/hosted SSE and owner devices/passkey remain not-run. Paid inference, trading/operational effects and external alerts remain disabled.
 
-- Exact immutable-string SHA results are reused only in one bounded branded serialization context; physical-row native hashing and every schema/reference/identity/CAS check remain unchanged.
-- Closed recovery reads use <=5 UNION arms per statement, <=8 statements in one read-only batch, per-table cursor/LIMIT200/empty certificates/strict row padding and BINARY order; complete first/final images, frozen audit vector, byte/row caps and final namespace remain.
-- Narrow generated-build packaging exceptions preserve four exact metadata paths and an anchored framework tilde-chunk grammar; all private/dot/traversal/symlink/identity/finite-size guards retained. Exactcdacc diagnostic package passed138bridge+8packaging/type/lint/build and archives, but its artifacts are UNVALIDATED and are not a final primary-source release.
-- Backup object-stream cancellation awaits an already-started bounded read, starts no new chunk and avoids late enqueue/error. Native6case proof and strict numeric/closed-phase reporter self-tests passed. Explicit fixture body cleanup retains all original native assertions.
+Original owner records/IDs, applied migrations and private hosting identity/access are preserved. Rejected local inspection history remains local and excluded from every publication branch. No new Site deployment or live provider/model/device execution is claimed.
 
-## Unfinished and external work
-
-- Complete coherent full Node/bridge/type/lint/build/D1/R2/HTTP/default-browser/application-package gate remains pending; the native9MiB scheduled backup journey is under exact source-line/closed-phase diagnostics, with no skipped assertion or timeout/sample/budget change.
-- Isolated c735 full suite timed out with2backupfiles; fixture-only17810 removes reauthorization stall but scheduled-backup-archive.test.ts67:1 remains. Reviewed stream cancellation passes6native cases; it did not establish a full-suite cure. Latest diagnostic7a adds fixed phase labels to locate the remaining await.
-- Original actual-format local Agent Lab projection and optional source-objective fields are under separate privacy review/native verification; not included yet. Actual upstream interface has now been inspected through authorized read-only access; no private upstream source/identity/pins/records are published. No need to ask owner to rediscover an unknown API.
-- Supported Sites source/package helper execution is unavailable. Existing private Site remains version2, one owner and no visitors/groups. Production invocation still needs an approved pinned runtime package and Windows owned-process/sandbox integration and acceptance; real provider consent, renewable private ingress, hosted SSE and owner devices/passkey are not-run. Paid inference, trading/operational effects and external alerts remain disabled.
-
-Hosting identity, owner records/IDs and original applied migrations are preserved. Rejected local inspection history remains excluded. No new Site deployment or owner/provider/device acceptance is claimed.
-
-Next command: GET https://api.github.com/repos/krybaby7/control-room/git/ref/heads/feat/control-room-completion-cloud; inspect exact returned SHA's full/focused/normal/mobile/segmented/native gates. Inspect diagnostic39187780747 terminal fixed phase at scheduled-backup-archive.test.ts67:1, fix actual remaining await, verify original Agent Lab projection candidate, then hold coherent source for final packaging and release evidence.
+Next command: GET https://api.github.com/repos/krybaby7/control-room/git/ref/heads/feat/control-room-completion-cloud; inspect b71 main39188372074, bounded-concurrency5b2 diagnostic, bf8399 Lab projection checks and worker performance proposals. Preserve current primary; integrate only reviewed verified deltas, then hold one coherent source for full native/browser/performance/package gates. Do not push rejected local inspection history or deploy through a substitute workflow.
