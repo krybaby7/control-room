@@ -10,12 +10,13 @@ const captures=new WeakMap<object,{db:SqlDatabase;owner:string;scope:PlanningCap
  * Return a separate planning copy so handler mutations cannot change the captured
  * bytes. The compiler must retain its final reread and atomic epoch/row guards. */
 export async function capturePlanningForRecoverability(db:SqlDatabase,owner:string,scope:PlanningCaptureScope):Promise<{before:Envelope;capture:ScopedPlanningCapture}>{
- if(!owner||!Number.isFinite(Date.parse(scope.now))||!Number.isSafeInteger(scope.expectedRevision)||scope.expectedRevision<1||!scope.mutationId)throw new Error('Invalid planning capture scope.');
- mutationEpoch(scope.mutationId);
- const before=await readCurrent(db,owner,scope.now);
+ const fixedScope=Object.freeze({...scope});
+ if(!owner||!Number.isFinite(Date.parse(fixedScope.now))||!Number.isSafeInteger(fixedScope.expectedRevision)||fixedScope.expectedRevision<1||!fixedScope.mutationId)throw new Error('Invalid planning capture scope.');
+ mutationEpoch(fixedScope.mutationId);
+ const before=await readCurrent(db,owner,fixedScope.now);
  const token=Object.freeze({}) as PlanningCapture;
- captures.set(token,{db,owner,scope:{...scope},envelope:structuredClone(before)});
- return {before,capture:Object.freeze({...scope,token})};
+ captures.set(token,{db,owner,scope:fixedScope,envelope:structuredClone(before)});
+ return {before,capture:Object.freeze({...fixedScope,token})};
 }
 /** Consumes only an opaque, DB/owner/mutation(epoch)/revision/time-bound capture.
  * JSON, foreign DB/owner, changed scope and a second use fail closed. */

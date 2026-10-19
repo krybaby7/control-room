@@ -64,3 +64,23 @@ test('the already captured first read is reused, while a fresh final owner read 
  assert.equal(currentReads,2);
  }finally{f.sqlite.close();}
 });
+
+test('a caller cannot retag the validated operation scope while the owner read is pending',async()=>{
+ const f=database();try{
+ await loadWorkspace(f.db,owner,workspaceFixture,now);
+ let release!:()=>void,started!:()=>void;
+ const pending=new Promise<void>(resolve=>{release=resolve;}),reading=new Promise<void>(resolve=>{started=resolve;});
+ const db:SqlDatabase={prepare(sql){
+ const native=f.db.prepare(sql);
+ if(!sql.startsWith('SELECT w.content,w.revision,w.updated_at,'))return native;
+ return {bind(...values){native.bind(...values);return this;},async first<T>(){started();await pending;return native.first<T>();},all:()=>native.all(),run:()=>native.run()};
+ },batch:statements=>f.db.batch(statements)};
+ const mutable={...scope},original={...mutable},work=capturePlanningForRecoverability(db,owner,mutable);
+ await reading;
+ mutable.now='2026-10-19T12:00:00.000Z';mutable.mutationId='retagged_operation';mutable.expectedRevision=2;
+ release();
+ const captured=await work;
+ assert.deepEqual({now:captured.capture.now,mutationId:captured.capture.mutationId,expectedRevision:captured.capture.expectedRevision},original);
+ assert.equal(consumePlanningCapture(db,owner,now,captured.capture).revision,1);
+ }finally{f.sqlite.close();}
+});
