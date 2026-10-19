@@ -72,7 +72,7 @@ export async function commitSourcePage(db:SqlDatabase,untrustedClaim:Integration
  await privateInsertGrowth(db,'operational_stream_heads',{stream_id:'sources',revision:Number.MAX_SAFE_INTEGER,last_sequence:sequence}),
  await privateUpdateGrowth(db,claim.ownerId,'source_sync_state','source_id=?',[claim.sourceId],{cursor:page.nextCursor,etag:page.nextEtag,attempted_at:input.now},true),
  await privateUpdateGrowth(db,claim.ownerId,'integration_jobs','intent_id=?',[claim.intentId],{},true)];
- const privateCapacity=await requirePrivateCapacity(db,claim.ownerId,{growth:combinePrivateGrowth(...privateGrowth)});statements.splice(1,0,db.prepare('INSERT INTO workspace_assertions(user_id,mutation_id,valid) SELECT ?,?,CASE WHEN '+privateCapacity.sql+' THEN 1 ELSE 0 END WHERE '+guard).bind(claim.ownerId,pageId,...privateCapacity.bindings,...guardBinds));
+ const privateCapacity=await requirePrivateCapacity(db,claim.ownerId,{growth:combinePrivateGrowth(...privateGrowth)});statements.splice(1,0,db.prepare('WITH source_page_capacity AS MATERIALIZED(SELECT 1 WHERE '+privateCapacity.sql+') INSERT INTO workspace_assertions(user_id,mutation_id,valid) SELECT ?,?,CASE WHEN EXISTS(SELECT 1 FROM source_page_capacity) THEN 1 ELSE 0 END WHERE '+guard).bind(...privateCapacity.bindings,claim.ownerId,pageId,...guardBinds));
  statements.push(db.prepare('DELETE FROM workspace_assertions WHERE user_id=? AND mutation_id=?').bind(claim.ownerId,pageId));statements.push(db.prepare('DELETE FROM workspace_command_guards WHERE user_id=? AND mutation_id=? AND claim_token=?').bind(...guardBinds));
  const {measureProspectiveRecoverability}=await import('../recoverability-snapshot.ts');
  const watermarks=await readOperationalWatermarks(db,claim.ownerId);

@@ -203,7 +203,8 @@
         "Newactual20session SQLite/D1/HTTP and network/CPU browser performance gates exposed fixture errors and p953026.7ms>3000 target; pending correction/optimization, not a pass.",
         "New integration enforces private positive-growth admission atomically across central receipts/intents/grants, epochs/drafts, background schedules/source/reviews, runtime/device telemetry and physical/file-backup writers. Native first-cancel receives strictly bounded held-row/byte funding; no capraise, eviction or repeated noop credit. Exact regressions pending.",
         "Private recovery now preserves 46 closed tables including staged original import chunks, archive stages and paid-analysis journals. Current file and offline staged ZIP proofs are required; new source awaits actual cloud regressions.",
-        "Exact a389 segmented39177959085/job117824511970 terminal success:10080rows/79segments/17,767,523bytes, actual fresh attachments, staged artifacts and backup rekey, inert fenced target with native IDs/grants preserved. Three-browser and HTTP20-session performance pass; near-bound D1 latency remains above2000ms."
+        "Exact a389 segmented39177959085/job117824511970 terminal success:10080rows/79segments/17,767,523bytes, actual fresh attachments, staged artifacts and backup rekey, inert fenced target with native IDs/grants preserved. Three-browser and HTTP20-session performance pass; near-bound D1 latency remains above2000ms.",
+        "Exact df042 full Node1674/1677passed; all native file-backup14/retained-cleanup9/reauthorization5 regressions passed. Actual profile reveals62–64database RPCs per committed save; coherent workspace and watermark coqueries are included for pending verification. Mobile transfer/hydration diagnostics added without waiving budgets."
       ],
       "blockers": [
         "Exact final coherent source/full browser/packaging gates still in progress.",
@@ -212,7 +213,7 @@
       ]
     }
   ],
-  "nextAction": "GET https://api.github.com/repos/krybaby7/control-room/git/ref/heads/feat/control-room-completion-cloud; inspect all exact-head Actions, especially focused/full, normal benchmark, separate command profile and mobile performance.",
+  "nextAction": "GET https://api.github.com/repos/krybaby7/control-room/git/ref/heads/feat/control-room-completion-cloud; inspect the exact returned SHA's focused/full Actions, normal benchmark, separate RPC profile, and five mobile timing samples.",
   "allowedStatuses": [
     "not_started",
     "in_progress",
@@ -239,17 +240,16 @@
     "evidence": "Explicit supported model selection accepted and worker IDs returned."
   },
   "checkpoint": {
-    "implementationHead": "77b99f74905c0c8200bea85ba7d5a296f51ecfea",
+    "implementationHead": "df04223910092ecb281ee8125d21d5fd6676875a",
     "headMeaning": "Parent of this checkpoint commit; resolve the branch ref for the checkpoint commit itself.",
     "executionMode": "GitHub source APIs and actual GitHub Actions Node 24 cloud runners. Supported workspace execution remains unavailable.",
-    "tests": "77b: focused210/212 passed; fresh queued authority, 64MiB stage growth, batched/Unicode snapshots passed. Reporter self-test, artifact16+actualD1/R2, runtime/agentsD1, maintenance, SSE, three-browser acceptance and segmented10080-row recovery passed. Full1677 tests:1628pass49fail, with fixture adapter/race targeting regressions and source-claim D1 depth identified. Near-bound SQLite p95=1528.58ms passed; D1p95=7548.74ms failed2000ms. One mobile readiness run3140.4ms failed3000ms; another passed.",
+    "tests": "Exact df042 full Node1674/1677 passed; only source claim/page D1 depth100 failures remain. All49 prior fixture/adapter failures are resolved. Three-browser, native artifact/runtime/agents D1, maintenance/SSE and10080-row segmented recovery passed. Normal D1 savep95=7775.21ms failed2000ms; SQLite1546.24ms passed. HTTP20session532.77ms passed; mobile one3771.4ms failure remains despite another passing run. Actual profiler found62–64RPC per committed command.",
     "knownFailures": [
-      "New corrections require actual current-source regression; no final source/package or publication is claimed.",
-      "49 full-suite reported failures were traced to SELECT rows discarded by three synthetic D1 adapters, early race/lost-response injection at read-only snapshots, source-claim D1 expression depth, reserved-slot fixture targeting and three fixture typing errors. Corrections are included; exact rerun pending.",
-      "D1 near-bound save p95 remains above2000ms. Separate opt-in command profiling is added, without changing the normal gate or budgets.",
-      "Mobile startup exceeded3000ms in one run. Three noninitial screens are now loaded on demand; actual browser validation is pending.",
-      "Hosted/provider/runtime/owner-device acceptance and supported Sites helper execution remain external. Read-only metadata reconfirms private owner-only version2, no visitors/groups."
+      "The three actual source D1 depth failures have new top-level proof CTEs plus balanced neutral capacity predicates here; exact native rerun is pending.",
+      "D1 concurrent-save target remains2000ms. New coherent workspace/watermark reads remove redundant RPCs without caching owner data; their actual performance and regressions are pending.",
+      "Mobile startup remains unresolved. Bounded per-sample document/asset/API/hydration diagnostics are included without changing3000ms/200ms targets.",
+      "Current-source full/package gates and external hosted/provider/runtime/device acceptance remain pending. No new Site publication."
     ],
-    "nextCommand": "GET https://api.github.com/repos/krybaby7/control-room/git/ref/heads/feat/control-room-completion-cloud; inspect all exact-head Actions, especially focused/full, normal benchmark, separate command profile and mobile performance."
+    "nextCommand": "GET https://api.github.com/repos/krybaby7/control-room/git/ref/heads/feat/control-room-completion-cloud; inspect the exact returned SHA's focused/full Actions, normal benchmark, separate RPC profile, and five mobile timing samples."
   }
 }

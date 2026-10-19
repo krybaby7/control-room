@@ -5,6 +5,10 @@ on:
     paths:
       - '.github/workflows/control-room-command-profile.yml'
       - 'scripts/benchmark-workspace.mjs'
+      - 'lib/operational-watermarks.ts'
+      - 'lib/workspace-store.ts'
+      - 'lib/workspace-transaction.ts'
+      - 'lib/private-capacity.ts'
   workflow_dispatch:
 concurrency:
   group: control-room-command-profile-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}

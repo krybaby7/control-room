@@ -20,9 +20,9 @@ test('actual cold-page first usable and normal-navigation main-thread budgets',a
    await cdp.send('Emulation.setCPUThrottlingRate',{rate:profile.cpuSlowdown});
    let bytes=0,requests=0,ownerPosts=0;cdp.on('Network.loadingFinished',event=>{bytes+=event.encodedDataLength;});page.on('request',request=>{requests++;if(request.method()==='POST'&&['/api/workspace','/api/devices/enroll'].includes(new URL(request.url()).pathname))ownerPosts++;});
    await page.addInitScript(()=>{
-    const value={longTasks:[] as {startTime:number;duration:number}[],supported:PerformanceObserver.supportedEntryTypes.includes('longtask'),firstUsableAt:null as number|null};
+    const value={longTasks:[] as {startTime:number;duration:number}[],supported:PerformanceObserver.supportedEntryTypes.includes('longtask'),firstUsableAt:null as number|null,savedStatusAt:null as number|null,captureEnabledAt:null as number|null};
     (window as unknown as {controlledPerformance:typeof value}).controlledPerformance=value;
-    const ready=()=>{if(value.firstUsableAt!==null)return;const saved=Array.from(document.querySelectorAll<HTMLElement>('[role="status"]')).some(node=>/^Last saved /.test(node.textContent??'')&&node.getClientRects().length>0),capture=Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(node=>node.textContent?.trim()==='Capture'&&!node.disabled&&node.getClientRects().length>0);if(saved&&capture)value.firstUsableAt=performance.now();};
+    const ready=()=>{if(value.firstUsableAt!==null)return;const saved=Array.from(document.querySelectorAll<HTMLElement>('[role="status"]')).some(node=>/^Last saved /.test(node.textContent??'')&&node.getClientRects().length>0),capture=Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(node=>node.textContent?.trim()==='Capture'&&!node.disabled&&node.getClientRects().length>0);if(saved&&value.savedStatusAt===null)value.savedStatusAt=performance.now();if(capture&&value.captureEnabledAt===null)value.captureEnabledAt=performance.now();if(saved&&capture)value.firstUsableAt=performance.now();};
     const observer=new MutationObserver(ready);observer.observe(document,{childList:true,subtree:true,attributes:true,characterData:true});document.addEventListener('DOMContentLoaded',ready,{once:true});
     if(value.supported)new PerformanceObserver(list=>{for(const item of list.getEntries())value.longTasks.push({startTime:item.startTime,duration:item.duration});}).observe({type:'longtask',buffered:true});
    });
@@ -30,6 +30,21 @@ test('actual cold-page first usable and normal-navigation main-thread budgets',a
    await expect(page.getByRole('status').filter({hasText:/^Last saved /})).toBeVisible();
    await expect(page.getByRole('button',{name:'Capture',exact:true})).toBeEnabled();
    const firstUsable=await page.evaluate(()=>(window as unknown as {controlledPerformance:{firstUsableAt:number|null}}).controlledPerformance.firstUsableAt);expect(firstUsable).not.toBeNull();expect(firstUsable!).toBeGreaterThan(0);usable.push(firstUsable!);
+   const initialDiagnostics=await page.evaluate(()=>{
+    const value=(window as unknown as {controlledPerformance:{firstUsableAt:number|null;savedStatusAt:number|null;captureEnabledAt:number|null;longTasks:{startTime:number;duration:number}[]}}).controlledPerformance,ready=value.firstUsableAt!;
+    const nav=performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming|undefined;
+    const phase=(start:number|undefined,end:number|undefined)=>start!==undefined&&end!==undefined&&end>0&&end>=start?end-start:null;
+    const resources=performance.getEntriesByType('resource') as PerformanceResourceTiming[],completed=resources.filter(row=>row.responseEnd>0&&row.responseEnd<=ready),bounded=completed.slice(0,512);
+    const categories:Record<string,{count:number;encodedBytes:number;transferBytes:number;durationSumMilliseconds:number;earliestStartMilliseconds:number;latestResponseEndMilliseconds:number}>={};
+    for(const row of bounded){
+     const path=new URL(row.name,location.href).pathname;
+     const category=row.initiatorType==='script'?'script':row.initiatorType==='css'||path.endsWith('.css')?'stylesheet':path==='/api/workspace'?'workspace_api':path.startsWith('/api/')?'other_owner_api':row.initiatorType==='img'?'image':/\.(woff2?|ttf|otf)$/u.test(path)?'font':'other_resource';
+     const item=categories[category]??={count:0,encodedBytes:0,transferBytes:0,durationSumMilliseconds:0,earliestStartMilliseconds:row.startTime,latestResponseEndMilliseconds:row.responseEnd};item.count++;item.encodedBytes+=row.encodedBodySize;item.transferBytes+=row.transferSize;item.durationSumMilliseconds+=row.duration;item.earliestStartMilliseconds=Math.min(item.earliestStartMilliseconds,row.startTime);item.latestResponseEndMilliseconds=Math.max(item.latestResponseEndMilliseconds,row.responseEnd);
+    }
+    const preReadyTasks=value.longTasks.filter(row=>row.startTime<ready);
+    return {milestonesMilliseconds:{savedStatus:value.savedStatusAt,captureEnabled:value.captureEnabledAt,firstUsable:ready},document:nav?{responseEndMilliseconds:nav.responseEnd,domInteractiveMilliseconds:nav.domInteractive,domContentLoadedEndMilliseconds:nav.domContentLoadedEventEnd||null,loadEndMilliseconds:nav.loadEventEnd||null,requestToFirstByteMilliseconds:phase(nav.requestStart,nav.responseStart),responseTransferMilliseconds:phase(nav.responseStart,nav.responseEnd),responseToDomInteractiveMilliseconds:phase(nav.responseEnd,nav.domInteractive),transferBytes:nav.transferSize,encodedBytes:nav.encodedBodySize}:null,completedBeforeReady:{count:completed.length,retainedCount:bounded.length,truncated:completed.length>512,categories},preReadyLongTasks:{count:preReadyTasks.length,sumMilliseconds:preReadyTasks.reduce((total,row)=>total+row.duration,0),maximumMilliseconds:preReadyTasks.length?Math.max(...preReadyTasks.map(row=>row.duration)):null,samples:preReadyTasks.slice(0,128),truncated:preReadyTasks.length>128}};
+   });
+   console.log(JSON.stringify({event:'controlled_initial_render',sample,profile,firstUsableMilliseconds:firstUsable,...initialDiagnostics}));
    const start=await page.evaluate(()=>performance.now()),navigation:Record<string,number>={};
    for(const [button,heading]of [['Agents','Agents'],['Runtime','Runtime'],['Sources','Context you can trace.'],['Today','A clear view of what’s next.']]){
     const began=await page.evaluate(()=>performance.now());
@@ -41,7 +56,7 @@ test('actual cold-page first usable and normal-navigation main-thread budgets',a
    const observed=await page.evaluate(from=>{const value=(window as unknown as {controlledPerformance:{supported:boolean;longTasks:{startTime:number;duration:number}[]}}).controlledPerformance;return {supported:value.supported,tasks:value.longTasks.filter(item=>item.startTime>=from),navigation:performance.getEntriesByType('navigation').map(item=>({duration:item.duration,transferSize:(item as PerformanceNavigationTiming).transferSize,encodedBodySize:(item as PerformanceNavigationTiming).encodedBodySize}))};},start);
    expect(observed.supported).toBe(true);expect(ownerPosts).toBe(0);
    const durations=observed.tasks.map(item=>item.duration);longTasks.push(...durations);
-   report.samples.push({sample,firstUsableMilliseconds:firstUsable,normalNavigationMilliseconds:navigation,normalNavigationLongTasks:observed.tasks,network:{requests,encodedTransferBytes:bytes,profileApplied:true},navigationTiming:observed.navigation,ownerMutationPosts:ownerPosts});
+   report.samples.push({sample,firstUsableMilliseconds:firstUsable,initialDiagnostics,normalNavigationMilliseconds:navigation,normalNavigationLongTasks:observed.tasks,network:{requests,encodedTransferBytes:bytes,profileApplied:true},navigationTiming:observed.navigation,ownerMutationPosts:ownerPosts});
   }finally{await context?.close();}
  }
  const p50=percentile(usable,.5),p95=percentile(usable,.95),maximum=longTasks.length?Math.max(...longTasks):null;
