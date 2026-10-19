@@ -353,7 +353,7 @@
     "date": "2026-10-19",
     "branch": "feat/control-room-completion-cloud",
     "checkpoint": "resume-checkpoint.json",
-    "status": "reviewed_correction_candidate_prepared_canonical_pending",
+    "status": "current87_candidate_failed_performance_remaining_gates_running",
     "canonicalCheckpoint": {
       "source": "3c6681a39d05b9b40ace26b49e5482aa2a4d40ed",
       "run": 39244318516,
@@ -400,7 +400,7 @@
       "external alerts"
     ],
     "storage": "Existing Site identity and DB preserved; logical BUCKET declaration added without deployment or owner data writes.",
-    "publicSource": "98f9986f12b2088c69bdb7e5e4671694b5bcbba2",
+    "publicSource": "87c41b57bb3a17d9671580739fbadb507c7f32a0",
     "draftPr": 1,
     "rejectedPerformanceExperiment": {
       "source": "6f2a5c83c64bc9414ab1e263d41b0c8be6e9671b",
@@ -471,6 +471,60 @@
       "passed": false,
       "overlaySha256": "cca3965e14a4e7cbd66b1c5331d698d04d59762331a03b3afa1a861e95b95933",
       "claim": "Observer overhead remains; await unions are not database service CPU. Overlay restored and absent from candidate."
+    },
+    "current87Performance": {
+      "source": "87c41b57bb3a17d9671580739fbadb507c7f32a0",
+      "run": 39251593013,
+      "job": 118056467995,
+      "passed": false,
+      "D1saveP95Ms": 2319.984152,
+      "D1saveP50Ms": 1588.653718,
+      "SQLiteSaveP95Ms": 677.862331,
+      "limitMs": 2000,
+      "outcomesPerEngine": 100,
+      "restoresPerEngine": 6,
+      "errors": [],
+      "artifact": 12186400352,
+      "archiveSha256": "79cb7a6fa7290e63153e1329eea87dcb122e84596432753021b89f2c8dac11c5"
+    },
+    "current98Canonical": {
+      "source": "98f9986f12b2088c69bdb7e5e4671694b5bcbba2",
+      "run": 39249240628,
+      "job": 118048666153,
+      "passed": true,
+      "nodePassed": 1807,
+      "bridgePassed": 210,
+      "bridgePlatformSkipped": 9,
+      "browserPassed": 63,
+      "r2BrowserPassed": 3,
+      "packageFiles": 49
+    },
+    "current98Integrity": {
+      "run": 39251680756,
+      "job": 118056742473,
+      "sourceFiles": 1077,
+      "buildFiles": 333,
+      "bridgeFiles": 49,
+      "negativeControlsRejected": 8,
+      "artifact": 12184933946,
+      "archiveSha256": "cec4906c2aed3be34ce3778d763aeac85d4e635d72190f1f5cbca842bf45b86c",
+      "releaseAccepted": false
     }
+  },
+  "datetimeValidationCandidate": {
+    "status": "pending_exact_source_canonical_validation",
+    "baseSource": "87c41b57bb3a17d9671580739fbadb507c7f32a0",
+    "change": "Compile locked Zod datetime regex once; preserve acceptance and first path/message",
+    "focusedPassed": 145,
+    "independentParityPassed": 8,
+    "typecheck": "passed",
+    "lint": "0 errors; 8 existing warnings",
+    "build": "passed",
+    "D1LimitMs": 2000,
+    "previous87D1P95Ms": 2319.984152,
+    "previous87CanonicalRun": 39251592918,
+    "previous87Canonical": "passed",
+    "paidInferenceEnabled": false,
+    "deployed": false
   }
 }

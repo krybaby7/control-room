@@ -196,3 +196,8 @@ Corrected jobs diagnostic 9b98/run39197094431/job117882154116 TERMINAL SUCCESS: 
 Native-SHA experiment817/run39198054055: contractsjob117884994482 passed41/41 (8085.558832ms),Worker parity,typecheck/lint/build/runtime27migrations. Normaljob117884994781 FAILED D1savep952976.172820ms>2000,p502244.327927ms;SQLite972.609903ms and D1read925.253108ms passed,100outcomes/sixrestores perengine/errors[]. Artifact12162961643 SHA25635fadef0b16c4051c9d38320e45a63238f11a481c7bb8d4b5a7a86b3ca46fc6c. Static review of462 files/100 client entries found no client path. DECISION: no integration,no improvement,no rerun;canonical e4 remains frozen.
 
 Private runtime extraction/registration and Windows owned-process/sandbox invocation remain missing code, separate from owner installation and actual-device acceptance. Provider/device consent and supported helper execution remain unavailable; Site metadata/deployment access exists. Paid inference, execution/trading effects and external alerts remain off.
+
+
+## Datetime validation candidate — 2026-10-19
+
+Public87 canonical run39251592918 passed, but its first normal D1savep95 remained2319.984152ms against the unchanged2000ms gate. Preserve that failure. The next candidate compiles the exact locked Zod datetime regex once, preserving outputs and first refusal path/message. Independent parity8/8 and focused145 tests, typecheck, lint and build pass; paired parser timings are diagnostic only. Full exact-source acceptance is pending. The rejected digest fanout remains isolated (6/12 wall pairs lower; median slower). No threshold, workload, assertion, owner data, provider activation or deployment changes.
