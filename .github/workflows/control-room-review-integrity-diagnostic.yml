@@ -1,0 +1,26 @@
+name: Inspect exact public review artifacts
+on:
+  push:
+    branches: ['diagnostics/control-room-review-integrity*']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Inspect pinned artifacts without executing them
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/verify-review-artifacts.py .github/review-integrity-input.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: public-review-artifact-integrity-${{ github.sha }}
+          path: artifact-verification.json
+          if-no-files-found: ignore
+          retention-days: 90
