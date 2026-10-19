@@ -1,0 +1,30 @@
+name: Control Room bounded native test concurrency diagnostics
+on:
+  workflow_dispatch:
+  push:
+    branches: ['diagnostics/control-room-node-concurrency-*']
+    paths: ['.github/workflows/control-room-node-concurrency-diagnostics.yml']
+permissions:
+  contents: read
+concurrency:
+  group: node-concurrency-diagnostics-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  node:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CONTROL_ROOM_SOURCE_COMMIT: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Verify unchanged native reporter contract
+        timeout-minutes: 2
+        run: node scripts/test-reporter.mjs --self-test
+      - name: Run every original Node test with at most two test files
+        timeout-minutes: 9
+        run: node --experimental-strip-types --test --test-reporter=./scripts/test-reporter.mjs --test-timeout=120000 --test-concurrency=2 tests/*.test.ts
