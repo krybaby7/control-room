@@ -1,32 +1,23 @@
-# Cloud implementation checkpoint — 2026-10-19
+# Cloud implementation checkpoint — reviewed fixes ready for coherent gates
 
-Application/test source parent: `65f987e25b075269240d180231cbc2673354ec71`. Resolve `feat/control-room-completion-cloud` for this checkpoint's own SHA. Explicit supported `gpt-6.1-sol` selection accepted; all six worker IDs remain recorded in progress.json. Actual tests run on Node24 GitHub Actions Linux/Windows, without original Windows checkout execution.
+Application/test/CI parent: `eb6755432f3e0989b1c722ac56fe745b7f4a7102`. Resolve `feat/control-room-completion-cloud` for this documentation checkpoint's exact SHA. Runtime controls accepted exact gpt-6.1-sol for all six recorded workers. Actual execution is Node24 GitHub Actions; original local Windows checkout untouched.
 
-## Verified component evidence
+## Exact evidence
 
-Coherent candidate296fd5654b8f457187cf12b4d5b9ab46044c8c03 run39192051800: Chromium63/63 and R2 3/3(job117866794907), targeted3/3(job117866794977), mobile2/2(job117866794902), p95maximum2737.6ms. Original full budget/recovery/save, scoped history and saved review assertions pass; actual deferred loading/retry/deadline journeys pass. Corrected real late-race fixture candidatece865844216cbce5a002bfd9fcdd33006daf4da6 run39192352370: full1773/1773(job117867696715), no failures/cancellations/skips,249056.284ms; targeted107/107+typecheck/lint0errors8warnings(job117867696557). Production transaction guards unchanged.
-Native historical-scope706505ea697896637ad218ebd5f91e53fcb1f16f run39192869059/job117869259962 terminalPASS: actual27-migration Miniflare D1 historical NULL/bulk attribution,55-event frozen pagination,owner isolation, malformed/ambiguous exclusion and exact stored payload preservation;1test3047.719101ms,typecheckPASS,lint0errors8warnings.
+Exact3b170542115137b95b83f10b6c9e302af5c21e19 main39193244377/job117870390296:1774/1774Node195062.377ms,146/146bridge,type/lint/buildPASS; nativegeneration/workspace/source/reviews/scheduledbackupPASS. MainthenFAILED FIRSTwake scheduledsource admission dueD1>100bindguard; no laterbrowser/package. Focused489/489/type/lint39193240090; isolatedagents/runtime/artifactD1R2/maintenance97tables291guards/streaming14 PASS. Segmented39193244376/job117870388009 PASS27migrations/33modules/79segments/10080rows/17,767,591bytes,targetSTILLFENCED.
+Focus fix e5c302de83332a904b530d365d92b9404b704c3f run39193959740 TERMINALSUCCESS original11QA:Chromium1178725611294/4,Firefox1178725609603/3,WebKit1178725610724/4;type/lint/build EACHpass. Original390/768/1280budget+enrollmentEscape/focus/keyboard/axe assertions unchanged; precapturedperinstanceopener coverssharedFormDialog andcustomenrollment.
+Atomic D1 admission fix d2d35c21515790ffe754ae4d84392c0341e7bf91 run39194122483/job117873042518 TERMINALSUCCESS34/34targettests/no skips+ORIGINAL27migrationnative scheduledsource admission/page/restart/sameintent/digest/replay/lease/capacity/revocation/archive/epoch/SQLrollbackretry/planningunchangedPASS;typecheckPASS/lint0errors8warnings. Guard4boundparams withmaterializedcanonicalscalarvector preservesALLconditions/order/sixstatementatomicbatch.
 
-## Current limits
+## Unfinished / known limits
 
-- Final integrated source must complete its own Node/bridge/type/lint/build/nativeD1R2/HTTP/browser/mobile/performance/package gates. Component proofs retain exact source identities; no final accepted release archive or new deployment yet.
+- New integrated source needs its own complete Node/bridge/type/lint/build/nativeD1R2/HTTP/browser/mobile/performance/package gates. Component successes retain original sources; no final accepted release artifact or new deployment yet.
 
-- Primary1f465fdf normal39191640986 failed unchanged D1savep952503.521524ms>2000ms; SQLite1009.058ms passed,100outcomes/sixrestores/errors[] correct. Earlier passing component timings do not erase this failure or establish a production SLO.
+- Exact3b normal39193244373/job117870396369 FAILED ONLYD1savep952410.695566ms>2000;SQLite953.989242/D1read798.646104 PASS,100outcomes/sixrestores perengine/errors[]. Artifact12161111300. Earlier normal passes/failures retained; no safe further bounded optimization justified, unchanged budget remains unmet.
 
-- Supported Sites source/package helper execution remains unavailable although metadata/deployment access exists. Original private Site remains activeversion2/effectiveowneronly. Approved separate runtime extraction/pin and Windows owned-process/sandbox integration/acceptance, live provider consent/renewable ingress/hosted SSE and actual Windows/mobile/passkey tests remain not-run. Paid inference, operational/trading effects and external alerts remain disabled.
+- Exact3b mobile39193244400/job117870387962 FAILEDp953205ms>3000(HTTPcasePASS); same-source39193240126/job117870374637 PASS2746.3ms retainedseparately. No stable mobile acceptance claim or retry-to-green.
 
-## Included reviewed changes
+- Supported Sites helper execution unavailable although metadata/deployment access exists. Existing owner-private Site unchangedversion2. Approved separate pinned runtime extraction and Windows owned-process/sandbox invocation code/integration plus real owner device acceptance remain missing; installing bridge alone does not supply invocation. Selectedprovider consent/renewable ingress/closedbrowserwakeup/hostedSSE/physicalmobile-passkey acceptance not-run. Paid inference/operational-trading effects/externalalerts remain disabled.
 
-- Original bounded actual-format Lab evidence projection; immutable optional source-objective fields preserve legacy hashes.
-- Operation-bound planning capture and closed planning/receipt preflight reuse; real DB/owner/mutation/time/revision binding, final complete rereads and atomic guards retained.
-- Awaited archive verification cancellation; settled nonnull streams before unchanged mismatch checks; native positive and old-source negative controls.
-- Exact saved-review-card DOM identity; actual scoped review browser proof.
-- Exact typed entity-scope history attribution/fallback without rewriting stored audit records.
-- Native dialog scrolling container; disabled fieldset semantics preserved.
-- Deferred noninitial panel modules with explicit retry/deadline and actual failure-path browser tests.
-- Real late-race fixture hooks observe atomic guard insertion after actual preparation.
-- Native historical NULL/bulk D1 regression over all27 migrations and focused cloud CI coverage.
+Original owner records/IDs, applied migrations, hosting identity and private access preserved. Intentional negative controls/diagnostic instrumentation and rejected local inspection history are excluded from this clean integration. PR1 remains draft/unmerged. No new deployment is claimed.
 
-Owner records/IDs, applied migrations, original hosting identity and private access remain preserved. Rejected local inspection history and intentional negative-control/diagnostic source changes are excluded from this clean primary chain. Passing component proofs are not reassigned to unrun integrated commits. No new deployment is claimed.
-
-Next action: Publish this reviewed clean integration checkpoint, then inspect its exact complete Node/bridge/type/lint/build/native D1/R2/HTTP/browser/mobile/performance/Windows/package gates. Hold source unchanged for source-bound artifacts; keep Sites private and unchanged until all required validation and supported helper execution are available.
+Next: Inspect this exact implementation-branch head's complete source-bound gates and candidate/Windows package outputs. Preserve all failed normal/mobile metrics; do not waive budgets or publish a Site before required gates and supported helper execution are available.
