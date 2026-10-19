@@ -1,0 +1,28 @@
+name: Control Room actual-format local evidence projection checks
+on:
+  push:
+    branches: ['diagnostics/**']
+    paths: ['.github/workflows/control-room-lab-projection-diagnostic.yml']
+permissions:
+  contents: read
+jobs:
+  projection:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm run install:ci
+      - run: npm run test:bridge
+      - run: node --experimental-strip-types --test tests/evaluation-import.test.ts tests/agents*.test.ts
+      - run: npm run typecheck
+        if: always()
+      - run: npm run lint
+        if: always()
+      - run: npm run build
+      - run: npm run package:bridge

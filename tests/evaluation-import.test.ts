@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {normalizeEvaluationSummary,evaluationDedupKey,selectNewEvaluationObservations,validateEvaluationObservation,evaluationRunObservationSchema} from '../lib/agents/evaluation-import.ts';
+import {canonical,contentHash} from '../lib/canonical-json.ts';
+import {readFile} from 'node:fs/promises';
+import {projectLabImport} from '../bridge/src/agent-lab-import.mjs';
 const now='2026-10-18T12:00:02.000Z';
 const context={ownerId:'synthetic-owner-a',deviceId:'synthetic-device-a',sourceInstance:'synthetic-lab',observedAt:now,sourceFormatVersion:1 as const};
 function run(id='fixture-run-1'){return {id,taskId:'incident-evidence-v1',taskVersion:1,fixtureHash:'a'.repeat(64),provider:'codex',requestedModel:'gpt-6-luna',observedModel:null,modelVerified:false,runtimeVersion:'fixture-runtime',runtimeToolPolicy:'native-sandbox',promptMode:'structured',effort:'medium',status:'blocked',grade:null,review:{verdict:'pending',minutes:null,corrections:null},usage:null,createdAt:'2026-10-18T12:00:00Z',finishedAt:'2026-10-18T12:00:01Z'};}
@@ -40,4 +43,26 @@ test('byte, structure and raw UTF8 limits are enforced without retaining source 
  await assert.rejects(normalizeEvaluationSummary(new Uint8Array([255]),context));
  const unsafe=JSON.parse('{"version":"0.1.0","runs":[],"__proto__":{}}');await assert.rejects(normalizeEvaluationSummary(unsafe,context));
  assert.deepEqual(await normalizeEvaluationSummary(JSON.stringify(source([])),context),[]);
+});
+
+test('legacy evaluation bodies and canonical hashes remain byte-identical when optional projection fields are absent',async()=>{
+ const [record]=await normalizeEvaluationSummary(source(),context),{id:runId,...rest}=run(),expected={runId,...rest};
+ for(const key of ['sourceStatus','sourceInputSha256','objective'])assert.equal(Object.hasOwn(record,key),false,key);
+ assert.equal(record.outcomeHash,await contentHash(canonical({sourceFormatVersion:1,labVersion:'0.1.0',run:expected})));
+ assert.deepEqual(await validateEvaluationObservation(JSON.parse(canonical(record))),record);
+});
+test('local selected-run projection is accepted natively as historical objective claims without owner task or model authority',async()=>{
+ const raw=await readFile(new URL('./fixtures/agents/lab-wire-synthetic.json',import.meta.url)),projected=projectLabImport(raw,{kind:'summary',sourceInstance:'synthetic-lab',selectedRunIds:['synthetic-objective-pass']});
+ assert.ok('upload'in projected);if(!('upload'in projected))return;
+ const [record]=await normalizeEvaluationSummary(projected.upload,context);
+ assert.equal(record.status,'completed');assert.equal(record.sourceStatus,'passed');assert.deepEqual(record.objective,{assessable:true,passed:true,score:2,checksPassed:2,checksTotal:2});assert.match(record.sourceInputSha256!,/^[a-f0-9]{64}$/);
+ assert.equal(record.grade,null);assert.equal(record.usage,null);assert.equal(record.sourceClaimsOnly,true);assert.equal(record.historical,true);assert.equal(Object.hasOwn(record,'accepted'),false);
+ assert.deepEqual(await validateEvaluationObservation(record),record);
+ const [later]=await normalizeEvaluationSummary(projected.upload,{...context,observedAt:'2026-10-19T01:00:00Z'});assert.equal(later.id,record.id);assert.equal(later.outcomeHash,record.outcomeHash);
+ const changed={...projected.upload,runs:projected.upload.runs.map(row=>({...row,sourceInputSha256:'b'.repeat(64)}))};const [correction]=await normalizeEvaluationSummary(changed,context);assert.notEqual(correction.id,record.id);assert.equal(correction.identityKey,record.identityKey);
+});
+test('objective summaries are closed, bounded and consistent with the explicitly retained original source status',async()=>{
+ const base={...run(),status:'completed',sourceStatus:'passed',sourceInputSha256:'c'.repeat(64),objective:{assessable:true,passed:true,score:1,checksPassed:2,checksTotal:2}};
+ for(const patch of [{sourceStatus:'failed'},{sourceStatus:'approved'},{sourceInputSha256:'not-a-digest'},{objective:{...base.objective,checksPassed:3}},{objective:{...base.objective,checksTotal:201}},{objective:{...base.objective,checksTotal:null}},{objective:{...base.objective,ready:true}},{objective:{...base.objective,assessable:false}}])await assert.rejects(normalizeEvaluationSummary(source([{...base,...patch}]),context));
+ const [record]=await normalizeEvaluationSummary(source([base]),context);await assert.rejects(validateEvaluationObservation({...record,objective:{...record.objective!,passed:false}}));
 });

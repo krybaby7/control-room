@@ -1,12 +1,12 @@
 # Independent Agent Lab runtime handoff
 
-Status: **upstream package unavailable / not installed**. No current private Agent Lab checkout, subscription session, provider executable, package release or Windows lifecycle behavior was accessed or verified for this handoff. The Control Room production runtime reports not_installed. Source/package/runtime versions and source/tarball digests remain null until an actual reviewed artifact exists. Fake adapters prove wrapper contracts only.
+Status: **production runtime package not extracted / not installed**. The actual private upstream source interface has now been inspected read-only through authorized repository access. Its source, repository identity, pins and private contents are not copied or published here. No subscription session, installed provider executable, live evaluation or Windows lifecycle behavior was accessed or verified. The Control Room production runtime reports not_installed. Source/package/runtime versions and source/tarball digests remain null until an actual reviewed artifact exists. Fake adapters prove wrapper contracts only.
 
 This is a separate owner-reviewed change in the Agent Lab repository. It does not authorize a Control Room worker to modify a sibling checkout, copy private evaluation data, launch a service or model, change provider settings, or select a different sandbox to manufacture success.
 
 ## Requested upstream change
 
-Before editing, the assigned upstream worker must read the current Agent Lab AGENTS and README, use its required exact implementation model (GPT-6.1 Sol in the inspected plan), and confirm current source/runtime constraints. Preserve dependency-free Node 24, standard-library code and node:test. Re-read the actual current source; plan-time source references do not prove current CLI versions, entitlement or installed authentication.
+Before editing, the assigned upstream worker must read the current Agent Lab AGENTS and README, use its required exact implementation model (GPT-6.1 Sol in the inspected plan), and confirm current source/runtime constraints. Preserve dependency-free Node 24, standard-library code and node:test. Re-read the actual current source; plan-time source references do not prove current CLI versions, entitlement or installed authentication. Missing public source provenance here is a privacy boundary, not evidence that upstream access is unavailable.
 
 Extract the tested low-level subscription runtime into:
 
@@ -47,7 +47,7 @@ Record and review these values from the actual release artifact:
 | Required value | Current handoff evidence |
 | --- | --- |
 | Package name and immutable version | null; no package verified |
-| Upstream source commit and reviewed diff | null; current private source unavailable |
+| Upstream source commit and reviewed diff | not published here; actual source inspected privately, extraction/release still pending |
 | Tarball SHA-256 and content manifest | null; no tarball verified |
 | Runtime/tool-policy version and provider executable evidence | null; not probed |
 | Node/platform/provider CLI test matrix | NOT RUN for this package |
@@ -71,3 +71,11 @@ An authorized local operator must re-read current upstream instructions, verify 
 First demonstrate owned fake-process cancellation/reconnect, unrelated-process preservation, journal recovery and denied lease renewal on the actual Windows version. Record process-tree exit evidence; PID or a taskkill invocation alone is not proof against crash/PID-reuse intervals. Any real-model trial requires a separate explicit finite approval and must keep missing identity and native policy blocks visible. Do not retry an uncertain launch to recreate evidence.
 
 Record requested/observed identity, source/runtime/package digests, permission policy, attempt identity, timestamps, artifact digests and confirmed exit with private identifiers redacted. Keep actual Windows/model results separate from cloud/fake results. Until then the production adapter stays not_installed and execution stays disabled.
+
+## Implemented original read-only projection
+
+The Control Room adapter now has an original bounded projection for the inspected run-summary and typed report wire interfaces. It copies no private upstream implementation. Explicit selected local JSON imports omit raw state, token/auth/provider executable fields, paths, transcript/output, review prose and Markdown before transport. The optional report reader uses only the fixed numeric loopback GET and returns bounded cohort counts; aggregates never manufacture per-run records.
+
+See [the local import procedure](agent-lab-evidence-import.md). Optional source-reported objective summaries keep assessable/pass/check counts separate from human verdict and claimed model verification. Unknown usage/cost remains unknown. Original-input digests are local source claims, not server verification of original bytes, provider execution or owner acceptance. The native server still validates the closed normalized upload and immutable historical hashes; old observations without optional fields retain their prior serialization.
+
+Portable projection and fake-process compatibility work are feasible in cloud without running a provider. Runtime extraction/registration is still missing implementation, and actual Windows sandbox/owned-process supervision remains missing integration/acceptance. Neither owner login nor installing the existing disabled bridge alone completes those tasks.

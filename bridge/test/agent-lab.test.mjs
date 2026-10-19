@@ -4,6 +4,7 @@ import http from 'node:http';
 import {readFile} from 'node:fs/promises';
 import {createAgentLabReader,sanitizeAgentLabRun,sanitizeAgentLabState,AGENT_LAB_READS,AGENT_LAB_LIMITS} from '../src/agent-lab.mjs';
 const raw=JSON.parse(await readFile(new URL('../../tests/fixtures/agents/lab-summary.json',import.meta.url),'utf8'));
+const wire=JSON.parse(await readFile(new URL('../../tests/fixtures/agents/lab-wire-synthetic.json',import.meta.url),'utf8'));
 const NOW='2026-10-18T12:00:02.000Z',options={instanceId:'synthetic-lab',observedAt:NOW};
 test('allowlisted synthetic evaluation keeps blocked/null provenance and never includes tokens, paths, settings or transcripts',()=>{
  const projected=sanitizeAgentLabState(raw,options),text=JSON.stringify(projected),run=projected.runs[0];
@@ -61,6 +62,15 @@ test('fixed actual fake loopback HTTP is bounded, read-only, disabled by default
    handler=(_request,response)=>{response.writeHead(200,{'Content-Type':'application/json'});response.write('{"runs":');};const hung=await createAgentLabReader({enabled:true,instanceId:'synthetic-lab',now:()=>NOW,deadlineMs:50}).readState();assert.equal(hung.availability,'unavailable');assert.equal(hung.diagnostic,'source_unreachable');
    handler=(_request,response)=>{response.writeHead(503,{'Content-Type':'application/json'});response.end('{"secret":"SYNTHETIC_PRIVATE"}');};assert.equal((await reader.readState()).diagnostic,'source_unreachable');
    handler=(_request,response)=>{response.writeHead(200,{'Content-Type':'application/json'});response.end(JSON.stringify({...raw,runs:[]}));};assert.equal((await reader.readState()).availability,'no-runs');
+  });
+  await t.test('supported report JSON projects only separate objective, human and model source counts without raw prose',async()=>{
+   handler=(_request,response)=>{response.writeHead(200,{'Content-Type':'application/json'});response.end(JSON.stringify(wire.report));};const result=await reader.readReport();assert.equal(result.available,true);assert.equal(result.reason,'source-claim');assert.match(result.sourceInputSha256,/^[a-f0-9]{64}$/u);assert.equal(result.report.cohorts[0].counts.assessable,1);assert.equal(result.report.cohorts[0].counts.passed,1);assert.equal(result.report.cohorts[0].counts.accepted,1);assert.equal(result.report.cohorts[0].counts.verifiedModels,1);assert.equal(result.report.cohorts[0].costDollars,null);assert.equal(JSON.stringify(result).includes('SYNTHETIC_PRIVATE'),false);assert.equal(Object.hasOwn(result,'upload'),false);
+  });
+  await t.test('fixed GET report refuses credential-shaped accepted metadata and ignores private extra fields before scanning',async()=>{
+   const secret='ghp_'+'A'.repeat(30);
+   for(const field of ['requestedModel','runtimeVersion','taskId']){const body=structuredClone(wire.report);body.comparisons[0][field]=secret;handler=(_request,response)=>{response.writeHead(200,{'Content-Type':'application/json'});response.end(JSON.stringify(body));};const result=await reader.readReport();assert.equal(result.available,false);assert.equal(result.reason,'source_invalid');assert.equal(JSON.stringify(result).includes(secret),false);}
+   const body=structuredClone(wire.report);body.markdown=secret;body.csrfToken=secret;body.comparisons[0].runtimeExecutable=secret;handler=(_request,response)=>{response.writeHead(200,{'Content-Type':'application/json'});response.end(JSON.stringify(body));};const result=await reader.readReport();assert.equal(result.available,true);assert.equal(JSON.stringify(result).includes(secret),false);
+   const large={comparisons:Array.from({length:100},(_,index)=>({...wire.report.comparisons[0],taskId:'synthetic-cohort-'+index+'x'.repeat(80),runtimeVersion:'synthetic-runtime-'+'x'.repeat(80)}))};assert.ok(Buffer.byteLength(JSON.stringify(large))<AGENT_LAB_LIMITS.responseBytes);handler=(_request,response)=>{response.writeHead(200,{'Content-Type':'application/json'});response.end(JSON.stringify(large));};const bounded=await reader.readReport();assert.equal(bounded.available,false);assert.equal(bounded.reason,'source_invalid');
   });
   await t.test('report schema stays unsupported and Markdown/private prose never becomes a grade or readiness',async()=>{
    for(const [type,body]of [['text/markdown','# SYNTHETIC_PRIVATE_REPORT'],['application/json',JSON.stringify({markdown:'SYNTHETIC_PRIVATE_REPORT',cohorts:[{ready:true,savings:999}],csrfToken:'SYNTHETIC_PRIVATE'})]]){
