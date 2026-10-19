@@ -1,3 +1,4 @@
+# Resource lifetime comparison; native numeric reporter contract must pass first.
 # Full-suite lifecycle comparison: only two backup fixtures differ from c735 source.
 name: Control Room Node file diagnostics
 on:
@@ -26,6 +27,8 @@ jobs:
       - run: npm ci
       - name: Verify native reporter event contract
         run: node scripts/test-reporter.mjs --self-test
+      - name: Verify bounded backup stream lifecycle
+        run: node --experimental-strip-types --test tests/backup-archive-object-stream.test.ts
       - name: Diagnose full Node suite without changing runner options
         timeout-minutes: 9
         run: npm test

@@ -30,12 +30,16 @@ function failure(data,stderr=''){
 }
 /** Presentation only. Never changes scheduling, assertions, runner options or exit status. */
 export default async function* reporter(events){
- let completed=0,failed=0;const displayed=new Set(),stderr=new Map(),active=new Set();
- const heartbeat=setInterval(()=>{if(active.size)process.stdout.write('TEST FILE ACTIVE '+JSON.stringify([...active].sort().slice(0,1024))+'\n');},15000);heartbeat.unref();
+ let completed=0,failed=0;const displayed=new Set(),stderr=new Map(),active=new Set(),cases=new Map();
+ const heartbeat=setInterval(()=>{if(active.size){const files=[...active].sort().slice(0,128);process.stdout.write('TEST FILE ACTIVE '+JSON.stringify(files)+'\n');process.stdout.write('TEST FILE PENDING '+JSON.stringify(files.map(file=>{const state=cases.get(file);return {file,dequeued:state?.dequeued??0,completed:state?.completed??0,pending:[...(state?.pending.values()??[])].slice(0,8),untracked:state?.overflow??0,pendingCount:(state?.pending.size??0)+(state?.overflow??0)};}))+'\n');}},15000);heartbeat.unref();
  try{for await(const event of events){
   const data=event.data??{},file=data.entryFile??data.file??'<unknown>',known=diagnosticFile(data);
+  if(known&&(event.type==='test:dequeue'||event.type==='test:complete')&&Number.isSafeInteger(data.line)&&data.line>0&&data.line<=10000000&&Number.isSafeInteger(data.column)&&data.column>0&&data.column<=10000000){
+   let state=cases.get(known);if(!state){state={dequeued:0,completed:0,pending:new Map(),overflow:0};cases.set(known,state);}
+   const key=JSON.stringify([known,data.line,data.column,data.nesting??0,short(data.name,1000)]);if(event.type==='test:dequeue'){if(!state.pending.has(key)){state.dequeued++;if(state.pending.size<1024)state.pending.set(key,{line:data.line,column:data.column});else state.overflow++;}}else if(state.pending.delete(key))state.completed++;else if(state.overflow>0){state.overflow--;state.completed++;}
+  }
   if(event.type==='test:dequeue'&&known&&!active.has(known)){active.add(known);yield 'TEST FILE START '+JSON.stringify(known)+'\n';}
-  if((event.type==='test:summary'||event.type==='test:complete'&&data.nesting===0&&diagnosticFile({name:data.name})===known)&&known&&active.delete(known))yield 'TEST FILE DONE '+JSON.stringify(known)+'\n';
+  if((event.type==='test:summary'||event.type==='test:complete'&&data.nesting===0&&diagnosticFile({name:data.name})===known)&&known&&active.delete(known)){cases.delete(known);yield 'TEST FILE DONE '+JSON.stringify(known)+'\n';}
   if(event.type==='test:stderr'){if(!stderr.has(file)&&stderr.size>=128)stderr.delete(stderr.keys().next().value);stderr.set(file,(stderr.get(file)??'').concat(short(data.message,8192)).slice(-8192));}
   // test:complete is execution-ordered; test:fail may wait behind an earlier
   // long-running sibling. De-duplicate its later declaration-ordered twin.
@@ -66,8 +70,8 @@ async function selfTest(){
   assert.equal(failed.output.split('\n').filter(line=>line.startsWith('TEST FAIL "synthetic nested assertion"')).length,1,'Immediate and ordered twins must not duplicate a failure.');
   const passed=await execute(passing);assert.equal(passed.code,0);assert.match(passed.output,/TEST PROGRESS/);assert.match(passed.output,/"skipped":1/);assert.match(passed.output,/"todo":1/);
   const slow=join(directory,'synthetic-reporter-slow.test.mjs');
-  await writeFile(slow,"import test from 'node:test';\ntest('synthetic slow file',async()=>{await new Promise(resolve=>setTimeout(resolve,15200));});\n");
-  const delayed=await execute(slow);assert.equal(delayed.code,0);assert.match(delayed.output,/TEST FILE START \"synthetic-reporter-slow.test.mjs\"/);assert.match(delayed.output,/TEST FILE ACTIVE \["synthetic-reporter-slow.test.mjs"\]/);assert.match(delayed.output,/TEST FILE DONE \"synthetic-reporter-slow.test.mjs\"/);assert.match(delayed.output,/TEST SUMMARY/);assert.equal(delayed.output.includes(directory),false,'file diagnostics never expose absolute paths');
+  await writeFile(slow,"import test from 'node:test';\ntest('synthetic immediate file',()=>{});\ntest('synthetic slow file',async()=>{await new Promise(resolve=>setTimeout(resolve,15200));});\n");
+  const delayed=await execute(slow);assert.equal(delayed.code,0);assert.match(delayed.output,/TEST FILE START \"synthetic-reporter-slow.test.mjs\"/);assert.match(delayed.output,/TEST FILE ACTIVE \["synthetic-reporter-slow.test.mjs"\]/);assert.match(delayed.output,/TEST FILE DONE \"synthetic-reporter-slow.test.mjs\"/);assert.match(delayed.output,/TEST FILE PENDING .*"file":"synthetic-reporter-slow.test.mjs","dequeued":2,"completed":1,"pending":\[\{"line":3,"column":1\}\],"untracked":0,"pendingCount":1/);assert.match(delayed.output,/TEST SUMMARY/);assert.equal(delayed.output.includes(directory),false,'file diagnostics never expose absolute paths');
   const bootstrap=await execute(broken);assert.equal(bootstrap.code,1);assert.match(bootstrap.output,/synthetic-missing-module/);assert.match(bootstrap.output,/TEST STDERR/);
   async function* bounded(){yield {type:'test:fail',data:{name:'synthetic bound',details:{error:new Error('x'.repeat(100000),{cause:new Error('synthetic cause')})}}};}
   let rendered='';for await(const part of reporter(bounded()))rendered+=part;assert.ok(rendered.length<DETAIL_LIMIT+3000);
