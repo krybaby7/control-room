@@ -4,7 +4,9 @@ This ledger defines what “complete the things it cannot do” means. Every aud
 
 Prior public candidate `3c6681a39d05b9b40ace26b49e5482aa2a4d40ed`: canonical run39244318516 passed 1800 Node, 202 bridge tests (9 explicit platform skips), all native D1/R2/HTTP checks, 63 default and 3 R2 browser journeys, and packaging. Its unchanged normal D1 save p95 was 1750.767601ms (limit2000ms). Exact run and artifact identities are in [verification-3c6681a.json](verification-3c6681a.json). These source-specific gates cover the integrated implemented modules, while each row's real hosted/provider/device acceptance remains as stated. New proxy and finite Sites adapter changes require fresh exact-source gates; no new deployment is claimed.
 
-Current public source `98f9986f12b2088c69bdb7e5e4671694b5bcbba2` FAILS its first canonical D1savep95 gate (2800.471638ms>2000;run39249240888) and controlledbrowserperformance after its fixture Worker exited (run39249240576). NativeWindows and three-browser accessibility pass; fullcanonical stillpending. Prior passes do not substitute. Material isolated diagnosis continues; supportedprivate98archive is UNVALIDATED, notsaved/deployed.
+Prior public source `98f9986f12b2088c69bdb7e5e4671694b5bcbba2` FAILS its first canonical D1savep95 gate (2800.471638ms>2000;run39249240888) and controlledbrowserperformance after its fixture Worker exited (run39249240576). NativeWindows and three-browser accessibility pass; fullcanonical stillpending. Prior passes do not substitute. Material isolated diagnosis continues; supportedprivate98archive is UNVALIDATED, notsaved/deployed.
+
+Currentpublic87c41b57bb3a17d9671580739fbadb507c7f32a0 firstnormalD1savep95 FAILED2319.984152ms>2000 (run39251593013;100outcomes/6restores/errors[]). No unchangedrerun. Remainingcanonical87checkscontinue. Prior98main1807Node/210bridge/63+3browser/package and independent1077source/333build/49bridge/helperintegrityPASS; prior98performancefailuresnotwaived. See verification-98f9986.json.
 
 | ID | Audit gap | Delivery phase | Concrete acceptance | Evidence |
 |---|---|---|---|---|
