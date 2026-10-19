@@ -76,6 +76,36 @@
       "tests": 16,
       "migrations": 27,
       "scope": "Actual isolated D1/R2; no live provider/device"
+    },
+    {
+      "check": "agents-d1",
+      "run": 39194510973,
+      "job": 117874244734,
+      "status": "success",
+      "migrations": 27
+    },
+    {
+      "check": "recovery-maintenance",
+      "run": 39194510952,
+      "job": 117874244801,
+      "status": "success",
+      "migrations": 27,
+      "tables": 97,
+      "guards": 291
+    },
+    {
+      "check": "segmented-recovery",
+      "run": 39194510962,
+      "job": 117874244413,
+      "status": "success",
+      "migrations": 27,
+      "modules": 33,
+      "segments": 79,
+      "rows": 10080,
+      "bytes": 17767591,
+      "auditRows": 10022,
+      "target": "still-fenced",
+      "hostedBindingChanged": false
     }
   ],
   "qa": {
@@ -225,11 +255,16 @@
     }
   },
   "activeDiagnostic": {
-    "source": "601d95f4a12d0cc5400087cc6f98460bf57fe96a",
-    "run": 39196256972,
-    "job": 117879566023,
+    "source": "9b98f8ea34b04ce681d3893f445bfa7e9111ae92",
+    "run": 39197094431,
+    "job": 117882154116,
     "status": "running",
-    "scope": "One instrumented original complete pipeline; diagnostic-only; no canonical source change."
+    "scope": "Corrected captured-stderr closed request/socket/read-stage logging in original full pipeline; diagnostic-only.",
+    "superseded": {
+      "source": "601d95f4a12d0cc5400087cc6f98460bf57fe96a",
+      "run": 39196256972,
+      "reason": "Stage stdout was not captured; no phase proof."
+    }
   },
   "deployment": {
     "newDeployment": false,
@@ -244,5 +279,13 @@
     "operational-trading-effects",
     "external-alerts"
   ],
-  "nextAction": "Await ONEinstrumentedoriginalfullcontext diagnostic601d95f4a12d0cc5400087cc6f98460bf57fe96a/run39196256972/job117879566023; inspect closedproxy/socket/readstages todiagnose originalGET/jobs502. Do notmergelogging/source diagnostics, extendtimeouts, loosenreadguards orrelabela diagnosticpassascanonicalrelease. Canonicalsourcee4 unchanged andstillfailedmain/latency; reviewpackagesverifiedintegrityonly."
+  "nextAction": "Inspect correctedclosedstage diagnostic39197094431/job117882154116 terminal and causalprofile39197190916/job117882391501. Makeproduction/fixture fixesONLYifactualcausalevidencejustifies; donotraisebudgets/timeouts/omitguards, silentlysubstitutemodels, promoteUNVALIDATEDreviewpackages orclaimSitepublication. Currentcanonicale4mainandD1latency remainFAILED.",
+  "performanceDiagnostic": {
+    "source": "20c9e24b93c9211a52517940043134603569d040",
+    "run": 39197190916,
+    "job": 117882391501,
+    "status": "running",
+    "scope": "Bounded syncCPU/SHAwait/SQL overlap attribution; no algorithm/concurrency/budget changes; not acceptance.",
+    "limitation": "SHA Promise interval includes queue, service and resume; these are not separately identified."
+  }
 }
