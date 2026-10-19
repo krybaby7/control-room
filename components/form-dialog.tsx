@@ -4,6 +4,8 @@ import { createContext, cloneElement, isValidElement, useContext, useEffect, use
 import { AlertCircle, LoaderCircle, X } from 'lucide-react';
 import { SessionExpiredContext } from './session-state';
 
+export const EditorOpenerContext=createContext<HTMLElement|null|undefined>(undefined);
+
 export const OriginalSaveContext=createContext<{check?:()=>Promise<string>}>({});
 
 export function FormDialog({ title, subtitle, dirty, onClose, onSave, submitLabel = 'Save changes', children }: { title: string; subtitle?: string; dirty: boolean; onClose: () => void; onSave: () => Promise<void>; submitLabel?: string; children: ReactNode }) {
@@ -11,7 +13,8 @@ export function FormDialog({ title, subtitle, dirty, onClose, onSave, submitLabe
   const expired = useContext(SessionExpiredContext);
   const sessionExpired = useRef(expired);
   useLayoutEffect(() => { sessionExpired.current = expired; }, [expired]);
-  const opener = useRef<HTMLElement | null>(typeof document === 'undefined' ? null : document.activeElement instanceof HTMLElement ? document.activeElement : null);
+  const requestedOpener=useContext(EditorOpenerContext);
+  const opener = useRef<HTMLElement | null>(requestedOpener!==undefined?requestedOpener:typeof document === 'undefined' ? null : document.activeElement instanceof HTMLElement ? document.activeElement : null);
   const originalSave=useContext(OriginalSaveContext);
   const [checking,setChecking]=useState(false);const [outcome,setOutcome]=useState('');
   const titleId = useId();
