@@ -1,3 +1,4 @@
+# Fixture lifecycle AFTER comparison; production application source is unchanged.
 name: Control Room native backup lifecycle diagnostics
 on:
   push:
