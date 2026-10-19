@@ -1,9 +1,9 @@
 name: Control Room SHA work attribution (diagnostic only)
 on:
   push:
-    branches: [main, 'feat/**', 'diagnostics/**']
+    branches: ['diagnostics/control-room-sha-work*']
     paths:
-      - '.github/workflows/control-room-command-profile.yml'
+      - '.github/workflows/control-room-sha-work-profile.yml'
       - 'scripts/benchmark-workspace.mjs'
       - 'lib/operational-watermarks.ts'
       - 'lib/workspace-store.ts'
