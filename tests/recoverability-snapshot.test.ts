@@ -98,7 +98,7 @@ function observeDatabase(db:import('../lib/workspace-store.ts').SqlDatabase,afte
 test('one frozen module capture plus one verification matches actual export without redundant adapter database scans',async()=>{
  const f=await fixture();try{
   await add(f,'evidence_records','legacy',{text:'Exact retained Unicode العربية 😀 and escaping \\"'});
-  let reads=0;const db=observeDatabase(f.db,sql=>{if(sql.includes('FROM evidence_records WHERE user_id = ? AND id > ?'))reads++;});
+  let reads=0;const db=observeDatabase(f.db,sql=>{if(sql.includes('FROM evidence_records WHERE user_id=(SELECT owner FROM recovery_page_scope) AND id>?'))reads++;});
   const changes=f.sqlite.prepare('SELECT total_changes() n').get()!.n,quote=await measureProspectiveRecoverability(db,owner,{now});
   assert.equal(reads,2,'One physical capture and one final equality check; adapters read only the frozen image.');
   const actual=await exportWorkspaceBundle(f.db,owner,{now:()=>now});assert.equal(quote.measurement.measurements.bundleBytes,byteLength(JSON.stringify(actual)));
@@ -109,21 +109,21 @@ test('normalized insert or payload change after capture cannot certify a mixed f
  for(const change of ['insert','update']as const){const f=await fixture();try{
   await add(f,'evidence_records','legacy',{text:'Original immutable measurement input'});let raced=false;
   const replacement=canonical({text:'Changed after first physical capture'}),digest=await contentHash(replacement);
-  const db=observeDatabase(f.db,sql=>{if(!raced&&sql.includes('FROM evidence_records WHERE user_id = ? AND id > ?')){raced=true;if(change==='insert')f.sqlite.prepare('INSERT INTO evidence_records(user_id,id,row_revision,payload_json,content_hash) VALUES(?,?,1,?,?)').run(owner,'new-direct-row',replacement,digest);else f.sqlite.prepare('UPDATE evidence_records SET payload_json=?,content_hash=? WHERE user_id=? AND id=?').run(replacement,digest,owner,'legacy');}});
+  const db=observeDatabase(f.db,sql=>{if(!raced&&sql.includes('FROM evidence_records WHERE user_id=(SELECT owner FROM recovery_page_scope) AND id>?')){raced=true;if(change==='insert')f.sqlite.prepare('INSERT INTO evidence_records(user_id,id,row_revision,payload_json,content_hash) VALUES(?,?,1,?,?)').run(owner,'new-direct-row',replacement,digest);else f.sqlite.prepare('UPDATE evidence_records SET payload_json=?,content_hash=? WHERE user_id=? AND id=?').run(replacement,digest,owner,'legacy');}});
   await assert.rejects(measureProspectiveRecoverability(db,owner,{now}),/row set changed/);assert.equal(raced,true);assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM workspace_mutations').get()!.n,0);
  }finally{f.sqlite.close();}}
 });
 test('same-revision audit insertion after capture is rejected rather than omitted from recovery measurement',async()=>{
  const f=await fixture();try{
   let raced=false;const entry=event('late-native-audit');
-  const db=observeDatabase(f.db,sql=>{if(!raced&&sql.includes('FROM audit_events WHERE user_id=? AND event_id>?')){raced=true;f.sqlite.prepare('INSERT INTO audit_events(user_id,event_id,workspace_revision,ordinal,kind,entity_type,entity_id,occurred_at,payload_json) VALUES(?,?,1,0,?,?,?,?,?)').run(owner,entry.id,entry.kind,entry.entityType,entry.entityId,now,canonical(entry));}});
+  const db=observeDatabase(f.db,sql=>{if(!raced&&sql.includes('FROM audit_events WHERE user_id=')&&sql.includes('event_id>?')){raced=true;f.sqlite.prepare('INSERT INTO audit_events(user_id,event_id,workspace_revision,ordinal,kind,entity_type,entity_id,occurred_at,payload_json) VALUES(?,?,1,0,?,?,?,?,?)').run(owner,entry.id,entry.kind,entry.entityType,entry.entityId,now,canonical(entry));}});
   await assert.rejects(measureProspectiveRecoverability(db,owner,{now}),/Audit row set changed/);assert.equal(raced,true);assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM workspace_mutations').get()!.n,0);
  }finally{f.sqlite.close();}
 });
 test('frozen measurement detects an audit namespace change and never rotates it itself',async()=>{
  const f=await fixture();try{
   const replacement=crypto.randomUUID();let raced=false;
-  const db=observeDatabase(f.db,sql=>{if(!raced&&sql.includes('FROM evidence_records WHERE user_id = ? AND id > ?')){raced=true;f.sqlite.prepare('UPDATE workspace_source_namespaces SET audit_namespace=? WHERE user_id=?').run(replacement,owner);}});
+  const db=observeDatabase(f.db,sql=>{if(!raced&&sql.includes('FROM evidence_records WHERE user_id=(SELECT owner FROM recovery_page_scope) AND id>?')){raced=true;f.sqlite.prepare('UPDATE workspace_source_namespaces SET audit_namespace=? WHERE user_id=?').run(replacement,owner);}});
   await assert.rejects(measureProspectiveRecoverability(db,owner,{now}),/Audit namespace changed/);
   assert.equal(f.sqlite.prepare('SELECT audit_namespace FROM workspace_source_namespaces WHERE user_id=?').get(owner)!.audit_namespace,replacement);
  }finally{f.sqlite.close();}
@@ -133,7 +133,7 @@ test('closed batched pages retain all 450 immutable rows and exact key cursors w
  const f=await fixture();try{
   const payload=canonical({text:'Retained synthetic paginated metadata'}),digest=await contentHash(payload),insert=f.sqlite.prepare('INSERT INTO evidence_records(user_id,id,row_revision,payload_json,content_hash) VALUES(?,?,1,?,?)');
   for(let index=0;index<450;index++)insert.run(owner,'paged-'+String(index).padStart(4,'0'),payload,digest);
-  let pages=0;const db=observeDatabase(f.db,sql=>{if(sql.includes('FROM evidence_records WHERE user_id = ? AND id > ?'))pages++;});
+  let pages=0;const db=observeDatabase(f.db,sql=>{if(sql.includes('FROM evidence_records WHERE user_id=(SELECT owner FROM recovery_page_scope) AND id>?'))pages++;});
   const quote=await measureProspectiveRecoverability(db,owner,{now});assert.equal(pages,6);assert.equal(quote.boundaryRows.find(row=>row.table==='evidence_records')!.rows.length,450);
   assert.equal(quote.measurement.measurements.bundleBytes,byteLength(JSON.stringify(await exportWorkspaceBundle(f.db,owner,{now:()=>now}))));
  }finally{f.sqlite.close();}
@@ -141,8 +141,8 @@ test('closed batched pages retain all 450 immutable rows and exact key cursors w
 test('missing or malformed batch row results fail closed rather than certifying an empty recovery image',async()=>{
  for(const mode of ['missing','shape','order']as const){const f=await fixture();try{
   const original=f.db.batch.bind(f.db),sqlByStatement=new WeakMap<import('../lib/workspace-store.ts').SqlStatement,string>();let tampered=false;
-  const db:import('../lib/workspace-store.ts').SqlDatabase={prepare(sql){const statement=f.db.prepare(sql);sqlByStatement.set(statement,sql);return statement;},async batch(statements){const result=await original(statements);if(!tampered&&statements.some(statement=>sqlByStatement.get(statement)?.startsWith('SELECT id, row_revision, payload_json, content_hash'))){tampered=true;if(mode==='missing')return result.map(row=>({meta:row.meta}));const row={id:'bad',row_revision:1,payload_json:'{}',content_hash:hash};result[0].results=mode==='shape'?[{...row,unexpected:true}]:[row,row];}return result;}};
-  await assert.rejects(measureProspectiveRecoverability(db,owner,{now}),/snapshot batch|snapshot row/);assert.equal(tampered,true);assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM workspace_mutations').get()!.n,0);
+  const db:import('../lib/workspace-store.ts').SqlDatabase={prepare(sql){const statement=f.db.prepare(sql);sqlByStatement.set(statement,sql);return statement;},async batch(statements){const result=await original(statements);if(!tampered&&statements.some(statement=>sqlByStatement.get(statement)?.startsWith('WITH recovery_page_scope'))){tampered=true;if(mode==='missing')return result.map(row=>({meta:row.meta}));const row={id:'bad',row_revision:1,payload_json:'{}',content_hash:hash};result[0].results=mode==='shape'?[{...row,unexpected:true}]:[row,row];}return result;}};
+  await assert.rejects(measureProspectiveRecoverability(db,owner,{now}),/closed recovery|snapshot batch|snapshot row/);assert.equal(tampered,true);assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM workspace_mutations').get()!.n,0);
  }finally{f.sqlite.close();}}
 });
 
@@ -161,19 +161,19 @@ test('mixed BMP and astral original IDs retain SQLite BINARY order in real expor
  }finally{f.sqlite.close();}
 });
 
-test('one closed physical-and-audit capture and verification retain independent active-table pagination',async()=>{
+test('two bounded UNION statements per read-only batch retain independent physical-and-audit pagination',async()=>{
  const f=await fixture();try{
-  let sizes:number[]=[];const db=observeDatabase(f.db,()=>{},sqls=>{if(sqls.some(sql=>sql.startsWith('SELECT id, row_revision, payload_json, content_hash'))){assert.ok(sqls.every(sql=>sql.startsWith('SELECT id, row_revision, payload_json, content_hash')||sql.includes('FROM audit_events WHERE user_id=? AND event_id>?')));sizes.push(sqls.length);}});
-  const empty=await measureProspectiveRecoverability(db,owner,{now});assert.deepEqual(sizes,[37,37]);assert.equal(empty.measurement.allowed,true);
+  let sizes:number[]=[];const db=observeDatabase(f.db,()=>{},sqls=>{if(sqls.some(sql=>sql.startsWith('WITH recovery_page_scope'))){assert.ok(sqls.every(sql=>sql.startsWith('WITH recovery_page_scope')));sizes.push(sqls.length);}});
+  const empty=await measureProspectiveRecoverability(db,owner,{now});assert.deepEqual(sizes,[2,2]);assert.equal(empty.measurement.allowed,true);
   const payload=canonical({text:'Exact bounded independent cursor'}),digest=await contentHash(payload),insert=f.sqlite.prepare('INSERT INTO evidence_records(user_id,id,row_revision,payload_json,content_hash) VALUES(?,?,1,?,?)');
   for(let index=0;index<450;index++)insert.run(owner,'wide-page-'+String(index).padStart(4,'0'),payload,digest);
   insert.run('different-owner','foreign-not-selected',payload,digest);sizes=[];
-  const quote=await measureProspectiveRecoverability(db,owner,{now});assert.deepEqual(sizes,[37,1,1,37,1,1]);
+  const quote=await measureProspectiveRecoverability(db,owner,{now});assert.deepEqual(sizes,[2,1,1,2,1,1]);
   assert.equal(quote.boundaryRows.find(row=>row.table==='evidence_records')!.rows.length,450);assert.equal(canonical(quote.boundaryRows).includes('foreign-not-selected'),false);
   assert.equal(quote.measurement.measurements.bundleBytes,byteLength(JSON.stringify(await exportWorkspaceBundle(f.db,owner,{now:()=>now}))));
  }finally{f.sqlite.close();}
 });
-test('actual Miniflare D1 accepts both closed 36-table plus audit read batches without dropping owner rows or final equality proofs',{timeout:120000},async()=>{
+test('actual Miniflare D1 accepts bounded two-statement UNION read batches without dropping owner rows or final equality proofs',{timeout:120000},async()=>{
  const {Miniflare}=await import('miniflare'),{readFile,readdir}=await import('node:fs/promises'),mf=new Miniflare({modules:true,script:'export default {fetch(){return new Response("isolated synthetic recovery batch fixture")}}',d1Databases:{DB:'synthetic-wide-recovery'}});
  try{
   const native=await mf.getD1Database('DB'),files=(await readdir(new URL('../drizzle/',import.meta.url))).filter(name=>/^\d+.*\.sql$/u.test(name)).sort();
@@ -181,8 +181,8 @@ test('actual Miniflare D1 accepts both closed 36-table plus audit read batches w
   await loadWorkspace(native,owner,workspaceFixture,now);
   const payload=canonical({text:'Retained actual D1 original Unicode العربية 😀'}),digest=await contentHash(payload);
   for(const [user,id]of [[owner,'native-selected'],['different-owner','native-foreign']]as const)await native.prepare('INSERT INTO evidence_records(user_id,id,row_revision,payload_json,content_hash) VALUES(?,?,1,?,?)').bind(user,id,payload,digest).run();
-  const sizes:number[]=[];const db=observeDatabase(native,()=>{},sqls=>{if(sqls.some(sql=>sql.startsWith('SELECT id, row_revision, payload_json, content_hash'))){assert.ok(sqls.every(sql=>sql.startsWith('SELECT id, row_revision, payload_json, content_hash')||sql.includes('FROM audit_events WHERE user_id=? AND event_id>?')));sizes.push(sqls.length);}});
-  const quote=await measureProspectiveRecoverability(db,owner,{now});assert.deepEqual(sizes,[37,37]);assert.equal(quote.measurement.allowed,true);
+  const sizes:number[]=[];const db=observeDatabase(native,()=>{},sqls=>{if(sqls.some(sql=>sql.startsWith('WITH recovery_page_scope'))){assert.ok(sqls.every(sql=>sql.startsWith('WITH recovery_page_scope')));sizes.push(sqls.length);}});
+  const quote=await measureProspectiveRecoverability(db,owner,{now});assert.deepEqual(sizes,[2,2]);assert.equal(quote.measurement.allowed,true);
   assert.deepEqual(quote.boundaryRows.find(row=>row.table==='evidence_records')!.rows.map(row=>row.id),['native-selected']);
   assert.equal(quote.measurement.measurements.bundleBytes,byteLength(JSON.stringify(await exportWorkspaceBundle(native,owner,{now:()=>now}))));
   assert.equal((await native.prepare('SELECT COUNT(*) n FROM workspace_mutations WHERE user_id=?').bind(owner).first<{n:number}>())!.n,0);
@@ -199,11 +199,11 @@ test('co-batched audit and normalized pages retain every independent cursor, exa
   }
   insert.run('foreign-owner','foreign-physical',payload,digest);const foreign=event('foreign-audit');insertAudit.run('foreign-owner',foreign.id,0,foreign.kind,foreign.entityType,foreign.entityId,now,canonical(foreign));
   const sizes:number[]=[];let auditReads=0;
-  const db=observeDatabase(f.db,sql=>{if(sql.includes('FROM audit_events WHERE user_id=? AND event_id>?'))auditReads++;},sqls=>{
-   if(sqls.some(sql=>sql.startsWith('SELECT id, row_revision, payload_json, content_hash'))){assert.ok(sqls.every(sql=>sql.startsWith('SELECT id, row_revision, payload_json, content_hash')||sql.includes('FROM audit_events WHERE user_id=? AND event_id>?')));sizes.push(sqls.length);}
+  const db=observeDatabase(f.db,sql=>{if(sql.includes('FROM audit_events WHERE user_id=')&&sql.includes('event_id>?'))auditReads++;},sqls=>{
+   if(sqls.some(sql=>sql.startsWith('WITH recovery_page_scope'))){assert.ok(sqls.every(sql=>sql.startsWith('WITH recovery_page_scope')));sizes.push(sqls.length);}
   });
   const changes=f.sqlite.prepare('SELECT total_changes() n').get()!.n,quote=await measureProspectiveRecoverability(db,owner,{now});
-  assert.deepEqual(sizes,[37,1,1,37,1,1]);assert.equal(auditReads,6);
+  assert.deepEqual(sizes,[2,1,1,2,1,1]);assert.equal(auditReads,6);
   assert.equal(quote.boundaryRows.find(row=>row.table==='evidence_records')!.rows.length,450);
   const bundle=await exportWorkspaceBundle(f.db,owner,{now:()=>now});assert.equal(bundle.modules.audit_events.records.length,450);
   assert.equal(quote.measurement.measurements.bundleBytes,byteLength(JSON.stringify(bundle)));
@@ -215,13 +215,13 @@ test('missing, oversized or repeated co-batched audit rows fail closed without c
  for(const mode of ['missing','oversized','repeated','shape','primitive']as const){const f=await fixture();try{
   const statements=new WeakMap<import('../lib/workspace-store.ts').SqlStatement,string>(),original=f.db.batch.bind(f.db);let tampered=false;
   const db:import('../lib/workspace-store.ts').SqlDatabase={prepare(sql){const statement=f.db.prepare(sql);statements.set(statement,sql);return statement;},async batch(selected){
-   const result=await original(selected),index=selected.findIndex(statement=>statements.get(statement)?.includes('FROM audit_events WHERE user_id=? AND event_id>?'));
+   const result=await original(selected),index=selected.findIndex(statement=>statements.get(statement)?.includes('FROM audit_events WHERE user_id=(SELECT owner FROM recovery_page_scope) AND event_id>?'));
    if(!tampered&&index>=0){tampered=true;const entry=event('bad-audit'),row={event_id:entry.id,workspace_revision:1,ordinal:0,stream_id:null,stream_sequence:null,kind:entry.kind,entity_type:entry.entityType,entity_id:entry.entityId,occurred_at:now,payload_json:canonical(entry)};
     if(mode==='missing')return result.map((value,i)=>i===index?{meta:value.meta}:value);
     result[index].results=mode==='oversized'?Array.from({length:201},()=>row):mode==='shape'?[{...row,unexpected:true}]:mode==='primitive'?[null]:[row,row];
    }return result;
   }};
-  await assert.rejects(measureProspectiveRecoverability(db,owner,{now}),/audit snapshot|pagination order/);assert.equal(tampered,true);
+  await assert.rejects(measureProspectiveRecoverability(db,owner,{now}),/closed recovery|audit snapshot|pagination order/);assert.equal(tampered,true);
   assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM workspace_mutations').get()!.n,0);
  }finally{f.sqlite.close();}}
 });

@@ -1,10 +1,12 @@
+import {readRecoveryReadPages} from './recoverability-read-pages.ts';
+import {createSerializationHashContext,closeSerializationHashContext} from './serialization-hash.ts';
 import {verifyRecoverabilityRowHashes} from './recoverability-row-hashes.ts';
 import {startRecoverabilityPhase} from './recoverability-diagnostics.ts';
 import {compareSqliteText} from './sqlite-text-order.ts';
 import {REFERENCE_LIMITS} from './workspace-references.ts';
 import {prepareHistoricalAuditRows} from './audit-import.ts';
 import type {Workspace} from './types.ts';
-import type {SqlDatabase,SqlStatement} from './workspace-store.ts';
+import type {SqlDatabase} from './workspace-store.ts';
 import {readRecoverabilityAuxiliary} from './recoverability-auxiliary.ts';
 import {OWNER_TABLES,ownerTable,type GuardedWrite,type ModuleRow,type OwnerScopedReader,type RegisteredOwnerTable} from './workspace-modules.ts';
 import type {AuditEventDraft,JsonValue} from './workspace-protocol.ts';
@@ -23,9 +25,9 @@ const streams:Partial<Record<RegisteredOwnerTable,string>>={agent_results:'agent
 type CapturedPhysicalRow=ModuleRow&{stream_sequence?:number};
 /** Closed read-only batches retain independent key cursors, exact row shapes,
  * source sequence, page and row bounds. No JSON aggregate exceeds a row limit. */
-async function readPhysicalImage(db:SqlDatabase,owner:string,auditStatement:SqlStatement):Promise<{physical:Map<RegisteredOwnerTable,CapturedPhysicalRow[]>;auditPage:Record<string,unknown>[]} >{
- // One compiled batch of 36 physical tables plus one audit page. Adding
- // tables or sidecar reads requires an explicit bound review.
+async function readPhysicalImage(db:SqlDatabase,owner:string,auditWatermarks:Record<string,number>):Promise<{physical:Map<RegisteredOwnerTable,CapturedPhysicalRow[]>;auditPage:Record<string,unknown>[]} >{
+ // <=36 compiled physical tables plus audit; grouped <=19-branch UNIONs
+ // execute in one read-only batch, with an explicit empty certificate per tag.
  if(OWNER_TABLES.length>36)throw new Error('Physical snapshot table batch bound exceeded.');
  const image=new Map<RegisteredOwnerTable,CapturedPhysicalRow[]>(),after=new Map<RegisteredOwnerTable,string>();
  let pending=[...OWNER_TABLES],retainedBytes=0,auditPage:Record<string,unknown>[]|undefined;
@@ -33,28 +35,11 @@ async function readPhysicalImage(db:SqlDatabase,owner:string,auditStatement:SqlS
  while(pending.length){
   const following:RegisteredOwnerTable[]=[];
   for(let offset=0;offset<pending.length;offset+=36){
-   const tables=pending.slice(offset,offset+36),statements=tables.map(table=>db.prepare(`SELECT id, row_revision, payload_json, content_hash${streams[table]?', stream_sequence':''} FROM ${ownerTable(table)} WHERE user_id = ? AND id > ? ORDER BY id LIMIT ?`).bind(owner,after.get(table)!,BUNDLE_LIMITS.pageSize));
-   // One fixed audit SELECT shares the first physical batch. Its frozen vector,
-   // own cursor, page cap and later complete-rowset verification remain separate.
-   const includesAudit=auditPage===undefined;
-   if(includesAudit)statements.push(auditStatement);
-   const batches=await db.batch(statements);
-   if(!Array.isArray(batches)||batches.length!==tables.length+(includesAudit?1:0))throw new Error('Invalid physical snapshot batch.');
-   if(includesAudit){
-    const page=batches[tables.length]?.results;
-    if(!Array.isArray(page)||page.length>BUNDLE_LIMITS.pageSize)throw new Error('Invalid audit snapshot batch rows.');
-    const keys=['event_id','workspace_revision','ordinal','stream_id','stream_sequence','kind','entity_type','entity_id','occurred_at','payload_json'].sort();
-    const retained:Record<string,unknown>[]=[];
-    for(const raw of page){
-     if(!raw||typeof raw!=='object'||Array.isArray(raw)||canonical(Object.keys(raw).sort())!==canonical(keys))throw new Error('Invalid audit snapshot batch row shape.');
-     // Object/closed-column validation supplies a real Record; field values
-     // still pass the existing portable-audit decoder before any proof exists.
-     const row:Record<string,unknown>={};for(const [key,value]of Object.entries(raw))row[key]=value;retained.push(row);
-    }
-    auditPage=retained;
-   }
-   for(const [index,table]of tables.entries()){
-    const page=batches[index].results;
+   const tables=pending.slice(offset,offset+36),includesAudit=auditPage===undefined;
+   const pages=await readRecoveryReadPages(db,owner,{tables:tables.map(table=>({table,after:after.get(table)!})),...(includesAudit?{audit:{after:'',watermarks:auditWatermarks}}:{})});
+   if(includesAudit){if(pages.auditPage===undefined)throw new Error('Missing audit snapshot batch.');auditPage=pages.auditPage;}
+   for(const table of tables){
+    const page=pages.physical.get(table);
     if(!Array.isArray(page)||page.length>BUNDLE_LIMITS.pageSize)throw new Error('Physical snapshot batch must return bounded rows.');
     const rows=image.get(table)!,keys=['content_hash','id','payload_json','row_revision',...(streams[table]?['stream_sequence']:[])].sort();
     for(const raw of page){
@@ -87,6 +72,8 @@ export interface ProspectiveRecoverabilityResult {agentTerminalReserveRows?:Arra
  * An allowed measurement does not itself authorize a write, restoration or paid action.
  */
 export async function measureProspectiveRecoverability(db:SqlDatabase,owner:string,input:ProspectiveRecoverabilityInput):Promise<ProspectiveRecoverabilityResult>{
+ const serializationHashContext=createSerializationHashContext();
+ try{
  if(!owner||!Number.isFinite(Date.parse(input.now)))throw new Error('An owner and valid measurement timestamp are required.');
  if(REFERENCE_LIMITS.rows!==BUNDLE_LIMITS.rows)throw new Error('Reference and recovery row bounds require an explicit serializer update.');
  if((input.writes?.length??0)>200||(input.events?.length??0)>2000||(input.replacements?.length??0)>OWNER_TABLES.length||(input.historyImports?.length??0)>BUNDLE_LIMITS.rows||(input.operationalWrites?.length??0)>BUNDLE_LIMITS.rows||(input.operationalEvents?.length??0)>BUNDLE_LIMITS.rows)throw new Error('Prospective operation count exceeds its bounded serializer scope.');
@@ -107,7 +94,7 @@ export async function measureProspectiveRecoverability(db:SqlDatabase,owner:stri
 
  const watermarks={...(input.operationalWatermarksAfter??boundaryWatermarks)};validateOperationalWatermarks(watermarks);
  for(const [stream,sequence]of Object.entries(boundaryWatermarks))if((watermarks[stream]??-1)<sequence)throw new Error('Prospective operational watermarks cannot move backwards.');
- const capturedRows=await readPhysicalImage(db,owner,auditStatement('')),capturedPhysical=capturedRows.physical,capturedAudit=await readAudit(capturedRows.auditPage);
+ const capturedRows=await readPhysicalImage(db,owner,boundaryWatermarks),capturedPhysical=capturedRows.physical,capturedAudit=await readAudit(capturedRows.auditPage);
  const physical=new Map<RegisteredOwnerTable,Map<string,ModuleRow>>(),beforeRows=new Map<RegisteredOwnerTable,ModuleRow[]>(),sequences=new Map<string,number>();
  const finishHashCurrent=startRecoverabilityPhase(db,'hash-current');
  await verifyRecoverabilityRowHashes([...capturedPhysical.values()].flat());
@@ -120,7 +107,7 @@ export async function measureProspectiveRecoverability(db:SqlDatabase,owner:stri
  // Omit operationalWatermarks intentionally: the virtual owner reader already filters
  // stream rows. Adapter serializers therefore never need an SQL imitation.
  const blockedDb:SqlDatabase={prepare(){throw new Error('Prospective serializer unexpectedly requested SQL.');},async batch(){throw new Error('Prospective measurement cannot write.');}};
- const serializeModules=async()=>{const modules:WorkspaceBundle['modules']={};for(const adapter of exportRegistry.entries()){if(adapter.key==='audit_events')continue;modules[adapter.key]={schemaVersion:adapter.schemaVersion,records:await adapter.exportRows({userId:owner,sourceRevision:boundaryRevision,query:virtual,db:blockedDb})};}return modules;};
+ const serializeModules=async()=>{const modules:WorkspaceBundle['modules']={};for(const adapter of exportRegistry.entries()){if(adapter.key==='audit_events')continue;modules[adapter.key]={schemaVersion:adapter.schemaVersion,records:await adapter.exportRows({userId:owner,sourceRevision:boundaryRevision,query:virtual,db:blockedDb,serializationHashContext})};}return modules;};
  for(const table of OWNER_TABLES)if(beforeRows.get(table)!.length&&!exportRegistry.entries().some(adapter=>moduleTables(adapter).includes(table)))throw new Error('Current populated module has no export adapter.');
  finishHashCurrent();
  const finishOriginalSerializer=startRecoverabilityPhase(db,'originalserializer');
@@ -128,7 +115,7 @@ export async function measureProspectiveRecoverability(db:SqlDatabase,owner:stri
  baseline.audit_events={schemaVersion:exportRegistry.get('audit_events').schemaVersion,records:capturedAudit.map(({id:_,...row})=>{void _;return serializePortableAuditRow(row as Record<string,unknown>&{event_id:string;payload_json:string});})};
  finishOriginalSerializer();
  const finishBundleOriginal=startRecoverabilityPhase(db,'bundleoriginal');
- const original=await buildWorkspaceBundle({planning:captured.workspace,modules:baseline,workspaceRevision:boundaryRevision,operationalWatermarks:boundaryWatermarks,...(namespaces?{auditNamespace:namespaces.auditNamespace}:{}),exportedAt:input.now});
+ const original=await buildWorkspaceBundle({planning:captured.workspace,modules:baseline,workspaceRevision:boundaryRevision,operationalWatermarks:boundaryWatermarks,...(namespaces?{auditNamespace:namespaces.auditNamespace}:{}),exportedAt:input.now},{serializationHashContext});
  finishBundleOriginal();
  const finishProjectPlan=startRecoverabilityPhase(db,'projectplan');
  const replaced=new Set<RegisteredOwnerTable>(),changed=new Set<string>();
@@ -165,7 +152,7 @@ export async function measureProspectiveRecoverability(db:SqlDatabase,owner:stri
  }
  for(const {event,streamId,sequence}of input.operationalEvents??[]){if(!/^[a-z][a-z0-9_-]{0,63}$/.test(streamId)||!Number.isSafeInteger(sequence)||sequence<1||sequence<=(boundaryWatermarks[streamId]??0)||sequence>(watermarks[streamId]??0)||audit.has(event.id))throw new Error('Operational audit is outside its prospective watermark.');audit.set(event.id,eventRow(event,null,null,streamId,sequence));}
  modules.audit_events={schemaVersion:exportRegistry.get('audit_events').schemaVersion,records:[...audit.values()].sort((a,b)=>compareSqliteText((a as {id:string}).id,(b as {id:string}).id))};
- const bundle=await buildWorkspaceBundle({planning,modules,workspaceRevision:prospectiveRevision,operationalWatermarks:watermarks,...(original.source.auditNamespace?{auditNamespace:original.source.auditNamespace}:{}),exportedAt:input.now},{enforceByteLimit:false});
+ const bundle=await buildWorkspaceBundle({planning,modules,workspaceRevision:prospectiveRevision,operationalWatermarks:watermarks,...(original.source.auditNamespace?{auditNamespace:original.source.auditNamespace}:{}),exportedAt:input.now},{enforceByteLimit:false,serializationHashContext});
  finishBundleAfter();
  const finishExpandFuture=startRecoverabilityPhase(db,'expandfuture');
  const tables:RecoverabilityTableInput[]=[],expandedRecords:string[]=[],futureTableArguments:Array<{name:string;serialized:string}>=[];
@@ -194,10 +181,11 @@ export async function measureProspectiveRecoverability(db:SqlDatabase,owner:stri
  if(current.revision!==boundaryRevision||canonical(current.workspace)!==canonical(original.planning)||canonical(latestAuxiliary.watermarks)!==canonical(boundaryWatermarks))throw new Error('Workspace boundary changed during recoverability measurement.');
  // Re-read all physical sets: the returned revision/vector alone does not detect an
  // unguarded same-revision mutation, and must never certify a stale normalized set.
- const latestRows=await readPhysicalImage(db,owner,auditStatement('')),latestPhysical=latestRows.physical;
+ const latestRows=await readPhysicalImage(db,owner,boundaryWatermarks),latestPhysical=latestRows.physical;
  for(const table of OWNER_TABLES)if(canonical(latestPhysical.get(table))!==canonical(capturedPhysical.get(table)))throw new Error('Normalized row set changed (including operational sequence) during recoverability measurement.');
  if(canonical(await readAudit(latestRows.auditPage))!==canonical(capturedAudit))throw new Error('Audit row set changed during recoverability measurement.');
  if((await getWorkspaceNamespaces(db,owner))?.auditNamespace!==namespaces?.auditNamespace)throw new Error('Audit namespace changed during recoverability measurement.');
  finishFinalReads();
  return {agentTerminalReserveRows:terminalReserveRows,measurement,boundaryRevision,boundaryWatermarks:{...boundaryWatermarks},boundaryRows:OWNER_TABLES.map(table=>({table,rows:beforeRows.get(table)!.map(({id,row_revision,content_hash})=>({id,row_revision,content_hash}))}))};
+ }finally{closeSerializationHashContext(serializationHashContext);}
 }

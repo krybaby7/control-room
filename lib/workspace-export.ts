@@ -1,3 +1,4 @@
+import {serializationHash,type SerializationHashContext} from './serialization-hash.ts';
 import {agentExportAdapters} from './agents/module.ts';
 import {runtimeExportAdapters} from './runtime/module.ts';
 import {baselineExportAdapters} from './baselines/module.ts';
@@ -26,7 +27,7 @@ export interface WorkspaceBundle {
   planning: Workspace; modules: Record<string,{schemaVersion:number; records:unknown[]}>;
   attachments: AttachmentManifestEntry[]; completeness: 'complete' | 'metadata-only';
 }
-export interface ExportContext { userId: string; sourceRevision: number; query: OwnerScopedReader; db: SqlDatabase; operationalWatermarks?:Record<string,number>; }
+export interface ExportContext { /** Server-created operation-local digest reuse; never portable input. */serializationHashContext?:SerializationHashContext; userId: string; sourceRevision: number; query: OwnerScopedReader; db: SqlDatabase; operationalWatermarks?:Record<string,number>; }
 export interface ImportContext { planning: Workspace; modules: WorkspaceBundle['modules']; }
 export interface PhysicalImportRows {table:RegisteredOwnerTable;records:Array<{id:string;value:JsonValue}>}
 export interface ExportModule {
@@ -67,10 +68,10 @@ export function registerExportModule(adapter:ExportModule):void { exportRegistry
 export function serializePortableAuditRow(row:Record<string,unknown> & {event_id:string;payload_json:string}):unknown {
  const {payload_json,...metadata}=row;return {id:row.event_id,...metadata,payload:portableAudit(JSON.parse(payload_json))};
 }
-export async function buildWorkspaceBundle(input:{planning:WorkspaceBundle['planning'];modules:WorkspaceBundle['modules'];workspaceRevision:number;operationalWatermarks:Record<string,number>;auditNamespace?:string;exportedAt:string},options:{enforceByteLimit?:boolean;registry?:ExportRegistry}={}):Promise<WorkspaceBundle>{
+export async function buildWorkspaceBundle(input:{planning:WorkspaceBundle['planning'];modules:WorkspaceBundle['modules'];workspaceRevision:number;operationalWatermarks:Record<string,number>;auditNamespace?:string;exportedAt:string},options:{enforceByteLimit?:boolean;registry?:ExportRegistry;serializationHashContext?:SerializationHashContext}={}):Promise<WorkspaceBundle>{
  const registry=options.registry??exportRegistry,hashes:Record<string,string>={},validated=new Set<NonNullable<ExportModule['validateReferences']>>();
- for(const adapter of registry.entries()){const exportedModule=input.modules[adapter.key];if(!exportedModule)throw new Error('Missing export module.');assertPortable(exportedModule.records);if(exportedModule.records.length>BUNDLE_LIMITS.rows)throw new Error('Export row limit exceeded.');if(adapter.validateReferences&&(adapter.referenceValidationScope!=='bundle'||!validated.has(adapter.validateReferences))){adapter.validateReferences({planning:input.planning,modules:input.modules},exportedModule.records);if(adapter.referenceValidationScope==='bundle')validated.add(adapter.validateReferences);}hashes[adapter.key]=await contentHash(canonical(exportedModule.records));}
- hashes.planning=await contentHash(canonical(input.planning));
+ for(const adapter of registry.entries()){const exportedModule=input.modules[adapter.key];if(!exportedModule)throw new Error('Missing export module.');assertPortable(exportedModule.records);if(exportedModule.records.length>BUNDLE_LIMITS.rows)throw new Error('Export row limit exceeded.');if(adapter.validateReferences&&(adapter.referenceValidationScope!=='bundle'||!validated.has(adapter.validateReferences))){adapter.validateReferences({planning:input.planning,modules:input.modules},exportedModule.records);if(adapter.referenceValidationScope==='bundle')validated.add(adapter.validateReferences);}hashes[adapter.key]=await serializationHash(canonical(exportedModule.records),options.serializationHashContext);}
+ hashes.planning=await serializationHash(canonical(input.planning),options.serializationHashContext);
  const bundle:WorkspaceBundle={format:'control-room',bundleVersion:1,exportedAt:input.exportedAt,source:{...(input.auditNamespace?{auditNamespace:input.auditNamespace}:{}),operationalWatermarks:input.operationalWatermarks,workspaceRevision:input.workspaceRevision,planningSchemaVersion:input.planning.schemaVersion,moduleWatermarks:{...hashes},sourceHashes:hashes},planning:input.planning,modules:input.modules,attachments:deriveAttachmentManifest(input.modules),completeness:'metadata-only'};
  if(options.enforceByteLimit!==false&&new TextEncoder().encode(JSON.stringify(bundle)).length>BUNDLE_LIMITS.bytes)throw new Error('Export byte limit exceeded.');return bundle;
 }
