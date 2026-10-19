@@ -195,7 +195,8 @@
       ],
       "blockers": [
         "Approved separate pinned runtime extraction and Windows owned-process/sandbox invocation integration plus real device acceptance remain missing; no live model/evaluation/job invocation.",
-        "Live renewable private ingress and selected provider authority remain unconfigured; paid inference disabled."
+        "Live renewable private ingress and selected provider authority remain unconfigured; paid inference disabled.",
+        "Maindefaultbrowser hasone actualfixtureupstream502/15s failure after budgetSave; requeststall diagnosis ongoing. No final candidate or bridgepackage artifact produced."
       ]
     },
     {
@@ -235,13 +236,13 @@
         "Exacte4 firstnormal39194510942/job117874255539 FAILED ONLYD1savep952499.678949ms>2000,p501797.993855;SQLite978.531809,D1read859.966659 PASS;100outcomes/sixrestores perengine/errors[]. Artifact12161845635 sha256325994989f843e4becbaa72d22b4f77751d0ee98619434ce99f068de4cedcfe4. No rerun or latency waiver; release acceptance blocked."
       ],
       "blockers": [
-        "Complete main source-bound pipeline and candidate/Windows package outputs remain pending.",
+        "Maindefaultbrowser hasone actualfixtureupstream502/15s failure after budgetSave; requeststall diagnosis ongoing. No final candidate or bridgepackage artifact produced.",
         "Exacte4 firstnormal39194510942/job117874255539 FAILED ONLYD1savep952499.678949ms>2000,p501797.993855;SQLite978.531809,D1read859.966659 PASS;100outcomes/sixrestores perengine/errors[]. Artifact12161845635 sha256325994989f843e4becbaa72d22b4f77751d0ee98619434ce99f068de4cedcfe4. No rerun or latency waiver; release acceptance blocked.",
         "Supported Sites helper execution unavailable although metadata/deployment access exists. Existing owner-private Site unchangedversion2. Approved separate pinned runtime extraction and Windows owned-process/sandbox invocation code/integration plus real owner device acceptance remain missing; installing bridge alone does not supply invocation. Selectedprovider consent/renewable ingress/closedbrowserwakeup/hostedSSE/physicalmobile-passkey acceptance not-run. Paid inference/operational-trading effects/externalalerts remain disabled."
       ]
     }
   ],
-  "nextAction": "Wait for main39194510987/job117874247405 terminal; inspect exact counts/artifact identities/inner hashes and preserve failed latency acceptance. Reconcile all phase/gap evidence without moving the frozen source until artifacts exist.",
+  "nextAction": "Inspect runtime_probe diagnostic-only request/socket/readstage candidate; run one instrumented original full main context for diagnosis. Do not raise timeouts, remove guards, infer success from step advancement or rerun unchanged source to chase green. Preserve exacte4source andfailedD1latency; artifactinspectionf7faa remainsunrun because no candidate exists.",
   "allowedStatuses": [
     "not_started",
     "in_progress",
@@ -271,13 +272,13 @@
     "implementationHead": "e4af1fc5ae344a029f9677576963700c92aaefee",
     "headMeaning": "Frozen primary application source; this separate checkpoint branch records current verification.",
     "executionMode": "GitHub source APIs; actual Node24 GitHub Actions Linux/Windows. Managed workspace/Sites helper execution unavailable.",
-    "tests": "Exact final application sourcee4af1fc5ae344a029f9677576963700c92aaefee:491/491 focused+type/lint39194507156/job117874233566; three-engineQA39194510945 ALL11PASS; bothmobile39194510972/job117874244687 p952761.9ms and39194507161/job117874233407 p952739.8ms PASS;streaming14/runtimeD1/artifact16+D1R2/agentsD1/maintenance97tables291guardsPASS. Segmented39194510962/job117874244413 PASS27migrations/33modules/79segments/10080rows/17,767,591bytes,targetSTILLFENCED. Main39194510987/job117874247405 Node/bridge/typecheck stepsPASS,lint/build/native/browser/package ongoing; full counts await terminal.\nExacte4 firstnormal39194510942/job117874255539 FAILED ONLYD1savep952499.678949ms>2000,p501797.993855;SQLite978.531809,D1read859.966659 PASS;100outcomes/sixrestores perengine/errors[]. Artifact12161845635 sha256325994989f843e4becbaa72d22b4f77751d0ee98619434ce99f068de4cedcfe4. No rerun or latency waiver; release acceptance blocked.",
+    "tests": "Exact final application sourcee4af1fc5ae344a029f9677576963700c92aaefee:491/491 focused+type/lint39194507156/job117874233566; three-engineQA39194510945 ALL11PASS; bothmobile39194510972/job117874244687 p952761.9ms and39194507161/job117874233407 p952739.8ms PASS;streaming14/runtimeD1/artifact16+D1R2/agentsD1/maintenance97tables291guardsPASS. Segmented39194510962/job117874244413 PASS27migrations/33modules/79segments/10080rows/17,767,591bytes,targetSTILLFENCED. Main39194510987/job117874247405 Node/bridge/typecheck stepsPASS,lint/build/native/browser/package ongoing; full counts await terminal.\nExacte4 firstnormal39194510942/job117874255539 FAILED ONLYD1savep952499.678949ms>2000,p501797.993855;SQLite978.531809,D1read859.966659 PASS;100outcomes/sixrestores perengine/errors[]. Artifact12161845635 sha256325994989f843e4becbaa72d22b4f77751d0ee98619434ce99f068de4cedcfe4. No rerun or latency waiver; release acceptance blocked.\nExacte4 main39194510987/job117874247405 TERMINALFAILURE:1776/1776Node,0fail/skip/cancel312917.923094ms;146/146bridge;type/lint/build and ALL nativeD1/R2/HTTPincludingoriginalscheduledsource PASS. DefaultChromium62/63:budgetjourneyagents.spec.ts61 firstGET/api/jobs afterSave failed; R2Chromium3/3PASS52.2s. Package+bridgeartifactstepsSKIPPED;no candidate. Failureartifact12161927116 SHA25634814a0c847b0876b44565b85571128ddb8c1b62f8437d51b7922d92c525c8e1.\nREADONLY originaltraceinspectionce71e9b46274f8d55932b0344845b4c73a60d11d run39195925741/job117878578293 verifiedouterartifactdigest and882eventsWITHOUTproductrerun. FailedGET/jobs was502 after15003.982ms (action15005.825ms);earlier200reads31.7/29.0/39.1ms. Empty502matches15sfixtureupstreamdeadline, NOTapp503recordvalidation. Underlyingrequeststallcauseunknown. Runtime_probe preparingdiagnostic-onlyfixedproxy/socket/readstagephases;no timeoutincrease/assertionweakening/HTTPagentfixyet.",
     "knownFailures": [
-      "Complete main source-bound pipeline and candidate/Windows package outputs remain pending.",
+      "Maindefaultbrowser hasone actualfixtureupstream502/15s failure after budgetSave; requeststall diagnosis ongoing. No final candidate or bridgepackage artifact produced.",
       "Exacte4 firstnormal39194510942/job117874255539 FAILED ONLYD1savep952499.678949ms>2000,p501797.993855;SQLite978.531809,D1read859.966659 PASS;100outcomes/sixrestores perengine/errors[]. Artifact12161845635 sha256325994989f843e4becbaa72d22b4f77751d0ee98619434ce99f068de4cedcfe4. No rerun or latency waiver; release acceptance blocked.",
       "Supported Sites helper execution unavailable although metadata/deployment access exists. Existing owner-private Site unchangedversion2. Approved separate pinned runtime extraction and Windows owned-process/sandbox invocation code/integration plus real owner device acceptance remain missing; installing bridge alone does not supply invocation. Selectedprovider consent/renewable ingress/closedbrowserwakeup/hostedSSE/physicalmobile-passkey acceptance not-run. Paid inference/operational-trading effects/externalalerts remain disabled."
     ],
-    "nextCommand": "Wait for main39194510987/job117874247405 terminal; inspect exact counts/artifact identities/inner hashes and preserve failed latency acceptance. Reconcile all phase/gap evidence without moving the frozen source until artifacts exist.",
+    "nextCommand": "Inspect runtime_probe diagnostic-only request/socket/readstage candidate; run one instrumented original full main context for diagnosis. Do not raise timeouts, remove guards, infer success from step advancement or rerun unchanged source to chase green. Preserve exacte4source andfailedD1latency; artifactinspectionf7faa remainsunrun because no candidate exists.",
     "includedChanges": [
       "Original reviewed Lab projection; private runtime remainsnotinstalled.",
       "Bounded planning capture/preflight, serialization, native5armreadgroups and archive streamownership fixes retained.",
