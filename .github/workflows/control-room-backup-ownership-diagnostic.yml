@@ -38,3 +38,5 @@ jobs:
       - run: node scripts/test-reporter.mjs --self-test
       - run: npm test
         timeout-minutes: 9
+
+# Verify deterministic body-ownership regressions against actual D1/R2.
