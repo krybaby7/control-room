@@ -1,0 +1,20 @@
+name: Control Room native source continuation diagnosis
+on:
+  push:
+    branches: ['diagnostics/control-room-source-continuation*']
+permissions:
+  contents: read
+jobs:
+  source-continuation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm run install:ci
+      - run: npm run test:scheduled-source-d1
