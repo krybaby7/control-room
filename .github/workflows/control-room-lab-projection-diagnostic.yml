@@ -26,3 +26,5 @@ jobs:
         if: always()
       - run: npm run build
       - run: npm run package:bridge
+
+# Verify native type narrowing and bounded newline framing.
