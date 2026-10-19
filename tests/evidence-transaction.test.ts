@@ -23,6 +23,14 @@ function rows(f:Awaited<ReturnType<typeof fixture>>,table:string,owner='a'){retu
 function state(f:Awaited<ReturnType<typeof fixture>>){return Object.fromEntries(['workspaces','evidence_records','evidence_versions','decision_records','decision_versions','acceptance_records','audit_events','audit_project_links','workspace_mutations','workspace_backups'].map(table=>[table,table==='workspaces'||table==='workspace_mutations'?f.sqlite.prepare(`SELECT * FROM ${table} WHERE user_id=? ORDER BY ${table==='workspaces'?'user_id':'mutation_id'}`).all('a'):rows(f,table)]));}
 async function committedPair(f:Awaited<ReturnType<typeof fixture>>,id='logical-evidence'){const writes=await pair(id);assert.equal((await execute(f.db,'a',ctx=>plan(ctx,writes))).status,'committed');return id;}
 
+function intercept(db:import('../lib/workspace-store.ts').SqlDatabase,hook:()=>Promise<void>|void):import('../lib/workspace-store.ts').SqlDatabase {
+ let fired=false;const prepare=db.prepare.bind(db),batch=db.batch.bind(db),sqlByStatement=new WeakMap<import('../lib/workspace-store.ts').SqlStatement,string>();
+ return {prepare(sql){const statement=prepare(sql);sqlByStatement.set(statement,sql);return statement;},async batch(statements){
+  if(!fired&&statements.some(statement=>sqlByStatement.get(statement)?.startsWith('INSERT INTO workspace_command_guards'))){fired=true;await hook();}
+  return batch(statements);
+ }};
+}
+
 test('central compiler commits typed parent/version in FK order with exact projections and owner isolation',async()=>{
  const f=await fixture();try{const id=await committedPair(f),physical=await versionRowId(id,1);for(const [table,rowId,value] of [['evidence_records',id,head(id)],['evidence_versions',physical,evidence(id)]] as const){const stored=f.sqlite.prepare(`SELECT * FROM ${table} WHERE user_id=? AND id=?`).get('a',rowId)!;const expected=await moduleProjection(table,rowId,json(value));for(const key of moduleColumnNames(table))assert.equal(stored[key],expected[key]);assert.deepEqual(JSON.parse(stored.payload_json as string),value);}
  assert.equal(await ownerReader(f.db,'b').get('evidence_records',id),null);const before=state(f);
@@ -48,7 +56,7 @@ test('duplicate version assertion rolls back an otherwise valid head update and 
 
 test('head row CAS lost between prepare and batch cannot append the prepared new version',async()=>{
  const f=await fixture();try{const id=await committedPair(f),versionId=await versionRowId(id,2);let racedState:ReturnType<typeof state>|undefined;
- const raced:SqlDatabase={prepare:f.db.prepare.bind(f.db),async batch(statements){f.sqlite.prepare('UPDATE evidence_records SET row_revision=row_revision+1 WHERE user_id=? AND id=?').run('a',id);racedState=state(f);return f.db.batch(statements);}};
+ const raced=intercept(f.db,()=>{f.sqlite.prepare('UPDATE evidence_records SET row_revision=row_revision+1 WHERE user_id=? AND id=?').run('a',id);racedState=state(f);});
  await assert.rejects(execute(raced,'a',ctx=>plan(ctx,[{table:'evidence_records',operation:'update',id,value:head(id,2),expectedRowRevision:1},{table:'evidence_versions',operation:'insert',id:versionId,value:json(evidence(id,2)),expectedRowRevision:null}])),ModuleConflictError);assert.deepEqual(state(f),racedState);assert.equal(await ownerReader(f.db,'a').get('evidence_versions',versionId),null);
  }finally{f.sqlite.close();}
 });

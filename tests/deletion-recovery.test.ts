@@ -11,7 +11,13 @@ const now='2026-10-18T12:00:00.000Z';
 const input=(mutationId='manual-backup-0001',expectedRevision=1,command:unknown={type:'workspace.backup'})=>({protocolVersion:1,mutationId,expectedRevision,command});
 const deps=(db:SqlDatabase,handlers=workspaceHandlers)=>({db,handlers,now:()=>now});
 async function setup(){const fixture=database();for(const owner of ['a','b'])await loadWorkspace(fixture.db,owner,()=>createSeedWorkspace(now),now);return fixture;}
-function intercept(db:SqlDatabase,hook:()=>void):SqlDatabase {let fired=false;return {...db,batch:async statements=>{if(!fired){fired=true;hook();}return db.batch(statements);}};}
+function intercept(db:import('../lib/workspace-store.ts').SqlDatabase,hook:()=>Promise<void>|void):import('../lib/workspace-store.ts').SqlDatabase {
+ let fired=false;const prepare=db.prepare.bind(db),batch=db.batch.bind(db),sqlByStatement=new WeakMap<import('../lib/workspace-store.ts').SqlStatement,string>();
+ return {prepare(sql){const statement=prepare(sql);sqlByStatement.set(statement,sql);return statement;},async batch(statements){
+  if(!fired&&statements.some(statement=>sqlByStatement.get(statement)?.startsWith('INSERT INTO workspace_command_guards'))){fired=true;await hook();}
+  return batch(statements);
+ }};
+}
 function count(sqlite:ReturnType<typeof database>['sqlite'],table:string,owner='a'){return sqlite.prepare(`SELECT count(*) AS n FROM ${table} WHERE user_id=?`).get(owner)!.n;}
 function noEffects(sqlite:ReturnType<typeof database>['sqlite']){for(const table of ['workspace_mutations','workspace_backups','workspace_command_guards','workspace_assertions','audit_events'])assert.equal(count(sqlite,table),0,table);assert.equal(sqlite.prepare('SELECT revision FROM workspaces WHERE user_id=?').get('a')!.revision,1);}
 

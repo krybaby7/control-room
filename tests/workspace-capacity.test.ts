@@ -1,3 +1,4 @@
+import {PRIVATE_REVOCATION_POOL} from '../lib/private-capacity.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {database} from './helpers/sqlite.ts';
@@ -39,9 +40,22 @@ test('one owner reaching capacity does not consume another owner quota',async()=
  const result=await executeWorkspaceCommand('b',input(),deps(db));assert.equal(result.status,'committed');assert.equal(await receiptCount(db,'b'),1);assert.equal((await readCurrent(db,'b')).revision,2);
  assert.deepEqual(effects(sqlite),a);assert.deepEqual(rows(sqlite,'workspace_mutations'),receipts);sqlite.close();
 });
-test('late receipt insertion at the limit aborts the entire prepared command with typed capacity error',async()=>{
- const {db,sqlite}=await fixture();seedReceipts(sqlite,'a',RECEIPT_CAPACITY.hard-1);const before=effects(sqlite),receipts=rows(sqlite,'workspace_mutations');let intercepted=false;
- const raced:SqlDatabase={...db,async batch(statements){assert.equal(intercepted,false);intercepted=true;sqlite.prepare('INSERT INTO workspace_mutations(user_id,mutation_id,command_hash,revision,committed_at) VALUES(?,?,?,?,?)').run('a','late-independent-receipt','b'.repeat(64),1,now);return db.batch(statements);}};
- await assert.rejects(executeWorkspaceCommand('a',input(),deps(raced)),WorkspaceCapacityError);assert.equal(intercepted,true);assert.deepEqual(effects(sqlite),before);
- assert.deepEqual(rows(sqlite,'workspace_mutations').filter(row=>row.mutation_id!=='late-independent-receipt'),receipts);assert.equal(await receiptCount(db,'a'),RECEIPT_CAPACITY.hard);assert.equal(sqlite.prepare('SELECT mutation_id FROM workspace_mutations WHERE user_id=? AND mutation_id=?').get('a',input().mutationId),undefined);sqlite.close();
+test('late independent receipt pressure fills the hard cap at the actual mutation batch and rolls every intended effect back',async()=>{
+ const {db,sqlite}=await fixture();seedReceipts(sqlite,'a',RECEIPT_CAPACITY.hard-PRIVATE_REVOCATION_POOL.rows-1);
+ const before=effects(sqlite),receipts=rows(sqlite,'workspace_mutations'),lateIds=new Set<string>();let intercepted=false;
+ const sqlByStatement=new WeakMap<import('../lib/workspace-store.ts').SqlStatement,string>();
+ const raced:SqlDatabase={prepare(sql){const statement=db.prepare(sql);sqlByStatement.set(statement,sql);return statement;},async batch(statements){
+  if(statements.some(statement=>sqlByStatement.get(statement)?.startsWith('INSERT INTO workspace_command_guards'))){
+   assert.equal(intercepted,false);intercepted=true;
+   const insert=sqlite.prepare('INSERT INTO workspace_mutations(user_id,mutation_id,command_hash,revision,committed_at) VALUES(?,?,?,?,?)');
+   for(let index=0;index<=PRIVATE_REVOCATION_POOL.rows;index++){const id='late-independent-receipt-'+index;lateIds.add(id);insert.run('a',id,'b'.repeat(64),1,now);}
+  }
+  return db.batch(statements);
+ }};
+ await assert.rejects(executeWorkspaceCommand('a',input(),deps(raced)),WorkspaceCapacityError);
+ assert.equal(intercepted,true);assert.equal(lateIds.size,21);assert.deepEqual(effects(sqlite),before);
+ assert.deepEqual(rows(sqlite,'workspace_mutations').filter(row=>!lateIds.has(row.mutation_id as string)),receipts);
+ assert.equal(await receiptCount(db,'a'),RECEIPT_CAPACITY.hard);
+ assert.equal(sqlite.prepare('SELECT mutation_id FROM workspace_mutations WHERE user_id=? AND mutation_id=?').get('a',input().mutationId),undefined);
+ sqlite.close();
 });
