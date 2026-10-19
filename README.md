@@ -4,11 +4,11 @@ A private planning home for TAMENNI and Trade Graph, built for PC, phone and tab
 
 ## Cloud implementation program
 
-The [completion plan](docs/superpowers/plans/2026-10-18-control-room-completion/00-master-plan.md) covers 47 audited gaps across setup and eight implementation phases. Start with [CLOUD-START.md](docs/superpowers/plans/2026-10-18-control-room-completion/CLOUD-START.md) and root [AGENTS.md](AGENTS.md). Implementation and review workers must use `gpt-6.1-sol`; the launch must verify model selection. [Import provenance](docs/source-import.json) records the audited source baseline. The plan is not a claim that its features are implemented.
+The [completion plan](docs/superpowers/plans/2026-10-18-control-room-completion/00-master-plan.md) covers 48 audited gaps across setup and eight implementation phases. Start with [CLOUD-START.md](docs/superpowers/plans/2026-10-18-control-room-completion/CLOUD-START.md) and root [AGENTS.md](AGENTS.md). Implementation and review workers must use `gpt-6.1-sol`; the launch must verify model selection. [Import provenance](docs/source-import.json) records the audited source baseline. The plan is not a claim that its features are implemented.
 
 This repository's source is public with the owner's approval. Hosted access, workspace records, connected accounts and credentials remain private.
 
-## What works in the first release
+## Imported first release
 
 - Today: equally visible projects, explained next-action suggestions, weekly focus and review items.
 - Projects: editable goals, milestone acceptance criteria, task planning, dates, priority, Now/Next/Later, dependency links and explicit blockers.
@@ -19,9 +19,11 @@ This repository's source is public with the owner's approval. Hosted access, wor
 
 The starting content is editable. User goals are confirmed; task suggestions and acceptance wording are proposed. Source links refer to the inspection on **17 October 2026**. They are not a live GitHub or runtime feed. No deadlines, weekly commitments or completion claims are invented.
 
-## Current integration boundary
+## Completion candidate
 
-Automated GitHub/document synchronization and the PC collector are not connected in this release. Existing sources are remote links and saved excerpts. Agent coordination and trading operations are separate later work. No trading service, credentials, paid model calls or live orders are controlled by this application.
+The implementation branch adds reviewed planning/evidence/history workflows, bounded source adapters, reviews and automation, the installable Windows bridge, guarded agent coordination, and complete recovery tooling. [Progress and checkpoints](docs/superpowers/plans/2026-10-18-control-room-completion/progress.json) and the [gap ledger](docs/superpowers/plans/2026-10-18-control-room-completion/09-gap-coverage.md) distinguish implemented source, exact automated evidence and external acceptance.
+
+This candidate has not replaced the private hosted version. Provider connections, renewable private ingress, actual Windows installation, physical-device/passkey acceptance and hosted scheduling require their own observed checks. Paid inference and operational/trading effects remain disabled. A fixture or saved schedule does not prove external execution. See the [release runbook](docs/operations/release.md).
 
 ## Local development
 

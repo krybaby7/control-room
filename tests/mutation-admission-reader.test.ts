@@ -41,7 +41,7 @@ test('legacy and versioned receipt hashes replay exactly while a reused ID rejec
 });
 test('missing owner workspace never seeds data or borrows foreign content and epoch rejection still takes precedence',async()=>{
  const f=await fixture();try{
-  const missing='never-initialized-owner',legacyId='legacy-missing-0001',before=f.sqlite.prepare('SELECT total_changes() n').get()!.n;
+  const missing='never-initialized-owner',legacyId='legacy-missing-0001',before=Number(f.sqlite.prepare('SELECT total_changes() n').get()!.n);
   await assert.rejects(readMutationAdmission(f.db,'',legacyId),/signed-in user/);
   const snapshot=await readMutationAdmission(f.db,missing,legacyId);assert.deepEqual(snapshot,{epoch:{status:'legacy'},receipt:null,currentRevision:null});assert.deepEqual(decision(snapshot),{status:'prepare'});await assert.rejects(readCurrent(f.db,missing),/could not be loaded/);
   await assert.rejects(readMutationAdmission(f.db,missing,id),error=>error instanceof MutationEpochError&&error.code==='unknown-epoch');

@@ -14,7 +14,7 @@ Uploads stage immutable original input under an owner-bound hash. Invalid UTF-8/
 
 Complete reviewed replacement creates a protected pre-restore recovery point. It pauses external execution and rotates the execution epoch. Active or ambiguous agent attempts retain their journal, slot and reservation until proven reconciliation; restore never silently makes them runnable again. Native planning and normalized module IDs are preserved by the typed import adapters.
 
-Planning-only selective merge is verified. The newer normalized merge is being integrated: it permits reviewed additions and exact deduplication, rejects changed-ID collisions, keeps existing owner rows intact, and imports new authority-bearing rows as inactive proposals/history. Until its exact candidate gate passes, do not treat its source presence as accepted production recovery.
+Planning-only selective merge and normalized merge are implemented with isolated regression coverage. Normalized merge permits reviewed additions and exact deduplication, rejects changed-ID collisions, keeps existing owner rows intact, and imports new authority-bearing rows as inactive proposals/history. Current-candidate gates and actual owner recovery acceptance are tracked separately; source presence is not accepted production recovery.
 
 ## Snapshots and scheduled backups
 
@@ -22,7 +22,7 @@ Multiple D1 metadata snapshots have a version browser, explicit quotas and guard
 
 The shared scheduled metadata-backup runner has actual isolated D1 evidence for lease/principal/epoch checks, retries and terminal occurrence/audit writes. No hosted unattended principal or real closed-browser occurrence has been accepted.
 
-File-inclusive scheduled private R2 backup is under implementation. Its design splits the native ZIP into bounded immutable chunks, retains nonexpiring ambiguous PUT claims, verifies readback and charges metadata plus every unpurged chunk against the same owner quota. A failed file backup must never silently fall back to metadata-only success. This path still needs its coherent source and actual acceptance gates.
+File-inclusive scheduled private R2 backup is implemented. It splits the native ZIP into bounded immutable chunks, retains nonexpiring ambiguous PUT claims, verifies readback and charges metadata plus every unpurged chunk against the same owner quota. A failed file backup must never silently fall back to metadata-only success. Native isolated file-backup, retained-generation cleanup and reauthorization tests have passed on recorded sources. The final coherent candidate and real hosted scheduled execution still require their acceptance gates.
 
 ## Capacity and larger recovery
 
@@ -30,7 +30,7 @@ Ordinary mutation admission measures the complete portable recovery representati
 
 The segmented v2 metadata profile has actual isolated D1/R2 rehearsal evidence above ten thousand audit records and eight MiB. It validates every segment/hash, resumable checkpoint, typed references, SQL projections, foreign keys and fresh-key file bytes before producing an inactive manual handoff. This rehearsal alone is not a production installer.
 
-Larger-owner recovery additionally requires reviewed private continuity: mutation tombstones, permanent blob fences, baseline removals and unresolved process resources must survive. The privileged offline database-wide freeze and isolated target handoff are being implemented and tested. Never use a portable JSON claim as permission to restore execution authority. Never point a replacement tool at the existing Site database or bucket.
+Larger-owner recovery additionally requires reviewed private continuity: mutation tombstones, permanent blob fences, baseline removals and unresolved process resources must survive. The privileged offline database-wide freeze, typed private installer and independent inert-target seal are implemented and exercised by the actual segmented D1/R2 rehearsal. Current source evidence and remaining operator/owner actions are recorded in the gap ledger. Never use a portable JSON claim as permission to restore execution authority. Never point a replacement tool at the existing Site database or bucket.
 
 ## Deployment and external actions
 
