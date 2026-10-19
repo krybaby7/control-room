@@ -18,7 +18,7 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm run install:ci
-      - run: node --experimental-strip-types --test --test-timeout=120000 tests/scheduled-backup-archive.test.ts tests/backup-archive-reauthorization.test.ts tests/backup-archive-retained-cleanup.test.ts tests/backup-archive-object-stream.test.ts tests/recovery-backups.test.ts
+      - run: node --experimental-strip-types --test --test-timeout=120000 tests/scheduled-backup-archive.test.ts tests/backup-archive-reauthorization.test.ts tests/backup-archive-retained-cleanup.test.ts tests/backup-archive-object-stream.test.ts tests/recovery-install.test.ts
       - run: npm run typecheck
         if: always()
       - run: npm run lint
