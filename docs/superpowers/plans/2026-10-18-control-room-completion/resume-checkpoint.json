@@ -78,7 +78,7 @@
     "external alerts"
   ],
   "deployed": false,
-  "nextCommand": "Diagnose isolated test/critical-path repairs, review and integrate material fixes, then publish exact candidate and run all canonical stages plus unchanged performance and archive-integrity gates.",
+  "nextCommand": "node --experimental-strip-types scripts/benchmark-workspace.mjs",
   "currentCommit": "87c41b57bb3a17d9671580739fbadb507c7f32a0",
   "tests": {
     "proxy": "Dedicated regression passed; original negative control fails as expected; existing harness/typecheck pass. Original pre-header hang remains unexplained.",
@@ -269,5 +269,44 @@
   "uncommittedWork": "Primarysourcefrozenat87-equivalent2cc777b; separatecheckpointdocumentation; performanceisolationonly.",
   "publicSource": "87c41b57bb3a17d9671580739fbadb507c7f32a0",
   "publicPr": "https://github.com/krybaby7/control-room/pull/1",
-  "checkpointBranch": "checkpoints/control-room-cloud-87"
+  "checkpointBranch": "checkpoints/control-room-cloud-87",
+  "repairDiagnostics": {
+    "baseline": {
+      "source": "195edab",
+      "publicEquivalent": "772a8d7bc1dc2b1de6f6e6747b70722bb03b2050",
+      "D1saveP95Ms": 2426.679696,
+      "acceptance": false
+    },
+    "rejectedExactEquality": {
+      "source": "693428b6924fa9f2359df699b4002e9a57c38b90",
+      "D1saveP95Ms": 2505.735776,
+      "integrated": false
+    },
+    "rejectedFinalCohort": {
+      "source": "94e24dd705a49d1ff05505a24ac4c68598ac93c5",
+      "D1saveP95Ms": 2686.411182,
+      "integrated": false,
+      "committedRpcCountLargeBeforeAfter": [
+        16,
+        12
+      ],
+      "committedRpcCountSmallBeforeAfter": [
+        14,
+        11
+      ]
+    },
+    "normalBenchmarkRun": false,
+    "limitMs": 2000,
+    "claim": "Fewer RPCs did not improve full save latency. Both source experiments remain isolated; no passing claim or unchanged normal rerun.",
+    "nextDiagnostic": "Isolated original-source Node inspector CPU/event-loop and synchronous prepare/bind timing; workload/assertions unchanged; observer overhead not acceptance.",
+    "overlaySha256": "432503dc10f6c06c10bb1550461d1640989116c118d1d633a5ad25172a08a012"
+  },
+  "testRegression": {
+    "commit": "91e5ce5a0ec82c750ee0dcacc847036485f3722d",
+    "focusedPassed": 1,
+    "independentReview": "passed",
+    "historicalFailureCause": "unproven",
+    "changes": "Require fulfilled physical PUTs, verified settled chunks/index, actual epoch insertion and exact conflict; retain all terminal no-write assertions. No retry, timeout or production change."
+  },
+  "nextCommandContext": "Original-source isolated CPU diagnostic worktree, after the independent segmented recovery rehearsal exits; diagnostic overlay only, no acceptance claim."
 }

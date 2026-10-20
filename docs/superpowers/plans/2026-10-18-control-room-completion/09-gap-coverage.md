@@ -6,7 +6,7 @@ Prior public candidate `3c6681a39d05b9b40ace26b49e5482aa2a4d40ed`: canonical run
 
 Prior public source `98f9986f12b2088c69bdb7e5e4671694b5bcbba2` FAILS its first canonical D1savep95 gate (2800.471638ms>2000;run39249240888) and controlledbrowserperformance after its fixture Worker exited (run39249240576). NativeWindows and three-browser accessibility pass; fullcanonical stillpending. Prior passes do not substitute. Material isolated diagnosis continues; supportedprivate98archive is UNVALIDATED, notsaved/deployed.
 
-Currentpublic87c41b57bb3a17d9671580739fbadb507c7f32a0 firstnormalD1savep95 FAILED2319.984152ms>2000 (run39251593013;100outcomes/6restores/errors[]). No unchangedrerun. Remainingcanonical87checkscontinue. Prior98main1807Node/210bridge/63+3browser/package and independent1077source/333build/49bridge/helperintegrityPASS; prior98performancefailuresnotwaived. See verification-98f9986.json.
+Current public candidate772a8d7bc1dc2b1de6f6e6747b70722bb03b2050 failed canonical39253998007 (1814/1815 Node; terminal archive race injection not reached) and normal39253997842 (D1savep952848.964302ms>2000). Subsequent canonical stages skipped. Isolated Sol repairs and review continue; no unchanged rerun, threshold waiver, deployment or merge. Prior87 canonical passed1811Node/210bridge/63+3browser while its normal failed2319.984152ms. Prior98 main/integrity passes retain their exact source and do not waive performance failures. See resume-checkpoint.json and verification-98f9986.json.
 
 | ID | Audit gap | Delivery phase | Concrete acceptance | Evidence |
 |---|---|---|---|---|
