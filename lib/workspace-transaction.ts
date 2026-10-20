@@ -11,7 +11,7 @@ import {validateNormalizedMergePlan,normalizedMergeAttachmentAssertions,type Nor
 import {agentControlStatements} from './agents/transaction-controls.ts';
 import {deviceControlStatements} from './runtime/transaction-controls.ts';
 import {baselineControlStatements} from './baselines/transaction-controls.ts';
-import {recoverabilityAssertions,RecoverabilityCapacityError} from './recoverability-admission.ts';
+import {recoverabilityConditions,combineClaimConditions,prepareClaimAssertions,RecoverabilityCapacityError} from './recoverability-admission.ts';
 import {RECOVERABILITY_SQL_ARGUMENT_BYTES} from './recoverability-measure.ts';
 import {reviewControlStatements} from './reviews/transaction-controls.ts';
 import {sourceControlStatements} from './sources/transaction-controls.ts';
@@ -139,11 +139,20 @@ async function executeWorkspaceCommandAdmitted(userId:string,input:{protocolVers
   const token=crypto.randomUUID(),guard=[userId,id,token];
   const statements:SqlStatement[]=[db.prepare(`INSERT INTO workspace_command_guards (user_id,mutation_id,claim_token,valid) SELECT ?,?,?,1 FROM workspaces WHERE user_id = ? AND revision = ? AND NOT EXISTS (SELECT 1 FROM workspace_mutations WHERE user_id = ? AND mutation_id = ?)${epoch.status==='active'?" AND EXISTS (SELECT 1 FROM workspace_mutation_epochs WHERE user_id = ? AND epoch = ? AND status = 'active')":''}`).bind(...guard,userId,revision,userId,id,...(epoch.status==='active'?[userId,epoch.epoch]:[]))];
   const assertion=(condition:string,values:(string|number|null)[])=>statements.push(db.prepare(`INSERT INTO workspace_assertions (user_id,mutation_id,valid) SELECT ?,?,CASE WHEN ${condition} THEN 1 ELSE 0 END WHERE ${claim}`).bind(userId,id,...values,...guard));
-  assertion(privateCapacity.sql,privateCapacity.bindings);
-  for(const proof of privateQuote.guards)assertion(proof.sql,proof.bindings);
-  if(agentArtifact)assertion(agentArtifact.material.guard.sql,agentArtifact.material.guard.bindings);
-  statements.push(...recoverabilityAssertions(db,userId,id,recovery,claim,guard));
-  assertion('(SELECT COUNT(*) FROM workspace_mutations WHERE user_id=?) < ?',[userId,RECEIPT_CAPACITY.hard]);
+  // These are the original contiguous pre-write assertions, in the same order.
+  // Keep the three native-calibrated twelve-table groups unchanged. Combining
+  // only their prefix/suffix reduces prepare/bind calls without crossing a DML
+  // barrier, dropping a predicate or replacing the authoritative atomic claim.
+  const recoveryChecks=recoverabilityConditions(userId,id,recovery,guard),boundary=recoveryChecks[0],hasTerminalReserve=Boolean(recovery.agentTerminalReserveRows);
+  const rowChecks=recoveryChecks.slice(1,hasTerminalReserve?-1:undefined),terminal=hasTerminalReserve?recoveryChecks.at(-1):undefined;
+  const prefix=[privateCapacity,...privateQuote.guards,...(agentArtifact?[agentArtifact.material.guard]:[]),boundary];
+  const suffix=[...(terminal?[terminal]:[]),{sql:'(SELECT COUNT(*) FROM workspace_mutations WHERE user_id=?) < ?',bindings:[userId,RECEIPT_CAPACITY.hard]}];
+  // Extended private/artifact prefixes retain their original statement shape;
+  // only the native-calibrated capacity/schema/boundary prefix is combined.
+  const prefixChecks=!agentArtifact&&privateQuote.guards.length===1?combineClaimConditions(userId,id,claim,guard,prefix):prefix;
+  statements.push(...prepareClaimAssertions(db,userId,id,claim,guard,prefixChecks));
+  statements.push(...prepareClaimAssertions(db,userId,id,claim,guard,rowChecks));
+  statements.push(...prepareClaimAssertions(db,userId,id,claim,guard,combineClaimConditions(userId,id,claim,guard,suffix)));
   if(plan.referenceSnapshot){
     const snapshot=plan.referenceSnapshot;
     if(snapshot.coveredModules.length!==OWNER_TABLES.length || new Set(snapshot.coveredModules).size!==OWNER_TABLES.length)throw new CommandValidationError('Incomplete reference snapshot.');
