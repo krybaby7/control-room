@@ -28,3 +28,38 @@ export function measurePlanning(workspace: Workspace): { contentBytes: number; s
   const tasks=content.tasks.map(task=>{const {weeklyWeek:_weeklyWeek,archivedFromStatus:_archivedFromStatus,...ownerContent}=task;void _weeklyWeek;void _archivedFromStatus;return ownerContent;});
   return {contentBytes:bytes({...content,tasks}),serializedBytes:bytes(compact)};
 }
+
+const enumerable=Object.prototype.propertyIsEnumerable;
+const generatedNullBytes={archivedAt:18,weeklyWeek:18,archivedFromStatus:26,estimateMinutes:23} as const;
+/** A removed property also removes exactly one comma: every valid record retains
+ * its required id, and the workspace retains its five arrays. JSON quoting and
+ * UTF-8 encoding are measured directly, including escapes and lone surrogates. */
+function propertyBytes(record:object,key:string,value:unknown):number{
+ if(!enumerable.call(record,key)||value===undefined)return 0;
+ const encoded=JSON.stringify(value);return encoded===undefined?0:bytes(key)+1+new TextEncoder().encode(encoded).byteLength+1;
+}
+/** Internal strict-parser path: callers must first validate the complete workspace
+ * into plain data. The public measurement retains its projection semantics for
+ * arbitrary object descriptors, prototypes and custom serialization methods. */
+export function measureValidatedPlanning(workspace:Workspace):{contentBytes:number;serializedBytes:number}{
+ let common=0,serializedGenerated=0,contentGenerated=propertyBytes(workspace,'schemaVersion',workspace.schemaVersion);
+ for(const project of workspace.projects){
+  if(project.archivedAt===null&&enumerable.call(project,'archivedAt'))common+=generatedNullBytes.archivedAt;
+ }
+ const positions=new Map<string,number>();
+ for(const milestone of workspace.milestones){
+  const next=positions.get(milestone.projectId)??0;positions.set(milestone.projectId,next+1);
+  if(milestone.archivedAt===null&&enumerable.call(milestone,'archivedAt'))common+=generatedNullBytes.archivedAt;
+  if(milestone.sortKey===next)common+=propertyBytes(milestone,'sortKey',milestone.sortKey);
+ }
+ for(const task of workspace.tasks){
+  if(task.estimateMinutes===null&&enumerable.call(task,'estimateMinutes'))common+=generatedNullBytes.estimateMinutes;
+  for(const key of ['weeklyWeek','archivedFromStatus'] as const){
+   const value=task[key];
+   if(value===null&&enumerable.call(task,key)){serializedGenerated+=generatedNullBytes[key];contentGenerated+=generatedNullBytes[key];}
+   else contentGenerated+=propertyBytes(task,key,value);
+  }
+ }
+ const full=bytes(workspace);
+ return {contentBytes:full-common-contentGenerated,serializedBytes:full-common-serializedGenerated};
+}

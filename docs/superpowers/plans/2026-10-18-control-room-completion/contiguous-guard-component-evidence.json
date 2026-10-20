@@ -1,0 +1,72 @@
+{
+  "format": "control-room-prewrite-guard-component-proof-v1",
+  "source": "d949189631542978b1fdbd598dd6a8b636ef96d2",
+  "tree": "8eb59858a12c979f0b53f8958d4411e9d2afc0b5",
+  "base": "f0ce1fcfacdc60a9be3f65c8f16fefd993759027",
+  "scope": "Only contiguous pre-DML capacity/schema/boundary prefix and terminal/receipt suffix; every predicate, duplicate schema guard, owner binding and shared transient claim remains ordered.",
+  "nativeCalibration": {
+    "prewriteAtomicPredicatesRetained": 41,
+    "oldPrewriteStatements": 8,
+    "newPrewriteStatements": 5,
+    "unchangedRowGroups": [
+      12,
+      12,
+      12
+    ],
+    "actualTotalBindings": [
+      35,
+      53,
+      53,
+      53,
+      11
+    ],
+    "actualCaptureUpdateAtomicStatements": 15,
+    "previousAtomicStatements": 18,
+    "nativeD1ActualCaptureUpdate": "committed then replayed; exactly one mutation receipt",
+    "eachFalseLeaf": [
+      "private capacity",
+      "schema fingerprint count",
+      "workspace revision/vector boundary",
+      "terminal reserve row set",
+      "receipt capacity"
+    ],
+    "eachFalseLeafOutcome": "entire batch rejected and assertion rows rolled back",
+    "absentClaimOutcome": "zero assertion rows",
+    "limits": {
+      "parameters": 100,
+      "combinedUtf8ArgumentFramingBytes": 1800000,
+      "combinedSqlBytes": 100000
+    },
+    "fallback": "Pre-execution original singletons for unsupported combined framing; extended artifact/private prefixes retain original native statement shape. No failure retry."
+  },
+  "verification": [
+    {
+      "scope": "initial focused transaction, atomic capacity, recovery and idempotency contracts",
+      "passed": 99,
+      "failed": 0,
+      "logSha256": "34704f0507e556f6d220275730bffb2decf07653c17bdd0139dbe27304a3ebaf"
+    },
+    {
+      "scope": "strengthened native calibration and grouping contracts",
+      "passed": 5,
+      "failed": 0,
+      "logSha256": "efcf16df0cdf38843aeec0ca2b97d4aa87ebb30e8026fc84f4c4dd70a8490704"
+    },
+    {
+      "scope": "legacy row grouping, private capacity, imports and attachment fences",
+      "passed": 39,
+      "failed": 0,
+      "logSha256": "b6a5a6d180a79c3e5da9d5e8ad6e83c147284aa7257332dc2bc0af3226582a67"
+    }
+  ],
+  "typecheck": "passed",
+  "targetedEslint": "passed",
+  "diffCheck": "passed",
+  "independentReview": "PASS",
+  "standaloneBenchmarkRun": false,
+  "limitations": [
+    "Combined source benchmark and normal source gates are pending.",
+    "Local native Miniflare D1 synthetic fixture does not establish hosted owner/provider/device behavior.",
+    "No rollback, CAS, epoch, replay, quota or post-failure reconciliation logic changed."
+  ]
+}

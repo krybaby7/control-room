@@ -3,7 +3,7 @@ import { validateTaskGraph } from './task-graph.ts';
 import { migratePlanningV3ToV4 } from './planning-migration.ts';
 import { currentWeek } from './calendar.ts';
 import type { Workspace } from './types.ts';
-import { migratePlanningV1ToV2, migratePlanningV2ToV3, measurePlanning } from './workspace-migrations.ts';
+import { migratePlanningV1ToV2, migratePlanningV2ToV3, measureValidatedPlanning } from './workspace-migrations.ts';
 export const WORKSPACE_LIMITS = { tasks: 2000, captures: 1000, milestones: 100, bytes: 1_000_000, serializedBytes: 1_250_000 } as const;
 export class WorkspaceValidationError extends Error {}
 const id = z.string().min(1).max(128).regex(/^\S(?:[\s\S]*\S)?(?![\s\S])/u, 'Invalid input');
@@ -79,7 +79,7 @@ export function parseWorkspaceExport(value: unknown, savedAt?: string, options: 
     if (completed !== Boolean(task.completedAt)) fail('Task completion history must agree with its status.');
   }
   try{validateTaskGraph(ws);}catch(error){fail(error instanceof Error?error.message:'Invalid dependency graph.');}
-  const measured = measurePlanning(ws);
+  const measured = measureValidatedPlanning(ws);
   if (measured.contentBytes > WORKSPACE_LIMITS.bytes) fail('Workspace exceeds the 1 MB user-content storage limit.');
   if (measured.serializedBytes > WORKSPACE_LIMITS.serializedBytes) fail('Workspace exceeds the 1.25 MB serialized storage limit.');
   return ws;

@@ -55,7 +55,7 @@
       ],
       "blockers": [
         "Hosted private owner authentication/passkey and actual-device offline acceptance remain external.",
-        "Exact-e4 normalized merge and complete file-backup native gates passed. Release acceptance remains blocked by canonical main jobs-read failure and unchanged D1 save performance gate; real hosted/device acceptance remains separate."
+        "Final integrated-source canonical, complete recovery and unchanged performance acceptance remain pending; historical e4/772 failures are retained in dated evidence."
       ]
     },
     {
@@ -252,7 +252,7 @@
         "Exacte4 firstnormal39194510942/job117874255539 FAILED ONLYD1savep952499.678949ms>2000,p501797.993855;SQLite978.531809,D1read859.966659 PASS;100outcomes/sixrestores perengine/errors[]. Artifact12161845635 sha256325994989f843e4becbaa72d22b4f77751d0ee98619434ce99f068de4cedcfe4. No rerun or latency waiver; release acceptance blocked."
       ],
       "blockers": [
-        "Final proxy-hardened exact candidate canonical/package-integrity gates pending; current3c canonical performance and Windows gates pass.",
+        "Reviewed combined save-path repair requires exact-source canonical, performance, Windows and package-integrity gates; older source passes do not substitute.",
         "Production cutover requires a complete verified existing-data snapshot. Native read API truncates the saved workspace value, so it cannot establish a complete recovery point. Obtain owner/provider full D1 snapshot before deployment.",
         "Owner authenticated hosted smoke, physical devices, private service/provider consent and enabled-scope acceptance remain external."
       ],
@@ -263,7 +263,7 @@
       ]
     }
   ],
-  "nextAction": "Preserve frozen e4 and UNVALIDATED review packages. No native-SHA integration or rerun: unchanged performance gate failed. Jobs diagnostic is nonreproduction only; investigate any future causal fix against original evidence without changing canonical acceptance. Further bounded causal investigation or missing runtime/sandbox implementation may proceed independently with explicit source-specific tests; neither requires relabeling failed gates.",
+  "nextAction": "Wait for the one combined e9645cd diagnostic; inspect all outcomes and unchanged 2000 ms D1 limit. If justified, freeze and push a reviewed exact-source candidate for all canonical CI stages. Preserve historical failures and external gates; no merge/deployment.",
   "allowedStatuses": [
     "not_started",
     "in_progress",
@@ -346,14 +346,16 @@
       "status": "success",
       "artifactId": 12162087989,
       "artifactDigest": "sha256:58b780d4617e2c4a7780af553023e8a6adfe2bc2b048776aab7f36037479247a"
-    }
+    },
+    "historical": true,
+    "scope": "Historical e4 checkpoint retained verbatim; current status is in combinedSaveRepair and resume-checkpoint.json."
   },
-  "updatedAt": "2026-10-19",
+  "updatedAt": "2026-10-21",
   "resumeIteration": {
-    "date": "2026-10-19",
+    "date": "2026-10-21",
     "branch": "feat/control-room-completion-cloud",
     "checkpoint": "resume-checkpoint.json",
-    "status": "source772_failed_hierarchical_query_component_improved_but_gate_still_failed",
+    "status": "reviewed_combined_repair_diagnostic_in_progress_no_canonical_acceptance",
     "canonicalCheckpoint": {
       "source": "3c6681a39d05b9b40ace26b49e5482aa2a4d40ed",
       "run": 39244318516,
@@ -509,7 +511,8 @@
       "artifact": 12184933946,
       "archiveSha256": "cec4906c2aed3be34ce3778d763aeac85d4e635d72190f1f5cbca842bf45b86c",
       "releaseAccepted": false
-    }
+    },
+    "historicalEvidenceNotice": "Fields naming 3c,87,98 and prior unintegrated candidates retain source-specific historical evidence; current772Failures and combinedSaveRepair describe this continuation."
   },
   "datetimeValidationCandidate": {
     "status": "failed_exact_source_canonical_and_performance",
@@ -565,5 +568,23 @@
     "limitMs": 2000,
     "normalRun": false,
     "nextWork": "Exact byte measurement CPU reduction and bounded contiguous pre-write assertion grouping; independent review and combined exact-source canonical required."
+  },
+  "combinedSaveRepair": {
+    "localSource": "e9645cdafe26e965c7ff5edca8301e3e421307be",
+    "components": [
+      "f0ce1fcfacdc60a9be3f65c8f16fefd993759027",
+      "d949189631542978b1fdbd598dd6a8b636ef96d2",
+      "9d6c893743b8a03a58cdc8a0b8b9e55adf6c9487"
+    ],
+    "status": "material_diagnostic_improvement_but_gate_failed",
+    "benchmarkWorkloadAndThresholdUnchanged": true,
+    "limitMs": 2000,
+    "canonicalAcceptance": "pending",
+    "raceCause": "unproven; strengthened physical-PUT/epoch race assertions retain all conflict/no-success checks",
+    "deploymentAuthorized": false,
+    "D1saveP95Ms": 2028.8546369999967,
+    "diagnosticOnly": true,
+    "normalRun": false,
+    "nextWork": "Investigate remaining synchronous preparation/RPC and storage-compaction CPU. No unchanged rerun or waiver."
   }
 }
