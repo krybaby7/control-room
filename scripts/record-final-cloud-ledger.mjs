@@ -22,7 +22,7 @@ const hash=value=>require(typeof value==='string'&&/^[a-f0-9]{64}$/.test(value),
 function proof(value,main=false){
  keys(value,main?['runId','jobId','artifactId','steps']:['runId','jobId','artifactId','stepNumber']);
  for(const key of ['runId','jobId','artifactId'])identifier(value[key]);
- if(main){keys(value.steps,MAIN);for(const value of Object.values(value.steps)){identifier(value);require(value<=1000,'input-step');}}
+ if(main){keys(value.steps,MAIN);for(const step of Object.values(value.steps)){identifier(step);require(step<=1000,'input-step');}}
  else{identifier(value.stepNumber);require(value.stepNumber<=1000,'input-step');}
 }
 function config(value){
