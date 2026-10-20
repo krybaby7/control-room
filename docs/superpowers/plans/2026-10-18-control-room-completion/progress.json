@@ -263,7 +263,7 @@
       ]
     }
   ],
-  "nextAction": "Inspect terminal currentCandidate canonical and normal benchmark logs. Continue evidence-directed repairs after any genuine failure, then all exact-source gates and artifact integrity. No unchanged retry, merge or deployment.",
+  "nextAction": "Retain failed764 normal gate and await complete canonical terminal. Implement/review bounded adjacent post-write generation assertions based measured remaining prepare/bind work; keep all predicates and native bounds, then one new source diagnostic and all exact-candidate gates. No unchanged rerun, merge or deployment.",
   "allowedStatuses": [
     "not_started",
     "in_progress",
@@ -613,10 +613,16 @@
     "canonicalJob": 118933660328,
     "normalBenchmarkRun": 39511585081,
     "normalBenchmarkJob": 118933662322,
-    "status": "canonical_checks_running",
+    "status": "normal_performance_failed_other_canonical_stages_running",
     "acceptance": "pending",
     "deployed": false,
     "merged": false,
-    "privateHistoryPublished": false
+    "privateHistoryPublished": false,
+    "normalBenchmarkPassed": false,
+    "D1saveP95Ms": 5642.07733,
+    "D1saveP50Ms": 1836.110432,
+    "limitMs": 2000,
+    "normalArtifact": 12306057959,
+    "normalArtifactSha256": "1105d1cc036161c864004675b7c5d41d40612c175ae258f27385ebd91c70a720"
   }
 }

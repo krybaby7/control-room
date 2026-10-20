@@ -77,7 +77,10 @@
     "Source publication is a sanitized public-parent commit sequence based only on public772; rejected private checkpoint/history excluded.",
     "Published four sanitized public-parent review commits to existing draft PR1; exact source764c774 treec4d858a4. Canonical39511585072/job118933660328 and unchanged normal39511585081/job118933662322 running; not accepted yet.",
     "Fresh final-cohort diagnostic5242 failed2026.267146ms>2000; one actualRPC reduction, wholepath gain nonmaterial. No unchanged rerun or threshold waiver.",
-    "Default PR merge checkout feea2db4670557d5e6f06d30d2e23648a6180206 has exact same treec4d858a4 asF; explicit-main/benchmark/helper checkouts useF. No automatic merge performed."
+    "Default PR merge checkout feea2db4670557d5e6f06d30d2e23648a6180206 has exact same treec4d858a4 asF; explicit-main/benchmark/helper checkouts useF. No automatic merge performed.",
+    "764 normal39511585081/job118933662322 FAILED D1savep955642.077330/p501836.110432ms>2000; artifact12306057959/SHA1105d1cc036161c864004675b7c5d41d40612c175ae258f27385ebd91c70a720. All100outcomes/6restores/engine/errors[]; wave4 delayedall20saves, causeunproven. Automaticdiagnostic1938.054299ms passdoesnotreplacefailednormal.",
+    "764 completeNode andbridge steps passed; canonicalrun continues. Bothcontrolledbrowserperformance andnativeWindows runs andsegmented recoverypassed.",
+    "ONEcurrent-sourceCPUobserverdiagnostic failed2217.998636ms; no5.6sstallreproduced. Actualmutationauthorityprepare/bind605pairs1.487s. Narrowpostwritegenerationassertiongrouping authorized, isolatedsource/tests/review inprogress; original12rowgroups/thresholdsunchanged."
   ],
   "disabled": [
     "paid inference",

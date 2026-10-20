@@ -1,0 +1,517 @@
+{
+  "format": "control-room-loaded-d1-main-thread-cpu-diagnostic-v1",
+  "source": "764c774382b57ad8ace2be5e0a92ef4ed6a675b9",
+  "tree": "c4d858a4bf1b3a062ef9f42343c0c35d2947eafb",
+  "overlaySha256": "432503dc10f6c06c10bb1550461d1640989116c118d1d633a5ad25172a08a012",
+  "rawProfileSha256": "acb16ba83cd916736801e61800c92d1323223d46730a00294870cc3a32be5596",
+  "rawReportSha256": "5ee8cb2d1c9bd1be2879d4747bdebe620ab6cc41c1abbee586c0c716bdbf0249",
+  "diagnosticOnly": true,
+  "workloadUnchanged": true,
+  "status": "failed",
+  "errors": [],
+  "regressionFailures": [
+    "miniflareD1:concurrentSessionSave"
+  ],
+  "diagnosticCpu": {
+    "scope": "unchanged loaded miniflareD1 concurrentSessions only",
+    "samplingIntervalMicroseconds": 1000,
+    "wallMilliseconds": 18983.686275999993,
+    "processCpuMicroseconds": {
+      "user": 14493854,
+      "system": 1801767
+    },
+    "eventLoop": {
+      "idle": 382.2735679999996,
+      "active": 18601.45738500049,
+      "utilization": 0.979863095987484
+    },
+    "profileSamples": 17057,
+    "profileNodes": 3938,
+    "limitations": [
+      "Diagnostic observer overhead; never acceptance.",
+      "V8 profile samples the main Node thread only; native workerd child CPU is excluded.",
+      "process.cpuUsage includes this Node process and may include its worker threads; event-loop active time is not a CPU counter."
+    ]
+  },
+  "commandOutcomes": {
+    "committed": 55,
+    "conflict": 45
+  },
+  "confirmedRestores": 6,
+  "sampledWallMilliseconds": 19117.2,
+  "selfTimeByCategoryMilliseconds": {
+    "node runtime": 765.668,
+    "miniflare": 9323.101,
+    "other dependency": 590.238,
+    "V8 builtin": 4127.378,
+    "application": 2461.543,
+    "zod": 1849.272
+  },
+  "topExclusiveFrames": [
+    {
+      "source": "node_modules/miniflare/dist/src/index.js",
+      "function": "fetch",
+      "line": 77771,
+      "column": 8,
+      "sampledMilliseconds": 8600.968,
+      "sampledWallPercent": 44.99073086016781
+    },
+    {
+      "source": "[V8 builtin]",
+      "function": "(idle)",
+      "line": 0,
+      "column": 0,
+      "sampledMilliseconds": 2258.29,
+      "sampledWallPercent": 11.812870085577385
+    },
+    {
+      "source": "[V8 builtin]",
+      "function": "(garbage collector)",
+      "line": 0,
+      "column": 0,
+      "sampledMilliseconds": 982.467,
+      "sampledWallPercent": 5.13917833155483
+    },
+    {
+      "source": "node_modules/zod/v3/types.js",
+      "function": "_parse",
+      "line": 1934,
+      "column": 11,
+      "sampledMilliseconds": 692.324,
+      "sampledWallPercent": 3.621471763647396
+    },
+    {
+      "source": "lib/canonical-json.ts",
+      "function": "canonical",
+      "line": 2,
+      "column": 26,
+      "sampledMilliseconds": 402.623,
+      "sampledWallPercent": 2.106077249806457
+    },
+    {
+      "source": "lib/workspace-migrations.ts",
+      "function": "bytes",
+      "line": 23,
+      "column": 15,
+      "sampledMilliseconds": 367.203,
+      "sampledWallPercent": 1.9207990709936602
+    },
+    {
+      "source": "lib/workspace-store.ts",
+      "function": "envelope",
+      "line": 22,
+      "column": 18,
+      "sampledMilliseconds": 356.355,
+      "sampledWallPercent": 1.8640543594250203
+    },
+    {
+      "source": "node_modules/zod/v3/types.js",
+      "function": "_parse",
+      "line": 478,
+      "column": 11,
+      "sampledMilliseconds": 318.586,
+      "sampledWallPercent": 1.6664888163538594
+    },
+    {
+      "source": "node_modules/zod/v3/types.js",
+      "function": "_parseSync",
+      "line": 99,
+      "column": 15,
+      "sampledMilliseconds": 238.619,
+      "sampledWallPercent": 1.248190111522608
+    },
+    {
+      "source": "node_modules/miniflare/dist/src/index.js",
+      "function": "parseWithReadableStreams",
+      "line": 57960,
+      "column": 34,
+      "sampledMilliseconds": 205.005,
+      "sampledWallPercent": 1.0723589228548114
+    },
+    {
+      "source": "[V8 builtin]",
+      "function": "postMessage",
+      "line": 0,
+      "column": 0,
+      "sampledMilliseconds": 180.231,
+      "sampledWallPercent": 0.9427688155169167
+    },
+    {
+      "source": "[V8 builtin]",
+      "function": "run",
+      "line": 0,
+      "column": 0,
+      "sampledMilliseconds": 171.681,
+      "sampledWallPercent": 0.8980446927374302
+    },
+    {
+      "source": "node:inspector",
+      "function": "post",
+      "line": 115,
+      "column": 7,
+      "sampledMilliseconds": 132.485,
+      "sampledWallPercent": 0.693014667419915
+    },
+    {
+      "source": "lib/workspace-validation.ts",
+      "function": "parseWorkspaceExport",
+      "line": 31,
+      "column": 37,
+      "sampledMilliseconds": 125.482,
+      "sampledWallPercent": 0.6563827338731614
+    },
+    {
+      "source": "node_modules/zod/v3/helpers/parseUtil.js",
+      "function": "mergeObjectSync",
+      "line": 82,
+      "column": 27,
+      "sampledMilliseconds": 124.01,
+      "sampledWallPercent": 0.6486828615069152
+    },
+    {
+      "source": "lib/recoverability-snapshot.ts",
+      "function": "measureProspectiveRecoverability",
+      "line": 76,
+      "column": 55,
+      "sampledMilliseconds": 122.855,
+      "sampledWallPercent": 0.6426411817630197
+    },
+    {
+      "source": "lib/workspace-validation.ts",
+      "function": "[anonymous]",
+      "line": 56,
+      "column": 27,
+      "sampledMilliseconds": 118.803,
+      "sampledWallPercent": 0.6214456091896303
+    },
+    {
+      "source": "lib/canonical-json.ts",
+      "function": "[anonymous]",
+      "line": 4,
+      "column": 82,
+      "sampledMilliseconds": 117.211,
+      "sampledWallPercent": 0.6131180298370055
+    },
+    {
+      "source": "node_modules/miniflare/dist/src/index.js",
+      "function": "flatten",
+      "line": 57514,
+      "column": 19,
+      "sampledMilliseconds": 108.025,
+      "sampledWallPercent": 0.5650670600297114
+    },
+    {
+      "source": "[V8 builtin]",
+      "function": "(program)",
+      "line": 0,
+      "column": 0,
+      "sampledMilliseconds": 97.846,
+      "sampledWallPercent": 0.5118218149101332
+    },
+    {
+      "source": "lib/calendar.ts",
+      "function": "cairoDate",
+      "line": 4,
+      "column": 26,
+      "sampledMilliseconds": 93.08,
+      "sampledWallPercent": 0.4868913857677903
+    },
+    {
+      "source": "node:internal/worker/js_transferable",
+      "function": "structuredClone",
+      "line": 113,
+      "column": 25,
+      "sampledMilliseconds": 86.713,
+      "sampledWallPercent": 0.45358629924884397
+    },
+    {
+      "source": "[V8 builtin]",
+      "function": "connect",
+      "line": 0,
+      "column": 0,
+      "sampledMilliseconds": 84.472,
+      "sampledWallPercent": 0.44186387127822063
+    },
+    {
+      "source": "node_modules/undici/lib/core/errors.js",
+      "function": "UndiciError",
+      "line": 5,
+      "column": 15,
+      "sampledMilliseconds": 79.065,
+      "sampledWallPercent": 0.4135804406503044
+    },
+    {
+      "source": "node_modules/zod/v3/types.js",
+      "function": "_parse",
+      "line": 3172,
+      "column": 11,
+      "sampledMilliseconds": 78.367,
+      "sampledWallPercent": 0.40992927834620135
+    },
+    {
+      "source": "node_modules/miniflare/dist/src/index.js",
+      "function": "stringify_primitive",
+      "line": 57717,
+      "column": 29,
+      "sampledMilliseconds": 73.947,
+      "sampledWallPercent": 0.3868087376812504
+    },
+    {
+      "source": "node:internal/errors",
+      "function": "defaultPrepareStackTrace",
+      "line": 95,
+      "column": 34,
+      "sampledMilliseconds": 66.424,
+      "sampledWallPercent": 0.3474567405268554
+    },
+    {
+      "source": "node_modules/zod/v3/types.js",
+      "function": "_getType",
+      "line": 73,
+      "column": 13,
+      "sampledMilliseconds": 60.86,
+      "sampledWallPercent": 0.31835205992509363
+    },
+    {
+      "source": "node_modules/zod/v3/types.js",
+      "function": "_parse",
+      "line": 1748,
+      "column": 11,
+      "sampledMilliseconds": 60.097,
+      "sampledWallPercent": 0.31436088967003534
+    },
+    {
+      "source": "node_modules/miniflare/dist/src/index.js",
+      "function": "stringify2",
+      "line": 57503,
+      "column": 20,
+      "sampledMilliseconds": 59.855,
+      "sampledWallPercent": 0.31309501391417155
+    },
+    {
+      "source": "[V8 builtin]",
+      "function": "close",
+      "line": 0,
+      "column": 0,
+      "sampledMilliseconds": 59.2,
+      "sampledWallPercent": 0.30966877994685416
+    },
+    {
+      "source": "scripts/benchmark-workspace.mjs",
+      "function": "sqlClass",
+      "line": 44,
+      "column": 18,
+      "sampledMilliseconds": 58.791,
+      "sampledWallPercent": 0.3075293453016132
+    },
+    {
+      "source": "[V8 builtin]",
+      "function": "runMicrotasks",
+      "line": 0,
+      "column": 0,
+      "sampledMilliseconds": 57.11,
+      "sampledWallPercent": 0.29873621660075744
+    },
+    {
+      "source": "node_modules/zod/v3/types.js",
+      "function": "_processInputParams",
+      "line": 86,
+      "column": 24,
+      "sampledMilliseconds": 56.434,
+      "sampledWallPercent": 0.2952001339108238
+    },
+    {
+      "source": "[V8 builtin]",
+      "function": "encodeUtf8String",
+      "line": 0,
+      "column": 0,
+      "sampledMilliseconds": 50.327,
+      "sampledWallPercent": 0.2632550791956981
+    },
+    {
+      "source": "node:internal/encoding",
+      "function": "encode",
+      "line": 355,
+      "column": 9,
+      "sampledMilliseconds": 47.748,
+      "sampledWallPercent": 0.24976460988010796
+    },
+    {
+      "source": "lib/task-graph.ts",
+      "function": "build",
+      "line": 21,
+      "column": 15,
+      "sampledMilliseconds": 45.579,
+      "sampledWallPercent": 0.23841880610131191
+    },
+    {
+      "source": "node_modules/zod/v3/helpers/util.js",
+      "function": "getParsedType",
+      "line": 93,
+      "column": 30,
+      "sampledMilliseconds": 42.223,
+      "sampledWallPercent": 0.2208639340489193
+    },
+    {
+      "source": "lib/workspace-export.ts",
+      "function": "buildWorkspaceBundle",
+      "line": 71,
+      "column": 43,
+      "sampledMilliseconds": 38.127,
+      "sampledWallPercent": 0.199438202247191
+    },
+    {
+      "source": "node_modules/zod/v3/types.js",
+      "function": "get path",
+      "line": 14,
+      "column": 13,
+      "sampledMilliseconds": 38.117,
+      "sampledWallPercent": 0.19938589333165946
+    }
+  ],
+  "synchronousNativeProxy": {
+    "bind:mutation_authority": {
+      "calls": 605,
+      "totalMilliseconds": 945.4888709999359,
+      "maximumMilliseconds": 31.997395999991568
+    },
+    "prepare:mutation_authority": {
+      "calls": 605,
+      "totalMilliseconds": 541.4039390000835,
+      "maximumMilliseconds": 48.159600999999384
+    },
+    "prepare:mutation_admission": {
+      "calls": 210,
+      "totalMilliseconds": 417.22166599993216,
+      "maximumMilliseconds": 65.95609199999308
+    },
+    "prepare:audit_page": {
+      "calls": 110,
+      "totalMilliseconds": 343.57657299999846,
+      "maximumMilliseconds": 83.4207890000107
+    },
+    "bind:mutation_admission": {
+      "calls": 210,
+      "totalMilliseconds": 297.53989100009494,
+      "maximumMilliseconds": 13.865708999990602
+    },
+    "prepare:baseline_removal": {
+      "calls": 165,
+      "totalMilliseconds": 285.14851499997167,
+      "maximumMilliseconds": 42.55996600000071
+    },
+    "bind:baseline_removal": {
+      "calls": 165,
+      "totalMilliseconds": 256.5189129999926,
+      "maximumMilliseconds": 37.98708800000168
+    },
+    "bind:workspace_current": {
+      "calls": 165,
+      "totalMilliseconds": 226.14154399997642,
+      "maximumMilliseconds": 7.355612999992445
+    },
+    "prepare:namespaces": {
+      "calls": 110,
+      "totalMilliseconds": 170.72924100004457,
+      "maximumMilliseconds": 17.776038999996672
+    },
+    "prepare:workspace_current": {
+      "calls": 165,
+      "totalMilliseconds": 153.6169650000229,
+      "maximumMilliseconds": 2.8478930000055698
+    },
+    "bind:audit_page": {
+      "calls": 110,
+      "totalMilliseconds": 153.12070600000152,
+      "maximumMilliseconds": 3.5523430000030203
+    },
+    "bind:operational_watermark": {
+      "calls": 110,
+      "totalMilliseconds": 149.0290549999845,
+      "maximumMilliseconds": 2.5445079999917652
+    },
+    "bind:namespaces": {
+      "calls": 110,
+      "totalMilliseconds": 148.53586399988126,
+      "maximumMilliseconds": 3.053962000005413
+    },
+    "bind:receipt_count": {
+      "calls": 110,
+      "totalMilliseconds": 144.0724400000472,
+      "maximumMilliseconds": 3.074768000005861
+    },
+    "bind:private_capacity": {
+      "calls": 55,
+      "totalMilliseconds": 114.65057000000525,
+      "maximumMilliseconds": 24.56050099999993
+    },
+    "prepare:receipt_count": {
+      "calls": 110,
+      "totalMilliseconds": 103.9572130000015,
+      "maximumMilliseconds": 23.61326199999894
+    },
+    "prepare:physical_page": {
+      "calls": 10,
+      "totalMilliseconds": 92.66821399999026,
+      "maximumMilliseconds": 34.03253099999711
+    },
+    "bind:terminal_reserve": {
+      "calls": 55,
+      "totalMilliseconds": 92.32081999998627,
+      "maximumMilliseconds": 19.684313999998267
+    },
+    "prepare:operational_watermark": {
+      "calls": 110,
+      "totalMilliseconds": 83.9712969999382,
+      "maximumMilliseconds": 3.252795000000333
+    },
+    "bind:receipt": {
+      "calls": 55,
+      "totalMilliseconds": 75.60460800000874,
+      "maximumMilliseconds": 5.253607999999076
+    },
+    "bind:schema_contract": {
+      "calls": 55,
+      "totalMilliseconds": 73.60561100003542,
+      "maximumMilliseconds": 2.5966820000030566
+    },
+    "prepare:schema_contract": {
+      "calls": 55,
+      "totalMilliseconds": 72.03655899999285,
+      "maximumMilliseconds": 13.539299999989453
+    },
+    "prepare:private_capacity": {
+      "calls": 55,
+      "totalMilliseconds": 64.7906929999881,
+      "maximumMilliseconds": 4.025603000001865
+    },
+    "prepare:terminal_reserve": {
+      "calls": 55,
+      "totalMilliseconds": 53.67947099999583,
+      "maximumMilliseconds": 2.2549589999980526
+    },
+    "prepare:receipt": {
+      "calls": 55,
+      "totalMilliseconds": 43.683852000016486,
+      "maximumMilliseconds": 3.0078380000049947
+    },
+    "bind:physical_page": {
+      "calls": 10,
+      "totalMilliseconds": 14.745728000023519,
+      "maximumMilliseconds": 1.835030000002007
+    }
+  },
+  "synchronousNativeProxyTotalMilliseconds": 5117.85881899995,
+  "limitations": [
+    "Observer overhead means this is diagnostic evidence, never acceptance.",
+    "V8 sample deltas include synchronous blocking/wait time; sampled wall time is not CPU execution time.",
+    "Main Node thread sampling excludes workerd child CPU; process.cpuUsage includes Node process threads.",
+    "Inclusive functions deduplicate recursive occurrences per sample; inclusive rows overlap each other.",
+    "No SQL text, bindings, owner IDs, command bodies, host metadata or absolute paths are included in this summary.",
+    "The unchanged overlay does not record absolute command start timestamps, so per-wave command phases and synchronous elapsed totals are available, but exact V8 samples cannot be assigned to waves without adding new instrumentation."
+  ],
+  "baselineBenchmarkScriptSha256": "7e3120e414d6ad50b3bf77e7bc130adca7f0508cb00fd27b0eb3e61439481da3",
+  "diagnosticBenchmarkScriptSha256": "a6530a838fede4c86322c43340b6b1be30760893b5aa82992414ac5db13fcd34",
+  "canonicalStallReproduced": false,
+  "canonicalStallCause": "unproven"
+}
