@@ -165,7 +165,11 @@ def main():
  # manifest/archive substitutions; it does not trust embedded source identity.
  changed=dict(members);source='control-room-source-'+commit+'.tar';source_files=inspector.entries(changed[source],64*MIB,git_comment=commit);first=next(p for p in source_files if not p.startswith('source/bridge/'));source_files[first]=source_files[first]+b'\n'
  forged=io.BytesIO()
- with tarfile.open(fileobj=forged,mode='w') as tar:
+ # Match Git's bounded USTAR path-prefix encoding. Python's default PAX
+ # format adds per-file extension headers for these legitimate long paths;
+ # those headers are deliberately rejected before the Git-byte comparison.
+ # This control must reach that comparison with a structurally valid archive.
+ with tarfile.open(fileobj=forged,mode='w',format=tarfile.USTAR_FORMAT) as tar:
   for name,value in source_files.items():
    info=tarfile.TarInfo(name);info.size=len(value);info.mode=0o644;tar.addfile(info,io.BytesIO(value))
  changed[source]=forged.getvalue();manifest=json_value(changed['manifest.json'])
