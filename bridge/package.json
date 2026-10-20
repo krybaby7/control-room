@@ -1,0 +1,25 @@
+{
+  "name": "control-room-windows-bridge",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "files": [
+    "src/*.mjs",
+    "windows/*.ps1",
+    "README.md",
+    "config.example.json",
+    "executor/*.mjs",
+    "executor/README.md",
+    "executor/config.example.json",
+    "windows/owned-process/Program.cs",
+    "windows/owned-process/OwnedProcess.csproj",
+    "windows/owned-process/README.md",
+    "executor/launch-config.example.json"
+  ],
+  "scripts": {
+    "test": "node --test --test-timeout=30000 test/*.test.mjs"
+  }
+}

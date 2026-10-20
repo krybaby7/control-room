@@ -1,0 +1,2 @@
+CREATE INDEX `audit_owner_time` ON `audit_events` (`user_id`,`occurred_at`,`event_id`);--> statement-breakpoint
+CREATE INDEX `audit_owner_origin_time` ON `audit_events` (`user_id`,`origin`,`occurred_at`,`event_id`);

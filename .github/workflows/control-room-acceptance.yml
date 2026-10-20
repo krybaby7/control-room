@@ -1,0 +1,54 @@
+name: Control Room accessibility and browser acceptance
+on:
+  push:
+    branches: [main, 'feat/**']
+    paths:
+      - '.github/workflows/control-room-acceptance.yml'
+      - 'playwright.acceptance.config.ts'
+      - 'tests/acceptance/**'
+      - 'components/**'
+      - 'app/**'
+      - 'lib/**'
+      - 'scripts/test-worker.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+  pull_request:
+  workflow_dispatch:
+concurrency:
+  group: control-room-acceptance-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+jobs:
+  acceptance:
+    name: Native acceptance - ${{ matrix.browser }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    env:
+      CONTROL_ROOM_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm run install:ci
+      - run: npm run build
+      - run: npx playwright install --with-deps ${{ matrix.browser }}
+      - run: npx playwright test --config playwright.acceptance.config.ts --project=${{ matrix.browser }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: synthetic-acceptance-${{ matrix.browser }}
+          path: |
+            acceptance-results.json
+            test-results-acceptance/
+          if-no-files-found: error
+          retention-days: 7

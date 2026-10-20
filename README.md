@@ -4,11 +4,11 @@ A private planning home for TAMENNI and Trade Graph, built for PC, phone and tab
 
 ## Cloud implementation program
 
-The [completion plan](docs/superpowers/plans/2026-10-18-control-room-completion/00-master-plan.md) covers 47 audited gaps across setup and eight implementation phases. Start with [CLOUD-START.md](docs/superpowers/plans/2026-10-18-control-room-completion/CLOUD-START.md) and root [AGENTS.md](AGENTS.md). Implementation and review workers must use `gpt-6.1-sol`; the launch must verify model selection. [Import provenance](docs/source-import.json) records the audited source baseline. The plan is not a claim that its features are implemented.
+The [completion plan](docs/superpowers/plans/2026-10-18-control-room-completion/00-master-plan.md) covers 48 audited gaps across setup and eight implementation phases. Start with [CLOUD-START.md](docs/superpowers/plans/2026-10-18-control-room-completion/CLOUD-START.md) and root [AGENTS.md](AGENTS.md). Implementation and review workers must use `gpt-6.1-sol`; the launch must verify model selection. [Import provenance](docs/source-import.json) records the audited source baseline. The plan is not a claim that its features are implemented.
 
 This repository's source is public with the owner's approval. Hosted access, workspace records, connected accounts and credentials remain private.
 
-## What works in the first release
+## Imported first release
 
 - Today: equally visible projects, explained next-action suggestions, weekly focus and review items.
 - Projects: editable goals, milestone acceptance criteria, task planning, dates, priority, Now/Next/Later, dependency links and explicit blockers.
@@ -19,13 +19,15 @@ This repository's source is public with the owner's approval. Hosted access, wor
 
 The starting content is editable. User goals are confirmed; task suggestions and acceptance wording are proposed. Source links refer to the inspection on **17 October 2026**. They are not a live GitHub or runtime feed. No deadlines, weekly commitments or completion claims are invented.
 
-## Current integration boundary
+## Completion candidate
 
-Automated GitHub/document synchronization and the PC collector are not connected in this release. Existing sources are remote links and saved excerpts. Agent coordination and trading operations are separate later work. No trading service, credentials, paid model calls or live orders are controlled by this application.
+The implementation branch adds reviewed planning/evidence/history workflows, bounded source adapters, reviews and automation, the installable Windows bridge, guarded agent coordination, and complete recovery tooling. [Progress and checkpoints](docs/superpowers/plans/2026-10-18-control-room-completion/progress.json) and the [gap ledger](docs/superpowers/plans/2026-10-18-control-room-completion/09-gap-coverage.md) distinguish implemented source, exact automated evidence and external acceptance.
+
+This candidate has not replaced the private hosted version. The finite manual Sites service adapter and private runtime/Windows invocation integration are implemented with default-disabled configuration. Native private ingress, provider connections, actual Windows installation, physical-device/passkey acceptance and hosted scheduling require their own observed checks; unattended renewal remains unsupported. Paid inference and operational/trading effects remain disabled. A fixture or saved schedule does not prove external execution. See the [release runbook](docs/operations/release.md).
 
 ## Local development
 
-Node 22.13+ and npm are required (Node 24 is used for the built-in SQLite tests). Install with `npm ci` after cloning. PowerShell users can invoke `npm.cmd` if execution policy blocks `npm.ps1`.
+Use Node 24 and install the locked dependencies with `npm run install:ci` after cloning. PowerShell users can invoke `npm.cmd` if execution policy blocks `npm.ps1`.
 
 ```text
 npm run db:generate
@@ -35,7 +37,7 @@ node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1
 npm run dev
 ```
 
-Apply each migration once. Production migrations are applied by Sites during publication. Preview and production databases are separate.
+The commands above show the original two migrations. For the completion branch, also apply every later `drizzle/*.sql` in filename order once to the isolated local database; never edit an already applied migration. Production migrations are applied by Sites during publication. Preview and production databases are separate.
 
 The portable starter defaults to port 5173. Use its printed URL. Loopback development simulates sign-in at `/signin-with-chatgpt?return_to=/`; hosted sign-in and private access are provided by Sites. The mock identity is not included in production builds. Never add authentication headers or tokens to browser code.
 
@@ -54,9 +56,9 @@ The private Site identity is tracked in `.openai/hosting.json`. Source publicati
 
 ## Data behavior
 
-The first visit initializes a workspace once. Changing seed code never resets an existing plan. A stale save receives HTTP 409; the interface refreshes the latest state while retaining the editor draft for review and explicit retry. An unchanged uncertain retry keeps its mutation ID, including after revision refresh, so an already-committed submission is not executed twice. Failed refresh retains the last saved workspace with a stale indication; session expiry hides protected state and offers sign-in. Drafts are not persisted to browser storage.
+The first visit initializes a workspace once. Changing seed code never resets an existing plan. A stale save receives HTTP 409; the interface refreshes the latest state while retaining the editor draft for review and explicit retry. An unchanged uncertain retry keeps its mutation ID, including after revision refresh, so an already-committed submission is not executed twice. Failed refresh retains the last saved workspace with a stale indication; session expiry hides protected state and offers sign-in. Server drafts are separate from the authoritative plan. Browser device drafts are off by default and require explicit trust and unlock; their recovery never submits automatically.
 
-Dependencies must be within one project and acyclic. Blocked tasks cannot be completed, and reopening a predecessor cannot invalidate an already-completed dependent. Achieved milestones require acceptance evidence. Completion is an owner-recorded fact, not automatic verification of release readiness or profitability.
+On the completion branch, dependencies can cross projects within one authenticated workspace and must remain globally acyclic. Blocked tasks cannot be completed, and reopening a predecessor cannot invalidate an already-completed dependent. Achieved milestones require acceptance evidence. Completion is an owner-recorded fact, not automatic verification of release readiness or profitability.
 
 Use Sources → Export to download a portable JSON snapshot. Restore validates the schema, references and storage limits, previews counts, requires a final action and protects the current revision. The previous workspace is retained atomically and can be downloaded after restore. This remains a user-managed backup flow. Archive retains stored records and does not free capacity.
 
@@ -65,3 +67,19 @@ Legacy migration preserves the available history and anchors existing weekly pin
 The 17 October baseline is a snapshot, not live monitoring. It matches verified repository identities, preserves all existing project/task/milestone edits and adds proposed records only. Source implementation, historical test reports, current runtime acceptance and profitability are separate claims. The baseline grants no installation, trading, paid-call or deployment approval.
 
 The approved scope and implementation checklist are under `docs/superpowers/`. The [reliability and baseline verification record](docs/superpowers/verification/2026-10-17-reliability-baseline.md) separates completed local checks from remaining publication and hosted verification.
+
+## Completion implementation status
+
+Cloud implementation is in progress on the completion branch. The existing deployed version has not been replaced by this checkpoint. See [progress](docs/superpowers/plans/2026-10-18-control-room-completion/progress.json) and the [cloud verification checkpoint](docs/superpowers/verification/2026-10-18-cloud-foundation.md) for implemented slices, exact checks and remaining acceptance gates.
+
+## Planning completion branch
+
+This source branch adds editable portfolio identities,archive/restore,milestone ordering and workspaces,safe final-clone task moves/bulk changes,full capture triage,copyable search and complete attention queues. Archived project/milestone descendants retain their IDs and history. Removing an archived record requires a revision-bound impact review and a verified recovery point; nothing cascades silently.
+
+Weekly plans use Cairo Monday weeks with optional capacity and task estimates. Unknown estimates remain unknown; over-capacity is advisory. Carry/remove and frozen review corrections are explicit owner commands. The review editor retains recoverable prose; later task changes do not rewrite frozen snapshots. Recurrence is manual proposal generation with stable occurrence identities,empty evidence and no weekly pin. Removed occurrences retain their disposition and cannot regenerate. No unattended scheduler is activated.
+
+Search query,filters and page can be copied in the URL; treat such links as private workspace context. Attention explains planning findings and links old commitments to their source week for explicit review. Missing external providers do not imply fresh sources. Today retains a six-item preview and an explicit complete ready-work queue.
+
+Run the full regression gate with `npm test`,`npm run typecheck`,`npm run lint`,`npm run build`,`npm run test:fixture` and `npm run test:e2e`. The latter two use an isolated synthetic worker/database; they do not prove hosted identity,physical devices,provider execution or deployment. See [planning verification](docs/verification/planning-workflows.md) for the actual source version and cloud results.
+
+The completion branch also contains structured evidence and decision history, explicit owner assessments, subject review context, private staged attachments, and reviewed native ZIP recovery. File availability is verified through the private server adapter; imported metadata and model/provider text do not establish acceptance. Private R2 provisioning, hosted owner-session checks and background-runner activation remain release gates. See `docs/verification/evidence-history.md` and the completion plan's `progress.json` for exact source and CI evidence. The existing private Site has not been redeployed from this branch.

@@ -1,0 +1,41 @@
+name: Control Room controlled browser performance
+on:
+  push:
+    branches: [main, 'feat/**']
+    paths: ['.github/workflows/control-room-browser-performance.yml', 'playwright.performance.config.ts', 'tests/performance/**', 'components/**', 'app/**', 'lib/**', 'package.json', 'package-lock.json']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: controlled-browser-performance-${{ github.event.pull_request.head.ref || github.ref }}
+  cancel-in-progress: true
+jobs:
+  browser-performance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CONTROL_ROOM_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm run install:ci
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test --config playwright.performance.config.ts
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: controlled-browser-performance
+          path: |
+            benchmark-results/browser*.json
+            benchmark-results/fixture-worker-*.log
+            browser-performance-results.json
+            test-results-performance/
+          if-no-files-found: error
+          retention-days: 7

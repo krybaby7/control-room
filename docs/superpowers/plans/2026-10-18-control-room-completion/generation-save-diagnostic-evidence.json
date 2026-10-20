@@ -1,0 +1,2361 @@
+{
+  "format": "control-room-generation-diagnostic-v1",
+  "source": "12617bd4a631f7f24c20e3a4e558333fc4d1be80",
+  "tree": "cfd63fb2ff8a0988282c7fbb1ef9cb868bcc6949",
+  "nodeVersion": "v24.19.0",
+  "benchmarkScriptSha256": "7e3120e414d6ad50b3bf77e7bc130adca7f0508cb00fd27b0eb3e61439481da3",
+  "rawReportSha256": "595645855d10ba9aa7e35d5f8380ae6457a5ae4e94cb16d68283933fbba4e56d",
+  "rawLogSha256": "213837bb62e78eda99d97f4be51f020288a3758bb8296855ee11192899bf9cf9",
+  "instrumentation": "Existing CONTROL_ROOM_PROFILE_COMMANDS=1 only; no source instrumentation changes or overlays.",
+  "benchmarkAssertionsWorkloadAndThresholdsUnchanged": true,
+  "runCount": 1,
+  "terminalExitCode": 0,
+  "status": "passed",
+  "errors": [],
+  "regressionFailures": [],
+  "disposition": "Narrow diagnostic pass (4.300259ms below unchanged 2000ms gate); not canonical acceptance, comfortable margin, or proof the earlier canonical shared stall was fixed. No rerun.",
+  "method": {
+    "warmups": 1,
+    "samples": 5,
+    "percentile": "nearest rank; p95 is the largest of five measured samples",
+    "timing": "host performance.now; includes actual database binding round trips where used; setup excluded",
+    "budgetsMilliseconds": {
+      "sqlite": {
+        "planningRead": 2500,
+        "evidenceRead": 5000,
+        "indexedOwnerPage": 250,
+        "fullExport": 10000,
+        "jsonParse": 500,
+        "strictBundleParse": 5000,
+        "canonicalJsonHash": 3000,
+        "reviewedRestore": 30000,
+        "sourceIdentityRead": 1500,
+        "runtimeIdentityRead": 1500,
+        "concurrentSessionRead": 1500,
+        "concurrentSessionSave": 2000,
+        "concurrentWave": 30000
+      },
+      "miniflareD1": {
+        "planningRead": 7500,
+        "evidenceRead": 20000,
+        "indexedOwnerPage": 2500,
+        "fullExport": 30000,
+        "jsonParse": 500,
+        "strictBundleParse": 5000,
+        "canonicalJsonHash": 3000,
+        "reviewedRestore": 60000,
+        "sourceIdentityRead": 1500,
+        "runtimeIdentityRead": 1500,
+        "concurrentSessionRead": 1500,
+        "concurrentSessionSave": 2000,
+        "concurrentWave": 60000
+      }
+    },
+    "thresholdMeaning": "Explicit coarse CI regression gates, not production service-level objectives.",
+    "limits": {
+      "planning": {
+        "tasks": 2000,
+        "captures": 1000,
+        "milestones": 100,
+        "bytes": 1000000,
+        "serializedBytes": 1250000
+      },
+      "evidenceRead": {
+        "rows": 10000,
+        "bytes": 8000000,
+        "attempts": 3,
+        "pageSize": 200
+      },
+      "bundle": {
+        "bytes": 8000000,
+        "rows": 10000,
+        "pageSize": 200,
+        "attempts": 3
+      },
+      "d1Recovery": {
+        "snapshots": 10,
+        "ownerBytes": 20000000,
+        "d1BundleBytes": 1800000
+      },
+      "importStaging": {
+        "bytes": 8000000,
+        "ownerBytes": 20000000,
+        "stages": 8,
+        "chunkBytes": 262144,
+        "ttlMs": 3600000
+      },
+      "ownerTables": 36
+    },
+    "commandProfiling": {
+      "enabled": true,
+      "activation": "CONTROL_ROOM_PROFILE_COMMANDS=1",
+      "scope": "Node benchmark only; one stable DB wrapper per engine",
+      "limits": {
+        "commandFrames": 100,
+        "intervalsPerCommand": 1024,
+        "sequenceEntriesPerCommand": 128,
+        "recoveryPhasesPerCommand": 64
+      },
+      "interpretation": "Binding await durations overlap. Union is used for coverage; outside-observed-await wall includes admission waiting, JS/hash/validation and all other unobserved awaits, and is not a CPU attribution. No SQL, parameters, owner IDs, command bodies or result rows are recorded."
+    }
+  },
+  "engines": [
+    {
+      "name": "sqlite",
+      "status": "passed",
+      "fixture": {
+        "fixtureSha256": "e317a75d64365f4488d3bf1ca60da26920a9a70b218fe1e89ea8bebb9d2e18e9",
+        "planningTasks": 1700,
+        "planningTaskCap": 2000,
+        "planningCaptures": 850,
+        "planningCaptureCap": 1000,
+        "recordCapFraction": 0.85,
+        "evidenceHeads": 256,
+        "evidenceVersions": 256,
+        "normalizedRows": 512,
+        "bundleBytes": 1439901,
+        "bundleSha256": "b22872bf036ea6fe3b240df411fd28c7b5350bca88ebb3b36d7cf44da19b0ccf",
+        "d1RecoveryByteFraction": 0.799945,
+        "compactPlanningBytes": 975111,
+        "statementFillerBytes": 364
+      },
+      "confirmedRestores": 6,
+      "retainedRecoverySnapshots": 6,
+      "concurrency": {
+        "sessions": 20,
+        "sameOwnerSessions": 10,
+        "independentOwners": 10,
+        "waves": 5,
+        "commitsPerWave": 11,
+        "conflictsPerWave": 9,
+        "duplicateReplayEffects": 0,
+        "transport": "actual synchronous SQLite binding; not twenty operating-system connections"
+      },
+      "identityReadCoverage": {
+        "sourceConnections": 1,
+        "sourceTargets": 1,
+        "runtimeDevices": 1,
+        "runtimeConfigurations": 1,
+        "liveRuntimeSamples": 0,
+        "limitation": "Positive metadata identities only. Never-enrolled device and absent observation are verified honestly; no provider or live hardware."
+      },
+      "measurements": [
+        {
+          "operation": "planningRead",
+          "p50Milliseconds": 17.572437000000036,
+          "p95Milliseconds": 28.048621999999796,
+          "budgetMilliseconds": 2500,
+          "passed": true
+        },
+        {
+          "operation": "evidenceRead",
+          "p50Milliseconds": 116.61412699999983,
+          "p95Milliseconds": 140.85355500000014,
+          "budgetMilliseconds": 5000,
+          "passed": true
+        },
+        {
+          "operation": "indexedOwnerPage",
+          "p50Milliseconds": 0.19765600000027916,
+          "p95Milliseconds": 0.2331699999999728,
+          "budgetMilliseconds": 250,
+          "passed": true
+        },
+        {
+          "operation": "fullExport",
+          "p50Milliseconds": 222.419124,
+          "p95Milliseconds": 243.0481420000001,
+          "budgetMilliseconds": 10000,
+          "passed": true
+        },
+        {
+          "operation": "jsonParse",
+          "p50Milliseconds": 2.8064559999993435,
+          "p95Milliseconds": 2.8213590000004842,
+          "budgetMilliseconds": 500,
+          "passed": true
+        },
+        {
+          "operation": "strictBundleParse",
+          "p50Milliseconds": 162.83682600000066,
+          "p95Milliseconds": 189.9127010000002,
+          "budgetMilliseconds": 5000,
+          "passed": true
+        },
+        {
+          "operation": "canonicalJsonHash",
+          "p50Milliseconds": 17.250543000000107,
+          "p95Milliseconds": 31.57535199999984,
+          "budgetMilliseconds": 3000,
+          "passed": true
+        },
+        {
+          "operation": "reviewedRestore",
+          "p50Milliseconds": 1576.2287319999996,
+          "p95Milliseconds": 1632.239026000001,
+          "budgetMilliseconds": 30000,
+          "passed": true
+        },
+        {
+          "operation": "sourceIdentityRead",
+          "p50Milliseconds": 41.670312000000195,
+          "p95Milliseconds": 56.155902000000424,
+          "budgetMilliseconds": 1500,
+          "passed": true
+        },
+        {
+          "operation": "runtimeIdentityRead",
+          "p50Milliseconds": 17.644295000000056,
+          "p95Milliseconds": 30.06952900000033,
+          "budgetMilliseconds": 1500,
+          "passed": true
+        },
+        {
+          "operation": "concurrentSessionRead",
+          "concurrentSessions": 20,
+          "p50Milliseconds": 212.01416099999915,
+          "p95Milliseconds": 241.68750700000237,
+          "budgetMilliseconds": 1500,
+          "passed": true
+        },
+        {
+          "operation": "concurrentSessionSave",
+          "concurrentSessions": 20,
+          "p50Milliseconds": 415.9235039999985,
+          "p95Milliseconds": 784.9862269999976,
+          "budgetMilliseconds": 2000,
+          "passed": true
+        }
+      ],
+      "commandProfileGroups": [
+        {
+          "ownerClass": "contended_near_bound",
+          "status": "committed",
+          "commands": 5,
+          "p50WallMilliseconds": 693.8043609999986,
+          "p95WallMilliseconds": 783.7484409999997,
+          "p50RpcCount": 15,
+          "p95RpcCount": 15,
+          "p95ObservedAwaitUnionMilliseconds": 41.17645399999674,
+          "p95OutsideObservedAwaitMilliseconds": 742.571987000003
+        },
+        {
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "commands": 45,
+          "p50WallMilliseconds": 695.6256600000015,
+          "p95WallMilliseconds": 785.6868670000003,
+          "p50RpcCount": 1,
+          "p95RpcCount": 1,
+          "p95ObservedAwaitUnionMilliseconds": 0.15630400000009104,
+          "p95OutsideObservedAwaitMilliseconds": 785.6142990000008
+        },
+        {
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "commands": 50,
+          "p50WallMilliseconds": 262.1680030000007,
+          "p95WallMilliseconds": 393.5680300000022,
+          "p50RpcCount": 13,
+          "p95RpcCount": 13,
+          "p95ObservedAwaitUnionMilliseconds": 11.848407000001316,
+          "p95OutsideObservedAwaitMilliseconds": 381.9351260000076
+        }
+      ],
+      "concurrentWavesMilliseconds": [
+        654.435023,
+        720.3545989999984,
+        659.9887909999998,
+        696.7258790000014,
+        786.4002660000006
+      ],
+      "outcomeCounts": {
+        "committed": 55,
+        "conflict": 45
+      },
+      "all100Outcomes": [
+        {
+          "wave": 0,
+          "session": 10,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 180.21309800000017,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 0,
+          "session": 12,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 192.1411650000009,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 0,
+          "session": 13,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 203.12729200000103,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 0,
+          "session": 14,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 224.62835799999993,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 0,
+          "session": 11,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 238.16155199999957,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 0,
+          "session": 15,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 249.80900999999903,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 0,
+          "session": 16,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 262.1680030000007,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 0,
+          "session": 17,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 275.33929499999977,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 0,
+          "session": 18,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 288.42122199999903,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 0,
+          "session": 19,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 300.8311130000002,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 0,
+          "session": 0,
+          "ownerClass": "contended_near_bound",
+          "status": "committed",
+          "wallMilliseconds": 651.0294380000014,
+          "rpcCount": 15,
+          "statementCount": 32
+        },
+        {
+          "wave": 0,
+          "session": 1,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 651.5835990000014,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 0,
+          "session": 2,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 651.4144259999994,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 0,
+          "session": 3,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 651.6402750000016,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 0,
+          "session": 4,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 651.9160069999998,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 0,
+          "session": 5,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 652.236307000001,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 0,
+          "session": 6,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 652.4836080000005,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 0,
+          "session": 7,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 652.7746450000013,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 0,
+          "session": 8,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 653.1634670000003,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 0,
+          "session": 9,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 653.3719200000014,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 1,
+          "session": 10,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 201.33076999999685,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 1,
+          "session": 12,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 213.30615899999975,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 1,
+          "session": 13,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 224.3292610000026,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 1,
+          "session": 14,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 235.211341000002,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 1,
+          "session": 11,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 246.2858500000002,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 1,
+          "session": 15,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 269.55936199999996,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 1,
+          "session": 16,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 281.93878699999914,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 1,
+          "session": 17,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 294.679071999999,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 1,
+          "session": 18,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 306.70949499999915,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 1,
+          "session": 19,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 318.3617680000025,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 1,
+          "session": 0,
+          "ownerClass": "contended_near_bound",
+          "status": "committed",
+          "wallMilliseconds": 717.457067000003,
+          "rpcCount": 15,
+          "statementCount": 32
+        },
+        {
+          "wave": 1,
+          "session": 1,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 718.0423129999981,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 1,
+          "session": 2,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 718.4577570000001,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 1,
+          "session": 3,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 718.698177000002,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 1,
+          "session": 4,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 718.937285,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 1,
+          "session": 5,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 719.1467389999998,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 1,
+          "session": 6,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 719.396332999997,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 1,
+          "session": 7,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 719.6427220000005,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 1,
+          "session": 8,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 719.878725999999,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 1,
+          "session": 9,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 720.1323560000019,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 2,
+          "session": 11,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 190.53110200000083,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 2,
+          "session": 12,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 202.6953539999995,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 2,
+          "session": 13,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 214.63616199999888,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 2,
+          "session": 14,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 225.73439599999983,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 2,
+          "session": 10,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 236.7001420000015,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 2,
+          "session": 15,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 249.69019200000184,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 2,
+          "session": 16,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 261.3518210000002,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 2,
+          "session": 17,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 273.5196679999972,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 2,
+          "session": 19,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 288.3726289999977,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 2,
+          "session": 18,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 302.03703099999984,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 2,
+          "session": 0,
+          "ownerClass": "contended_near_bound",
+          "status": "committed",
+          "wallMilliseconds": 657.1538330000003,
+          "rpcCount": 15,
+          "statementCount": 32
+        },
+        {
+          "wave": 2,
+          "session": 1,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 657.7470720000019,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 2,
+          "session": 2,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 657.9338719999978,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 2,
+          "session": 3,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 658.1882430000005,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 2,
+          "session": 4,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 658.4189490000026,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 2,
+          "session": 5,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 658.6563349999997,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 2,
+          "session": 6,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 658.9307560000016,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 2,
+          "session": 7,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 659.2896440000004,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 2,
+          "session": 8,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 659.546868999998,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 2,
+          "session": 9,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 659.7491030000019,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 3,
+          "session": 10,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 203.21544300000096,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 3,
+          "session": 12,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 215.23122199999852,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 3,
+          "session": 11,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 226.0888240000022,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 3,
+          "session": 13,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 237.2967720000015,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 3,
+          "session": 14,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 248.86983600000167,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 3,
+          "session": 15,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 261.4443229999997,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 3,
+          "session": 16,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 273.0774670000028,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 3,
+          "session": 17,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 285.5778620000019,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 3,
+          "session": 18,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 296.8488440000001,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 3,
+          "session": 19,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 318.84358800000336,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 3,
+          "session": 0,
+          "ownerClass": "contended_near_bound",
+          "status": "committed",
+          "wallMilliseconds": 693.8043609999986,
+          "rpcCount": 15,
+          "statementCount": 32
+        },
+        {
+          "wave": 3,
+          "session": 1,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 694.4374689999968,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 3,
+          "session": 2,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 694.7420659999989,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 3,
+          "session": 3,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 695.099381,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 3,
+          "session": 4,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 695.3442680000007,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 3,
+          "session": 5,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 695.6256600000015,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 3,
+          "session": 6,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 695.8522300000004,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 3,
+          "session": 7,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 696.071138000003,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 3,
+          "session": 8,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 696.3118990000003,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 3,
+          "session": 9,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 696.5378769999988,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 4,
+          "session": 10,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 311.3639179999991,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 4,
+          "session": 12,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 323.44446400000015,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 4,
+          "session": 11,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 335.11589599999934,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 4,
+          "session": 13,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 346.38598699999784,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 4,
+          "session": 15,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 358.3716200000017,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 4,
+          "session": 14,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 369.83490000000165,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 4,
+          "session": 16,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 381.30415899999934,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 4,
+          "session": 18,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 393.5680300000022,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 4,
+          "session": 17,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 404.8332730000002,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 4,
+          "session": 19,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 415.78700899999967,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 4,
+          "session": 0,
+          "ownerClass": "contended_near_bound",
+          "status": "committed",
+          "wallMilliseconds": 783.7484409999997,
+          "rpcCount": 15,
+          "statementCount": 32
+        },
+        {
+          "wave": 4,
+          "session": 1,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 784.2794069999982,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 4,
+          "session": 2,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 784.4914349999999,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 4,
+          "session": 3,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 784.7514950000004,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 4,
+          "session": 4,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 784.955410999999,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 4,
+          "session": 5,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 785.2065670000011,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 4,
+          "session": 6,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 785.457703,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 4,
+          "session": 7,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 785.6868670000003,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 4,
+          "session": 8,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 785.9733860000015,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 4,
+          "session": 9,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 786.2104819999986,
+          "rpcCount": 1,
+          "statementCount": 1
+        }
+      ],
+      "medianCommittedWork": {
+        "contended_near_bound": {
+          "medianPreparedStatementCount": 32,
+          "medianRpcCount": 15
+        },
+        "independent_small": {
+          "medianPreparedStatementCount": 30.0,
+          "medianRpcCount": 13.0
+        }
+      },
+      "medianCommittedPhasesMilliseconds": {
+        "contended_near_bound": {
+          "hash-current": 210.32098899999983,
+          "originalserializer": 32.636225999998715,
+          "bundleoriginal": 54.221712999999,
+          "projectplan": 0.08621900000071037,
+          "afterserializer": 14.897075999997469,
+          "bundleafter": 72.56576600000335,
+          "expandfuture": 34.332328000000416,
+          "measure": 7.513771999998426,
+          "finalreads": 62.15047300000151
+        },
+        "independent_small": {
+          "hash-current": 0.02572849999887694,
+          "originalserializer": 0.16768650000085472,
+          "bundleoriginal": 33.22777599999972,
+          "projectplan": 0.01125649999903544,
+          "afterserializer": 0.07126699999935227,
+          "bundleafter": 7.1179229999979725,
+          "expandfuture": 63.333637499999895,
+          "measure": 0.3784674999988056,
+          "finalreads": 3.9521529999983613
+        }
+      }
+    },
+    {
+      "name": "miniflareD1",
+      "status": "passed",
+      "fixture": {
+        "fixtureSha256": "e317a75d64365f4488d3bf1ca60da26920a9a70b218fe1e89ea8bebb9d2e18e9",
+        "planningTasks": 1700,
+        "planningTaskCap": 2000,
+        "planningCaptures": 850,
+        "planningCaptureCap": 1000,
+        "recordCapFraction": 0.85,
+        "evidenceHeads": 256,
+        "evidenceVersions": 256,
+        "normalizedRows": 512,
+        "bundleBytes": 1439901,
+        "bundleSha256": "a43b9a498d262960871cad465c4070ea421f835364c363800db0b9ed18ea5ba5",
+        "d1RecoveryByteFraction": 0.799945,
+        "compactPlanningBytes": 975111,
+        "statementFillerBytes": 364
+      },
+      "confirmedRestores": 6,
+      "retainedRecoverySnapshots": 6,
+      "concurrency": {
+        "sessions": 20,
+        "sameOwnerSessions": 10,
+        "independentOwners": 10,
+        "waves": 5,
+        "commitsPerWave": 11,
+        "conflictsPerWave": 9,
+        "duplicateReplayEffects": 0,
+        "transport": "actual local Miniflare D1 binding; not hosted network clients"
+      },
+      "identityReadCoverage": {
+        "sourceConnections": 1,
+        "sourceTargets": 1,
+        "runtimeDevices": 1,
+        "runtimeConfigurations": 1,
+        "liveRuntimeSamples": 0,
+        "limitation": "Positive metadata identities only. Never-enrolled device and absent observation are verified honestly; no provider or live hardware."
+      },
+      "measurements": [
+        {
+          "operation": "planningRead",
+          "p50Milliseconds": 52.95273199999792,
+          "p95Milliseconds": 58.08025099999941,
+          "budgetMilliseconds": 7500,
+          "passed": true
+        },
+        {
+          "operation": "evidenceRead",
+          "p50Milliseconds": 359.00605799999903,
+          "p95Milliseconds": 390.02515100000164,
+          "budgetMilliseconds": 20000,
+          "passed": true
+        },
+        {
+          "operation": "indexedOwnerPage",
+          "p50Milliseconds": 16.440166000000318,
+          "p95Milliseconds": 24.794455000002927,
+          "budgetMilliseconds": 2500,
+          "passed": true
+        },
+        {
+          "operation": "fullExport",
+          "p50Milliseconds": 763.145373000003,
+          "p95Milliseconds": 770.5839479999995,
+          "budgetMilliseconds": 30000,
+          "passed": true
+        },
+        {
+          "operation": "jsonParse",
+          "p50Milliseconds": 3.184772000000521,
+          "p95Milliseconds": 3.7413960000048974,
+          "budgetMilliseconds": 500,
+          "passed": true
+        },
+        {
+          "operation": "strictBundleParse",
+          "p50Milliseconds": 174.12522000000172,
+          "p95Milliseconds": 186.28037600000243,
+          "budgetMilliseconds": 5000,
+          "passed": true
+        },
+        {
+          "operation": "canonicalJsonHash",
+          "p50Milliseconds": 17.739613999998255,
+          "p95Milliseconds": 20.056727000002866,
+          "budgetMilliseconds": 3000,
+          "passed": true
+        },
+        {
+          "operation": "reviewedRestore",
+          "p50Milliseconds": 3106.743935999999,
+          "p95Milliseconds": 3179.800357,
+          "budgetMilliseconds": 60000,
+          "passed": true
+        },
+        {
+          "operation": "sourceIdentityRead",
+          "p50Milliseconds": 140.9392599999992,
+          "p95Milliseconds": 156.34830900000088,
+          "budgetMilliseconds": 1500,
+          "passed": true
+        },
+        {
+          "operation": "runtimeIdentityRead",
+          "p50Milliseconds": 89.20041599999968,
+          "p95Milliseconds": 133.25358699999924,
+          "budgetMilliseconds": 1500,
+          "passed": true
+        },
+        {
+          "operation": "concurrentSessionRead",
+          "concurrentSessions": 20,
+          "p50Milliseconds": 438.6197930000053,
+          "p95Milliseconds": 549.3092499999984,
+          "budgetMilliseconds": 1500,
+          "passed": true
+        },
+        {
+          "operation": "concurrentSessionSave",
+          "concurrentSessions": 20,
+          "p50Milliseconds": 1382.9182089999958,
+          "p95Milliseconds": 1995.699741000004,
+          "budgetMilliseconds": 2000,
+          "passed": true
+        }
+      ],
+      "commandProfileGroups": [
+        {
+          "ownerClass": "contended_near_bound",
+          "status": "committed",
+          "commands": 5,
+          "p50WallMilliseconds": 1876.3190009999962,
+          "p95WallMilliseconds": 1962.3091260000074,
+          "p50RpcCount": 15,
+          "p95RpcCount": 15,
+          "p95ObservedAwaitUnionMilliseconds": 663.7459079999535,
+          "p95OutsideObservedAwaitMilliseconds": 1398.6795289999864
+        },
+        {
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "commands": 45,
+          "p50WallMilliseconds": 1906.4440829999949,
+          "p95WallMilliseconds": 2008.6911760000075,
+          "p50RpcCount": 1,
+          "p95RpcCount": 1,
+          "p95ObservedAwaitUnionMilliseconds": 3.853514999995241,
+          "p95OutsideObservedAwaitMilliseconds": 2004.9569390000106
+        },
+        {
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "commands": 50,
+          "p50WallMilliseconds": 1339.3357380000016,
+          "p95WallMilliseconds": 1382.1914699999907,
+          "p50RpcCount": 13,
+          "p95RpcCount": 13,
+          "p95ObservedAwaitUnionMilliseconds": 1227.0452989999903,
+          "p95OutsideObservedAwaitMilliseconds": 220.88664599998447
+        }
+      ],
+      "concurrentWavesMilliseconds": [
+        1906.6561000000002,
+        1820.8629440000004,
+        1929.629952999996,
+        2021.609043999997,
+        1998.8490770000062
+      ],
+      "outcomeCounts": {
+        "committed": 55,
+        "conflict": 45
+      },
+      "all100Outcomes": [
+        {
+          "wave": 0,
+          "session": 10,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1281.299662000005,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 0,
+          "session": 11,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1284.0732179999977,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 0,
+          "session": 12,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1306.1833540000007,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 0,
+          "session": 13,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1306.598656999995,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 0,
+          "session": 14,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1307.2001279999968,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 0,
+          "session": 15,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1307.5418900000004,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 0,
+          "session": 16,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1307.8900910000011,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 0,
+          "session": 17,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1308.1758599999957,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 0,
+          "session": 18,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1308.5640819999971,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 0,
+          "session": 19,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1308.9040909999967,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 0,
+          "session": 0,
+          "ownerClass": "contended_near_bound",
+          "status": "committed",
+          "wallMilliseconds": 1859.047430999999,
+          "rpcCount": 15,
+          "statementCount": 32
+        },
+        {
+          "wave": 0,
+          "session": 1,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 1865.8076220000003,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 0,
+          "session": 2,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 1871.3375900000028,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 0,
+          "session": 3,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 1876.743991000003,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 0,
+          "session": 4,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 1882.1484610000043,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 0,
+          "session": 5,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 1887.0953450000015,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 0,
+          "session": 6,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 1892.0338669999983,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 0,
+          "session": 7,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 1896.8884009999965,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 0,
+          "session": 8,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 1901.6488260000042,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 0,
+          "session": 9,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 1906.4440829999949,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 1,
+          "session": 10,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1285.9816619999983,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 1,
+          "session": 19,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1289.5837410000022,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 1,
+          "session": 11,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1295.7874389999997,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 1,
+          "session": 12,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1296.3565820000003,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 1,
+          "session": 13,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1296.6619199999986,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 1,
+          "session": 14,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1297.0492900000027,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 1,
+          "session": 15,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1297.3776120000039,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 1,
+          "session": 16,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1297.6631500000003,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 1,
+          "session": 17,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1297.9379220000046,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 1,
+          "session": 18,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1298.258010999998,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 1,
+          "session": 0,
+          "ownerClass": "contended_near_bound",
+          "status": "committed",
+          "wallMilliseconds": 1770.3038119999983,
+          "rpcCount": 15,
+          "statementCount": 32
+        },
+        {
+          "wave": 1,
+          "session": 1,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 1776.2324880000015,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 1,
+          "session": 2,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 1782.7077519999948,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 1,
+          "session": 3,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 1787.7903789999982,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 1,
+          "session": 4,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 1792.8919349999996,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 1,
+          "session": 5,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 1799.0323370000042,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 1,
+          "session": 6,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 1804.513672000001,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 1,
+          "session": 7,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 1810.2579810000025,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 1,
+          "session": 8,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 1815.3247889999984,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 1,
+          "session": 9,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 1820.667220999996,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 2,
+          "session": 10,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1331.156839999996,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 2,
+          "session": 18,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1334.4558350000007,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 2,
+          "session": 11,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1338.6266449999966,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 2,
+          "session": 12,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1338.9633299999987,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 2,
+          "session": 13,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1339.3357380000016,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 2,
+          "session": 14,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1339.6910700000008,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 2,
+          "session": 15,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1339.9722809999948,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 2,
+          "session": 17,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1340.2503979999965,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 2,
+          "session": 16,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1340.5691460000016,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 2,
+          "session": 19,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1340.8402720000013,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 2,
+          "session": 0,
+          "ownerClass": "contended_near_bound",
+          "status": "committed",
+          "wallMilliseconds": 1876.3190009999962,
+          "rpcCount": 15,
+          "statementCount": 32
+        },
+        {
+          "wave": 2,
+          "session": 1,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 1882.5057820000002,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 2,
+          "session": 2,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 1888.2454540000035,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 2,
+          "session": 3,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 1894.1352009999973,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 2,
+          "session": 4,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 1900.0284420000025,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 2,
+          "session": 5,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 1905.108536000007,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 2,
+          "session": 6,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 1911.5112900000022,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 2,
+          "session": 7,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 1917.4663750000036,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 2,
+          "session": 8,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 1923.595269999998,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 2,
+          "session": 9,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 1929.4927380000008,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 3,
+          "session": 10,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1362.7573970000085,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 3,
+          "session": 19,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1374.343544999996,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 3,
+          "session": 11,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1374.7779369999917,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 3,
+          "session": 12,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1375.0826219999872,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 3,
+          "session": 13,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1375.400679000013,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 3,
+          "session": 14,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1375.6765929999965,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 3,
+          "session": 15,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1375.9532270000054,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 3,
+          "session": 17,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1376.337824000002,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 3,
+          "session": 16,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1376.7262060000066,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 3,
+          "session": 18,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1377.0098810000054,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 3,
+          "session": 0,
+          "ownerClass": "contended_near_bound",
+          "status": "committed",
+          "wallMilliseconds": 1962.3091260000074,
+          "rpcCount": 15,
+          "statementCount": 32
+        },
+        {
+          "wave": 3,
+          "session": 1,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 1969.7912889999861,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 3,
+          "session": 2,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 1975.3206159999972,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 3,
+          "session": 3,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 1982.2377620000043,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 3,
+          "session": 4,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 1988.9691040000034,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 3,
+          "session": 5,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 1995.6439079999982,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 3,
+          "session": 6,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 2001.8614700000035,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 3,
+          "session": 7,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 2008.6911760000075,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 3,
+          "session": 8,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 2015.1154929999902,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 3,
+          "session": 9,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 2021.4109679999965,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 4,
+          "session": 12,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1370.9497029999911,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 4,
+          "session": 11,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1372.5879069999937,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 4,
+          "session": 10,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1378.4357620000083,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 4,
+          "session": 13,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1378.7932069999952,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 4,
+          "session": 14,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1379.1165019999899,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 4,
+          "session": 15,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1379.4037229999958,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 4,
+          "session": 17,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1379.7261350000044,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 4,
+          "session": 16,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1382.1914699999907,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 4,
+          "session": 18,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1382.5688250000094,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 4,
+          "session": 19,
+          "ownerClass": "independent_small",
+          "status": "committed",
+          "wallMilliseconds": 1382.8604930000001,
+          "rpcCount": 13,
+          "statementCount": 30
+        },
+        {
+          "wave": 4,
+          "session": 0,
+          "ownerClass": "contended_near_bound",
+          "status": "committed",
+          "wallMilliseconds": 1942.709949000011,
+          "rpcCount": 15,
+          "statementCount": 32
+        },
+        {
+          "wave": 4,
+          "session": 1,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 1952.1397109999962,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 4,
+          "session": 2,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 1958.3479650000081,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 4,
+          "session": 3,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 1964.5670899999968,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 4,
+          "session": 4,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 1970.6526500000036,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 4,
+          "session": 5,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 1975.5926290000061,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 4,
+          "session": 6,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 1980.8662719999993,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 4,
+          "session": 7,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 1986.707906999989,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 4,
+          "session": 8,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 1992.370121999993,
+          "rpcCount": 1,
+          "statementCount": 1
+        },
+        {
+          "wave": 4,
+          "session": 9,
+          "ownerClass": "contended_near_bound",
+          "status": "conflict",
+          "wallMilliseconds": 1998.6743149999966,
+          "rpcCount": 1,
+          "statementCount": 1
+        }
+      ],
+      "medianCommittedWork": {
+        "contended_near_bound": {
+          "medianPreparedStatementCount": 32,
+          "medianRpcCount": 15
+        },
+        "independent_small": {
+          "medianPreparedStatementCount": 30.0,
+          "medianRpcCount": 13.0
+        }
+      },
+      "medianCommittedPhasesMilliseconds": {
+        "contended_near_bound": {
+          "hash-current": 155.93111399999907,
+          "originalserializer": 668.3317040000038,
+          "bundleoriginal": 54.80729799999972,
+          "projectplan": 0.09025499999552267,
+          "afterserializer": 14.483455000001413,
+          "bundleafter": 73.22932199999923,
+          "expandfuture": 39.88487400000304,
+          "measure": 10.340867000006256,
+          "finalreads": 142.59472000000096
+        },
+        "independent_small": {
+          "hash-current": 0.019098500000836793,
+          "originalserializer": 0.1175809999986086,
+          "bundleoriginal": 9.898965500000486,
+          "projectplan": 0.010530499999731546,
+          "afterserializer": 0.07089599999744678,
+          "bundleafter": 9.335195499999827,
+          "expandfuture": 39.749382500005595,
+          "measure": 0.401345999995101,
+          "finalreads": 256.197879000003
+        }
+      }
+    }
+  ],
+  "limitations": [
+    "Synthetic isolated metadata only; no live owner, hosted D1/R2 network, physical device, provider or model.",
+    "Shared Actions CPU and local Miniflare transport vary; five samples provide a coarse regression signal, not a statistically stable tail estimate.",
+    "The large case approaches planning record caps and the default D1 metadata recovery byte bound; it does not claim all independent maxima fit simultaneously.",
+    "Restore includes real quarantine, private recovery snapshot, receipt, audit and guarded central command; no fake adapter or timing subtraction."
+  ],
+  "comparisons": {
+    "prior5242": {
+      "source": "5242a0226ad41493235dedb1a990181db17d6682",
+      "rawReportSha256": "180db413cc47e272cf0c3be2fc393dba6d62bf21a5f709c0ad18511dbce45867",
+      "d1Save": {
+        "operation": "concurrentSessionSave",
+        "concurrentSessions": 20,
+        "p50Milliseconds": 1433.997583000004,
+        "p95Milliseconds": 2026.2671459999983,
+        "budgetMilliseconds": 2000,
+        "passed": false
+      },
+      "candidateSaveP95Milliseconds": 1995.699741000004,
+      "p95ChangePercent": -1.5085574999494367
+    },
+    "priorCombined": {
+      "source": "e9645cdafe26e965c7ff5edca8301e3e421307be",
+      "rawReportSha256": "25b6a6664b4a9bc0bdb86cf4bfb0f6ee8be120d5e75b2058571c8b2809245757",
+      "d1Save": {
+        "operation": "concurrentSessionSave",
+        "concurrentSessions": 20,
+        "p50Milliseconds": 1436.9867479999957,
+        "p95Milliseconds": 2028.8546369999967,
+        "budgetMilliseconds": 2000,
+        "passed": false
+      },
+      "candidateSaveP95Milliseconds": 1995.699741000004,
+      "p95ChangePercent": -1.6341681358215898
+    }
+  },
+  "componentProofSha256": "a859bc063804c0e95ddc9caab72f92f13feb1bbb4a96c361c2a784f66790a0b5"
+}

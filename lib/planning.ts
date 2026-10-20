@@ -1,9 +1,10 @@
 import type { Workspace, Task, TaskInput, MilestoneInput, CaptureInput, Capture, Recommendation } from './types.ts';
+import { validateTaskGraph } from './task-graph.ts';
 import { currentWeek, isCurrentWeek } from './calendar.ts';
 import { parseWorkspaceExport } from './workspace-validation.ts';
 import { applyProjectBaseline, BASELINE_ID } from './project-baselines.ts';
 
-const TASK_FIELDS = ['projectId', 'milestoneId', 'title', 'notes', 'status', 'horizon', 'priority', 'dueDate', 'weekly', 'dependsOn', 'blocker', 'sourceUrl', 'evidence'];
+const TASK_FIELDS = ['estimateMinutes','projectId', 'milestoneId', 'title', 'notes', 'status', 'horizon', 'priority', 'dueDate', 'weekly', 'dependsOn', 'blocker', 'sourceUrl', 'evidence'];
 const MILESTONE_FIELDS = ['projectId', 'title', 'description', 'acceptance', 'status', 'targetDate', 'evidence'];
 const CAPTURE_FIELDS = ['title', 'body', 'projectId', 'kind', 'sourceUrl'];
 const DAY_MS = 86_400_000;
@@ -63,28 +64,32 @@ function projectId(value: unknown, workspace: Workspace): string {
   return id;
 }
 
-function milestoneId(value: unknown, project: string, workspace: Workspace): string | null {
+function milestoneId(value: unknown, project: string, workspace: Workspace, previousId?:string|null): string | null {
   if (value === null) return null;
   const id = text(value, 'Milestone', 128, true);
   const found = workspace.milestones.find((milestone) => milestone.id === id);
   if (!found || found.projectId !== project) throw new Error('Select a milestone belonging to this project.');
+  if(found.archivedAt&&previousId!==id)throw new Error('Select an active milestone.');
   return id;
 }
 
-function validateTask(value: unknown, workspace: Workspace): TaskInput {
+function validateTask(value: unknown, workspace: Workspace, existing?:Task): TaskInput {
   const data = fields(value, TASK_FIELDS, 'Task');
   const project = projectId(data.projectId, workspace);
+  if(workspace.projects.find(row=>row.id===project)?.archivedAt&&existing?.projectId!==project)throw new Error('Select an active project.');
   if (typeof data.weekly !== 'boolean') throw new Error('Weekly focus must be true or false.');
   if (!Array.isArray(data.dependsOn) || data.dependsOn.length > 50) throw new Error('Dependencies must be a list of at most 50 task IDs.');
   const dependsOn = data.dependsOn.map((id) => text(id, 'Dependency ID', 128, true));
   if (new Set(dependsOn).size !== dependsOn.length) throw new Error('A dependency may appear only once; remove duplicate dependencies.');
   for (const id of dependsOn) {
     const dependency = workspace.tasks.find((task) => task.id === id);
-    if (!dependency || dependency.projectId !== project) throw new Error('Dependencies must be existing tasks in the same project.');
+    if (!dependency) throw new Error('Dependencies must be existing tasks in this workspace.');
   }
+  if(data.estimateMinutes!==undefined && data.estimateMinutes!==null && (typeof data.estimateMinutes!=='number' || !Number.isInteger(data.estimateMinutes) || data.estimateMinutes<1 || data.estimateMinutes>10080))throw new Error('Estimate must be an integer from1 to10080 minutes, or unknown.');
   const status = choice(data.status, ['proposed', 'todo', 'doing', 'review', 'done', 'archived'] as const, 'Task status');
+  if(data.weekly&&status==='proposed'&&!existing?.weekly)throw new Error('Accept a proposed task before committing it to a week.');
   return {
-    projectId: project, milestoneId: milestoneId(data.milestoneId, project, workspace),
+    estimateMinutes:(data.estimateMinutes as number|null|undefined)??null, projectId: project, milestoneId: milestoneId(data.milestoneId, project, workspace, existing?.milestoneId),
     title: text(data.title, 'Title', 200, true), notes: text(data.notes, 'Notes', 10000), status,
     horizon: choice(data.horizon, ['now', 'next', 'later'] as const, 'Horizon'),
     priority: choice(data.priority, ['high', 'normal', 'low'] as const, 'Priority'),
@@ -93,12 +98,14 @@ function validateTask(value: unknown, workspace: Workspace): TaskInput {
   };
 }
 
-function validateMilestone(value: unknown, workspace: Workspace): MilestoneInput {
+function validateMilestone(value: unknown, workspace: Workspace, previousProjectId?:string): MilestoneInput {
   const data = fields(value, MILESTONE_FIELDS, 'Milestone');
+  const project=projectId(data.projectId,workspace);
+  if(workspace.projects.find(row=>row.id===project)?.archivedAt&&previousProjectId!==project)throw new Error('Select an active project.');
   const status = choice(data.status, ['planned', 'active', 'achieved'] as const, 'Milestone status');
   const evidence = text(data.evidence, 'Evidence', 5000, status === 'achieved');
   return {
-    projectId: projectId(data.projectId, workspace), title: text(data.title, 'Title', 200, true),
+    projectId: project, title: text(data.title, 'Title', 200, true),
     description: text(data.description, 'Description', 5000), acceptance: text(data.acceptance, 'Acceptance criteria', 5000),
     status, targetDate: optionalDate(data.targetDate, 'Target date'), evidence,
   };
@@ -134,28 +141,9 @@ function timestamp(value: string | undefined): string {
   return parsed.toISOString();
 }
 
-function validateTaskGraph(workspace: Workspace): void {
-  const tasks = new Map(workspace.tasks.map((task) => [task.id, task]));
-  const visiting = new Set<string>();
-  const visited = new Set<string>();
-  function visit(id: string): void {
-    if (visiting.has(id)) throw new Error('Dependencies cannot form a cycle or include the task itself.');
-    if (visited.has(id)) return;
-    visiting.add(id);
-    for (const dependency of tasks.get(id)?.dependsOn ?? []) visit(dependency);
-    visiting.delete(id);
-    visited.add(id);
-  }
-  for (const task of workspace.tasks) visit(task.id);
-  for (const task of workspace.tasks) {
-    if (task.status !== 'done' && !(task.status === 'archived' && task.archivedFromStatus === 'done')) continue;
-    const blockers = getBlockers(task, workspace);
-    if (blockers.length) throw new Error(`Completed task “${task.title}” would be blocked: ${blockers.join(' ')} Clear its blockers or reopen the dependent task first.`);
-  }
-}
 
 /** Commands operate on a clone so rejected commands cannot partially change saved state. */
-export function applyCommand(workspace: Workspace, command: unknown, now?: string): Workspace {
+export function applyCommand(workspace: Workspace, command: unknown, now?: string, options:{baselineRemovedIds?:readonly string[]}={}): Workspace {
   const data = object(command, 'Command');
   const at = timestamp(now);
   const next = structuredClone(workspace);
@@ -167,7 +155,7 @@ export function applyCommand(workspace: Workspace, command: unknown, now?: strin
       fields(data, ['type', 'projectId', 'baselineId'], 'Command');
       const project = projectId(data.projectId, next);
       const baseline = choice(data.baselineId, [BASELINE_ID] as const, 'Baseline');
-      return applyProjectBaseline(next, project, baseline, at);
+      return applyProjectBaseline(next, project, baseline, at, options.baselineRemovedIds);
     }
     case 'workspace.restore': {
       fields(data, ['type', 'workspace'], 'Command');
@@ -200,7 +188,7 @@ export function applyCommand(workspace: Workspace, command: unknown, now?: strin
       fields(data, ['type', 'id', 'patch'], 'Command');
       const existing = findById(next.tasks, data.id, 'Task');
       const patch = fields(data.patch, TASK_FIELDS, 'Task patch');
-      const input = validateTask({ ...pick(existing, TASK_FIELDS), ...patch }, next);
+      const input = validateTask({ ...pick(existing, TASK_FIELDS), ...patch }, next, existing);
       if (input.projectId !== existing.projectId) throw new Error('An existing task cannot move to another project. Create a new task in that project instead.');
       const archivedFromStatus = input.status === 'archived'
         ? existing.status === 'archived' ? existing.archivedFromStatus ?? (existing.completedAt ? 'done' : 'todo') : existing.status
@@ -217,7 +205,7 @@ export function applyCommand(workspace: Workspace, command: unknown, now?: strin
       fields(data, ['type', 'milestone'], 'Command');
       capacity(next.milestones.length, 100, 'milestones');
       const input = validateMilestone(data.milestone, next);
-      next.milestones.push({ ...input, id: crypto.randomUUID(), updatedAt: at });
+      next.milestones.push({ ...input, id: crypto.randomUUID(), updatedAt: at, archivedAt:null, sortKey:Math.max(-1,...next.milestones.filter(row=>row.projectId===input.projectId).map(row=>row.sortKey))+1 });
       activityText = `Created milestone: ${input.title}`;
       activityProject = input.projectId;
       break;
@@ -226,7 +214,7 @@ export function applyCommand(workspace: Workspace, command: unknown, now?: strin
       fields(data, ['type', 'id', 'patch'], 'Command');
       const existing = findById(next.milestones, data.id, 'Milestone');
       const patch = fields(data.patch, MILESTONE_FIELDS, 'Milestone patch');
-      const input = validateMilestone({ ...pick(existing, MILESTONE_FIELDS), ...patch }, next);
+      const input = validateMilestone({ ...pick(existing, MILESTONE_FIELDS), ...patch }, next, existing.projectId);
       if (input.projectId !== existing.projectId) throw new Error('An existing milestone cannot move to another project. Create a new milestone in that project instead.');
       Object.assign(existing, input, { updatedAt: at });
       activityText = `Updated milestone: ${existing.title}`;
@@ -300,7 +288,6 @@ export function getBlockers(task: Task, workspace: Workspace): string[] {
   for (const id of task.dependsOn) {
     const dependency = workspace.tasks.find((candidate) => candidate.id === id);
     if (!dependency) blockers.push('A dependency is missing or unavailable.');
-    else if (dependency.projectId !== task.projectId) blockers.push(`Dependency “${dependency.title}” belongs to another project.`);
     else if (dependency.status === 'archived' && dependency.archivedFromStatus !== 'done') blockers.push(`Archived dependency “${dependency.title}” must be restored and completed, or removed.`);
     else if (dependency.status === 'archived' && dependency.archivedFromStatus === 'done') continue;
     else if (dependency.status !== 'done') blockers.push(`Complete “${dependency.title}” first.`);
@@ -334,17 +321,17 @@ function rank(task: Task, today: string): { score: number; reason: string } {
 export function getRecommendations(workspace: Workspace, today: string): Recommendation[] {
   date(today, 'Today date');
   const ranked = workspace.tasks
-    .filter((task) => !['done', 'archived'].includes(task.status) && getBlockers(task, workspace).length === 0)
+    .filter((task) => !['done', 'archived'].includes(task.status) && !workspace.projects.find(project=>project.id===task.projectId)?.archivedAt && !workspace.milestones.find(milestone=>milestone.id===task.milestoneId)?.archivedAt && getBlockers(task, workspace).length === 0)
     .map((task, index) => ({ task, index, ...rank(task, today) }));
   const groups = workspace.projects.map((project) => ranked
     .filter((entry) => entry.task.projectId === project.id)
     .sort((a, b) => b.score - a.score || a.index - b.index));
   const result: Recommendation[] = [];
-  for (let index = 0; result.length < 6; index += 1) {
+  for (let index = 0; ; index += 1) {
     let added = false;
     for (const group of groups) {
       const entry = group[index];
-      if (entry && result.length < 6) {
+      if (entry) {
         result.push({ taskId: entry.task.id, reason: entry.reason });
         added = true;
       }

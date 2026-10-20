@@ -1,0 +1,1 @@
+CREATE INDEX `audit_owner_entity_kind` ON `audit_events` (`user_id`,`entity_id`,`kind`,`entity_type`);

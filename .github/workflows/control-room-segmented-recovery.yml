@@ -1,0 +1,53 @@
+name: Control Room isolated segmented recovery
+on:
+  push:
+    branches: ['feat/**']
+    paths:
+      - 'scripts/test-recovery-segments-d1.mjs'
+      - 'lib/recovery-segments.ts'
+      - 'lib/recovery-maintenance.ts'
+      - 'lib/recovery-private-continuity.ts'
+      - 'lib/recovery-install.ts'
+      - 'lib/recovery-backups.ts'
+      - 'lib/automations/backup-archive-store.ts'
+      - 'lib/backup-archive-storage.ts'
+      - 'drizzle/**'
+      - '.github/workflows/control-room-segmented-recovery.yml'
+  pull_request:
+    paths:
+      - 'scripts/test-recovery-segments-d1.mjs'
+      - 'lib/recovery-segments.ts'
+      - 'lib/recovery-maintenance.ts'
+      - 'lib/recovery-private-continuity.ts'
+      - 'lib/recovery-install.ts'
+      - 'lib/recovery-backups.ts'
+      - 'lib/automations/backup-archive-store.ts'
+      - 'lib/backup-archive-storage.ts'
+      - 'drizzle/**'
+      - '.github/workflows/control-room-segmented-recovery.yml'
+concurrency:
+  group: control-room-segmented-recovery-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+jobs:
+  isolated-replacement:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm run install:ci
+      - name: Run npm run test:recovery-segments-d1
+        run: npm run test:recovery-segments-d1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: synthetic-segmented-recovery
+          path: benchmark-results/segmented-recovery.json
+          if-no-files-found: error
+          retention-days: 30

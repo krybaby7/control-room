@@ -56,3 +56,12 @@ next-env.d.ts
 /output/
 *.tsbuildinfo
 /work/
+
+/test-results/
+/playwright-report/
+/blob-report/
+
+/release/
+
+# Finite synthetic fixture failure evidence, uploaded only by CI.
+/benchmark-results/fixture-worker-*.log

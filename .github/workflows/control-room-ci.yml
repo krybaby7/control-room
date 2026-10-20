@@ -1,0 +1,78 @@
+name: Control Room checks
+on:
+  push:
+    branches: [main, 'feat/**']
+  pull_request:
+concurrency:
+  group: control-room-ci-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CONTROL_ROOM_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm run install:ci
+      - run: npm test
+      - run: npm run test:bridge
+      - run: npm run typecheck
+      - run: npm run lint
+      - id: build
+        run: npm run build
+      - run: npm run test:generation-d1
+      - run: npm run test:workspace-d1
+      - run: npm run test:sources-d1
+      - run: npm run test:reviews-migration-d1
+      - run: npm run test:reviews-d1
+      - run: npm run test:scheduled-backup-d1
+      - run: npm run test:scheduled-source-d1
+      - id: runtime_d1
+        run: npm run test:runtime-d1
+        timeout-minutes: 5
+      - run: npm run test:fixture-proxy
+      - run: npm run test:fixture
+      - run: npm run test:attachments-r2
+      - run: npm run test:attachment-recovery-r2
+      - if: ${{ !cancelled() && steps.build.conclusion == 'success' && steps.runtime_d1.conclusion == 'success' }}
+        run: npx playwright install --with-deps chromium
+      - if: ${{ !cancelled() && steps.build.conclusion == 'success' && steps.runtime_d1.conclusion == 'success' }}
+        run: npm run test:e2e
+      - if: ${{ !cancelled() && steps.build.conclusion == 'success' && steps.runtime_d1.conclusion == 'success' }}
+        run: npm run test:e2e:r2
+      - if: ${{ !cancelled() && steps.build.conclusion == 'success' && steps.runtime_d1.conclusion == 'success' }}
+        run: npm run test:attachments-http
+      - uses: actions/upload-artifact@v4
+        if: failure() || cancelled()
+        with:
+          name: browser-failure-evidence
+          path: |
+            test-results/
+            test-results-r2/
+            benchmark-results/fixture-worker-*.log
+          if-no-files-found: ignore
+          retention-days: 3
+      - run: npm run package:bridge
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-bridge-package
+          path: release/bridge/
+          if-no-files-found: error
+          retention-days: 90
+      - run: node scripts/package-candidate.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: control-room-candidate-${{ github.event.pull_request.head.sha || github.sha }}
+          path: release/candidate/
+          if-no-files-found: error
+          retention-days: 90

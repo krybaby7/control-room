@@ -1,0 +1,15 @@
+import {createHash} from 'node:crypto';
+import {executionPolicySha256,capabilitySha256,jobSpecSha256} from '../../src/execution-policy.mjs';
+const NOW='2026-10-18T12:00:00.000Z',hash='a'.repeat(64),base='b'.repeat(40);
+/** All identities and native-context labels are synthetic compatibility inputs.
+ * The pure checker issues no authenticated grant and launches no runtime. */
+export function fixture(){
+ const runtime={version:'1.0.0-fixture',sourceCommit:'1'.repeat(40),packageSha256:'2'.repeat(64),toolPolicy:'native-sandbox',executableSha256:'3'.repeat(64),executableVersion:'1.0.0-fixture',toolPolicySha256:'4'.repeat(64)};
+ const policy={schemaVersion:1,enabled:true,maxConcurrent:1,maxJobs:1,maxBatchSeconds:60,maxTimeoutSeconds:60,maxOutputBytesLimit:4096,operations:['project.inspect'],models:[{id:'exact-fixture-model',efforts:['medium']}],repositories:{fixture:{root:'C:\\synthetic\\repository',allowedPaths:['src'],protectedPaths:['src/private','.env'],operations:['project.inspect'],baseCommits:[base]}},runtime,provider:'codex',modelIdentityPolicy:'require-observed',subscriptionOnly:true,extraUsageOffAttested:true};
+ const spec={schemaVersion:1,operation:'project.inspect',projectId:'project-fixture',taskId:'task-fixture',baseWorkspaceRevision:7,taskSnapshotSha256:hash,repositoryKey:'fixture',baseCommit:base,inputArtifactIds:['input-fixture'],requestedModel:'exact-fixture-model',effort:'medium',timeoutSeconds:60,outputBytesLimit:4096,dependsOnJobIds:[]};
+ const capability={schemaVersion:1,deviceId:'device-fixture',configurationSha256:executionPolicySha256(policy),runtime,operations:['project.inspect'],models:[{id:'exact-fixture-model',efforts:['medium']}],repositoryKeys:['fixture'],observedAt:NOW,expiresAt:'2026-10-18T12:05:00.000Z',maxConcurrent:1,availableSlots:1,maxTimeoutSeconds:60,maxOutputBytesLimit:4096,provider:'codex',allowedPathsSha256ByRepositoryKey:{fixture:createHash('sha256').update(JSON.stringify(['src'])).digest('hex')},modelIdentityPolicy:'require-observed',subscriptionOnly:true,extraUsageOffAttested:true};
+ const approval={id:'approval-fixture',jobId:'job-fixture',deviceId:capability.deviceId,specSha256:jobSpecSha256(spec),capabilitySha256:capabilitySha256(capability),configurationSha256:executionPolicySha256(policy),taskSnapshotSha256:hash,approvedAt:NOW,expiresAt:'2026-10-19T12:00:00.000Z',revokedAt:null,attempts:1,budget:{jobs:1,timeoutSeconds:60},origin:'native-owner'};
+ const context={jobId:'job-fixture',deviceId:capability.deviceId,ownerKey:'owner-fixture',projectId:spec.projectId,taskId:spec.taskId,taskSnapshotSha256:hash,repositoryKey:'fixture',baseCommit:base,executionEpoch:3,approvalEpoch:3,jobStatus:'queued',activeAttempts:0,approvalConsumed:false,cancelRequested:false,localDisabled:false,usedJobs:0,usedRuntimeSeconds:0,artifacts:[{id:'input-fixture',ownerKey:'owner-fixture',sha256:'c'.repeat(64),bytes:128,immutable:true}],source:'native-authorized'};
+ const dependencies=[{id:context.jobId,ownerKey:context.ownerKey,dependsOnJobIds:[],status:'queued'}];
+ return {spec,specSha256:jobSpecSha256(spec),policy,capability,approval,context,dependencies,now:NOW};
+}

@@ -1,0 +1,35 @@
+name: Control Room synthetic browser diagnostic
+on:
+  push:
+    branches: ['feat/**']
+    paths: ['.github/workflows/control-room-browser-diagnostic.yml']
+concurrency:
+  group: control-room-browser-diagnostic-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/download-artifact@v4
+        with:
+          name: browser-failure-evidence
+          run-id: 39164432948
+          github-token: ${{ github.token }}
+          path: synthetic-diagnostics
+      - name: Read only sanitized synthetic runtime context
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import {readdir,readFile} from 'node:fs/promises';
+          import {join,basename} from 'node:path';
+          async function walk(path){const result=[];for(const item of await readdir(path,{withFileTypes:true})){if(result.length>100)throw new Error('Diagnostic inventory exceeds bound.');const next=join(path,item.name);if(item.isDirectory())result.push(...await walk(next));else if(item.isFile()&&item.name==='error-context.md'&&path.includes('runtime'))result.push(next);}return result;}
+          const files=await walk('synthetic-diagnostics');if(files.length>4)throw new Error('Unexpected synthetic contexts.');for(const file of files){const bytes=await readFile(file);if(bytes.length>100000)throw new Error('Context exceeds bound.');const value=bytes.toString('utf8').replace(/[A-Za-z0-9_-]{32,}/g,'[synthetic-identifier-redacted]').slice(0,16000);console.log('CONTROL_ROOM_SYNTHETIC_CONTEXT '+basename(file)+'\n'+value);}
+          NODE

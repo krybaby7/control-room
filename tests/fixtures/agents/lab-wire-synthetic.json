@@ -1,0 +1,125 @@
+{
+  "version": "synthetic-1",
+  "runs": [
+    {
+      "id": "synthetic-objective-pass",
+      "taskId": "synthetic-fixture-task",
+      "taskVersion": 2,
+      "taskMode": "read",
+      "fixtureHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "provider": "codex",
+      "requestedModel": "synthetic-model",
+      "observedModel": "synthetic-model",
+      "observedModels": [
+        "synthetic-model"
+      ],
+      "modelVerified": true,
+      "runtimeVersion": "synthetic-runtime",
+      "runtimeToolPolicy": "synthetic-read-policy",
+      "promptMode": "structured",
+      "effort": "medium",
+      "status": "passed",
+      "grade": {
+        "passed": true,
+        "score": 2,
+        "checks": [
+          {
+            "name": "synthetic-a",
+            "passed": true,
+            "detail": "SYNTHETIC_PRIVATE_DETAIL"
+          },
+          {
+            "name": "synthetic-b",
+            "passed": true
+          }
+        ]
+      },
+      "review": {
+        "verdict": "accepted",
+        "minutes": 4,
+        "corrections": 0,
+        "notes": "SYNTHETIC_PRIVATE_REVIEW"
+      },
+      "usage": {
+        "input_tokens": 99,
+        "costDollars": 42
+      },
+      "createdAt": "2026-10-19T00:00:00Z",
+      "finishedAt": "2026-10-19T00:00:03Z",
+      "runtimeExecutable": "SYNTHETIC_PRIVATE_EXECUTABLE",
+      "finalText": "SYNTHETIC_PRIVATE_FINAL",
+      "csrfToken": "SYNTHETIC_PRIVATE_TOKEN"
+    },
+    {
+      "id": "synthetic-runtime-failure",
+      "taskId": "synthetic-fixture-task",
+      "taskVersion": 2,
+      "fixtureHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "provider": "unknown",
+      "requestedModel": null,
+      "observedModel": null,
+      "modelVerified": false,
+      "runtimeVersion": null,
+      "runtimeToolPolicy": null,
+      "promptMode": null,
+      "effort": null,
+      "status": "failed",
+      "grade": null,
+      "review": {
+        "verdict": "pending",
+        "minutes": null,
+        "corrections": null
+      },
+      "usage": null,
+      "createdAt": "2026-10-19T00:00:00Z",
+      "finishedAt": "2026-10-19T00:00:03Z"
+    }
+  ],
+  "report": {
+    "comparisons": [
+      {
+        "provider": "codex",
+        "runtimeVersion": "synthetic-runtime",
+        "runtimeToolPolicy": "synthetic-read-policy",
+        "taskId": "synthetic-fixture-task",
+        "taskVersion": 2,
+        "fixtureHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "taskMode": "read",
+        "promptMode": "structured",
+        "effort": "medium",
+        "requestedModel": "synthetic-model",
+        "samples": 2,
+        "finished": 2,
+        "assessable": 1,
+        "objectiveFailures": 0,
+        "blocked": 1,
+        "passed": 1,
+        "accepted": 1,
+        "rejected": 0,
+        "reviewed": 1,
+        "reviewMinuteRecords": 1,
+        "correctionRecords": 1,
+        "usageReported": 0,
+        "verifiedModels": 1,
+        "statuses": {
+          "passed": 1,
+          "blocked": 1
+        },
+        "reviewMinutes": 4,
+        "corrections": 0,
+        "meanDurationMs": 3,
+        "usage": [
+          {
+            "costDollars": 999
+          }
+        ]
+      }
+    ],
+    "markdown": "SYNTHETIC_PRIVATE_REPORT",
+    "recommendations": [
+      {
+        "text": "SYNTHETIC_PRIVATE_RECOMMENDATION"
+      }
+    ]
+  }
+}

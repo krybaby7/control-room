@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "enabled": false,
+  "maxConcurrent": 1,
+  "maxJobs": 0,
+  "maxBatchSeconds": 0,
+  "maxTimeoutSeconds": 30,
+  "maxOutputBytesLimit": 2097152,
+  "operations": [],
+  "models": [],
+  "repositories": {},
+  "runtime": null,
+  "provider": null,
+  "modelIdentityPolicy": "require-observed",
+  "subscriptionOnly": true,
+  "extraUsageOffAttested": false
+}

@@ -1,7 +1,14 @@
+import {PrivateCapacityError} from '../../../lib/private-capacity';
+import {RecoverabilityCapacityError} from '../../../lib/recoverability-admission';
+import {settleUploadBody} from '../../../lib/upload-body-settlement';
+import {ownerAttachmentServices} from '../../../lib/attachment-services';
 import { env } from 'cloudflare:workers';
 import { getChatGPTUser } from '../../chatgpt-auth';
 import { readMutation, RequestError } from '../../../lib/api-guards';
 import { loadWorkspace, loadPreviousWorkspace, mutateWorkspace, MutationIdReuseError, CommandValidationError } from '../../../lib/workspace-store';
+import { MutationEpochError } from '../../../lib/idempotency-retention';
+import { WorkspaceCapacityError } from '../../../lib/workspace-capacity';
+import { ModuleConflictError, RetiredMutationError } from '../../../lib/workspace-errors';
 import { WorkspaceValidationError } from '../../../lib/workspace-validation';
 import { createSeedWorkspace } from '../../../lib/seed';
 
@@ -30,22 +37,34 @@ export async function GET(request:Request) {
     return json(await loadWorkspace(env.DB, user.userId, () => createSeedWorkspace(now), now),requestId);
   } catch(error) { return unavailable(error,requestId,'read'); }
 }
-export async function POST(request: Request) {
+export async function handleWorkspacePOST(request:Request,importId?:string) {
   const requestId = crypto.randomUUID();
   try {
     const user = await getChatGPTUser();
     if (!user) return failure('Your session has ended. Sign in again before saving.','session_expired',requestId,401);
     if (!env.DB) return failure('Workspace storage is temporarily unavailable. Your draft has not been saved.','storage_unavailable',requestId,503);
-    const { revision, mutationId, command } = await readMutation(request);
+    const { revision, mutationId, command } = await readMutation(request,{importId});
     const now = new Date().toISOString();
     await loadWorkspace(env.DB,user.userId,() => createSeedWorkspace(now),now);
-    const saved = await mutateWorkspace(env.DB,user.userId,revision,mutationId,command,now);
+    const services=await ownerAttachmentServices(env.DB,user.userId,now,env.BUCKET);
+    const saved = await mutateWorkspace(env.DB,user.userId,revision,mutationId,command,now,services);
     if (!saved) return failure('Your plan changed on another tab or device. Review the refreshed plan and save your draft again.','revision_conflict',requestId,409);
     return json(saved,requestId);
   } catch (error) {
     if (error instanceof RequestError) return failure(error.message,'request_invalid',requestId,error.status);
+    if (error instanceof MutationEpochError) return failure(error.message,'request_invalid',requestId,400);
+    if (error instanceof PrivateCapacityError) return failure(error.message,error.code,requestId,429);
+    if (error instanceof RecoverabilityCapacityError) return failure(error.message,error.code,requestId,429);
+    if (error instanceof WorkspaceCapacityError) return failure(error.message,error.code,requestId,429);
+    if (error instanceof RetiredMutationError) return failure(error.message,'mutation_retired',requestId,409);
+    if (error instanceof ModuleConflictError) return failure(error.message,'module_conflict',requestId,409);
     if (error instanceof MutationIdReuseError) return failure(error.message,'mutation_id_reused',requestId,409);
     if (error instanceof CommandValidationError) return failure(error.message,'command_invalid',requestId,400);
     return unavailable(error,requestId,'write');
+  } finally {
+    // Complete bounded rejected transport bodies before handing back the response.
+    if(!request.bodyUsed)await settleUploadBody(request.body);
   }
 }
+
+export async function POST(request:Request){return handleWorkspacePOST(request);}

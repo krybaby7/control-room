@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "cloudBaseUrl": null,
+  "deviceId": null,
+  "bridgeVersion": "0.1.0",
+  "pcCommandCenter": {
+    "enabled": false,
+    "instanceId": "pc-command-center",
+    "selectedGpuId": null,
+    "selectedGpuAlias": null
+  },
+  "adapters": [
+    {
+      "id": "agent-lab",
+      "version": 1,
+      "enabled": false,
+      "capabilities": [],
+      "endpointAlias": "agent-lab"
+    },
+    {
+      "id": "trade-graph",
+      "version": 1,
+      "enabled": false,
+      "capabilities": [],
+      "endpointAlias": "trade-graph"
+    }
+  ]
+}

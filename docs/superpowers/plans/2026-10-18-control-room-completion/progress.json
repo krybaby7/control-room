@@ -3,19 +3,644 @@
   "createdDate": "2026-10-18",
   "timezone": "Africa/Cairo",
   "baselineCommit": "b50aa5c34783ffc0109c46d91c599923df9cc305",
-  "implementationBranch": null,
-  "status": "planned",
+  "implementationBranch": "feat/control-room-completion-cloud",
+  "status": "in_progress",
   "phases": [
-    {"id": 0, "status": "not_started", "evidence": [], "blockers": []},
-    {"id": 1, "status": "not_started", "evidence": [], "blockers": []},
-    {"id": 2, "status": "not_started", "evidence": [], "blockers": []},
-    {"id": 3, "status": "not_started", "evidence": [], "blockers": []},
-    {"id": 4, "status": "not_started", "evidence": [], "blockers": []},
-    {"id": 5, "status": "not_started", "evidence": [], "blockers": []},
-    {"id": 6, "status": "not_started", "evidence": [], "blockers": []},
-    {"id": 7, "status": "not_started", "evidence": [], "blockers": []},
-    {"id": 8, "status": "not_started", "evidence": [], "blockers": []}
+    {
+      "id": 0,
+      "status": "complete",
+      "evidence": [
+        "160 imported baseline hashes match",
+        "Baseline: 71 tests, typecheck, lint, build passed",
+        "Shared contracts and independent architecture review",
+        "Synthetic migration rehearsal and owner A/B failure fixtures",
+        "GitHub CI run39127618834/job117675962970 at ea075cda6d0631491d1aceb51702ea1087502961: clean locked install,169 tests,typecheck,lint,build all passed"
+      ],
+      "blockers": []
+    },
+    {
+      "id": 1,
+      "status": "implemented_external_acceptance_pending",
+      "evidence": [
+        "Planning v3 compact codec + lossless 1800-task migration/restore/shrink regression",
+        "Shared transaction compiler: owner-scoped rows, CHECK assertions, receipt/hash replay, ordered audit and job intents",
+        "36 transaction tests including lost CAS and ten rollback failure points",
+        "Bounded save/reconciliation + durable server drafts with original submission preservation",
+        "Opt-in outbox core, session invalidation and privacy tests; no browser activation claim",
+        "Consistent export registry, durable chunked import staging, quarantine core",
+        "Multiple verified D1 backup core/API/UI, protected quotas and R2 adapter fixtures",
+        "Epoch tombstones and real executor retirement race tests",
+        "Integrated checkpoint:169 tests pass, typecheck/lint/build pass",
+        "Reviewed atomic full-bundle replacement and selective planning merge; audit claims append-only, execution epoch rotation/cancellation",
+        "Owner/hash/expiry staging assertions plus bulk normalized replacement CAS and rollback tests",
+        "Archived task/capture deletion with recoverable snapshots and reference/race guards",
+        "Explicit old snapshot removal requires newer independently verified recovery point",
+        "Strict portable metadata schemas and pseudonymized exported audit actors",
+        "Server-issued namespaced submission IDs integrated; no new client UUID fallback",
+        "Pinned Playwright1.64.1 added via verified cloud lock artifact; existing locked dependencies unchanged",
+        "Expanded Node checkpoint243 tests passed;typecheck/lint/build passed; actual isolated built-worker HTTP fixture smoke passed",
+        "GitHub CI39129127677/job117680467946 at b8467872047538bf9a67f59766c10e3714c50279 passed clean locked install,243 Node tests,typecheck,lint,build,isolated Wrangler fixture and3 Chromium Playwright recovery tests",
+        "Immutable repair child staging with parent ownership/hash/expiry guards and full source reports; focused tests pass",
+        "Trusted-device explicit unlock/provider integration and versioned IndexedDB CAS core; expanded browser tests prepared but not yet executed",
+        "Disabled-by-default Cairo/DST backup policy and narrow shared-intent runner contract; six synthetic adapter tests pass; production adapter/runner/R2 absent",
+        "Integrated working tree305 Node tests pass (including11 independent selector groundwork tests),zero failures/skips; three complete-reference-set transaction races and concurrent backup preparation conflict covered",
+        "Read-only owner usage API/UI separates receipts,epochs,modules,snapshots,drafts,staging and logical capacity",
+        "Internal explicit retired-epoch detail compaction guarded by permanent tombstone plus unchanged unexpired server-draft schema/rowset; no automatic maintenance",
+        "Typed reference descriptor foundation integrated into deletion preview/transaction with full module-set CAS; future schemas must register actual descriptors",
+        "CI39130469730 at897a541 passed clean install,305 Node tests,typecheck,lint,build,fixture; Chromium4/6 passed. Two autosave failures exposed separate-clock retention drift; same-timestamp fix and deterministic regression prepared for rerun.",
+        "CI39130860774/job117685546351 at4126c973 passed clean install,305 Node tests,typecheck,lint,build,fixture and7/8 Chromium journeys; every device/server/clock regression passed. Repair exact-label lookup failed before first repair; accessible field naming correction in progress.",
+        "Working-tree334 Node tests and typecheck/lint/build pass, including receipt-capacity preflight/atomic races, strict UTF8 rejection and24 independent graph/polling groundwork tests",
+        "CI39131201669/job117686570149 at a775d793 passed clean install,334 Node tests,all build/fixture checks and7/8 browser journeys. Repair staging/report/review/commit completed; final test incorrectly expected mutation epoch retirement. Test corrected to preserve receipt namespace and unused ID not-found; operational epoch remains covered by transaction tests.",
+        "Final cloud CI39131486192/job117687401755 at c9ba3744f8628b5b84b0841733979168fdb15f48 passed clean locked install,334 Node tests,typecheck,lint,production build,actual isolated Wrangler fixture and all8 Chromium journeys (27.1s)."
+      ],
+      "blockers": [
+        "Hosted private owner authentication/passkey and actual-device offline acceptance remain external.",
+        "Final integrated-source canonical, complete recovery and unchanged performance acceptance remain pending; historical e4/772 failures are retained in dated evidence."
+      ]
+    },
+    {
+      "id": 2,
+      "status": "implemented_external_acceptance_pending",
+      "evidence": [
+        "Independent pure selector groundwork only: stable links,complete paginated search and attention with11 tests; not integrated or accepted",
+        "Independent unintegrated taskgraph16 tests and polling8 fake-clock tests pass; no shared schema/workflow integration yet",
+        "Uncommitted schema-v4 migration and typed legacy fixture preparation:336 Node tests and typecheck/lint pass; production build checking. Dependent workflows not enabled before final foundation browser gate.",
+        "Task1 schema-v4 clone/default migration,strict estimates/archive/order validation,compact codec,typed real-legacy fixtures pass337 Node tests before later domain groundwork; targeted migration/reliability acceptance and typecheck/lint/build pass.",
+        "Schema-contract cloud CI39132767626 at72c182b7070df61fdc42e772a2a52923a340efcf completed successfully; dependent UI not included in that revision.",
+        "Integrated uncommitted Phase2 checkpoint:384 Node tests pass, typecheck/lint/production build pass; typed weekly/recurrence export/reference adapters, compound archived occurrence removal, portfolio/milestone/search/attention/bulk/inbox/deep-link/polling UI integrated. Expanded browser tests prepared; not yet run.",
+        "Independent review reproduced archive baseline/milestone and URL query normalization defects; fixes with57 focused tests passed. Three additional actual SQLite baseline tombstone/provenance tests pass.",
+        "Stable Phase2 integrated source:414 Node tests pass,zero failures/skips; typecheck,lint,production build pass. Nineteen Chromium journeys discovered; execution pending cloud CI.",
+        "Independent review corrections: archived baseline/milestone guards,URL query preservation,current-week canonical hydration and rollover,future-week carry isolation,durable weekly review editor,scoped bounded planning reads independent of10,001 audit records,explicit >50 missing-occurrence rejection,fresh-process import-order tests.",
+        "Actual SQLite full bundle replacement preserves two weeks,frozen review corrections,rule identities,removed occurrence tombstone and pre-restore recovery point; standalone truev2 and omitted legacy modules accepted; unknown modules rejected.",
+        "Save/privacy review corrections: stable entity editor keys,trusted correlated typed rejection whitelist,original submission retained through manual receipt confirmation,in-modal outcome action,poll read failures deferred during save; new native journeys await CI.",
+        "Actual isolated built-worker HTTP GET/POST/replay/CSRF fixture smoke passed on the stable414-test integration.",
+        "Cloud CI39134562558/job117696330430 at3311f935 passed cleanlockedinstall,414 Node,typecheck,lint,build,actualfixture; Chromium15/19passed. All5 native navigation/focus/proxy408/receiptacknowledgement and foundationrecovery/device journeys pass. Portfolio duplicateDOM revealed duplicate siblingReactkeys; namespace fixprepared. Otherfailures mobilehidden readinesslocator and noncanonicalweeklytaskURL corrected/preparing.",
+        "Follow-up stable source:423 Node tests,zero failures/skips;typecheck,lint,production build andisolatedfixturepass. SearchURL/history,canonicalweeklyattentionwithAllentitydedupandallweekactions,allreadyworkandzero-readyexplanations completed;24native journeys discovered awaitingrerun.",
+        "CI39135303830/job117698492413 atce462f21 passed cleaninstall,423Node,type/lint/build/fixture and20/24Chromium. Fullnormalizedrestore,truev2proposalimport,searchURL/history,durableweekly409review,recurrence,allreadywork andall5saveidentity journeys passed. Portfolio tests reach milestonearchive/reorder but regex template incorrectly consumed whitespaceescape; testfixprepared. Two capture recovery failures under trace investigation (saved-draft interference possible,not yetproven).",
+        "Trace investigation proved capture failures were an initialrecovery-ref readinessrace:boundedloadcompleted beforepassive guardrefs caughtup,sofirstsaveblocked beforeworkspacePOST andcreatedlaterautosave;nexttestinheritedthatdraft. Preparedfix awaits boundedloadwithgenerationcheck andupdatesguardrefs synchronously. Twoheld-real-GET native regressions added;no sleeps/discardsweakenrecovery.",
+        "Final planning cloud gate CI39136249732/job117701249535 atac17e4ba2d5d55b4fe6f0e16c1638ffc78ed6a8f passed cleanlockedinstall,423Node,typecheck,lint,productionbuild,actualisolatedfixture andall26Chromiumjourneys(1.1m),includingheldreadiness,recoveryprivacy,390/1280portfolio,fullnormalizedrestore,truev2imports,searchhistory,weeklyconflict andmanualrecurrence.",
+        "Coherent candidate296fd5654b8f457187cf12b4d5b9ab46044c8c03 run39192051800: Chromium63/63 and R2 3/3(job117866794907), targeted3/3(job117866794977), mobile2/2(job117866794902), p95maximum2737.6ms. Original full budget/recovery/save, scoped history and saved review assertions pass; actual deferred loading/retry/deadline journeys pass. Corrected real late-race fixture candidatece865844216cbce5a002bfd9fcdd33006daf4da6 run39192352370: full1773/1773(job117867696715), no failures/cancellations/skips,249056.284ms; targeted107/107+typecheck/lint0errors8warnings(job117867696557). Production transaction guards unchanged.",
+        "Native historical-scope706505ea697896637ad218ebd5f91e53fcb1f16f run39192869059/job117869259962 terminalPASS: actual27-migration Miniflare D1 historical NULL/bulk attribution,55-event frozen pagination,owner isolation, malformed/ambiguous exclusion and exact stored payload preservation;1test3047.719101ms,typecheckPASS,lint0errors8warnings.",
+        "Exact3b170542115137b95b83f10b6c9e302af5c21e19 main39193244377/job117870390296:1774/1774Node195062.377ms,146/146bridge,type/lint/buildPASS; nativegeneration/workspace/source/reviews/scheduledbackupPASS. MainthenFAILED FIRSTwake scheduledsource admission dueD1>100bindguard; no laterbrowser/package. Focused489/489/type/lint39193240090; isolatedagents/runtime/artifactD1R2/maintenance97tables291guards/streaming14 PASS. Segmented39193244376/job117870388009 PASS27migrations/33modules/79segments/10080rows/17,767,591bytes,targetSTILLFENCED.",
+        "Focus fix e5c302de83332a904b530d365d92b9404b704c3f run39193959740 TERMINALSUCCESS original11QA:Chromium1178725611294/4,Firefox1178725609603/3,WebKit1178725610724/4;type/lint/build EACHpass. Original390/768/1280budget+enrollmentEscape/focus/keyboard/axe assertions unchanged; precapturedperinstanceopener coverssharedFormDialog andcustomenrollment.",
+        "Atomic D1 admission fix d2d35c21515790ffe754ae4d84392c0341e7bf91 run39194122483/job117873042518 TERMINALSUCCESS34/34targettests/no skips+ORIGINAL27migrationnative scheduledsource admission/page/restart/sameintent/digest/replay/lease/capacity/revocation/archive/epoch/SQLrollbackretry/planningunchangedPASS;typecheckPASS/lint0errors8warnings. Guard4boundparams withmaterializedcanonicalscalarvector preservesALLconditions/order/sixstatementatomicbatch."
+      ],
+      "blockers": [
+        "Actual owner phone/tablet/passkey acceptance remains external.",
+        "Real hosted unattended dispatcher activation is unverified; isolated D1 scheduling evidence does not enable it."
+      ]
+    },
+    {
+      "id": 3,
+      "status": "implemented_external_acceptance_pending",
+      "evidence": [
+        "Phase2sourcegatepassed;integrator establishingmulti-tableportablemodule/typedversioncontracts beforeleafimplementation.",
+        "Uncommitted Phase3 storage integration: typed immutable evidence/decision versions, explicit requirements/acceptance, stable audit import identities, owner-private namespaces, physical multi-table restore adapters and SQL mirror projections.",
+        "Working-tree checkpoint:568 Node tests passed,zero failures/skips; includes real SQLite ownership, immutable version/acceptance, foreign-key restore rollback, criterion/contradiction/grant races, stable audit import and scope history tests. Subsequent attachment/undo route integration and new migration changes require a fresh complete gate.",
+        "Independent exact-model workers completed focused validation, attachment policy, decisions, acceptance, history, composite module and migration reviews; no live provider/R2/device execution inferred.",
+        "Coherent Phase3 source checkpoint:604 Node tests passed,zero failures/skips; typecheck,lint,production build pass;31 Chromium journeys discovered including5new evidence/history tests, execution pending cloud CI. Protected evidence/decision editors and history/whole-command undo review integrated; attachment manifests explicitly exclude ready-file bytes and report missing files.",
+        "Actual isolated built-worker HTTP GET/POST/replay/CSRF fixture passed on the coherent604-test source. Private Site identity unchanged; rejected inspection commit excluded from implementation ancestry.",
+        "CI39139870503/job117711897996 at6e31db7e passed cleanlockedinstall,604Node,typecheck,lint,build,actualHTTPfixture and27/31Chromium. All5new evidence/decision journeys passed. Four existingreviewedmerge journeys exposed one real overbroadnormalizedrestoreguard; narrowedfix +4actualSQLite preservation/race regressions prepared,rerunpending.",
+        "Merge-fix working source passes617 Node tests,zero failures/skips,typecheck,lint,productionbuild andactualisolatedHTTPfixture;4newSQLite regressions retainall16modules andcurrentownergrants while rejecting complete-set races. Owner assessment freshness/read-only preview and server-only attribution are implemented; currentprotectedactionUI is not yet integrated.",
+        "CI39140792141/job117714617857 atcf1c2e1b passed617Node/allprebrowsergates and30/31Chromium,includingallmergejourneys. Soleattentionglobalcountfixture assumption correctedwithoutproductweakening. Uncommitted626Nodepass;35browserjourneysdiscovered. ActualisolatedMiniflareR2direct andauthenticatedHTTPreserve/stage/finalize/replay/download/ownerB404/session401/origin403/invalidsignature422 fixtures pass;notliveprivateR2proof.",
+        "Private nonexpiring upload/cleanup fences, physical quota including staged/retired/retained objects, native streaming ZIP validation/rekeyed reviewed restore, exact citations and planning presenceundo integrated; source gates and actualbrowser evidence tracked in docs/verification/evidence-history.md.",
+        "Attachment finalize now seals verified digest/time in private physical ledger in the same owner transaction; two actual SQLite regressions cover immutable identity, altered same-size archive rejection, complete rollback and same-mutation retry. Full working tree779 Node tests and typecheck pass; fresh-generation recovery integration pending.",
+        "803 Node tests passed, zero failures/skips; typecheck/lint/production build passed. Actual Miniflare D1 depth100 calibration and all helper/compiler probes passed. Actual D1+R2 applied17 migrations and passed planning/reserve/upload/finalize/nativeZIP reviewedrestore preserving logicalID/evidence/42 exactbytes. Built Worker HTTP reserve/stage/finalize/replay/download/isolation/forgery passed32bytes SHA256ee8061dff83dd68f205b6597c2333557be9e2b07a15c5dab79b35e707fb8104e. ActualR2+SQLite orphancleanup/restore passed43bytes.40default+3R2browser journeys discovered; execution pending cloud CI.",
+        "Phase3 audit corrections integrated: mapped inline edits append immutable structured corrections atomically; explicit baselines materialize stable dated contextual source versions/links; optional server-captured decision criteria bases trigger review independently of dates; task/milestone historical/freshness status is server-derived and invalidated by envelope revision; explicit Cairo date/due filters preserve unknown dates.840Node tests, typecheck/lint/build pass. Expanded actualMiniflareD1/R2 fixture passes baseline/legacy/decision/ZIP commands. New denied-PUT helper passes12actualworkerd denial/healthy pairs; fullHTTP/cloud rerun pending.",
+        "Cloud CI39148577239/job117737382710 atfafb1f680d24cd75e5d133c2e4a7d95d1d3ca30b terminalsuccess: cleanNode24lockedinstall,840Node/type/lint/build,actualD1depth100/all17migrations/baseline/legacy/decision/nativeZIP restore,actualR2orphanrecovery,42/42defaultChromium+3/3R2Chromium,andbuiltHTTPattachmentisolation/replay allpass.",
+        "Coherent candidate296fd5654b8f457187cf12b4d5b9ab46044c8c03 run39192051800: Chromium63/63 and R2 3/3(job117866794907), targeted3/3(job117866794977), mobile2/2(job117866794902), p95maximum2737.6ms. Original full budget/recovery/save, scoped history and saved review assertions pass; actual deferred loading/retry/deadline journeys pass. Corrected real late-race fixture candidatece865844216cbce5a002bfd9fcdd33006daf4da6 run39192352370: full1773/1773(job117867696715), no failures/cancellations/skips,249056.284ms; targeted107/107+typecheck/lint0errors8warnings(job117867696557). Production transaction guards unchanged.",
+        "Native historical-scope706505ea697896637ad218ebd5f91e53fcb1f16f run39192869059/job117869259962 terminalPASS: actual27-migration Miniflare D1 historical NULL/bulk attribution,55-event frozen pagination,owner isolation, malformed/ambiguous exclusion and exact stored payload preservation;1test3047.719101ms,typecheckPASS,lint0errors8warnings.",
+        "Exact3b170542115137b95b83f10b6c9e302af5c21e19 main39193244377/job117870390296:1774/1774Node195062.377ms,146/146bridge,type/lint/buildPASS; nativegeneration/workspace/source/reviews/scheduledbackupPASS. MainthenFAILED FIRSTwake scheduledsource admission dueD1>100bindguard; no laterbrowser/package. Focused489/489/type/lint39193240090; isolatedagents/runtime/artifactD1R2/maintenance97tables291guards/streaming14 PASS. Segmented39193244376/job117870388009 PASS27migrations/33modules/79segments/10080rows/17,767,591bytes,targetSTILLFENCED.",
+        "Focus fix e5c302de83332a904b530d365d92b9404b704c3f run39193959740 TERMINALSUCCESS original11QA:Chromium1178725611294/4,Firefox1178725609603/3,WebKit1178725610724/4;type/lint/build EACHpass. Original390/768/1280budget+enrollmentEscape/focus/keyboard/axe assertions unchanged; precapturedperinstanceopener coverssharedFormDialog andcustomenrollment.",
+        "Atomic D1 admission fix d2d35c21515790ffe754ae4d84392c0341e7bf91 run39194122483/job117873042518 TERMINALSUCCESS34/34targettests/no skips+ORIGINAL27migrationnative scheduledsource admission/page/restart/sameintent/digest/replay/lease/capacity/revocation/archive/epoch/SQLrollbackretry/planningunchangedPASS;typecheckPASS/lint0errors8warnings. Guard4boundparams withmaterializedcanonicalscalarvector preservesALLconditions/order/sixstatementatomicbatch."
+      ],
+      "blockers": [
+        "Actual private hosted R2 and deployed owner-authentication/attachment acceptance remain unverified.",
+        "Production cleanup/maintenance stays disabled pending durable renewable runner acceptance; real owner-device checks remain external."
+      ]
+    },
+    {
+      "id": 4,
+      "status": "implemented_external_acceptance_pending",
+      "evidence": [
+        "Six strict portable source modules, owner configuration/proposal commands, append-only migrations 0017/0018 (19 total), exact source observation citations and frozen operational export watermarks.",
+        "Bounded GitHub read adapters and explicit selected conversation/native document manual imports; durable input hash and original receipt replay. No live connector activation.",
+        "Private renewable principal/lease/grant/epoch guarded page and terminal transactions, source proposal generator and one-intent runner; editor revision unchanged by routine operational writes.",
+        "Optional full source snapshots reuse verified private attachment lifecycle; exact raw digest/length and atomic cleanup-fence guards, native archive restore preserves IDs and pauses authority.",
+        "978 Node tests passed, zero failures/skips; typecheck/lint/build pass. Actual Miniflare D1 source claim/renew/max100-page/terminal/resume and 19-migration D1/R2 source recovery pass.",
+        "Sources UI configuration, explicit proposal selected-field review, source-bound contextual evidence, pending input retry and dirty-navigation protection integrated.43 Chromium tests listed; cloud execution pending.",
+        "Exactsource36a6b95b6ec968dd9b719977bc32389ceca38c39 CI39153700166/job117752407478 terminalsuccess:cleanNode24lockedinstall,979Node,type/lint/build,all19migrations/actualD1R2/source73bytefullarchive-reviewedrestore,43/43default+3/3R2Chromium,36stagebuiltHTTPallpass."
+      ],
+      "blockers": [
+        "Actual Sites eligibility discovery unavailable; live selected-resource GitHub/document consent and renewable unattended provider proof not configured.",
+        "Real private gateway/service principal, hosted R2/owner session and terminal deployment acceptance remain unverified.",
+        "Shared recoverability capacity G48 remains a Phase5/8 release gate; no live activation before applicable safety/acceptance gates."
+      ]
+    },
+    {
+      "id": 5,
+      "status": "implemented_external_acceptance_pending",
+      "evidence": [
+        "Frozen reviews/scoped acknowledgement/notifications/Cairo schedule core1221 Node and actualD1 pass; published062de9b3 nonbrowser CI gates pass, browser failed/timedout.",
+        "Follow-up baseline parent/hash/citation/privatehead/vector CAS, scheduled D1 backup and dual-principal source schedule code implemented; intermediate1299 Node/type/lint/build pass.",
+        "Actual21-migrationD1 baseline context-only command/replay and synthetic authenticated scheduledreview/backup/source completion/restart/revocation/rollback/capacity checks pass.",
+        "Native baseline/sidebar journeys and review assertions prepared; exact follow-up Chromium gate pending.",
+        "Exact09feCI39160069765 allnonbrowsergatespass,46/48defaultChromium (baseline/reviews/alllegacydrafts pass) and3/3R2Chromiumpass;2newsidebarfixture failures correctly blocked by retainedsyntheticdraft, test-only nativeexplicitdiscard correction prepared.",
+        "Exact AF af221ccf6f74d47233e0d99b989d80f8f204856e CI39161269563/job117774922683 terminalsuccess: all Node/type/lint/build/D1/R2/HTTP and48default+3R2Chromium pass."
+      ],
+      "blockers": [
+        "Live renewable hosted ingress/wakeup, selected provider access, optional paid provider/model/budget and hosted SSE remain unverified; no real schedules activated."
+      ]
+    },
+    {
+      "id": 6,
+      "status": "implemented_external_acceptance_pending",
+      "evidence": [
+        "Additive0021 migration generated by Node24 Actions39162797902/job117779442767 terminalsuccess from6cee529d; reviewed no applied-schema modifications.",
+        "Integrated51dc1b4fda3b3cd4f7ccf05d3ad06b7f2085ca1a: owner enrollment/revocation, exact frozen evidence, 33 portable modules, import authority invalidation, private default-denied bridge routes, bounded live-window ingestion/retention, Runtime UI, installable Windows source package.",
+        "CI39163245805/job117780791323 at0f1b20:1343 Node tests,1326passed;17 old registry fixtures failed. Device/runtime ingestion/retention tests including actual eight-source D1 transaction passed. All17 fixture corrections integrated51dc; fresh full CI39163449560 pending.",
+        "Bridge initial integrated385512 run passed Node,bridge,typecheck/lint/build and D1 before browser stage; final corrected bridge source still needs exact candidate gate.",
+        "c3b9d64c quick runtime D1 run39165557223/job117787643096 terminalsuccess:23migrations, real shared commands +CLI/SQLiteOutbox/transport/HTTP/D1 live/history, exact frozen evidence, explicit reenrollment, redacted export and disconnected reviewed restore.",
+        "94b4dc8 CI39164067744:1370Node+39bridge/type/lint/build andpriorD1/R2/HTTP passed;48/49default+3/3R2. Review snapshot stale-index helper corrected; lostsecret alert beingclearedbyruntime refresh confirmedfromsyntheticartifact and fixedbf34cb4.",
+        "Private Windows state helper added; actual cloud Windows selectedunit/structuraltests passed39165557212, actual synthetic ACL/DPAPI fixture failedpreparation atsynthetic-ownership. Diagnostic-onlyfollowup pending; no ownerWindows/device acceptance claim.",
+        "3d9d993c full CI39166693216/job117791010617 terminalsuccess: all Node/bridge/type/lint/build/23migration D1/R2/HTTP,50/50defaultChromium+3/3R2; bridgepackage artifact12151126759 source3d9d993c packageSHA2566b5530225fcaf1b7e1015197e5682198faf6a9744fe61a8dc16e3b26d6c76088.",
+        "60e50fc Windows39167078521/job117792148035 terminalsuccess: actual synthetic ACL,DPAPI,SQLite spool ACL,unsafeparent,hardlink,junction rejection. Fixed trusted module loading inside PowerShell. No ownerdevice/TaskScheduler/livecollector claim.",
+        "Exact60e50fc full cloud CI39167082234/job117792158864 terminalsuccess:1370 Node,39bridge,type/lint/build,23migration D1/R2/HTTP,50default+3R2Chromium and bridgepackage generated."
+      ],
+      "blockers": [
+        "Supported renewable private service ingress and actual owner bridge/device installation remain external; managed cloud runner is restored."
+      ],
+      "historicalBlockers": [
+        "Workspace command runner unavailable. GitHub source APIs and actual Actions cloud execution remain functional; implementation continues there, no local runtime/model substitution.",
+        "Private service ingress/default bridge connection remains unavailable until supported acquisition/renewal verified."
+      ]
+    },
+    {
+      "id": 7,
+      "status": "implemented_external_acceptance_pending",
+      "evidence": [
+        "Exact fourteen-field job contracts, full provider/runtime/executable/tool-policy binding, pure transitions, sanitized evaluation import and result-artifact validation integrated for cloud regression; owner commands, private leases, UI and executor journal remain in bounded implementation.",
+        "Source0a03f05afcb25a3dad78512f8d909d585e8f1576 agent checks39168864253/job117797532444 terminalsuccess:82 agent/evaluation tests including real D1 lease/lifecycle; typecheck/lint pass. Isolated agents D1 39168864334 terminalsuccess.",
+        "Source87929724377b0243b325b5dee4762c7a76a1f5c9 isolated agents D139169280294, runtimeD139169276929, segmented recovery39169280284 and executor39169277012 terminalsuccess. Full source gate failed valid-fixture and enrollment typing issues; corrections integrated ca4f15ba150de009e557a4ee412c21e50cf4bce3, rerun pending.",
+        "Native owner jobs, explicit finite budget, separate executor/evaluation enrollment, immutable approvals, single lease/attempt, ordered exact event receipts, frozen task/grant, retained unknown/reconciliation and explicit result acceptance implemented; artifact upload/production verification and authenticated executor transport still in progress.",
+        "5f46 full Node cloud run39171598479/job117805622351:1525pass/12fail; four actual native agent-artifact-store tests passed. Twelve failures were three stale/invalid merge fixtures, one maintenance global-table scan and eight file-backup workerd compatibility fixture startup errors; corrections integrated f7e6afcf, rerun pending.",
+        "Attempt-scoped reserve/PUT/finalize now reuses native attachment quota/physical ledger with atomic current-lease guards, exact immutable binding, SHA/type/package limits and original m1 replay. Independent review fixed connector audit attribution, quota undercharging and metadata rewrite checks; dedicated actual D1/R2 gate added and pending.",
+        "Actual D1/R2 artifact39173998824 and runtime39173998849 at61da terminalsuccess. Agent contracts/type39173998790 pass; lint modal ref defect corrected31c, rerun pending.",
+        "Local explicit redaction/refusal and bounded server sensitive-content rejection precede any upload/R2 PUT; all four textual MIME inputs normalize honestly to native safe storage while preserving raw command replay identity. Exact gates pending.",
+        "Owner-only GET job/event pagination, immutable frozen repo/base/input/runtime provenance and verified owner/attempt-bound artifact download links integrated778/6691. Local redaction/server sensitive rejection and all4safe textual MIME inputs integrated0d25; actualartifact39174868947passed.",
+        "Bounded same-owner mutation admission, complete private writer guards, first-cancel and 20-device revocation funding are integrated; actual 18e agent regression passed 103 tests. Production upstream executor remains unavailable.",
+        "Exact a389 artifact run39177956095/job117824444169 passed15 Node and actual27-migration D1/R2 reserve/PUT/finalize/replay, digest/quota/owner checks. Focused39177956103/job117824444343 passed160 tests/type/lint. Fresh queued authorization is an additional pending regression in the next source.",
+        "Original actual-format local Lab projectionbf8399/run39188998753/job117857419805 passed146bridge/107native/type/lint/build/34filepackage and independent privacy/contract reviews. No private upstream code/identities/pins copied; no model/evaluation/provider invocation. Source evidence remains reviewable claims.",
+        "Coherent candidate296fd5654b8f457187cf12b4d5b9ab46044c8c03 run39192051800: Chromium63/63 and R2 3/3(job117866794907), targeted3/3(job117866794977), mobile2/2(job117866794902), p95maximum2737.6ms. Original full budget/recovery/save, scoped history and saved review assertions pass; actual deferred loading/retry/deadline journeys pass. Corrected real late-race fixture candidatece865844216cbce5a002bfd9fcdd33006daf4da6 run39192352370: full1773/1773(job117867696715), no failures/cancellations/skips,249056.284ms; targeted107/107+typecheck/lint0errors8warnings(job117867696557). Production transaction guards unchanged.",
+        "Exact3b170542115137b95b83f10b6c9e302af5c21e19 main39193244377/job117870390296:1774/1774Node195062.377ms,146/146bridge,type/lint/buildPASS; nativegeneration/workspace/source/reviews/scheduledbackupPASS. MainthenFAILED FIRSTwake scheduledsource admission dueD1>100bindguard; no laterbrowser/package. Focused489/489/type/lint39193240090; isolatedagents/runtime/artifactD1R2/maintenance97tables291guards/streaming14 PASS. Segmented39193244376/job117870388009 PASS27migrations/33modules/79segments/10080rows/17,767,591bytes,targetSTILLFENCED.",
+        "Focus fix e5c302de83332a904b530d365d92b9404b704c3f run39193959740 TERMINALSUCCESS original11QA:Chromium1178725611294/4,Firefox1178725609603/3,WebKit1178725610724/4;type/lint/build EACHpass. Original390/768/1280budget+enrollmentEscape/focus/keyboard/axe assertions unchanged; precapturedperinstanceopener coverssharedFormDialog andcustomenrollment.",
+        "Atomic D1 admission fix d2d35c21515790ffe754ae4d84392c0341e7bf91 run39194122483/job117873042518 TERMINALSUCCESS34/34targettests/no skips+ORIGINAL27migrationnative scheduledsource admission/page/restart/sameintent/digest/replay/lease/capacity/revocation/archive/epoch/SQLrollbackretry/planningunchangedPASS;typecheckPASS/lint0errors8warnings. Guard4boundparams withmaterializedcanonicalscalarvector preservesALLconditions/order/sixstatementatomicbatch.",
+        "Actual private runtime extraction51/51Linux+Windows; cloud package outer/inner/source-pin/fivefile verification and actual strict installation/load pass, zero providercalls.",
+        "Public pinned runtime installer, suspended JobObject supervisor, exact models/budgets/approvals, cancellation, immutable artifact mapping and nonce-only recovery are implemented and independently reviewed.",
+        "Exact3c6681a Windows native10pass/1skip plus portable192pass/8skip; real D1/R2 HTTP upload/cancel/61event nonce recovery gates pass.",
+        "Finite manual Sites ingress source is in integration, defaultclosed. Opaque server boundary retains device authorization; native D1/R2 synthetic admission/artifact/expiry test passes. Client review/final exactsource gates pending.",
+        "Finite manual Sites adapter implemented and reviewed: fixedproject/origin/routes; separate DPAPIrecord; opaque serverboundary; exactpolicy/runtime/budget-derived capabilityreport; activecutoff and suspendedcallback expiry regression. Real nativeSites/device/provider acceptance remains separate."
+      ],
+      "blockers": [
+        "Real native Sites dispatch canonical URL, consumed bearer, private audience and finite manual window acceptance still require an actual validated deployment; no activation performed.",
+        "Unattended renewal/wakeup requires separately supported renewable authority; finite manual access does not supply it.",
+        "Owner Windows installation, provider executable/login/exact model and actual sandbox/device acceptance require the owner environment."
+      ],
+      "historicalBlockers": [
+        "Approved separate pinned runtime extraction and Windows owned-process/sandbox invocation integration plus real device acceptance remain missing; no live model/evaluation/job invocation.",
+        "Live renewable private ingress and selected provider authority remain unconfigured; paid inference disabled.",
+        "Canonical main failed one fixture-proxy 502 at 15 seconds; request-stall diagnosis remains open. Main packaging was skipped. Independent exact-e4 source/build/Windows review packages exist and passed byte-integrity checks; they are UNVALIDATED for release."
+      ],
+      "implementation": "complete",
+      "localVerification": "passed_at_3c6681a",
+      "hostedAcceptance": "owner_provider_dependent"
+    },
+    {
+      "id": 8,
+      "status": "in_progress",
+      "evidence": [
+        "Actual isolated segmented D1/R2 >10000-audit/>8MB recovery rehearsal terminalsuccess at69e6 and879; preserves refs/projections and fresh blob identities. Private continuity capture/validation integrated; operator freeze/target handoff implementation underway, no existing Site mutation.",
+        "Unified bounded Attention findings and real axe/multibrowser workflow integrated ca4f15b; first cloud run pending. Normalized reviewed merge, file-inclusive scheduled backup, controlled performance and release packaging in progress.",
+        "Controlled benchmark at e21f487 and f0971ea passed actual SQLite and Miniflare D1; source f097 runs39171233847/39171229343 terminalsuccess. Near-bound metadata fixtures, positive p50/p95 and declared budgets; no production latency claim.",
+        "Real three-browser scans found and corrected contrast/width issues; latest native Chromium/WebKit touch passed. Nine keyboard journeys exposed dialog autofocus intent lost after showModal; product correction underway, no rules waived.",
+        "26th additive migration generated by actual Node24 Drizzle39171832398/job117806331364; private permanent backup cleanup fence added, existing applied migrations preserved.",
+        "Native reviewed normalized merge, explicit file-backup consent/version ZIP download, genuine bounded SSE protocol/server/client fixtures and default polling label integrated. Production SSE registry remains unverified/disabled.",
+        "Read-only Sites metadata confirms existing owner-only private Site active at version2; no source publication or access change. Supported Sites source/packaging helper needs restored cloud workspace execution; GitHub source/Actions remain available.",
+        "27th retained-generation migration generated by actual Node24 Drizzle39173099902/job117810088019; source metadata byte/chunk-validated and integrated61da.",
+        "Source31c includes97-table freeze,30-table private continuity, original native audit/nonexecution-grant/draft preservation, quota-accounted retained generations and explicit cleanup API/UI. New regression gates and independent corrections remain pending.",
+        "Controlled SQLite+D1 benchmark and actual D1 maintenance/artifact/runtime gates at61da/664 pass; no final source/package/private publication claim.",
+        "Source/artifact-bound observed hosted/device release evidence recording added; no real attestation entered.",
+        "Actual0d25 acceptance39174466118 ande71639174873136 terminalsuccess across Chromium/Firefox/WebKit. Genuine bounded SSE39174749929and39174873100 passed14tests.",
+        "Source8ea/0d5 expands private recovery to42typedtables including source/review/backup journals and dated telemetry, plus independent source->inerttarget history comparison. Finite native journal and pendingPUT settlement reserves, exact physical/backup/draft positive-write guards integrated; fullwritercoverage and new regressions pending.",
+        "Newactual20session SQLite/D1/HTTP and network/CPU browser performance gates exposed fixture errors and p953026.7ms>3000 target; pending correction/optimization, not a pass.",
+        "New integration enforces private positive-growth admission atomically across central receipts/intents/grants, epochs/drafts, background schedules/source/reviews, runtime/device telemetry and physical/file-backup writers. Native first-cancel receives strictly bounded held-row/byte funding; no capraise, eviction or repeated noop credit. Exact regressions pending.",
+        "Private recovery now preserves 46 closed tables including staged original import chunks, archive stages and paid-analysis journals. Current file and offline staged ZIP proofs are required; new source awaits actual cloud regressions.",
+        "Exact a389 segmented39177959085/job117824511970 terminal success:10080rows/79segments/17,767,523bytes, actual fresh attachments, staged artifacts and backup rekey, inert fenced target with native IDs/grants preserved. Three-browser and HTTP20-session performance pass; near-bound D1 latency remains above2000ms.",
+        "Exact df042 full Node1674/1677passed; all native file-backup14/retained-cleanup9/reauthorization5 regressions passed. Actual profile reveals62\u201364database RPCs per committed save; coherent workspace and watermark coqueries are included for pending verification. Mobile transfer/hydration diagnostics added without waiving budgets.",
+        "Exact872c2ae3087677887d212e9a12385dbb14595f3b: focused39183950579/job117842337594 passed445/445 Node, typecheck and lint. Three-browser39183954211, segmented39183954194, maintenance39183954098, agents D139183954165, runtime D139183950533, artifact39183950588 and streaming39183954148 passed. Mobile push/PR passed first-usable p952560.8/2991.0ms. Normal39183954120 failed onlyD1savep953125.165054ms against unchanged2000ms (SQLite789.28948ms passed); all100outcomes and six restores perengine correct. Full39183954108 remains unfinished/stalled in Node; no final source package.",
+        "Exactbb93165b0c99e295bb431eda8227bce4b924a54e normal benchmark39184605165 failed only D1savep954204.984753ms against unchanged2000ms; SQLite1129.747987ms and D1read873.887513ms passed. All100outcomes and six restores perengine correct. Both mobile runs passed p952720.7/2725.6ms. Profiling confirms16/18RPC after co-batching, with18SQL commit; diagnostic timings are not acceptance. Packaging diagnostic39184760370 exposed TS2322 in co-batched audit rows before build; a closed-column runtime guard is included next. Last complete focused result remains872:445/445/type/lint; full integrated Node suite unfinished.",
+        "Primaryb88 focused39184960621/job117845340310 passed450/450 Node/type/lint; native/browser/segmented/maintenance/streaming gates passed. Serialization candidate99cd passed456/456/type/lint but D1savep954240.82849ms FAILS2000ms (SQLite1065.979788ms pass). Packaging diagnosticcdacc run39185591267 passed138bridge+8packaging/type/lint/build/archive/upload; artifacts are UNVALIDATED and not primary source. Full diagnosticc735 timed out with2backupfiles; fixture-only fullAFTER17810 also timed out, nowONLY scheduled-backup-archive.test.ts remains active; reauthorization completed. Streamcancel source d8c5 independently reviewed, native/full gates pending. Closed2x<=19UNION snapshot source in development, not claimed verified.",
+        "Controlled candidate d190e0dbd5c5393c8e9d1115779b38ebeac169b1: run39187661181 focused/job117853393154 passed460/460 Node,typecheck,lint; normal/job117853393340 passed D1savep951772.252457ms<2000,SQLite674.8287ms,D1read573.718564ms<1500,all100concurrent outcomes and six restores perengine/errors=[]. Actual calibration39187661085/job117853392757 proves nativeD1 true5-arm compound cap: minimal5 passes,6/10/20/30 fail; full37-source capture now8 bounded SELECT statements in one read-only batch. Separate instrumented profile latency failed and is not substituted for normal acceptance.",
+        "Corrected archive ownership59b6b13fe8418537edf32df8ef26414a63bc17e6 run39190610598: full/job1178623542611765/1765PASS,0fail/cancel/skip/todo,294824.527ms; native/job11786235399137/37+typecheck+lint0errors7warningsPASS. Old-source negativecontrolfc/run39190465219/job117861916382 proves both exact ownership assertions fail, not timeouts. No file-concurrency or per-test-timeout reduction/relaxation.",
+        "Closed preflight e0bb811594a287a29616e29174ed7069f02ac904 run39191096827:244/244native+type/lint(job117863868401)PASS; unchanged normal(job117863868618)PASS D1savep951659.689439ms<2000,SQLite590.846355ms,D1read570.529666ms<1500,100sessionoutcomes/sixactualrestores perengine/errors[]. Near16RPC/small14. Separate instrumented2518.590607msFAILED and is not substituted. Earlier same-runnerABBA39189707925 kept all4D1p95failures2525/2411/2530/2557ms; timing variation remains a limitation.",
+        "Coherent candidate296fd5654b8f457187cf12b4d5b9ab46044c8c03 run39192051800: Chromium63/63 and R2 3/3(job117866794907), targeted3/3(job117866794977), mobile2/2(job117866794902), p95maximum2737.6ms. Original full budget/recovery/save, scoped history and saved review assertions pass; actual deferred loading/retry/deadline journeys pass. Corrected real late-race fixture candidatece865844216cbce5a002bfd9fcdd33006daf4da6 run39192352370: full1773/1773(job117867696715), no failures/cancellations/skips,249056.284ms; targeted107/107+typecheck/lint0errors8warnings(job117867696557). Production transaction guards unchanged.",
+        "Native historical-scope706505ea697896637ad218ebd5f91e53fcb1f16f run39192869059/job117869259962 terminalPASS: actual27-migration Miniflare D1 historical NULL/bulk attribution,55-event frozen pagination,owner isolation, malformed/ambiguous exclusion and exact stored payload preservation;1test3047.719101ms,typecheckPASS,lint0errors8warnings.",
+        "Exact3b170542115137b95b83f10b6c9e302af5c21e19 main39193244377/job117870390296:1774/1774Node195062.377ms,146/146bridge,type/lint/buildPASS; nativegeneration/workspace/source/reviews/scheduledbackupPASS. MainthenFAILED FIRSTwake scheduledsource admission dueD1>100bindguard; no laterbrowser/package. Focused489/489/type/lint39193240090; isolatedagents/runtime/artifactD1R2/maintenance97tables291guards/streaming14 PASS. Segmented39193244376/job117870388009 PASS27migrations/33modules/79segments/10080rows/17,767,591bytes,targetSTILLFENCED.",
+        "Focus fix e5c302de83332a904b530d365d92b9404b704c3f run39193959740 TERMINALSUCCESS original11QA:Chromium1178725611294/4,Firefox1178725609603/3,WebKit1178725610724/4;type/lint/build EACHpass. Original390/768/1280budget+enrollmentEscape/focus/keyboard/axe assertions unchanged; precapturedperinstanceopener coverssharedFormDialog andcustomenrollment.",
+        "Atomic D1 admission fix d2d35c21515790ffe754ae4d84392c0341e7bf91 run39194122483/job117873042518 TERMINALSUCCESS34/34targettests/no skips+ORIGINAL27migrationnative scheduledsource admission/page/restart/sameintent/digest/replay/lease/capacity/revocation/archive/epoch/SQLrollbackretry/planningunchangedPASS;typecheckPASS/lint0errors8warnings. Guard4boundparams withmaterializedcanonicalscalarvector preservesALLconditions/order/sixstatementatomicbatch.",
+        "Exact final application sourcee4af1fc5ae344a029f9677576963700c92aaefee:491/491 focused+type/lint39194507156/job117874233566; three-engineQA39194510945 ALL11PASS; bothmobile39194510972/job117874244687 p952761.9ms and39194507161/job117874233407 p952739.8ms PASS;streaming14/runtimeD1/artifact16+D1R2/agentsD1/maintenance97tables291guardsPASS. Segmented39194510962/job117874244413 PASS27migrations/33modules/79segments/10080rows/17,767,591bytes,targetSTILLFENCED. Main39194510987/job117874247405 Node/bridge/typecheck stepsPASS,lint/build/native/browser/package ongoing; full counts await terminal.",
+        "Exacte4 firstnormal39194510942/job117874255539 FAILED ONLYD1savep952499.678949ms>2000,p501797.993855;SQLite978.531809,D1read859.966659 PASS;100outcomes/sixrestores perengine/errors[]. Artifact12161845635 sha256325994989f843e4becbaa72d22b4f77751d0ee98619434ce99f068de4cedcfe4. No rerun or latency waiver; release acceptance blocked."
+      ],
+      "blockers": [
+        "Reviewed combined save-path repair requires exact-source canonical, performance, Windows and package-integrity gates; older source passes do not substitute.",
+        "Production cutover requires a complete verified existing-data snapshot. Native read API truncates the saved workspace value, so it cannot establish a complete recovery point. Obtain owner/provider full D1 snapshot before deployment.",
+        "Owner authenticated hosted smoke, physical devices, private service/provider consent and enabled-scope acceptance remain external."
+      ],
+      "historicalBlockers": [
+        "Canonical main failed one fixture-proxy 502 at 15 seconds; request-stall diagnosis remains open. Main packaging was skipped. Independent exact-e4 source/build/Windows review packages exist and passed byte-integrity checks; they are UNVALIDATED for release.",
+        "Exacte4 firstnormal39194510942/job117874255539 FAILED ONLYD1savep952499.678949ms>2000,p501797.993855;SQLite978.531809,D1read859.966659 PASS;100outcomes/sixrestores perengine/errors[]. Artifact12161845635 sha256325994989f843e4becbaa72d22b4f77751d0ee98619434ce99f068de4cedcfe4. No rerun or latency waiver; release acceptance blocked.",
+        "Supported Sites helper execution unavailable although metadata/deployment access exists. Existing owner-private Site unchangedversion2. Approved separate pinned runtime extraction and Windows owned-process/sandbox invocation code/integration plus real owner device acceptance remain missing; installing bridge alone does not supply invocation. Selectedprovider consent/renewable ingress/closedbrowserwakeup/hostedSSE/physicalmobile-passkey acceptance not-run. Paid inference/operational-trading effects/externalalerts remain disabled."
+      ]
+    }
   ],
-  "nextAction": "Follow CLOUD-START.md, establish the cloud baseline and lock shared contracts.",
-  "allowedStatuses": ["not_started", "in_progress", "implemented", "verified_local", "verified_hosted", "complete", "externally_blocked"]
+  "nextAction": "Wait for764 full canonical terminal; publish the reviewed generation-assertion candidate as a new exact source on the existing draft PR, then run every canonical stage and unchanged performance gates. Do not substitute the narrow diagnostic or older passes. Verify actual final archives and reconcile the formal ledger only after source-specific terminal results.",
+  "allowedStatuses": [
+    "not_started",
+    "in_progress",
+    "implemented",
+    "verified_local",
+    "verified_hosted",
+    "complete",
+    "externally_blocked",
+    "implemented_external_acceptance_pending"
+  ],
+  "sourceImportCommit": "8d0bc78a6e557734b571a435546812fec382006a",
+  "launchInstructionsCommit": "c08e8a15dc7291c4f68fa5edebaf2fa8c583d820",
+  "modelConfiguration": {
+    "integrator": "gpt-6.1-sol",
+    "workerModelParameter": "gpt-6.1-sol",
+    "acceptedWorkers": [
+      "/root/foundation_review",
+      "/root/codec",
+      "/root/save_client",
+      "/root/export_registry",
+      "/root/drafts",
+      "/root/runtime_probe",
+      "/root/repair_test",
+      "/root/repair_performance",
+      "/root/repair_review"
+    ],
+    "evidence": "Explicit supported model selection accepted and worker IDs returned."
+  },
+  "checkpoint": {
+    "implementationHead": "e4af1fc5ae344a029f9677576963700c92aaefee",
+    "headMeaning": "Frozen primary application source; this separate checkpoint branch records current verification.",
+    "executionMode": "GitHub source APIs; actual Node24 GitHub Actions Linux/Windows. Managed workspace/Sites helper execution unavailable.",
+    "tests": "Exact final application sourcee4af1fc5ae344a029f9677576963700c92aaefee:491/491 focused+type/lint39194507156/job117874233566; three-engineQA39194510945 ALL11PASS; bothmobile39194510972/job117874244687 p952761.9ms and39194507161/job117874233407 p952739.8ms PASS;streaming14/runtimeD1/artifact16+D1R2/agentsD1/maintenance97tables291guardsPASS. Segmented39194510962/job117874244413 PASS27migrations/33modules/79segments/10080rows/17,767,591bytes,targetSTILLFENCED. Main39194510987/job117874247405 terminalFAILED as detailed below; no pending main steps.\nExacte4 firstnormal39194510942/job117874255539 FAILED ONLYD1savep952499.678949ms>2000,p501797.993855;SQLite978.531809,D1read859.966659 PASS;100outcomes/sixrestores perengine/errors[]. Artifact12161845635 sha256325994989f843e4becbaa72d22b4f77751d0ee98619434ce99f068de4cedcfe4. No rerun or latency waiver; release acceptance blocked.\nExacte4 main39194510987/job117874247405 TERMINALFAILURE:1776/1776Node,0fail/skip/cancel312917.923094ms;146/146bridge;type/lint/build and ALL nativeD1/R2/HTTPincludingoriginalscheduledsource PASS. DefaultChromium62/63:budgetjourneyagents.spec.ts61 firstGET/api/jobs afterSave failed; R2Chromium3/3PASS52.2s. Package+bridgeartifactstepsSKIPPED;no candidate. Failureartifact12161927116 SHA25634814a0c847b0876b44565b85571128ddb8c1b62f8437d51b7922d92c525c8e1.\nREADONLY originaltraceinspectionce71e9b46274f8d55932b0344845b4c73a60d11d run39195925741/job117878578293 verifiedouterartifactdigest and882eventsWITHOUTproductrerun. FailedGET/jobs was502 after15003.982ms (action15005.825ms);earlier200reads31.7/29.0/39.1ms. Empty502matches15sfixtureupstreamdeadline, NOTapp503recordvalidation. Underlyingrequeststallcauseunknown. Corrected diagnostic terminated as nonreproduction only; no causal fix.\nUNVALIDATED REVIEW-ONLY packages nowexist for actualcheckedoutsourcee4af1fc5ae344a029f9677576963700c92aaefee: packagingrun39196349095/job117879852995,workflowhead50c17a8c5239ea05cd71f847b2afd8ac9e2190f9 distinctfrombuildsource. Candidateartifact12161504710/v4SHA3fd91ac8e6756bc20cc8b0caadebfbac7ca6e227dbd6b8241f6851e83d2e632f;bridgeartifact12161808777/v4SHA1efccc649bc65d3e0a835f8d46658326226f9aaf394a3ebcc50a923bfc3a435a. Independentactualcloudinspection39196532648/job117880419325 PASS1032source/332build/34bridgefiles, exactsource/innerSHA/allbuildinventory/byte-exactbridgeagainstsource;bothwrongouterSHA andalteredinnerTARwithrecomputedouterSHA negativecontrolsREJECTED. Integrityartifact12162087989 SHA58b780d4617e2c4a7780af553023e8a6adfe2bc2b048776aab7f36037479247a. IntegrityisNOTreleaseacceptance; releaseAccepted=false/deployed=false.\nDiagnostic601d95/run39196256972 wasSUPERSEDED becausePlaywrightignoredstdoutstagecapture; itprovidesNOrequestphaseproof. Terminal diagnostics:\nCorrected jobs diagnostic 9b98/run39197094431/job117882154116 TERMINAL SUCCESS: 1776 Node tests (309249.212968ms),146 bridge tests,typecheck/lint/build/all native checks;63/63 default browser (4.4m),3/3 R2 (51.2s) and HTTP passed. Captured351 closed events and25 GET /api/jobs requests: all200,headers29\u201372ms,all25 reader validations,no deadline/error. This is NONREPRODUCTION ONLY: no causal fix and no canonical-source pass.\nProfile20c9 terminal19contracts/typecheck/lint passed;diagnosticp952360.012035ms failed. SerializerCPU24.6\u201332.9ms;SHApromiseunion868\u20131049ms queue/service/resume inseparable;truncatedsyncunionsnull.\nNative-SHA experiment817/run39198054055: contractsjob117884994482 passed41/41 (8085.558832ms),Worker parity,typecheck/lint/build/runtime27migrations. Normaljob117884994781 FAILED D1savep952976.172820ms>2000,p502244.327927ms;SQLite972.609903ms and D1read925.253108ms passed,100outcomes/sixrestores perengine/errors[]. Artifact12162961643 SHA25635fadef0b16c4051c9d38320e45a63238f11a481c7bb8d4b5a7a86b3ca46fc6c. Static review of462 files/100 client entries found no client path. DECISION: no integration,no improvement,no rerun;canonical e4 remains frozen.",
+    "knownFailures": [
+      "Canonical main failed one fixture-proxy 502 at 15 seconds; request-stall diagnosis remains open. Main packaging was skipped. Independent exact-e4 source/build/Windows review packages exist and passed byte-integrity checks; they are UNVALIDATED for release.",
+      "Exacte4 firstnormal39194510942/job117874255539 FAILED ONLYD1savep952499.678949ms>2000,p501797.993855;SQLite978.531809,D1read859.966659 PASS;100outcomes/sixrestores perengine/errors[]. Artifact12161845635 sha256325994989f843e4becbaa72d22b4f77751d0ee98619434ce99f068de4cedcfe4. No rerun or latency waiver; release acceptance blocked.",
+      "Supported Sites helper execution unavailable although metadata/deployment access exists. Existing owner-private Site unchangedversion2. Approved separate pinned runtime extraction and Windows owned-process/sandbox invocation code/integration plus real owner device acceptance remain missing; installing bridge alone does not supply invocation. Selectedprovider consent/renewable ingress/closedbrowserwakeup/hostedSSE/physicalmobile-passkey acceptance not-run. Paid inference/operational-trading effects/externalalerts remain disabled."
+    ],
+    "nextCommand": "Preserve frozen e4 and UNVALIDATED review packages. No native-SHA integration or rerun: unchanged performance gate failed. Jobs diagnostic is nonreproduction only; investigate any future causal fix against original evidence without changing canonical acceptance. Further bounded causal investigation or missing runtime/sandbox implementation may proceed independently with explicit source-specific tests; neither requires relabeling failed gates.",
+    "includedChanges": [
+      "Original reviewed Lab projection; private runtime remainsnotinstalled.",
+      "Bounded planning capture/preflight, serialization, native5armreadgroups and archive streamownership fixes retained.",
+      "Typed scopehistoryincludinghistoricalNULL/bulk withoutrecordrewrites.",
+      "Real dialog scrolling and deferredmoduleloading/retry/deadline preserved.",
+      "Synchronous perinstance opener capture restoresfocus acrossdeferredshared/customdialogs.",
+      "NativeD1atomicadmissionuses4guardbindings whilepreservingallauthorityconditionsandsixstatementrollback; meaningfulwhole-service andlate-race regressions added."
+    ],
+    "reviewPackages": {
+      "workflowHead": "50c17a8c5239ea05cd71f847b2afd8ac9e2190f9",
+      "sourceCommit": "e4af1fc5ae344a029f9677576963700c92aaefee",
+      "run": 39196349095,
+      "job": 117879852995,
+      "status": "success",
+      "releaseAccepted": false,
+      "deployed": false,
+      "candidate": {
+        "id": 12161504710,
+        "bytes": 3404534,
+        "zipSha256": "3fd91ac8e6756bc20cc8b0caadebfbac7ca6e227dbd6b8241f6851e83d2e632f"
+      },
+      "bridge": {
+        "id": 12161808777,
+        "bytes": 61807,
+        "zipSha256": "1efccc649bc65d3e0a835f8d46658326226f9aaf394a3ebcc50a923bfc3a435a",
+        "tarBytes": 59423,
+        "tarFiles": 34,
+        "tarSha256": "d9a6eb8d066f0ff59e3c0e1c8ba8046e66e064517543b0000feb78cf99751305"
+      },
+      "sourceTar": {
+        "bytes": 11612160,
+        "sha256": "ae8de1a903cea89b755fe9e366313d401d73a6ddd3146beed68acf5c01cf95c9"
+      },
+      "buildTarGz": {
+        "bytes": 1301238,
+        "sha256": "8f13f54957bf7ad2b94262d90f90a88a1a8ef11eba48070fbef507e62584513c"
+      },
+      "inspection": "Independent cloud byte inspection and both negative controls passed; UNVALIDATED for release."
+    },
+    "integrityProof": {
+      "commit": "6e43164a84d555d5b7c4568e1f8684a75b4efa6e",
+      "run": 39196532648,
+      "job": 117880419325,
+      "status": "success",
+      "artifactId": 12162087989,
+      "artifactDigest": "sha256:58b780d4617e2c4a7780af553023e8a6adfe2bc2b048776aab7f36037479247a"
+    },
+    "historical": true,
+    "scope": "Historical e4 checkpoint retained verbatim; current status is in combinedSaveRepair and resume-checkpoint.json."
+  },
+  "updatedAt": "2026-10-21",
+  "resumeIteration": {
+    "date": "2026-10-21",
+    "branch": "feat/control-room-completion-cloud",
+    "checkpoint": "resume-checkpoint.json",
+    "status": "reviewed_candidate_ready_for_exact_source_canonical_gates",
+    "canonicalCheckpoint": {
+      "source": "3c6681a39d05b9b40ace26b49e5482aa2a4d40ed",
+      "run": 39244318516,
+      "passed": true,
+      "nodePassed": 1800,
+      "bridgePassed": 202,
+      "bridgePlatformSkipped": 9,
+      "browser": "63/63 + 3/3 R2",
+      "scope": "Prior coherent Phase7 source; newer proxy/manual Sites changes require fresh exact-source gates."
+    },
+    "performanceCheckpoint": {
+      "source": "3c6681a39d05b9b40ace26b49e5482aa2a4d40ed",
+      "run": 39244318665,
+      "D1saveP95Ms": 1750.767601,
+      "limitMs": 2000,
+      "passed": true,
+      "causalLatencyFixClaimed": false
+    },
+    "phase7": [
+      "Separate actual private runtime extraction draft PR;51tests pass on Linux and Windows, cloud source archive verified and installed/loaded through strict public installer;zero provider calls.",
+      "Native supervisor/coordinator, sibling private state/workspace boundaries, model evidence, approvals/budgets, physical result verifier, artifact journals, authenticated cancellation and nonce-only recovery implemented and reviewed.",
+      "Exact3c full canonical/nativeWindows/D1R2HTTP/browser/performance/package creation gates pass; source-specific evidence in verification-3c6681a.json.",
+      "Finite manual owner-private Sites server/client adapter implemented and independently reviewed, defaultclosed; independent device credentials retained, no visitor/service identity inference or renewal claim.",
+      "Preflight:4/4genuine nativeD1R2HTTP;219bridge(210pass/9platformskips);46serverfocused;37independentclientfocused;11package/boundary;type/lint/build pass. Final publicexactsource canonical gates pending."
+    ],
+    "nativeCandidate": {
+      "source": "3c6681a39d05b9b40ace26b49e5482aa2a4d40ed",
+      "run": 39244318555,
+      "native": "10pass/0fail/1platformskip",
+      "portable": "192pass/0fail/8platformskips",
+      "status": "passed",
+      "ownerDeviceAcceptance": false
+    },
+    "sites": "SupportedexistingprivateSite helper preparedexact98sourcearchive; UNVALIDATEDafterfailedgates, notsaved/deployed; completeprecutoversnapshot unavailable.",
+    "external": [
+      "Real native Sites dispatch canonical URL, consumed bearer, private audience and finite manual window acceptance still require an actual validated deployment; no activation performed.",
+      "Unattended renewal/wakeup requires separately supported renewable authority; finite manual access does not supply it.",
+      "Owner Windows installation, provider executable/login/exact model and actual sandbox/device acceptance require the owner environment.",
+      "Complete verified private pre-cutover snapshot required; native DB projection truncates existing workspace."
+    ],
+    "disabled": [
+      "paid inference",
+      "operational/trading effects",
+      "external alerts"
+    ],
+    "storage": "Existing Site identity and DB preserved; logical BUCKET declaration added without deployment or owner data writes.",
+    "publicSource": "87c41b57bb3a17d9671580739fbadb507c7f32a0",
+    "draftPr": 1,
+    "rejectedPerformanceExperiment": {
+      "source": "6f2a5c83c64bc9414ab1e263d41b0c8be6e9671b",
+      "run": 39244523686,
+      "D1saveP95Ms": 3199.614369,
+      "integrated": false
+    },
+    "preCutoverRecovery": "No owner data changed. Bounded native DB read marks saved workspace truncated, so a complete owner/provider snapshot is required before cutover; no incomplete backup claimed.",
+    "currentPerformance": {
+      "source": "98f9986f12b2088c69bdb7e5e4671694b5bcbba2",
+      "run": 39249240888,
+      "job": 118048666758,
+      "passed": false,
+      "D1saveP95Ms": 2800.471638,
+      "D1saveP50Ms": 2158.847242,
+      "limitMs": 2000,
+      "outcomesPerEngine": 100,
+      "restoresPerEngine": 6,
+      "errors": [],
+      "artifact": 12184836729,
+      "archiveSha256": "b53188b58ee3b10086d2336fdcf31f7b23876e28496dc5333b77b2d1e03acc99"
+    },
+    "currentBrowserPerformance": {
+      "source": "98f9986f12b2088c69bdb7e5e4671694b5bcbba2",
+      "run": 39249240576,
+      "job": 118048662496,
+      "passed": false,
+      "scope": "Workerexit1 aftersample0;secondrequestECONNREFUSED;noacceptedperformancepass",
+      "artifact": 12184558111,
+      "archiveSha256": "a588e7a837caf8d54e7f35223e688f33544dd41a53dfa6206f577bc48c54e3fb"
+    },
+    "currentWindows": {
+      "source": "98f9986f12b2088c69bdb7e5e4671694b5bcbba2",
+      "run": 39249240794,
+      "job": 118048663014,
+      "passed": true,
+      "native": "10pass/0fail/1platformskip",
+      "portable": "200pass/0fail/8platformskips",
+      "helperArtifact": 12184009867,
+      "helperArchiveSha256": "3b69a86a8f5ee0b91dd1e738cc4e27d1ef3dde2eac8e873dc5253de3049c2b62",
+      "ownerDeviceAcceptance": false
+    },
+    "pendingCorrection": {
+      "base": "98f9986f12b2088c69bdb7e5e4671694b5bcbba2",
+      "patchSha256": "c786d8dae57635b6a5d6511ecfb0abe528d0f11e23d74c026d287883e8615ba2",
+      "focusedPassed": 141,
+      "differentialPassed": 4,
+      "pairedCpuOldMedianMs": 35.88,
+      "pairedCpuNewMedianMs": 27.994,
+      "pairsNewLower": 20,
+      "normalBenchmarkRun": false,
+      "wholePathImprovementClaimed": false,
+      "independentReview": "no blocking findings"
+    },
+    "failureEvidenceCorrection": {
+      "proxyAndLogPassed": 10,
+      "existingHarnessAndDiagnosticPassed": 11,
+      "rawLimitBytes": 8388608,
+      "redactionBeforeTruncation": true,
+      "transportChanged": false,
+      "historicalCauseFixedClaimed": false,
+      "independentReview": "no blocking findings"
+    },
+    "coarseDiagnostic": {
+      "source": "98f9986f12b2088c69bdb7e5e4671694b5bcbba2",
+      "diagnosticOnly": true,
+      "D1saveP95Ms": 3450.208293,
+      "passed": false,
+      "overlaySha256": "cca3965e14a4e7cbd66b1c5331d698d04d59762331a03b3afa1a861e95b95933",
+      "claim": "Observer overhead remains; await unions are not database service CPU. Overlay restored and absent from candidate."
+    },
+    "current87Performance": {
+      "source": "87c41b57bb3a17d9671580739fbadb507c7f32a0",
+      "run": 39251593013,
+      "job": 118056467995,
+      "passed": false,
+      "D1saveP95Ms": 2319.984152,
+      "D1saveP50Ms": 1588.653718,
+      "SQLiteSaveP95Ms": 677.862331,
+      "limitMs": 2000,
+      "outcomesPerEngine": 100,
+      "restoresPerEngine": 6,
+      "errors": [],
+      "artifact": 12186400352,
+      "archiveSha256": "79cb7a6fa7290e63153e1329eea87dcb122e84596432753021b89f2c8dac11c5"
+    },
+    "current98Canonical": {
+      "source": "98f9986f12b2088c69bdb7e5e4671694b5bcbba2",
+      "run": 39249240628,
+      "job": 118048666153,
+      "passed": true,
+      "nodePassed": 1807,
+      "bridgePassed": 210,
+      "bridgePlatformSkipped": 9,
+      "browserPassed": 63,
+      "r2BrowserPassed": 3,
+      "packageFiles": 49
+    },
+    "current98Integrity": {
+      "run": 39251680756,
+      "job": 118056742473,
+      "sourceFiles": 1077,
+      "buildFiles": 333,
+      "bridgeFiles": 49,
+      "negativeControlsRejected": 8,
+      "artifact": 12184933946,
+      "archiveSha256": "cec4906c2aed3be34ce3778d763aeac85d4e635d72190f1f5cbca842bf45b86c",
+      "releaseAccepted": false
+    },
+    "historicalEvidenceNotice": "Fields naming 3c,87,98 and prior unintegrated candidates retain source-specific historical evidence; current772Failures and combinedSaveRepair describe this continuation."
+  },
+  "datetimeValidationCandidate": {
+    "status": "failed_exact_source_canonical_and_performance",
+    "baseSource": "87c41b57bb3a17d9671580739fbadb507c7f32a0",
+    "change": "Compile locked Zod datetime regex once; preserve acceptance and first path/message",
+    "focusedPassed": 145,
+    "independentParityPassed": 8,
+    "typecheck": "passed",
+    "lint": "0 errors; 8 existing warnings",
+    "build": "passed",
+    "D1LimitMs": 2000,
+    "previous87D1P95Ms": 2319.984152,
+    "previous87CanonicalRun": 39251592918,
+    "previous87Canonical": "passed",
+    "paidInferenceEnabled": false,
+    "deployed": false,
+    "testedSource": "772a8d7bc1dc2b1de6f6e6747b70722bb03b2050"
+  },
+  "current772Failures": {
+    "source": "772a8d7bc1dc2b1de6f6e6747b70722bb03b2050",
+    "canonical": {
+      "run": 39253998007,
+      "job": 118064595938,
+      "total": 1815,
+      "passed": 1814,
+      "failed": 1,
+      "assertion": "scheduled-backup-archive.test.ts:108 raced false !== true",
+      "subsequentCanonicalStages": "skipped"
+    },
+    "benchmark": {
+      "run": 39253997842,
+      "job": 118064594835,
+      "D1saveP95Ms": 2848.964301999993,
+      "D1saveP50Ms": 2264.573563999991,
+      "limitMs": 2000,
+      "samples": 100,
+      "restores": 6,
+      "errors": []
+    },
+    "status": "isolated_repairs_in_progress",
+    "deploymentAuthorizedThisContinuation": false
+  },
+  "hierarchicalQueryRepair": {
+    "commit": "f0ce1fcfacdc60a9be3f65c8f16fefd993759027",
+    "status": "reviewed_component_material_diagnostic_improvement_acceptance_pending",
+    "focusedPassed": 29,
+    "queryBytes": 36159,
+    "bindings": 39,
+    "nativeCompoundTermsMax": 5,
+    "decoderUnchanged": true,
+    "D1saveP95BeforeMs": 2426.679696,
+    "D1saveP95AfterMs": 2140.026446,
+    "limitMs": 2000,
+    "normalRun": false,
+    "nextWork": "Exact byte measurement CPU reduction and bounded contiguous pre-write assertion grouping; independent review and combined exact-source canonical required."
+  },
+  "combinedSaveRepair": {
+    "localSource": "e9645cdafe26e965c7ff5edca8301e3e421307be",
+    "components": [
+      "f0ce1fcfacdc60a9be3f65c8f16fefd993759027",
+      "d949189631542978b1fdbd598dd6a8b636ef96d2",
+      "9d6c893743b8a03a58cdc8a0b8b9e55adf6c9487"
+    ],
+    "status": "material_diagnostic_improvement_but_gate_failed",
+    "benchmarkWorkloadAndThresholdUnchanged": true,
+    "limitMs": 2000,
+    "canonicalAcceptance": "pending",
+    "raceCause": "unproven; strengthened physical-PUT/epoch race assertions retain all conflict/no-success checks",
+    "deploymentAuthorized": false,
+    "D1saveP95Ms": 2028.8546369999967,
+    "diagnosticOnly": true,
+    "normalRun": false,
+    "nextWork": "Investigate remaining synchronous preparation/RPC and storage-compaction CPU. No unchanged rerun or waiver.",
+    "finalReadCohort": {
+      "source": "5242a0226ad41493235dedb1a990181db17d6682",
+      "integrated": "ef9bf75",
+      "focusedPassed": 5,
+      "review": "passed",
+      "change": "Same final admission and hydrated current SELECTs in one bounded read-only batch; dependent baseline remains separate. Atomic guard and failure reconciliation logic unchanged.",
+      "canonicalAcceptance": "pending",
+      "diagnostic": "failed unchanged 2000ms limit",
+      "D1saveP95Ms": 2026.2671459999983,
+      "wholePathGain": "nonmaterial"
+    },
+    "rejectedCompactionProbe": {
+      "integrated": false,
+      "reason": "No material paired CPU/elapsed gain; public/storage compaction unchanged."
+    }
+  },
+  "currentCandidate": {
+    "applicationSource": "764c774382b57ad8ace2be5e0a92ef4ed6a675b9",
+    "tree": "c4d858a4bf1b3a062ef9f42343c0c35d2947eafb",
+    "draftPr": 1,
+    "canonicalRun": 39511585072,
+    "canonicalJob": 118933660328,
+    "normalBenchmarkRun": 39511585081,
+    "normalBenchmarkJob": 118933662322,
+    "status": "normal_performance_failed_other_canonical_stages_running",
+    "acceptance": "pending",
+    "deployed": false,
+    "merged": false,
+    "privateHistoryPublished": false,
+    "normalBenchmarkPassed": false,
+    "D1saveP95Ms": 5642.07733,
+    "D1saveP50Ms": 1836.110432,
+    "limitMs": 2000,
+    "normalArtifact": 12306057959,
+    "normalArtifactSha256": "1105d1cc036161c864004675b7c5d41d40612c175ae258f27385ebd91c70a720"
+  },
+  "nextCandidate": {
+    "componentSource": "12617bd4a631f7f24c20e3a4e558333fc4d1be80",
+    "integratedLocal": "06062ab669e964dd9451cddef76bd789cce9e5d9",
+    "status": "reviewed_diagnostic_narrow_pass_exact_source_canonical_pending",
+    "nativePassed": 2,
+    "regressionPassed": 89,
+    "review": "passed",
+    "D1diagnosticP95Ms": 1995.699741,
+    "limitMs": 2000,
+    "headroomMs": 4.300259,
+    "diagnosticOnly": true,
+    "benchmarkUnchanged": true,
+    "ordinaryAtomicStatementsBefore": 15,
+    "ordinaryAtomicStatementsAfter": 13,
+    "canonicalStallCause": "unproven",
+    "merged": false,
+    "deployed": false
+  }
 }

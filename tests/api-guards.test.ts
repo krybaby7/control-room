@@ -13,7 +13,7 @@ test('rejects a cross-origin request before parsing its payload', async () => {
 test('rejects form submissions and invalid or oversized JSON', async () => {
   await assert.rejects(readMutation(request('{}', 'https://app.example', 'text/plain')), { status: 415 });
   await assert.rejects(readMutation(request('not json')), { status: 400 });
-  await assert.rejects(readMutation(request('x'.repeat(1_100_001))), { status: 413 });
+  await assert.rejects(readMutation(request('x'.repeat(1_350_001))), { status: 413 });
   await assert.rejects(readMutation(request(JSON.stringify({revision:1,mutationId:'mutation-00000001',command:{type:'capture.create',text:'x'.repeat(65_536)}}))), {status:413});
 });
 
@@ -26,4 +26,23 @@ test('rejects absent, fractional and untrusted revision values', async () => {
   for (const revision of [undefined, -1, 0, 1.2, '1', Number.MAX_SAFE_INTEGER + 1]) {
     await assert.rejects(readMutation(request(JSON.stringify({ revision, command: {} }))), { status: 400 });
   }
+});
+
+test('versioned envelopes adapt to the same mutation and unknown authority fields fail',async()=>{
+ assert.equal((await readMutation(request(JSON.stringify({protocolVersion:1,expectedRevision:2,mutationId:'protocol-00000001',command:{type:'task.create'}})))).revision,2);
+ for(const extra of [{owner:'another'},{protocolVersion:2},{expectedRevision:3}])await assert.rejects(readMutation(request(JSON.stringify({revision:1,mutationId:'protocol-00000001',command:{type:'task.create'},...extra}))),{status:400});
+});
+
+test('only the named reviewed import boundary accepts a larger selection command',async()=>{
+ const body=JSON.stringify({revision:1,mutationId:'import-envelope-0001',command:{type:'workspace.import.commit',importId:'stage',selection:{tasks:['x'.repeat(70000)]}}});
+ await assert.rejects(readMutation(request(body)),{status:413});
+ assert.equal((await readMutation(request(body),{importId:'stage'})).revision,1);
+ await assert.rejects(readMutation(request(body),{importId:'another-stage'}),{status:400});
+});
+
+test('mutation boundary rejects invalid UTF-8 instead of silently replacing owner text',async()=>{
+ const source=new TextEncoder().encode(JSON.stringify({revision:1,mutationId:'mutation-utf8-0001',command:{type:'capture.create',text:'X'}}));
+ source[source.indexOf(88)]=255;
+ const malformed=new Request('https://app.example/api/workspace',{method:'POST',headers:{origin:'https://app.example','content-type':'application/json'},body:source});
+ await assert.rejects(readMutation(malformed),{status:400});
 });

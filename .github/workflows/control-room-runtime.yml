@@ -1,0 +1,28 @@
+name: Control Room runtime D1
+on:
+  push:
+    branches: ['feat/**']
+    paths:
+      - 'lib/**'
+      - 'scripts/test-runtime-d1.mjs'
+      - 'bridge/**'
+      - 'drizzle/**'
+      - '.github/workflows/control-room-runtime.yml'
+concurrency:
+  group: control-room-runtime-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+jobs:
+  runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm run install:ci
+      - run: npm run test:runtime-d1

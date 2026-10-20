@@ -1,0 +1,26 @@
+name: Control Room isolated workspace streaming
+on:
+  push:
+    branches: [main, 'feat/**']
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: control-room-stream-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+jobs:
+  stream-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm run install:ci
+      - name: Check real HTTP and bounded stream contracts
+        run: timeout 150s node --experimental-strip-types --test --test-timeout=30000 tests/workspace-stream.test.ts tests/workspace-stream-client.test.ts tests/workspace-stream-http.test.ts

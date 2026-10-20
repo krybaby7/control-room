@@ -1,0 +1,7 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {sourceExportAdapters} from '../lib/sources/module.ts';
+import {canonical,contentHash} from '../lib/canonical-json.ts';
+import type {ExportContext,ImportContext} from '../lib/workspace-export.ts';
+const adapter=sourceExportAdapters.find(adapter=>adapter.key==='source_observations')!;
+test('self-consistent wrapper cannot import or export fabricated source payload digest',async()=>{const value={id:'observation',sourceId:'source',externalId:'external',sourceRevision:'v1',sourceUpdatedAt:null,observedAt:'2026-10-18T12:00:00.000Z',title:'Source',canonicalUrl:null,contentDigest:'a'.repeat(64),payload:{text:'Different digest'},origin:'provider-read'};const wrapper={id:value.id,rowRevision:1,contentHash:await contentHash(canonical(value)),value};assert.notEqual(value.contentDigest,await contentHash(canonical(value.payload)));await assert.rejects(async()=>adapter.prepareReplace!({} as ImportContext,[wrapper]),/digest/i);const context={query:{async list(_table:unknown,{after}:{after?:string}){return after?[]:[{id:value.id,row_revision:1,payload_json:canonical(value),content_hash:wrapper.contentHash}];}}} as unknown as ExportContext;await assert.rejects(adapter.exportRows(context),/digest/i);const valid={...value,contentDigest:await contentHash(canonical(value.payload))};assert.equal((await adapter.prepareReplace!({} as ImportContext,[{...wrapper,contentHash:await contentHash(canonical(valid)),value:valid}])).length,1);});

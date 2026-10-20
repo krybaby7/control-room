@@ -14,7 +14,7 @@ function editFixture() {
   const baseline: TaskInput = {
     projectId: task.projectId, milestoneId: task.milestoneId, title: task.title, notes: task.notes,
     status: task.status, horizon: task.horizon, priority: task.priority, dueDate: task.dueDate,
-    weekly: task.weekly, dependsOn: [...task.dependsOn], blocker: task.blocker, sourceUrl: task.sourceUrl, evidence: task.evidence,
+    weekly: task.weekly, dependsOn: [...task.dependsOn], blocker: task.blocker, sourceUrl: task.sourceUrl, evidence: task.evidence, estimateMinutes:task.estimateMinutes,
   };
   return { workspace, task, baseline };
 }

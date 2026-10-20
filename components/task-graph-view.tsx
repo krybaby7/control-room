@@ -1,0 +1,31 @@
+'use client';
+
+import {useId,useState} from 'react';
+import type {Task,Workspace} from '@/lib/types';
+import {traverseTaskGraph,TaskGraphError,type TaskGraphRow} from '@/lib/task-graph';
+import {statusLabels} from './ui';
+
+export interface TaskGraphViewProps {workspace:Workspace;task:Task;onTask?:(task:Task)=>void}
+const PAGE_SIZE=25;
+/** Accessible textual graph. Every off-screen graph node remains reachable in the complete table. */
+export function TaskGraphView({workspace,task,onTask}:TaskGraphViewProps){
+ const heading=useId();const tableHeading=useId();const [page,setPage]=useState(0);const [expanded,setExpanded]=useState(false);
+ let graph:ReturnType<typeof traverseTaskGraph>;
+ try{graph=traverseTaskGraph(workspace,task.id);}catch(cause){return <section aria-labelledby={heading} className="capture-preview"><h3 id={heading}>Dependencies and dependents</h3><p role="alert">{cause instanceof TaskGraphError?cause.message:'The dependency graph could not be loaded.'}</p>{cause instanceof TaskGraphError&&cause.issues.some(issue=>issue.blockers?.length)&&<ul>{cause.issues.flatMap((issue,index)=>(issue.blockers??[]).map((blocker,position)=><li key={`${index}:${position}`}>{blocker.message}</li>))}</ul>}</section>;}
+ const pages=Math.max(1,Math.ceil(graph.remainingTable.length/PAGE_SIZE));const currentPage=Math.min(page,pages-1);const remaining=graph.remainingTable.slice(currentPage*PAGE_SIZE,(currentPage+1)*PAGE_SIZE);
+ const open=(id:string)=>{const target=workspace.tasks.find(row=>row.id===id);if(target&&onTask)onTask(target);};
+ const title=(row:TaskGraphRow)=>onTask?<button type="button" className="text-button" onClick={()=>open(row.id)} aria-label={`Open task: ${row.title}`}>{row.title}</button>:<strong>{row.title}</strong>;
+ const state=(row:TaskGraphRow)=>row.archived?(row.fulfilled?'Archived · fulfilled prerequisite':'Archived · unfinished prerequisite'):row.fulfilled?'Fulfilled prerequisite':'Unfinished';
+ const relation=(row:TaskGraphRow)=>row.relation==='root'?'Selected task':row.relation==='prerequisite'?'Prerequisite':'Dependent';
+ const links=(row:TaskGraphRow)=><details><summary>Direct links: {row.prerequisiteIds.length} prerequisites, {row.dependentIds.length} dependents</summary>{(['prerequisiteIds','dependentIds'] as const).map(kind=><div key={kind}><strong>{kind==='prerequisiteIds'?'Prerequisites':'Dependents'}</strong>{row[kind].length?<ul>{row[kind].map(id=>{const linked=workspace.tasks.find(candidate=>candidate.id===id);return <li key={id}>{linked&&onTask?<button type="button" className="text-button" onClick={()=>open(id)}>{linked.title}</button>:linked?.title??'Task missing or unavailable.'}</li>;})}</ul>:<p className="field-hint">None.</p>}</div>)}</details>;
+ const blockerList=(row:TaskGraphRow)=>row.blockers.length?<ul aria-label={`Blockers for ${row.title}`}>{row.blockers.map((blocker,index)=><li key={`${blocker.prerequisiteId??'manual'}:${index}`}>{blocker.message}{blocker.prerequisiteId&&onTask&&<>{' '}<button type="button" className="text-button" onClick={()=>open(blocker.prerequisiteId!)}>Open prerequisite</button></>}</li>)}</ul>:<span className="field-hint">No unfinished direct prerequisites or explicit blocker.</span>;
+ return <section aria-labelledby={heading} className="capture-preview">
+  <h3 id={heading}>Dependencies and dependents</h3><p className="field-hint">Read-only task relationships across your workspace. {graph.totalNodes} related {graph.totalNodes===1?'task':'tasks'}; up to 200 appear in the main list. Completion of an archived prerequisite is preserved only when it was archived as done.</p>
+  <div aria-label="Selected task blockers"><h4>Selected task blockers <span className="count">{graph.rootBlockers.length}</span></h4>{graph.rootBlockers.length?<ul>{graph.rootBlockers.map((blocker,index)=><li key={`${blocker.prerequisiteId??'manual'}:${index}`}>{blocker.message}{blocker.prerequisiteId&&onTask&&<>{' '}<button type="button" className="text-button" onClick={()=>open(blocker.prerequisiteId!)}>Open prerequisite</button></>}</li>)}</ul>:<p className="field-hint">No unfinished direct prerequisites or explicit blocker.</p>}</div>
+  <ol aria-label="Visible dependency graph tasks">{graph.visible.map(row=><li key={row.id}><article><p>{title(row)}</p><p className="field-hint">{relation(row)} · {row.projectLabel} · {statusLabels[row.status]} · {state(row)} · {row.depth===0?'Root':`${row.depth} ${row.depth===1?'link':'links'} from selected task`}</p>{blockerList(row)}{links(row)}</article></li>)}</ol>
+  {graph.remainingCount>0&&<section aria-labelledby={tableHeading}><h4 id={tableHeading}>{graph.remainingCount} more related tasks</h4><p className="field-hint">These tasks are outside the 200-node main list. Every remaining task and its blockers are available below; they have not been excluded from validation.</p><button type="button" className="button secondary" aria-expanded={expanded} aria-controls={`${tableHeading}-table`} onClick={()=>setExpanded(value=>!value)}>{expanded?'Hide remaining table':'Show more tasks in table'}</button><div id={`${tableHeading}-table`} hidden={!expanded}>
+   <div style={{overflowX:'auto'}}><table><caption>All remaining prerequisites and dependents, {graph.remainingCount} tasks</caption><thead><tr><th scope="col">Task</th><th scope="col">Relationship</th><th scope="col">Project</th><th scope="col">Status</th><th scope="col">Blockers</th></tr></thead><tbody>{remaining.map(row=><tr key={row.id}><th scope="row">{title(row)}</th><td>{relation(row)} · {row.depth} links</td><td>{row.projectLabel}</td><td>{statusLabels[row.status]} · {state(row)}</td><td>{blockerList(row)}{links(row)}</td></tr>)}</tbody></table></div>
+   <nav aria-label="Remaining graph task pages" className="dialog-actions"><button type="button" className="button secondary" disabled={currentPage===0} onClick={()=>setPage(currentPage-1)}>Previous</button><span aria-live="polite">Page {currentPage+1} of {pages} · {currentPage*PAGE_SIZE+1}–{Math.min((currentPage+1)*PAGE_SIZE,graph.remainingCount)} of {graph.remainingCount}</span><button type="button" className="button secondary" disabled={currentPage>=pages-1} onClick={()=>setPage(currentPage+1)}>Next</button></nav>
+  </div></section>}
+ </section>;
+}
