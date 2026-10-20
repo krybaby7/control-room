@@ -263,7 +263,7 @@
       ]
     }
   ],
-  "nextAction": "Wait for764 full canonical terminal; publish the reviewed generation-assertion candidate as a new exact source on the existing draft PR, then run every canonical stage and unchanged performance gates. Do not substitute the narrow diagnostic or older passes. Verify actual final archives and reconcile the formal ledger only after source-specific terminal results.",
+  "nextAction": "Inspect exacte1 canonical39513086298 and normal39513086324 terminal logs. Retain failed764 evidence. If all source-specific gates pass, verify actual final artifacts and record strict cloud ledger; otherwise continue causal repairs. No unchanged rerun, merge or deployment.",
   "allowedStatuses": [
     "not_started",
     "in_progress",
@@ -606,6 +606,52 @@
     }
   },
   "currentCandidate": {
+    "applicationSource": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+    "tree": "3c050f1bfbf522c2dbe93830df598a7f60c88527",
+    "draftPr": 1,
+    "canonicalRun": 39513086298,
+    "normalBenchmarkRun": 39513086324,
+    "status": "fresh_exact_source_gates_running",
+    "acceptance": "pending",
+    "deployed": false,
+    "merged": false,
+    "privateHistoryPublished": false
+  },
+  "nextCandidate": {
+    "componentSource": "12617bd4a631f7f24c20e3a4e558333fc4d1be80",
+    "integratedLocal": "06062ab669e964dd9451cddef76bd789cce9e5d9",
+    "status": "published_exact_e1_candidate_canonical_pending",
+    "nativePassed": 2,
+    "regressionPassed": 89,
+    "review": "passed",
+    "D1diagnosticP95Ms": 1995.699741,
+    "limitMs": 2000,
+    "headroomMs": 4.300259,
+    "diagnosticOnly": true,
+    "benchmarkUnchanged": true,
+    "ordinaryAtomicStatementsBefore": 15,
+    "ordinaryAtomicStatementsAfter": 13,
+    "canonicalStallCause": "unproven",
+    "merged": false,
+    "deployed": false
+  },
+  "previous764Canonical": {
+    "source": "764c774382b57ad8ace2be5e0a92ef4ed6a675b9",
+    "run": 39511585072,
+    "job": 118933660328,
+    "passed": true,
+    "nodePassed": 1832,
+    "bridgePassed": 210,
+    "bridgePlatformSkipped": 9,
+    "browserPassed": 63,
+    "r2BrowserPassed": 3,
+    "allNativeStages": "passed",
+    "candidateArtifact": 12305699358,
+    "candidateOuterZipSha256": "2c9f0ed03c7db5e1800d619fd39137a07b6b10c98a1c34fb8f66a959fdfc5219",
+    "releaseAccepted": false,
+    "normalPerformancePassed": false
+  },
+  "previous764Failure": {
     "applicationSource": "764c774382b57ad8ace2be5e0a92ef4ed6a675b9",
     "tree": "c4d858a4bf1b3a062ef9f42343c0c35d2947eafb",
     "draftPr": 1,
@@ -624,23 +670,5 @@
     "limitMs": 2000,
     "normalArtifact": 12306057959,
     "normalArtifactSha256": "1105d1cc036161c864004675b7c5d41d40612c175ae258f27385ebd91c70a720"
-  },
-  "nextCandidate": {
-    "componentSource": "12617bd4a631f7f24c20e3a4e558333fc4d1be80",
-    "integratedLocal": "06062ab669e964dd9451cddef76bd789cce9e5d9",
-    "status": "reviewed_diagnostic_narrow_pass_exact_source_canonical_pending",
-    "nativePassed": 2,
-    "regressionPassed": 89,
-    "review": "passed",
-    "D1diagnosticP95Ms": 1995.699741,
-    "limitMs": 2000,
-    "headroomMs": 4.300259,
-    "diagnosticOnly": true,
-    "benchmarkUnchanged": true,
-    "ordinaryAtomicStatementsBefore": 15,
-    "ordinaryAtomicStatementsAfter": 13,
-    "canonicalStallCause": "unproven",
-    "merged": false,
-    "deployed": false
   }
 }
