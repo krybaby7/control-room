@@ -1,7 +1,7 @@
 {
   "format": "control-room-resume-checkpoint",
   "version": 1,
-  "date": "2026-10-19",
+  "date": "2026-10-21",
   "baselineSource": "e4af1fc5ae344a029f9677576963700c92aaefee",
   "priorCheckpoint": "09b385af8be40db7b73c166d70406795c2f9363d",
   "branch": "feat/control-room-completion-cloud",
@@ -38,6 +38,21 @@
         "id": "/root/resume_runtime_install",
         "modelParameter": "gpt-6.1-sol",
         "accepted": true
+      },
+      {
+        "id": "/root/repair_test",
+        "modelParameter": "gpt-6.1-sol",
+        "accepted": true
+      },
+      {
+        "id": "/root/repair_performance",
+        "modelParameter": "gpt-6.1-sol",
+        "accepted": true
+      },
+      {
+        "id": "/root/repair_review",
+        "modelParameter": "gpt-6.1-sol",
+        "accepted": true
       }
     ]
   },
@@ -51,11 +66,11 @@
     "preCutoverRecovery": "Native read-only DB projection truncates saved workspace; cannot create complete backup. Full owner/provider D1 snapshot/export required before cutover. No owner record copied to repository or mutated."
   },
   "currentWork": [
-    "Current87 firstcanonicalnormalFAILED D1savep952319.984152ms>2000;100outcomes/6restores/errors[]. No unchangedrerun. Other87canonical/native/browser/packagechecksstillrunning.",
-    "87containsreviewedtwohelperschemaoptimization and finitepre-redactedfailurelogging. Acceptedvalues/publicrefusalsunchanged; measuredparserCPUbenefitdoesNOTestablishwholepath2sacceptance.",
-    "Prior98maincanonicalPASSED1807Node/210bridge(9skips)/allnativeD1R2HTTP/63+3browser/package; separate98performancefailuresretained. Exact98source/build/49bridge/helperintegritypassesall8negativecontrols, releaseAcceptedfalse.",
-    "Continueisolated evidence-directedremainingRPC/serializationcriticalpathcorrection; rejectedhash/batchingexperimentsremainoutsidePR.",
-    "SupportedprivateSite98archivebyte-matched1077sourcefiles but remainsUNVALIDATED/notsaved/deployed. Existingprivateversion2/access/dataunchanged; completeprecutoversnapshot stillrequired."
+    "Public772 canonical39253998007/job118064595938 FAILED:1815total1814pass1fail, scheduled-backup-archive terminal epoch race test did not reach injection (raced=false). Later canonical stages skipped; not passing.",
+    "Public772 normal39253997842/job118064594835 FAILED: D1 concurrentSessionSave p952848.964301999993ms, p502264.573563999991ms against unchanged2000ms limit;100samples/6restores/errors[].",
+    "Public772 browser acceptance, controlled browser performance, nativeWindows, isolatedagentsD1/stream/recovery/segmented and runtimeD1 passed at their exact source; not substitute for failed complete canonical.",
+    "Resume workers explicitly selected gpt-6.1-sol through supported model parameter, accepted: /root/repair_test, /root/repair_performance, /root/repair_review. Investigations isolated, root integrates.",
+    "Reviewed saved handoff documentation correction integrated. No merge or deployment in this continuation; private pre-cutover backup and owner/provider/device acceptance remain pending."
   ],
   "disabled": [
     "paid inference",
@@ -63,7 +78,7 @@
     "external alerts"
   ],
   "deployed": false,
-  "nextCommand": "Inspect87remainingcanonical/native/browserterminalresults; retainfailednormal2319.984ms. PerformanceworkerisolatesnextmaterialRPC/serializationcorrection from87, obtainreview/proofs beforeoneNEWcandidatecanonicalnormal. DoNOTrerun87togreen orsave/deployfailedcandidate. Completeprecutoversnapshot remainsrequired.",
+  "nextCommand": "node --experimental-strip-types scripts/benchmark-workspace.mjs",
   "currentCommit": "87c41b57bb3a17d9671580739fbadb507c7f32a0",
   "tests": {
     "proxy": "Dedicated regression passed; original negative control fails as expected; existing harness/typecheck pass. Original pre-header hang remains unexplained.",
@@ -254,5 +269,44 @@
   "uncommittedWork": "Primarysourcefrozenat87-equivalent2cc777b; separatecheckpointdocumentation; performanceisolationonly.",
   "publicSource": "87c41b57bb3a17d9671580739fbadb507c7f32a0",
   "publicPr": "https://github.com/krybaby7/control-room/pull/1",
-  "checkpointBranch": "checkpoints/control-room-cloud-87"
+  "checkpointBranch": "checkpoints/control-room-cloud-87",
+  "repairDiagnostics": {
+    "baseline": {
+      "source": "195edab",
+      "publicEquivalent": "772a8d7bc1dc2b1de6f6e6747b70722bb03b2050",
+      "D1saveP95Ms": 2426.679696,
+      "acceptance": false
+    },
+    "rejectedExactEquality": {
+      "source": "693428b6924fa9f2359df699b4002e9a57c38b90",
+      "D1saveP95Ms": 2505.735776,
+      "integrated": false
+    },
+    "rejectedFinalCohort": {
+      "source": "94e24dd705a49d1ff05505a24ac4c68598ac93c5",
+      "D1saveP95Ms": 2686.411182,
+      "integrated": false,
+      "committedRpcCountLargeBeforeAfter": [
+        16,
+        12
+      ],
+      "committedRpcCountSmallBeforeAfter": [
+        14,
+        11
+      ]
+    },
+    "normalBenchmarkRun": false,
+    "limitMs": 2000,
+    "claim": "Fewer RPCs did not improve full save latency. Both source experiments remain isolated; no passing claim or unchanged normal rerun.",
+    "nextDiagnostic": "Isolated original-source Node inspector CPU/event-loop and synchronous prepare/bind timing; workload/assertions unchanged; observer overhead not acceptance.",
+    "overlaySha256": "432503dc10f6c06c10bb1550461d1640989116c118d1d633a5ad25172a08a012"
+  },
+  "testRegression": {
+    "commit": "91e5ce5a0ec82c750ee0dcacc847036485f3722d",
+    "focusedPassed": 1,
+    "independentReview": "passed",
+    "historicalFailureCause": "unproven",
+    "changes": "Require fulfilled physical PUTs, verified settled chunks/index, actual epoch insertion and exact conflict; retain all terminal no-write assertions. No retry, timeout or production change."
+  },
+  "nextCommandContext": "Original-source isolated CPU diagnostic worktree, after the independent segmented recovery rehearsal exits; diagnostic overlay only, no acceptance claim."
 }

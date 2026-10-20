@@ -1,0 +1,802 @@
+{
+  "format": "control-room-hierarchical-pages-paired-diagnostic-v1",
+  "decision": "material_improvement_but_2000ms_gate_still_failed_no_normal_run",
+  "instrumentation": "Existing CONTROL_ROOM_PROFILE_COMMANDS=1 only; no CPU overlay in either paired run.",
+  "benchmarkScriptUnchanged": true,
+  "thresholdsAssertionsAndWorkloadUnchanged": true,
+  "nativeCalibration": {
+    "successfulShape": "37 materialized page/result pairs plus materialized UNION tree37to8to2to1; leaf2terms and every merge<=5terms",
+    "sqlBytes": 36159,
+    "bindings": 39,
+    "sqlSha256": "cde81417fca2bafb7a74781d087dbcb6ad24417f03809e7077e4263fbe67a363",
+    "tests": 29,
+    "testsPassed": 29,
+    "nativeFixture": "450physical+450audit records with >=1500UTF8payload bytes each; BMP/astral IDs, sequence7, frozen late audit, foreign owners and empty certificates",
+    "rejectedPrototype": {
+      "shape": "Uncommitted direct flat74term compound SELECT",
+      "error": "D1_ERROR: too many terms in compound SELECT: SQLITE_ERROR",
+      "benchmarkRun": false,
+      "logSha256": "9257b6dbadb477a6ac6614a56c7f258ad41ecee6421737e89b662603dadc4b10",
+      "limitation": "Failed uncommitted prototype exact source snapshot was not retained; error log retained locally. No passing calibration is claimed for it."
+    }
+  },
+  "decoderAndReaderUnchanged": true,
+  "decoderAndReaderSha256": "7c2630352b5123fc28fb773519604f52e81ab1766af1770a541f61e910a24e54",
+  "runs": {
+    "baseline": {
+      "source": "195edabcb9cf9aa8871d87a18352b74891c532dd",
+      "tree": "15cbe2a2668eb9518b2df82fb254f4bbfc08e655",
+      "reportSha256": "3ab05f1c8e0143eb831c53157b6f819c11dcd6274e42890bcce6a998fa46ca86",
+      "benchmarkScriptSha256": "7e3120e414d6ad50b3bf77e7bc130adca7f0508cb00fd27b0eb3e61439481da3",
+      "status": "failed",
+      "errors": [],
+      "regressionFailures": [
+        "miniflareD1:concurrentSessionSave"
+      ],
+      "engines": [
+        {
+          "name": "sqlite",
+          "fixture": {
+            "fixtureSha256": "3bc5fd5423033c090498c25c0ffbcc7996eeb0c83a6dd78035b9ebbbd7677876",
+            "planningTasks": 1700,
+            "planningTaskCap": 2000,
+            "planningCaptures": 850,
+            "planningCaptureCap": 1000,
+            "recordCapFraction": 0.85,
+            "evidenceHeads": 256,
+            "evidenceVersions": 256,
+            "normalizedRows": 512,
+            "bundleBytes": 1439901,
+            "bundleSha256": "c386f7b60ca6983f406fb75a6bba64fbfc94d1a4122d57a4da214ab87fa7ff48",
+            "d1RecoveryByteFraction": 0.799945,
+            "compactPlanningBytes": 975111,
+            "statementFillerBytes": 364
+          },
+          "concurrency": {
+            "sessions": 20,
+            "sameOwnerSessions": 10,
+            "independentOwners": 10,
+            "waves": 5,
+            "commitsPerWave": 11,
+            "conflictsPerWave": 9,
+            "duplicateReplayEffects": 0,
+            "transport": "actual synchronous SQLite binding; not twenty operating-system connections"
+          },
+          "confirmedRestores": 6,
+          "measurements": [
+            {
+              "operation": "planningRead",
+              "p50Milliseconds": 30.399327000000085,
+              "p95Milliseconds": 35.40444699999989,
+              "budgetMilliseconds": 2500,
+              "passed": true
+            },
+            {
+              "operation": "evidenceRead",
+              "p50Milliseconds": 129.28438700000015,
+              "p95Milliseconds": 143.40611500000023,
+              "budgetMilliseconds": 5000,
+              "passed": true
+            },
+            {
+              "operation": "indexedOwnerPage",
+              "p50Milliseconds": 0.204457000000275,
+              "p95Milliseconds": 0.37888799999973344,
+              "budgetMilliseconds": 250,
+              "passed": true
+            },
+            {
+              "operation": "fullExport",
+              "p50Milliseconds": 262.46280000000024,
+              "p95Milliseconds": 310.09926300000006,
+              "budgetMilliseconds": 10000,
+              "passed": true
+            },
+            {
+              "operation": "jsonParse",
+              "p50Milliseconds": 3.0806469999997717,
+              "p95Milliseconds": 4.093304999999418,
+              "budgetMilliseconds": 500,
+              "passed": true
+            },
+            {
+              "operation": "strictBundleParse",
+              "p50Milliseconds": 160.80403300000035,
+              "p95Milliseconds": 218.87989600000037,
+              "budgetMilliseconds": 5000,
+              "passed": true
+            },
+            {
+              "operation": "canonicalJsonHash",
+              "p50Milliseconds": 18.210831000000326,
+              "p95Milliseconds": 26.61598799999956,
+              "budgetMilliseconds": 3000,
+              "passed": true
+            },
+            {
+              "operation": "reviewedRestore",
+              "p50Milliseconds": 1635.95838,
+              "p95Milliseconds": 1706.1505350000007,
+              "budgetMilliseconds": 30000,
+              "passed": true
+            },
+            {
+              "operation": "sourceIdentityRead",
+              "p50Milliseconds": 64.50917500000105,
+              "p95Milliseconds": 83.49296200000026,
+              "budgetMilliseconds": 1500,
+              "passed": true
+            },
+            {
+              "operation": "runtimeIdentityRead",
+              "p50Milliseconds": 30.93971600000077,
+              "p95Milliseconds": 42.41668500000014,
+              "budgetMilliseconds": 1500,
+              "passed": true
+            },
+            {
+              "operation": "concurrentSessionRead",
+              "concurrentSessions": 20,
+              "p50Milliseconds": 306.8086280000025,
+              "p95Milliseconds": 318.19908900000155,
+              "budgetMilliseconds": 1500,
+              "passed": true
+            },
+            {
+              "operation": "concurrentSessionSave",
+              "concurrentSessions": 20,
+              "p50Milliseconds": 321.0067549999985,
+              "p95Milliseconds": 802.7819679999993,
+              "budgetMilliseconds": 2000,
+              "passed": true
+            }
+          ],
+          "commandProfileGroups": [
+            {
+              "ownerClass": "contended_near_bound",
+              "status": "committed",
+              "commands": 5,
+              "p50WallMilliseconds": 700.0167660000006,
+              "p95WallMilliseconds": 801.052635,
+              "p50RpcCount": 16,
+              "p95RpcCount": 16,
+              "p95ObservedAwaitUnionMilliseconds": 44.21228799999881,
+              "p95OutsideObservedAwaitMilliseconds": 756.8403470000012
+            },
+            {
+              "ownerClass": "contended_near_bound",
+              "status": "conflict",
+              "commands": 45,
+              "p50WallMilliseconds": 700.9909969999972,
+              "p95WallMilliseconds": 803.7240790000033,
+              "p50RpcCount": 1,
+              "p95RpcCount": 1,
+              "p95ObservedAwaitUnionMilliseconds": 0.23172700000213808,
+              "p95OutsideObservedAwaitMilliseconds": 803.6199930000039
+            },
+            {
+              "ownerClass": "independent_small",
+              "status": "committed",
+              "commands": 50,
+              "p50WallMilliseconds": 248.07302600000185,
+              "p95WallMilliseconds": 314.55726100000174,
+              "p50RpcCount": 14,
+              "p95RpcCount": 14,
+              "p95ObservedAwaitUnionMilliseconds": 10.122489000004862,
+              "p95OutsideObservedAwaitMilliseconds": 305.3166630000014
+            }
+          ],
+          "medianCommittedRecoveryPhaseMilliseconds": {
+            "contended_near_bound": {
+              "hash-current": 189.86912099999972,
+              "originalserializer": 33.538189999999304,
+              "bundleoriginal": 53.96713699999964,
+              "projectplan": 0.07156799999938812,
+              "afterserializer": 15.639216999999917,
+              "bundleafter": 78.00722400000086,
+              "expandfuture": 32.883669999999256,
+              "measure": 6.638298000001669,
+              "finalreads": 71.66614000000118
+            },
+            "independent_small": {
+              "hash-current": 0.02336500000092201,
+              "originalserializer": 0.14673450000009325,
+              "bundleoriginal": 30.959967000000688,
+              "projectplan": 0.010550500001045293,
+              "afterserializer": 0.07239349999872502,
+              "bundleafter": 7.876312999998845,
+              "expandfuture": 58.47667400000137,
+              "measure": 0.3747414999998,
+              "finalreads": 3.131438000000344
+            }
+          },
+          "medianCommittedStatementCounts": {
+            "contended_near_bound": 51,
+            "independent_small": 49.0
+          },
+          "outcomes": {
+            "committed": 55,
+            "conflict": 45,
+            "replayed": 0,
+            "threw": 0
+          }
+        },
+        {
+          "name": "miniflareD1",
+          "fixture": {
+            "fixtureSha256": "3bc5fd5423033c090498c25c0ffbcc7996eeb0c83a6dd78035b9ebbbd7677876",
+            "planningTasks": 1700,
+            "planningTaskCap": 2000,
+            "planningCaptures": 850,
+            "planningCaptureCap": 1000,
+            "recordCapFraction": 0.85,
+            "evidenceHeads": 256,
+            "evidenceVersions": 256,
+            "normalizedRows": 512,
+            "bundleBytes": 1439901,
+            "bundleSha256": "f45189362fde14760e05176379dbb3d59c25d28a8f797f9f2b957f480e0bbba7",
+            "d1RecoveryByteFraction": 0.799945,
+            "compactPlanningBytes": 975111,
+            "statementFillerBytes": 364
+          },
+          "concurrency": {
+            "sessions": 20,
+            "sameOwnerSessions": 10,
+            "independentOwners": 10,
+            "waves": 5,
+            "commitsPerWave": 11,
+            "conflictsPerWave": 9,
+            "duplicateReplayEffects": 0,
+            "transport": "actual local Miniflare D1 binding; not hosted network clients"
+          },
+          "confirmedRestores": 6,
+          "measurements": [
+            {
+              "operation": "planningRead",
+              "p50Milliseconds": 54.7806410000012,
+              "p95Milliseconds": 63.268411999997625,
+              "budgetMilliseconds": 7500,
+              "passed": true
+            },
+            {
+              "operation": "evidenceRead",
+              "p50Milliseconds": 327.7229789999983,
+              "p95Milliseconds": 346.69174099999873,
+              "budgetMilliseconds": 20000,
+              "passed": true
+            },
+            {
+              "operation": "indexedOwnerPage",
+              "p50Milliseconds": 15.782891999999265,
+              "p95Milliseconds": 27.661498000001302,
+              "budgetMilliseconds": 2500,
+              "passed": true
+            },
+            {
+              "operation": "fullExport",
+              "p50Milliseconds": 807.8500480000039,
+              "p95Milliseconds": 819.4229990000022,
+              "budgetMilliseconds": 30000,
+              "passed": true
+            },
+            {
+              "operation": "jsonParse",
+              "p50Milliseconds": 2.8237719999960973,
+              "p95Milliseconds": 3.658672999998089,
+              "budgetMilliseconds": 500,
+              "passed": true
+            },
+            {
+              "operation": "strictBundleParse",
+              "p50Milliseconds": 159.83226699999796,
+              "p95Milliseconds": 173.8913390000016,
+              "budgetMilliseconds": 5000,
+              "passed": true
+            },
+            {
+              "operation": "canonicalJsonHash",
+              "p50Milliseconds": 17.70619699999952,
+              "p95Milliseconds": 30.07865000000311,
+              "budgetMilliseconds": 3000,
+              "passed": true
+            },
+            {
+              "operation": "reviewedRestore",
+              "p50Milliseconds": 3104.649722000002,
+              "p95Milliseconds": 3212.3919189999942,
+              "budgetMilliseconds": 60000,
+              "passed": true
+            },
+            {
+              "operation": "sourceIdentityRead",
+              "p50Milliseconds": 160.0578619999942,
+              "p95Milliseconds": 175.24784799999907,
+              "budgetMilliseconds": 1500,
+              "passed": true
+            },
+            {
+              "operation": "runtimeIdentityRead",
+              "p50Milliseconds": 102.00135600000067,
+              "p95Milliseconds": 128.05279899999732,
+              "budgetMilliseconds": 1500,
+              "passed": true
+            },
+            {
+              "operation": "concurrentSessionRead",
+              "concurrentSessions": 20,
+              "p50Milliseconds": 465.1110929999995,
+              "p95Milliseconds": 630.4424659999931,
+              "budgetMilliseconds": 1500,
+              "passed": true
+            },
+            {
+              "operation": "concurrentSessionSave",
+              "concurrentSessions": 20,
+              "p50Milliseconds": 1818.157008000002,
+              "p95Milliseconds": 2426.6796959999992,
+              "budgetMilliseconds": 2000,
+              "passed": false
+            }
+          ],
+          "commandProfileGroups": [
+            {
+              "ownerClass": "contended_near_bound",
+              "status": "committed",
+              "commands": 5,
+              "p50WallMilliseconds": 2235.1913810000115,
+              "p95WallMilliseconds": 2400.2342930000013,
+              "p50RpcCount": 16,
+              "p95RpcCount": 16,
+              "p95ObservedAwaitUnionMilliseconds": 642.782921999984,
+              "p95OutsideObservedAwaitMilliseconds": 1797.9864509999898
+            },
+            {
+              "ownerClass": "contended_near_bound",
+              "status": "conflict",
+              "commands": 45,
+              "p50WallMilliseconds": 2273.863336999988,
+              "p95WallMilliseconds": 2444.331459999994,
+              "p50RpcCount": 1,
+              "p95RpcCount": 1,
+              "p95ObservedAwaitUnionMilliseconds": 3.896730000000389,
+              "p95OutsideObservedAwaitMilliseconds": 2441.6857949999903
+            },
+            {
+              "ownerClass": "independent_small",
+              "status": "committed",
+              "commands": 50,
+              "p50WallMilliseconds": 1775.8188789999986,
+              "p95WallMilliseconds": 1817.6180800000002,
+              "p50RpcCount": 14,
+              "p95RpcCount": 14,
+              "p95ObservedAwaitUnionMilliseconds": 1634.04490600001,
+              "p95OutsideObservedAwaitMilliseconds": 293.6617259999912
+            }
+          ],
+          "medianCommittedRecoveryPhaseMilliseconds": {
+            "contended_near_bound": {
+              "hash-current": 336.19645500001207,
+              "originalserializer": 812.2290229999999,
+              "bundleoriginal": 59.030289000002085,
+              "projectplan": 0.05269899999984773,
+              "afterserializer": 12.620804999998654,
+              "bundleafter": 64.13642899999832,
+              "expandfuture": 29.57320999998774,
+              "measure": 6.634513000004517,
+              "finalreads": 165.23843199999828
+            },
+            "independent_small": {
+              "hash-current": 0.01924400000280002,
+              "originalserializer": 0.11078099999576807,
+              "bundleoriginal": 11.013686999998754,
+              "projectplan": 0.010660999996616738,
+              "afterserializer": 0.0656734999975015,
+              "bundleafter": 9.205887500000244,
+              "expandfuture": 35.19277449999936,
+              "measure": 0.33762100000603823,
+              "finalreads": 398.4486140000008
+            }
+          },
+          "medianCommittedStatementCounts": {
+            "contended_near_bound": 51,
+            "independent_small": 49.0
+          },
+          "outcomes": {
+            "committed": 55,
+            "conflict": 45,
+            "replayed": 0,
+            "threw": 0
+          }
+        }
+      ]
+    },
+    "candidate": {
+      "source": "f0ce1fcfacdc60a9be3f65c8f16fefd993759027",
+      "tree": "ee1433e6512fb4ce54f5100547fb809679b8ea5e",
+      "reportSha256": "a68d2a7cccee6b995d68658c023175fb1bd676114b017e1ec1c492ecb5e6b5b6",
+      "benchmarkScriptSha256": "7e3120e414d6ad50b3bf77e7bc130adca7f0508cb00fd27b0eb3e61439481da3",
+      "status": "failed",
+      "errors": [],
+      "regressionFailures": [
+        "miniflareD1:concurrentSessionSave"
+      ],
+      "engines": [
+        {
+          "name": "sqlite",
+          "fixture": {
+            "fixtureSha256": "00be1648a938ee2da414e1783519e30b4ecf7d82f4d51e2467163df0f387609c",
+            "planningTasks": 1700,
+            "planningTaskCap": 2000,
+            "planningCaptures": 850,
+            "planningCaptureCap": 1000,
+            "recordCapFraction": 0.85,
+            "evidenceHeads": 256,
+            "evidenceVersions": 256,
+            "normalizedRows": 512,
+            "bundleBytes": 1439901,
+            "bundleSha256": "d4a4d21d21554fa2824635b846af15baa6a9c6b40cfb10782a90fb12cf1ec488",
+            "d1RecoveryByteFraction": 0.799945,
+            "compactPlanningBytes": 975111,
+            "statementFillerBytes": 364
+          },
+          "concurrency": {
+            "sessions": 20,
+            "sameOwnerSessions": 10,
+            "independentOwners": 10,
+            "waves": 5,
+            "commitsPerWave": 11,
+            "conflictsPerWave": 9,
+            "duplicateReplayEffects": 0,
+            "transport": "actual synchronous SQLite binding; not twenty operating-system connections"
+          },
+          "confirmedRestores": 6,
+          "measurements": [
+            {
+              "operation": "planningRead",
+              "p50Milliseconds": 33.884759999999915,
+              "p95Milliseconds": 38.66943900000024,
+              "budgetMilliseconds": 2500,
+              "passed": true
+            },
+            {
+              "operation": "evidenceRead",
+              "p50Milliseconds": 149.9676589999999,
+              "p95Milliseconds": 166.53634399999964,
+              "budgetMilliseconds": 5000,
+              "passed": true
+            },
+            {
+              "operation": "indexedOwnerPage",
+              "p50Milliseconds": 0.20845299999973577,
+              "p95Milliseconds": 0.2797499999996944,
+              "budgetMilliseconds": 250,
+              "passed": true
+            },
+            {
+              "operation": "fullExport",
+              "p50Milliseconds": 268.424356,
+              "p95Milliseconds": 303.63291500000014,
+              "budgetMilliseconds": 10000,
+              "passed": true
+            },
+            {
+              "operation": "jsonParse",
+              "p50Milliseconds": 2.9008480000002237,
+              "p95Milliseconds": 3.288908999999876,
+              "budgetMilliseconds": 500,
+              "passed": true
+            },
+            {
+              "operation": "strictBundleParse",
+              "p50Milliseconds": 208.9567390000002,
+              "p95Milliseconds": 243.10581000000002,
+              "budgetMilliseconds": 5000,
+              "passed": true
+            },
+            {
+              "operation": "canonicalJsonHash",
+              "p50Milliseconds": 16.47785500000009,
+              "p95Milliseconds": 30.474279000000024,
+              "budgetMilliseconds": 3000,
+              "passed": true
+            },
+            {
+              "operation": "reviewedRestore",
+              "p50Milliseconds": 1557.5376369999994,
+              "p95Milliseconds": 1605.6627719999997,
+              "budgetMilliseconds": 30000,
+              "passed": true
+            },
+            {
+              "operation": "sourceIdentityRead",
+              "p50Milliseconds": 67.59691700000258,
+              "p95Milliseconds": 72.17101100000036,
+              "budgetMilliseconds": 1500,
+              "passed": true
+            },
+            {
+              "operation": "runtimeIdentityRead",
+              "p50Milliseconds": 27.87511099999756,
+              "p95Milliseconds": 34.80713000000105,
+              "budgetMilliseconds": 1500,
+              "passed": true
+            },
+            {
+              "operation": "concurrentSessionRead",
+              "concurrentSessions": 20,
+              "p50Milliseconds": 303.5413980000012,
+              "p95Milliseconds": 328.3384040000019,
+              "budgetMilliseconds": 1500,
+              "passed": true
+            },
+            {
+              "operation": "concurrentSessionSave",
+              "concurrentSessions": 20,
+              "p50Milliseconds": 391.574482,
+              "p95Milliseconds": 873.344000000001,
+              "budgetMilliseconds": 2000,
+              "passed": true
+            }
+          ],
+          "commandProfileGroups": [
+            {
+              "ownerClass": "contended_near_bound",
+              "status": "committed",
+              "commands": 5,
+              "p50WallMilliseconds": 744.2698880000025,
+              "p95WallMilliseconds": 871.356702000001,
+              "p50RpcCount": 16,
+              "p95RpcCount": 16,
+              "p95ObservedAwaitUnionMilliseconds": 43.98458899999605,
+              "p95OutsideObservedAwaitMilliseconds": 827.3721130000049
+            },
+            {
+              "ownerClass": "contended_near_bound",
+              "status": "conflict",
+              "commands": 45,
+              "p50WallMilliseconds": 749.750967,
+              "p95WallMilliseconds": 874.2041690000005,
+              "p50RpcCount": 1,
+              "p95RpcCount": 1,
+              "p95ObservedAwaitUnionMilliseconds": 0.21756599999935133,
+              "p95OutsideObservedAwaitMilliseconds": 874.1418059999996
+            },
+            {
+              "ownerClass": "independent_small",
+              "status": "committed",
+              "commands": 50,
+              "p50WallMilliseconds": 281.20200699999987,
+              "p95WallMilliseconds": 358.0689600000005,
+              "p50RpcCount": 14,
+              "p95RpcCount": 14,
+              "p95ObservedAwaitUnionMilliseconds": 14.083676999998715,
+              "p95OutsideObservedAwaitMilliseconds": 345.0898899999993
+            }
+          ],
+          "medianCommittedRecoveryPhaseMilliseconds": {
+            "contended_near_bound": {
+              "hash-current": 223.57421800000157,
+              "originalserializer": 34.798831000000064,
+              "bundleoriginal": 50.169825999997556,
+              "projectplan": 0.05604400000083842,
+              "afterserializer": 16.87140399999771,
+              "bundleafter": 71.90255500000058,
+              "expandfuture": 40.76193300000159,
+              "measure": 7.2543210000003455,
+              "finalreads": 75.518253000002
+            },
+            "independent_small": {
+              "hash-current": 0.02495699999963108,
+              "originalserializer": 0.16341000000102213,
+              "bundleoriginal": 32.21391550000044,
+              "projectplan": 0.01079100000060862,
+              "afterserializer": 0.07135699999889766,
+              "bundleafter": 10.885635000000548,
+              "expandfuture": 68.4549909999987,
+              "measure": 0.37649900000178604,
+              "finalreads": 4.046870000000126
+            }
+          },
+          "medianCommittedStatementCounts": {
+            "contended_near_bound": 37,
+            "independent_small": 35.0
+          },
+          "outcomes": {
+            "committed": 55,
+            "conflict": 45,
+            "replayed": 0,
+            "threw": 0
+          }
+        },
+        {
+          "name": "miniflareD1",
+          "fixture": {
+            "fixtureSha256": "00be1648a938ee2da414e1783519e30b4ecf7d82f4d51e2467163df0f387609c",
+            "planningTasks": 1700,
+            "planningTaskCap": 2000,
+            "planningCaptures": 850,
+            "planningCaptureCap": 1000,
+            "recordCapFraction": 0.85,
+            "evidenceHeads": 256,
+            "evidenceVersions": 256,
+            "normalizedRows": 512,
+            "bundleBytes": 1439901,
+            "bundleSha256": "08706231b429f4b7afe7510c375689a58f37023f883f30a07a2437f550a51aa6",
+            "d1RecoveryByteFraction": 0.799945,
+            "compactPlanningBytes": 975111,
+            "statementFillerBytes": 364
+          },
+          "concurrency": {
+            "sessions": 20,
+            "sameOwnerSessions": 10,
+            "independentOwners": 10,
+            "waves": 5,
+            "commitsPerWave": 11,
+            "conflictsPerWave": 9,
+            "duplicateReplayEffects": 0,
+            "transport": "actual local Miniflare D1 binding; not hosted network clients"
+          },
+          "confirmedRestores": 6,
+          "measurements": [
+            {
+              "operation": "planningRead",
+              "p50Milliseconds": 58.948262999998406,
+              "p95Milliseconds": 69.5378759999985,
+              "budgetMilliseconds": 7500,
+              "passed": true
+            },
+            {
+              "operation": "evidenceRead",
+              "p50Milliseconds": 331.39049800000066,
+              "p95Milliseconds": 359.94542400000137,
+              "budgetMilliseconds": 20000,
+              "passed": true
+            },
+            {
+              "operation": "indexedOwnerPage",
+              "p50Milliseconds": 13.488675000000512,
+              "p95Milliseconds": 15.714890999999625,
+              "budgetMilliseconds": 2500,
+              "passed": true
+            },
+            {
+              "operation": "fullExport",
+              "p50Milliseconds": 893.9090750000032,
+              "p95Milliseconds": 952.9675859999988,
+              "budgetMilliseconds": 30000,
+              "passed": true
+            },
+            {
+              "operation": "jsonParse",
+              "p50Milliseconds": 3.234076000000641,
+              "p95Milliseconds": 3.596518999998807,
+              "budgetMilliseconds": 500,
+              "passed": true
+            },
+            {
+              "operation": "strictBundleParse",
+              "p50Milliseconds": 183.4150410000002,
+              "p95Milliseconds": 228.94687999999587,
+              "budgetMilliseconds": 5000,
+              "passed": true
+            },
+            {
+              "operation": "canonicalJsonHash",
+              "p50Milliseconds": 17.970831999999064,
+              "p95Milliseconds": 29.91224699999293,
+              "budgetMilliseconds": 3000,
+              "passed": true
+            },
+            {
+              "operation": "reviewedRestore",
+              "p50Milliseconds": 3354.277025000003,
+              "p95Milliseconds": 3389.6278280000042,
+              "budgetMilliseconds": 60000,
+              "passed": true
+            },
+            {
+              "operation": "sourceIdentityRead",
+              "p50Milliseconds": 183.42253700000583,
+              "p95Milliseconds": 197.7667969999966,
+              "budgetMilliseconds": 1500,
+              "passed": true
+            },
+            {
+              "operation": "runtimeIdentityRead",
+              "p50Milliseconds": 104.0619000000006,
+              "p95Milliseconds": 128.5486449999953,
+              "budgetMilliseconds": 1500,
+              "passed": true
+            },
+            {
+              "operation": "concurrentSessionRead",
+              "concurrentSessions": 20,
+              "p50Milliseconds": 534.4032260000022,
+              "p95Milliseconds": 742.8170889999965,
+              "budgetMilliseconds": 1500,
+              "passed": true
+            },
+            {
+              "operation": "concurrentSessionSave",
+              "concurrentSessions": 20,
+              "p50Milliseconds": 1584.243456000011,
+              "p95Milliseconds": 2140.0264460000035,
+              "budgetMilliseconds": 2000,
+              "passed": false
+            }
+          ],
+          "commandProfileGroups": [
+            {
+              "ownerClass": "contended_near_bound",
+              "status": "committed",
+              "commands": 5,
+              "p50WallMilliseconds": 1963.707190000001,
+              "p95WallMilliseconds": 2116.230236000003,
+              "p50RpcCount": 16,
+              "p95RpcCount": 16,
+              "p95ObservedAwaitUnionMilliseconds": 621.7542029999895,
+              "p95OutsideObservedAwaitMilliseconds": 1625.1315030000114
+            },
+            {
+              "ownerClass": "contended_near_bound",
+              "status": "conflict",
+              "commands": 45,
+              "p50WallMilliseconds": 1998.0935190000018,
+              "p95WallMilliseconds": 2155.9508449999994,
+              "p50RpcCount": 1,
+              "p95RpcCount": 1,
+              "p95ObservedAwaitUnionMilliseconds": 3.933935000008205,
+              "p95OutsideObservedAwaitMilliseconds": 2152.8683960000053
+            },
+            {
+              "ownerClass": "independent_small",
+              "status": "committed",
+              "commands": 50,
+              "p50WallMilliseconds": 1475.7359840000063,
+              "p95WallMilliseconds": 1583.7353450000082,
+              "p50RpcCount": 14,
+              "p95RpcCount": 14,
+              "p95ObservedAwaitUnionMilliseconds": 1402.4808119999507,
+              "p95OutsideObservedAwaitMilliseconds": 254.3024470000164
+            }
+          ],
+          "medianCommittedRecoveryPhaseMilliseconds": {
+            "contended_near_bound": {
+              "hash-current": 116.79184000000532,
+              "originalserializer": 810.4601740000071,
+              "bundleoriginal": 58.192565000004834,
+              "projectplan": 0.09347999999590684,
+              "afterserializer": 15.248950999986846,
+              "bundleafter": 77.2299039999998,
+              "expandfuture": 37.47896500000206,
+              "measure": 7.136434000000008,
+              "finalreads": 163.51363200000196
+            },
+            "independent_small": {
+              "hash-current": 0.018893499996920582,
+              "originalserializer": 0.12215799999830779,
+              "bundleoriginal": 18.50318800000241,
+              "projectplan": 0.007536000004620291,
+              "afterserializer": 0.11192799999844283,
+              "bundleafter": 11.914339000002656,
+              "expandfuture": 35.6238474999991,
+              "measure": 0.4084470000016154,
+              "finalreads": 247.51627849999932
+            }
+          },
+          "medianCommittedStatementCounts": {
+            "contended_near_bound": 37,
+            "independent_small": 35.0
+          },
+          "outcomes": {
+            "committed": 55,
+            "conflict": 45,
+            "replayed": 0,
+            "threw": 0
+          }
+        }
+      ]
+    }
+  },
+  "interpretation": "The candidate reduces prepared/bound read statements for full images8to1 while retaining every page, scalar and decoder check. D1 savep95 improved2426.679696to2140.026446ms (11.81percent), but remained above unchanged2000ms budget. This diagnostic does not pass acceptance or authorize a normal rerun by itself."
+}

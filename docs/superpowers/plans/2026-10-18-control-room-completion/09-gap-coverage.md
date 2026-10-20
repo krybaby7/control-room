@@ -6,7 +6,7 @@ Prior public candidate `3c6681a39d05b9b40ace26b49e5482aa2a4d40ed`: canonical run
 
 Prior public source `98f9986f12b2088c69bdb7e5e4671694b5bcbba2` FAILS its first canonical D1savep95 gate (2800.471638ms>2000;run39249240888) and controlledbrowserperformance after its fixture Worker exited (run39249240576). NativeWindows and three-browser accessibility pass; fullcanonical stillpending. Prior passes do not substitute. Material isolated diagnosis continues; supportedprivate98archive is UNVALIDATED, notsaved/deployed.
 
-Currentpublic87c41b57bb3a17d9671580739fbadb507c7f32a0 firstnormalD1savep95 FAILED2319.984152ms>2000 (run39251593013;100outcomes/6restores/errors[]). No unchangedrerun. Remainingcanonical87checkscontinue. Prior98main1807Node/210bridge/63+3browser/package and independent1077source/333build/49bridge/helperintegrityPASS; prior98performancefailuresnotwaived. See verification-98f9986.json.
+Current public candidate772a8d7bc1dc2b1de6f6e6747b70722bb03b2050 failed canonical39253998007 (1814/1815 Node; terminal archive race injection not reached) and normal39253997842 (D1savep952848.964302ms>2000). Subsequent canonical stages skipped. Isolated Sol repairs and review continue; no unchanged rerun, threshold waiver, deployment or merge. Prior87 canonical passed1811Node/210bridge/63+3browser while its normal failed2319.984152ms. Prior98 main/integrity passes retain their exact source and do not waive performance failures. See resume-checkpoint.json and verification-98f9986.json.
 
 | ID | Audit gap | Delivery phase | Concrete acceptance | Evidence |
 |---|---|---|---|---|
@@ -168,3 +168,8 @@ Fixture failure evidence now keeps a finite redacted head/tail and cause summari
 ## Datetime validation candidate — 2026-10-19
 
 Public87 canonical run39251592918 passed, but its first normal D1savep95 remained2319.984152ms against the unchanged2000ms gate. Preserve that failure. The next candidate compiles the exact locked Zod datetime regex once, preserving outputs and first refusal path/message. Independent parity8/8 and focused145 tests, typecheck, lint and build pass; paired parser timings are diagnostic only. Full exact-source acceptance is pending. The rejected digest fanout remains isolated (6/12 wall pairs lower; median slower). No threshold, workload, assertion, owner data, provider activation or deployment changes.
+
+
+## Resumed repair evidence — 2026-10-21
+
+Source772a8d7bc1dc2b1de6f6e6747b70722bb03b2050 failed canonical39253998007/job118064595938:1814/1815 Node cases passed; scheduled-backup-archive terminal epoch race assertion did not reach injection (`raced=false`). Subsequent canonical stages skipped. Controlled benchmark39253997842/job118064594835 failed only D1concurrentSessionSave p952848.964301999993ms (100samples,p502264.573563999991ms,6restores,errors[]), unchanged2000ms limit. Separate exact-source browser acceptance/performance, Windows, isolatedagentsD1/stream/recovery/segmented and runtime checks passed; they do not replace complete canonical acceptance. Isolated Sol workers are diagnosing material fixes. No deployment or merge in this continuation. All48 gap rows retain their external connection/device/consent boundaries; G41/G44 code implementation is retained and G48/performance release acceptance remains blocked.

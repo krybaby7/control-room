@@ -2,7 +2,7 @@
 // The destination is a new isolated database, blocked by DB-wide maintenance triggers even after readiness.
 // Both database generations share one isolated R2 bucket to exercise late old-key DELETE safety.
 import assert from 'node:assert/strict';
-import {readFile,readdir} from 'node:fs/promises';
+import {readFile,readdir,mkdir,writeFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {Miniflare} from 'miniflare';
 import {canonical,contentHash} from '../lib/canonical-json.ts';
@@ -476,6 +476,9 @@ try{
  assert.equal((await state('interrupted')).handoff_hash,installed.hash);
  assert.deepEqual(await readCurrent(source,OWNER,NOW),frozen);assert.deepEqual(await readOperationalWatermarks(source,OWNER),vector);
  assert.deepEqual((await readReadyAttachment(OWNER,attachmentRecordSchema.parse(JSON.parse((await ownerReader(target,OWNER).get('attachments',ready.id)).payload_json)),targetStore,{ownerNamespace:(await getWorkspaceNamespaces(target,OWNER)).blobNamespace,now:NOW})).bytes,fileBytes);
- console.log(JSON.stringify({profile:'isolated-replacement-rehearsal',migrations:migrationNames.length,modules:specs.length,segments:manifest.modules.reduce((sum,recoveryModule)=>sum+recoveryModule.segments.length,0),rows:manifest.totalRows,bytes:manifest.totalBytes,handoff:installed.handoff,sourcePlanningUnchanged:true,sharedIsolatedR2FreshNamespaces:true,excludedLateDeletesTested:true,v1BoundsUnchanged:true,hostedBindingChanged:false,limitations:['64MiB metadata profile only','No hosted cutover or live provider/device verification','No private credential, capability or dispatch authority is restored','Backup source physical identities retained in sealed continuity; ready chunks use fresh namespaces','Single-owner empty replacement profile; no production binding cutover']}));
+ const result={profile:'isolated-replacement-rehearsal',migrations:migrationNames.length,modules:specs.length,segments:manifest.modules.reduce((sum,recoveryModule)=>sum+recoveryModule.segments.length,0),rows:manifest.totalRows,bytes:manifest.totalBytes,handoff:installed.handoff,sourcePlanningUnchanged:true,sharedIsolatedR2FreshNamespaces:true,excludedLateDeletesTested:true,v1BoundsUnchanged:true,hostedBindingChanged:false,limitations:['64MiB metadata profile only','No hosted cutover or live provider/device verification','No private credential, capability or dispatch authority is restored','Backup source physical identities retained in sealed continuity; ready chunks use fresh namespaces','Single-owner empty replacement profile; no production binding cutover']};
+ await mkdir('benchmark-results',{recursive:true});
+ await writeFile('benchmark-results/segmented-recovery.json',JSON.stringify(result,null,2)+'\n');
+ console.log(JSON.stringify(result));
  console.log('PASS actual isolated D1/R2 segmented replacement: all-segment preverification, corruption rejection, checkpoint CAS, interrupted-target refusal, typed reference/FK validation, exact native audit identities and existing nonexecution owner attribution, verified fresh-namespace attachment, manual-only handoff.');
 }finally{await mf.dispose();}

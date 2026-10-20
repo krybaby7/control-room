@@ -353,7 +353,7 @@
     "date": "2026-10-19",
     "branch": "feat/control-room-completion-cloud",
     "checkpoint": "resume-checkpoint.json",
-    "status": "current87_candidate_failed_performance_remaining_gates_running",
+    "status": "source772_failed_hierarchical_query_component_improved_but_gate_still_failed",
     "canonicalCheckpoint": {
       "source": "3c6681a39d05b9b40ace26b49e5482aa2a4d40ed",
       "run": 39244318516,
@@ -512,7 +512,7 @@
     }
   },
   "datetimeValidationCandidate": {
-    "status": "pending_exact_source_canonical_validation",
+    "status": "failed_exact_source_canonical_and_performance",
     "baseSource": "87c41b57bb3a17d9671580739fbadb507c7f32a0",
     "change": "Compile locked Zod datetime regex once; preserve acceptance and first path/message",
     "focusedPassed": 145,
@@ -525,6 +525,45 @@
     "previous87CanonicalRun": 39251592918,
     "previous87Canonical": "passed",
     "paidInferenceEnabled": false,
-    "deployed": false
+    "deployed": false,
+    "testedSource": "772a8d7bc1dc2b1de6f6e6747b70722bb03b2050"
+  },
+  "current772Failures": {
+    "source": "772a8d7bc1dc2b1de6f6e6747b70722bb03b2050",
+    "canonical": {
+      "run": 39253998007,
+      "job": 118064595938,
+      "total": 1815,
+      "passed": 1814,
+      "failed": 1,
+      "assertion": "scheduled-backup-archive.test.ts:108 raced false !== true",
+      "subsequentCanonicalStages": "skipped"
+    },
+    "benchmark": {
+      "run": 39253997842,
+      "job": 118064594835,
+      "D1saveP95Ms": 2848.964301999993,
+      "D1saveP50Ms": 2264.573563999991,
+      "limitMs": 2000,
+      "samples": 100,
+      "restores": 6,
+      "errors": []
+    },
+    "status": "isolated_repairs_in_progress",
+    "deploymentAuthorizedThisContinuation": false
+  },
+  "hierarchicalQueryRepair": {
+    "commit": "f0ce1fcfacdc60a9be3f65c8f16fefd993759027",
+    "status": "reviewed_component_material_diagnostic_improvement_acceptance_pending",
+    "focusedPassed": 29,
+    "queryBytes": 36159,
+    "bindings": 39,
+    "nativeCompoundTermsMax": 5,
+    "decoderUnchanged": true,
+    "D1saveP95BeforeMs": 2426.679696,
+    "D1saveP95AfterMs": 2140.026446,
+    "limitMs": 2000,
+    "normalRun": false,
+    "nextWork": "Exact byte measurement CPU reduction and bounded contiguous pre-write assertion grouping; independent review and combined exact-source canonical required."
   }
 }

@@ -1,6 +1,8 @@
 # Historical checkpoint: Control Room cloud result checkpoint — 2026-10-19
 
-This report retains its original source-specific observations. Current resumed verification is recorded in the completion plan’s `resume-checkpoint.json` and `verification-3c6681a.json`; current runtime/source-helper implementation facts supersede this historical report.
+This report retains historical source-specific observations only. Use the completion plan’s [resume checkpoint](../../superpowers/plans/2026-10-18-control-room-completion/resume-checkpoint.json) and [progress ledger](../../superpowers/plans/2026-10-18-control-room-completion/progress.json) for current source, gate and remaining-acceptance status. `verification-3c6681a.json` is prior-source evidence, not final acceptance. The adjacent `status.json` is an unpopulated release-attestation template; its `not-run` entries are not a current test summary.
+
+Since the observations below, the private runtime extraction, strict public installer, Windows owned-process integration and finite manual Sites adapter have been implemented and reviewed. Supported cloud Sites source/package helpers are restored. Real provider/device/native Sites acceptance and a complete verified private pre-cutover snapshot remain separate gates. See the current [cloud handoff](cloud-handoff.md) and [subscription executor procedure](../../integrations/subscription-executor.md). Pending exact-source checks must reach terminal results before any release claim.
 
 Documentation prepared from clean source `eb6755432f3e0989b1c722ac56fe745b7f4a7102`. The adjacent progress/checkpoint records identify the next integrated source. Each result below belongs to its named tested source; this document does not certify the final integrated checkout or its package. Cloud checks run through Node24 GitHub Actions. Supported Sites source/package helper execution is unavailable while native metadata/deployment access exists.
 
@@ -16,7 +18,7 @@ Documentation prepared from clean source `eb6755432f3e0989b1c722ac56fe745b7f4a71
 | 7 | Frozen jobs, budgets, approval/lease/event/artifact coordination and original Lab evidence projection | Corrected native budget interaction is source-verified. Separate runtime extraction/registration and Windows owned-process/sandbox integration code remain missing; production runtime stays not_installed. |
 | 8 | Segmented recovery/fences, browser/mobile checks, performance accounting, docs and packaging | Source-specific passes below are retained. The latest normal D1 save performance gate remains failed; final coherent source/package/private deployment/device gates are not complete. |
 
-## Exact latest evidence
+## Historical source-specific evidence
 
 Source-specific checks do not certify a later integrated checkout. At `296fd5654b8f457187cf12b4d5b9ab46044c8c03`, run39192051800 passed the native browser job117866794907 (63 Chromium and3 R2 journeys), targeted job117866794977 (3 budget/history/review journeys), and mobile job117866794902 (2 fixtures; maximum measured p95 2737.6ms). The run itself failed its complete Node job; those browser passes are not a full-run pass.
 
@@ -32,7 +34,7 @@ Segmented recovery at872/run39183954194/job117842347899 passed27 migrations,33 m
 
 The [48-row ledger](../../superpowers/plans/2026-10-18-control-room-completion/09-gap-coverage.md) separates source-verified implementation from live provider/device requirements. A build, cloud fixture or saved schedule is not actual owner/provider execution.
 
-## Remaining work and publication
+## Historical remaining-work observations
 
 - Final integrated exact-source Node/bridge/type/lint/build/nativeD1R2/HTTP/browser/mobile/performance and source/build-package gates remain pending. Earlier passes and packages retain their own source identities; no accepted final release artifact or deployment is claimed.
 - The unchanged2s normal D1 save gate remains unmet. Preserve the complete hash, serialization, epoch, receipt and row-set checks while reporting this limitation.
@@ -42,7 +44,7 @@ The [48-row ledger](../../superpowers/plans/2026-10-18-control-room-completion/0
 
 The source-verified budget/history/deferred-panel fixes are no longer described as missing internal work. Their earlier failures remain part of the verification history. The new native D1 historical fallback test also passed at its own source. The final integrated head still needs its own gates and exact-source package; there is no new Site deployment or accepted final release archive.
 
-## Reviewed follow-up and current gate limits — 2026-10-19
+## Historical reviewed follow-up and gate limits — 2026-10-19
 
 Documentation prepared from clean source `eb6755432f3e0989b1c722ac56fe745b7f4a7102`. These are component/source-specific results; the final integrated checkout and package still need their own gates.
 

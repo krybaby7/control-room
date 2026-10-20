@@ -4,7 +4,8 @@ import {OWNER_TABLES,ownerTable,type RegisteredOwnerTable,type ModuleRow} from '
 import type {SqlDatabase} from './workspace-store.ts';
 import {BUNDLE_LIMITS} from './workspace-export-core.ts';
 import {validateOperationalWatermarks} from './operational-watermarks.ts';
-export const RECOVERY_READ_GROUP_BRANCHES=5;
+export const RECOVERY_READ_GROUP_PAGES=37;
+export const RECOVERY_READ_COMPOUND_TERMS=5;
 const auditTag='__audit__';
 const streamTables=new Set<RegisteredOwnerTable>(['agent_results','evaluation_runs','source_observations','source_sync_runs','integration_history','review_snapshots','review_analysis_runs','notification_events','automation_occurrences']);
 const columns=['snapshot_tag','snapshot_empty','id','row_revision','payload_json','content_hash','stream_sequence','workspace_revision','ordinal','stream_id','kind','entity_type','entity_id','occurred_at'] as const;
@@ -24,26 +25,42 @@ function validateInput(input:RecoveryReadPageInput):void{
  * Each branch certifies its presence even when its own page is empty. */
 export function buildRecoveryReadPageQueries(owner:string,input:RecoveryReadPageInput):Array<{sql:string;bindings:(string|number|null)[]}>{
  if(typeof owner!=='string'||!owner)fail();validateInput(input);
- const branches:Array<{tag:string;sql:string;bindings:(string|number|null)[]}> = [];
+ const pages:Array<{tag:string;page:string;rows:string;bindings:(string|number|null)[]}> = [];
  for(const {table,after}of input.tables){
   if(!OWNER_TABLES.includes(table)||typeof after!=='string')fail();const name=ownerTable(table);
   const sequence=streamTables.has(table)?'stream_sequence':'NULL AS stream_sequence';
-  branches.push({tag:name,sql:`SELECT '${name}' AS snapshot_tag,CASE WHEN p.id IS NULL THEN 1 ELSE 0 END AS snapshot_empty,p.id,p.row_revision,p.payload_json,p.content_hash,p.stream_sequence,${nullAudit} FROM (SELECT 1) sentinel LEFT JOIN (SELECT id,row_revision,payload_json,content_hash,${sequence} FROM ${name} WHERE user_id=(SELECT owner FROM recovery_page_scope) AND id>? ORDER BY id COLLATE BINARY LIMIT 200) p ON 1=1`,bindings:[after]});
+  pages.push({tag:name,page:`SELECT id,row_revision,payload_json,content_hash,${sequence} FROM ${name} WHERE user_id=(SELECT owner FROM recovery_page_scope) AND id>? ORDER BY id COLLATE BINARY LIMIT 200`,rows:`p.id,p.row_revision,p.payload_json,p.content_hash,p.stream_sequence,${nullAudit}`,bindings:[after]});
  }
  if(input.audit){
   if(typeof input.audit.after!=='string')fail();validateOperationalWatermarks(input.audit.watermarks);
-  branches.push({tag:auditTag,sql:`SELECT '${auditTag}' AS snapshot_tag,CASE WHEN p.event_id IS NULL THEN 1 ELSE 0 END AS snapshot_empty,p.event_id AS id,NULL AS row_revision,p.payload_json,NULL AS content_hash,p.stream_sequence,p.workspace_revision,p.ordinal,p.stream_id,p.kind,p.entity_type,p.entity_id,p.occurred_at FROM (SELECT 1) sentinel LEFT JOIN (SELECT event_id,workspace_revision,ordinal,stream_id,stream_sequence,kind,entity_type,entity_id,occurred_at,payload_json FROM audit_events WHERE user_id=(SELECT owner FROM recovery_page_scope) AND event_id>? AND NOT EXISTS(SELECT 1 FROM json_each(?) frozen WHERE frozen.key=audit_events.stream_id AND audit_events.stream_sequence>frozen.value) ORDER BY event_id COLLATE BINARY LIMIT 200) p ON 1=1`,bindings:[input.audit.after,canonical(input.audit.watermarks)]});
+  pages.push({tag:auditTag,page:`SELECT event_id,workspace_revision,ordinal,stream_id,stream_sequence,kind,entity_type,entity_id,occurred_at,payload_json FROM audit_events WHERE user_id=(SELECT owner FROM recovery_page_scope) AND event_id>? AND NOT EXISTS(SELECT 1 FROM json_each(?) frozen WHERE frozen.key=audit_events.stream_id AND audit_events.stream_sequence>frozen.value) ORDER BY event_id COLLATE BINARY LIMIT 200`,rows:'p.event_id AS id,NULL AS row_revision,p.payload_json,NULL AS content_hash,p.stream_sequence,p.workspace_revision,p.ordinal,p.stream_id,p.kind,p.entity_type,p.entity_id,p.occurred_at',bindings:[input.audit.after,canonical(input.audit.watermarks)]});
  }
- // Actual native calibration accepts5 branches (including audit) and rejects6.
- // Keep this exact proven shape bounded and execute <=8 groups in ONE read-only batch.
- branches.sort((a,b)=>compareSqliteText(a.tag,b.tag));
+ // Independent MATERIALIZED page CTEs retain their own BINARY cursor and
+ // LIMIT. A separate empty branch certifies absence without padding or dropping a selected tag.
+ // Full inventory has 37 bounded page/result pairs, never an aggregate blob.
+ pages.sort((a,b)=>compareSqliteText(a.tag,b.tag));
  const queries:Array<{sql:string;bindings:(string|number|null)[]}>=[];
- for(let offset=0;offset<branches.length;offset+=RECOVERY_READ_GROUP_BRANCHES){
-  const group=branches.slice(offset,offset+RECOVERY_READ_GROUP_BRANCHES),bindings:(string|number|null)[]=[owner,...group.flatMap(branch=>branch.bindings)];
-  const sql='WITH recovery_page_scope AS MATERIALIZED(SELECT ? AS owner) '+group.map(branch=>branch.sql).join(' UNION ALL ')+' ORDER BY snapshot_tag COLLATE BINARY,id COLLATE BINARY';
+ for(let offset=0;offset<pages.length;offset+=RECOVERY_READ_GROUP_PAGES){
+  const group=pages.slice(offset,offset+RECOVERY_READ_GROUP_PAGES),bindings:(string|number|null)[]=[owner,...group.flatMap(page=>page.bindings)];
+  const definitions=group.map((page,index)=>`recovery_page_${index} AS MATERIALIZED (${page.page})`);
+  const leaves=group.map((page,index)=>{
+   const name=`recovery_result_${index}`;
+   definitions.push(`${name} AS MATERIALIZED (SELECT '${page.tag}' AS snapshot_tag,0 AS snapshot_empty,${page.rows} FROM recovery_page_${index} p UNION ALL SELECT '${page.tag}' AS snapshot_tag,1 AS snapshot_empty,${columns.slice(2).map(column=>`NULL AS ${column}`).join(',')} WHERE NOT EXISTS(SELECT 1 FROM recovery_page_${index}))`);
+   return name;
+  });
+  // D1 permits at most five terms in EACH compound SELECT. A bounded tree
+  // of named materialized CTEs keeps every compound below that native cap;
+  // no limit is raised and no selected table/page is omitted or aggregated.
+  let level=0,current=leaves;
+  while(current.length>1){
+   const following:string[]=[];
+   for(let index=0;index<current.length;index+=RECOVERY_READ_COMPOUND_TERMS){const name=`recovery_merge_${level}_${index}`;definitions.push(`${name} AS MATERIALIZED (${current.slice(index,index+RECOVERY_READ_COMPOUND_TERMS).map(source=>`SELECT * FROM ${source}`).join(' UNION ALL ')})`);following.push(name);}
+   current=following;level++;if(level>3)fail();
+  }
+  const sql='WITH recovery_page_scope AS MATERIALIZED(SELECT ? AS owner), '+definitions.join(', ')+' SELECT * FROM '+current[0]+' ORDER BY snapshot_tag COLLATE BINARY,id COLLATE BINARY';
   if(bindings.length>100||new TextEncoder().encode(sql).byteLength>100000)fail();queries.push({sql,bindings});
  }
- if(queries.length>8)fail();return queries;
+ if(queries.length>1)fail();return queries;
 }
 /** Decode only the exact selected tags. Missing empty certificates, malformed
  * padding, repeated keys and mixed empty/nonempty branches all fail closed. */

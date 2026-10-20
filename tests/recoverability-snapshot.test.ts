@@ -161,19 +161,19 @@ test('mixed BMP and astral original IDs retain SQLite BINARY order in real expor
  }finally{f.sqlite.close();}
 });
 
-test('eight native-calibrated UNION statements per read-only batch retain independent physical-and-audit pagination',async()=>{
+test('one flat materialized page statement per read-only batch retain independent physical-and-audit pagination',async()=>{
  const f=await fixture();try{
   let sizes:number[]=[];const db=observeDatabase(f.db,()=>{},sqls=>{if(sqls.some(sql=>sql.startsWith('WITH recovery_page_scope'))){assert.ok(sqls.every(sql=>sql.startsWith('WITH recovery_page_scope')));sizes.push(sqls.length);}});
-  const empty=await measureProspectiveRecoverability(db,owner,{now});assert.deepEqual(sizes,[8,8]);assert.equal(empty.measurement.allowed,true);
+  const empty=await measureProspectiveRecoverability(db,owner,{now});assert.deepEqual(sizes,[1,1]);assert.equal(empty.measurement.allowed,true);
   const payload=canonical({text:'Exact bounded independent cursor'}),digest=await contentHash(payload),insert=f.sqlite.prepare('INSERT INTO evidence_records(user_id,id,row_revision,payload_json,content_hash) VALUES(?,?,1,?,?)');
   for(let index=0;index<450;index++)insert.run(owner,'wide-page-'+String(index).padStart(4,'0'),payload,digest);
   insert.run('different-owner','foreign-not-selected',payload,digest);sizes=[];
-  const quote=await measureProspectiveRecoverability(db,owner,{now});assert.deepEqual(sizes,[8,1,1,8,1,1]);
+  const quote=await measureProspectiveRecoverability(db,owner,{now});assert.deepEqual(sizes,[1,1,1,1,1,1]);
   assert.equal(quote.boundaryRows.find(row=>row.table==='evidence_records')!.rows.length,450);assert.equal(canonical(quote.boundaryRows).includes('foreign-not-selected'),false);
   assert.equal(quote.measurement.measurements.bundleBytes,byteLength(JSON.stringify(await exportWorkspaceBundle(f.db,owner,{now:()=>now}))));
  }finally{f.sqlite.close();}
 });
-test('actual Miniflare D1 accepts native-calibrated eight-statement UNION read batches without dropping owner rows or final equality proofs',{timeout:120000},async()=>{
+test('actual Miniflare D1 accepts a single flat materialized page read statement without dropping owner rows or final equality proofs',{timeout:120000},async()=>{
  const {Miniflare}=await import('miniflare'),{readFile,readdir}=await import('node:fs/promises'),mf=new Miniflare({modules:true,script:'export default {fetch(){return new Response("isolated synthetic recovery batch fixture")}}',d1Databases:{DB:'synthetic-wide-recovery'}});
  try{
   const native=await mf.getD1Database('DB'),files=(await readdir(new URL('../drizzle/',import.meta.url))).filter(name=>/^\d+.*\.sql$/u.test(name)).sort();
@@ -182,7 +182,7 @@ test('actual Miniflare D1 accepts native-calibrated eight-statement UNION read b
   const payload=canonical({text:'Retained actual D1 original Unicode العربية 😀'}),digest=await contentHash(payload);
   for(const [user,id]of [[owner,'native-selected'],['different-owner','native-foreign']]as const)await native.prepare('INSERT INTO evidence_records(user_id,id,row_revision,payload_json,content_hash) VALUES(?,?,1,?,?)').bind(user,id,payload,digest).run();
   const sizes:number[]=[];const db=observeDatabase(native,()=>{},sqls=>{if(sqls.some(sql=>sql.startsWith('WITH recovery_page_scope'))){assert.ok(sqls.every(sql=>sql.startsWith('WITH recovery_page_scope')));sizes.push(sqls.length);}});
-  const quote=await measureProspectiveRecoverability(db,owner,{now});assert.deepEqual(sizes,[8,8]);assert.equal(quote.measurement.allowed,true);
+  const quote=await measureProspectiveRecoverability(db,owner,{now});assert.deepEqual(sizes,[1,1]);assert.equal(quote.measurement.allowed,true);
   assert.deepEqual(quote.boundaryRows.find(row=>row.table==='evidence_records')!.rows.map(row=>row.id),['native-selected']);
   assert.equal(quote.measurement.measurements.bundleBytes,byteLength(JSON.stringify(await exportWorkspaceBundle(native,owner,{now:()=>now}))));
   assert.equal((await native.prepare('SELECT COUNT(*) n FROM workspace_mutations WHERE user_id=?').bind(owner).first<{n:number}>())!.n,0);
@@ -203,7 +203,7 @@ test('co-batched audit and normalized pages retain every independent cursor, exa
    if(sqls.some(sql=>sql.startsWith('WITH recovery_page_scope'))){assert.ok(sqls.every(sql=>sql.startsWith('WITH recovery_page_scope')));sizes.push(sqls.length);}
   });
   const changes=f.sqlite.prepare('SELECT total_changes() n').get()!.n,quote=await measureProspectiveRecoverability(db,owner,{now});
-  assert.deepEqual(sizes,[8,1,1,8,1,1]);assert.equal(auditReads,6);
+  assert.deepEqual(sizes,[1,1,1,1,1,1]);assert.equal(auditReads,6);
   assert.equal(quote.boundaryRows.find(row=>row.table==='evidence_records')!.rows.length,450);
   const bundle=await exportWorkspaceBundle(f.db,owner,{now:()=>now});assert.equal(bundle.modules.audit_events.records.length,450);
   assert.equal(quote.measurement.measurements.bundleBytes,byteLength(JSON.stringify(bundle)));
