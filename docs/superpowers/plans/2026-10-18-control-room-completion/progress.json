@@ -263,7 +263,7 @@
       ]
     }
   ],
-  "nextAction": "Wait for the one combined e9645cd diagnostic; inspect all outcomes and unchanged 2000 ms D1 limit. If justified, freeze and push a reviewed exact-source candidate for all canonical CI stages. Preserve historical failures and external gates; no merge/deployment.",
+  "nextAction": "Run all exact-source canonical GitHub checks, native Windows and unchanged workspace/browser performance gates. Retain every failure and source identity. Verify actual candidate/helper/bridge archives and record formal source-bound cloud evidence after terminal results. No merge or deployment.",
   "allowedStatuses": [
     "not_started",
     "in_progress",
@@ -285,7 +285,10 @@
       "/root/save_client",
       "/root/export_registry",
       "/root/drafts",
-      "/root/runtime_probe"
+      "/root/runtime_probe",
+      "/root/repair_test",
+      "/root/repair_performance",
+      "/root/repair_review"
     ],
     "evidence": "Explicit supported model selection accepted and worker IDs returned."
   },
@@ -355,7 +358,7 @@
     "date": "2026-10-21",
     "branch": "feat/control-room-completion-cloud",
     "checkpoint": "resume-checkpoint.json",
-    "status": "reviewed_combined_repair_diagnostic_in_progress_no_canonical_acceptance",
+    "status": "reviewed_candidate_ready_for_exact_source_canonical_gates",
     "canonicalCheckpoint": {
       "source": "3c6681a39d05b9b40ace26b49e5482aa2a4d40ed",
       "run": 39244318516,
@@ -585,6 +588,19 @@
     "D1saveP95Ms": 2028.8546369999967,
     "diagnosticOnly": true,
     "normalRun": false,
-    "nextWork": "Investigate remaining synchronous preparation/RPC and storage-compaction CPU. No unchanged rerun or waiver."
+    "nextWork": "Investigate remaining synchronous preparation/RPC and storage-compaction CPU. No unchanged rerun or waiver.",
+    "finalReadCohort": {
+      "source": "5242a0226ad41493235dedb1a990181db17d6682",
+      "integrated": "ef9bf75",
+      "focusedPassed": 5,
+      "review": "passed",
+      "change": "Same final admission and hydrated current SELECTs in one bounded read-only batch; dependent baseline remains separate. Atomic guard and failure reconciliation logic unchanged.",
+      "canonicalAcceptance": "pending",
+      "diagnostic": "one fresh source-specific diagnostic in progress"
+    },
+    "rejectedCompactionProbe": {
+      "integrated": false,
+      "reason": "No material paired CPU/elapsed gain; public/storage compaction unchanged."
+    }
   }
 }
