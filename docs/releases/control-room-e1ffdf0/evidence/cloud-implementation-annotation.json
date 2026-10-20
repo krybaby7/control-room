@@ -1,0 +1,77 @@
+{
+  "format": "control-room-cloud-implementation-annotation",
+  "version": 1,
+  "status": "cloud-implementation-complete-release-blocked",
+  "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+  "sourceTree": "3c050f1bfbf522c2dbe93830df598a7f60c88527",
+  "candidate": "control-room-e1ffdf0",
+  "candidateArtifact": {
+    "id": 12308210179,
+    "name": "control-room-candidate-e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+    "sha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5",
+    "bytes": 3638712,
+    "runId": 39513086298
+  },
+  "inputSha256": "425706f4ea08871ffe41841f1b8d412c8c30a0cf165f46470469792a48d2eaa9",
+  "auditSha256": "93bdf6f2a7af6b6dac852d1cfdbcfc2e0cfa84b9851c02c57d73561542ce4205",
+  "integritySha256": "7557607b2fc5184f729711ccbf6555787d1a7ec84d5172e23fcaf414a1b75463",
+  "originalLedgerVerificationSha256": "51e41c694d876a60a54acdba7d7ed0f91f0301bf477c7d54ed15813cdbd4da01",
+  "beforeStatusSha256": "4bd5112368d3337402de3c8c275ecd72952117d6d864cce29d8ca0d1a1bd5a27",
+  "afterStatusSha256": "b7d78ec2cd8fd48f31633e4d6a9ca84f1d0becc7fa5eb6e0226398b013eb6f6b",
+  "hashProvenance": {
+    "audit": "Explicit integrator-authored conditional cloud-only source audit in the diagnostic checkout.",
+    "integrity": "Runtime SHA256 of the actual same-job inspector output; not an independently supplied report digest.",
+    "input": "Runtime binding of explicit source/artifact/audit identity and actual emitted report digest."
+  },
+  "changedFields": [
+    "phases.implementation"
+  ],
+  "beforePhases": {
+    "implementation": "in-progress",
+    "localVerification": "passed",
+    "hostedAcceptance": "owner-dependent"
+  },
+  "afterPhases": {
+    "implementation": "complete",
+    "localVerification": "passed",
+    "hostedAcceptance": "owner-dependent"
+  },
+  "allOtherFieldsCanonicalEqual": true,
+  "originalFourBlockerFilesPreserved": true,
+  "actualCounts": {
+    "cloudPassed": 11,
+    "externalOwnerDependent": 2,
+    "auditedPhases": 9,
+    "auditedSourcePaths": 22,
+    "distinctAuditedSourcePaths": 21,
+    "sourceFiles": 1100,
+    "buildFiles": 333,
+    "bridgeFiles": 49,
+    "integrityNegativeControls": 8
+  },
+  "beforeVerification": {
+    "exitCode": 1,
+    "candidate": "control-room-e1ffdf0",
+    "accepted": false,
+    "blocked": [
+      "hosted-private-acceptance",
+      "owner-device-acceptance",
+      "implementation",
+      "hostedAcceptance"
+    ]
+  },
+  "afterVerification": {
+    "exitCode": 1,
+    "candidate": "control-room-e1ffdf0",
+    "accepted": false,
+    "blocked": [
+      "hosted-private-acceptance",
+      "owner-device-acceptance",
+      "hostedAcceptance"
+    ]
+  },
+  "releaseAccepted": false,
+  "deployed": false,
+  "providerExecution": false,
+  "ownerDeviceAcceptance": false
+}

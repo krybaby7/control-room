@@ -1,0 +1,172 @@
+{
+  "format": "control-room-final-cloud-ledger-diagnostic",
+  "version": 1,
+  "status": "cloud-recorded-release-blocked",
+  "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+  "candidate": "control-room-e1ffdf0",
+  "inputSha256": "475b40688d940e334a7d44d8d0a5c8f6ef9ea627d48bf8b301e05c2f31e335a7",
+  "recorderSha256": "3524a4bed694caa540a2af25f16e3b01663caa7e8ea43dcf12d64f8d6a50e19b",
+  "statusSha256": "4bd5112368d3337402de3c8c275ecd72952117d6d864cce29d8ca0d1a1bd5a27",
+  "candidateArtifact": {
+    "id": 12308210179,
+    "name": "control-room-candidate-e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+    "sha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5",
+    "bytes": 3638712,
+    "runId": 39513086298
+  },
+  "cloudChecks": [
+    {
+      "id": "node-tests",
+      "status": "passed",
+      "observedAt": "2026-10-20T23:14:59Z",
+      "runId": 39513086298,
+      "runAttempt": 1,
+      "jobId": 118938631895,
+      "stepNumber": 5,
+      "artifactId": 12308210179,
+      "artifactSha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5"
+    },
+    {
+      "id": "bridge-tests",
+      "status": "passed",
+      "observedAt": "2026-10-20T23:15:06Z",
+      "runId": 39513086298,
+      "runAttempt": 1,
+      "jobId": 118938631895,
+      "stepNumber": 6,
+      "artifactId": 12308210179,
+      "artifactSha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5"
+    },
+    {
+      "id": "typecheck",
+      "status": "passed",
+      "observedAt": "2026-10-20T23:15:31Z",
+      "runId": 39513086298,
+      "runAttempt": 1,
+      "jobId": 118938631895,
+      "stepNumber": 7,
+      "artifactId": 12308210179,
+      "artifactSha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5"
+    },
+    {
+      "id": "lint",
+      "status": "passed",
+      "observedAt": "2026-10-20T23:16:01Z",
+      "runId": 39513086298,
+      "runAttempt": 1,
+      "jobId": 118938631895,
+      "stepNumber": 8,
+      "artifactId": 12308210179,
+      "artifactSha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5"
+    },
+    {
+      "id": "build",
+      "status": "passed",
+      "observedAt": "2026-10-20T23:16:12Z",
+      "runId": 39513086298,
+      "runAttempt": 1,
+      "jobId": 118938631895,
+      "stepNumber": 9,
+      "artifactId": 12308210179,
+      "artifactSha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5"
+    },
+    {
+      "id": "d1-recovery",
+      "status": "passed",
+      "observedAt": "2026-10-20T23:16:26Z",
+      "runId": 39513086298,
+      "runAttempt": 1,
+      "jobId": 118938631895,
+      "stepNumber": 11,
+      "artifactId": 12308210179,
+      "artifactSha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5"
+    },
+    {
+      "id": "r2-recovery",
+      "status": "passed",
+      "observedAt": "2026-10-20T23:17:59Z",
+      "runId": 39513086298,
+      "runAttempt": 1,
+      "jobId": 118938631895,
+      "stepNumber": 21,
+      "artifactId": 12308210179,
+      "artifactSha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5"
+    },
+    {
+      "id": "chromium",
+      "status": "passed",
+      "observedAt": "2026-10-20T23:23:00Z",
+      "runId": 39513086298,
+      "runAttempt": 1,
+      "jobId": 118938631895,
+      "stepNumber": 23,
+      "artifactId": 12308210179,
+      "artifactSha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5"
+    },
+    {
+      "id": "r2-chromium",
+      "status": "passed",
+      "observedAt": "2026-10-20T23:23:56Z",
+      "runId": 39513086298,
+      "runAttempt": 1,
+      "jobId": 118938631895,
+      "stepNumber": 24,
+      "artifactId": 12308210179,
+      "artifactSha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5"
+    },
+    {
+      "id": "oversized-owner-recovery",
+      "status": "passed",
+      "observedAt": "2026-10-20T23:14:52Z",
+      "runId": 39513086276,
+      "runAttempt": 1,
+      "jobId": 118938628711,
+      "stepNumber": 5,
+      "artifactId": 12307735360,
+      "artifactSha256": "c4e89ffaf15ebc91487a663328ed1fde6fcad237579f7309d99e729e8aeb3914"
+    },
+    {
+      "id": "performance",
+      "status": "passed",
+      "observedAt": "2026-10-20T23:10:50Z",
+      "runId": 39513086324,
+      "runAttempt": 1,
+      "jobId": 118938631899,
+      "stepNumber": 5,
+      "artifactId": 12306740404,
+      "artifactSha256": "3c59b83485ace9a8b9f9931862dde1cc687c849fdff579e1fcfafc52e9e7d73d"
+    }
+  ],
+  "externalChecks": [
+    {
+      "id": "hosted-private-acceptance",
+      "status": "owner-dependent",
+      "limitation": "Exact candidate private deployment, bindings, gateway authentication and owner-session acceptance have not been observed."
+    },
+    {
+      "id": "owner-device-acceptance",
+      "status": "owner-dependent",
+      "limitation": "Actual owner-device workflows have not been observed for this exact candidate."
+    }
+  ],
+  "phases": {
+    "implementation": "in-progress",
+    "localVerification": "passed",
+    "hostedAcceptance": "owner-dependent"
+  },
+  "verification": {
+    "exitCode": 1,
+    "candidate": "control-room-e1ffdf0",
+    "accepted": false,
+    "blocked": [
+      "hosted-private-acceptance",
+      "owner-device-acceptance",
+      "implementation",
+      "hostedAcceptance"
+    ]
+  },
+  "releaseAccepted": false,
+  "deployed": false,
+  "providerExecution": false,
+  "ownerDeviceAcceptance": false
+}

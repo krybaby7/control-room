@@ -1,0 +1,14 @@
+{
+  "candidateCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+  "sourceTree": "3c050f1bfbf522c2dbe93830df598a7f60c88527",
+  "candidate": "control-room-e1ffdf0",
+  "candidateArtifact": {
+    "id": 12308210179,
+    "name": "control-room-candidate-e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+    "sha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5",
+    "bytes": 3638712,
+    "runId": 39513086298
+  },
+  "auditSha256": "93bdf6f2a7af6b6dac852d1cfdbcfc2e0cfa84b9851c02c57d73561542ce4205",
+  "integritySha256": "7557607b2fc5184f729711ccbf6555787d1a7ec84d5172e23fcaf414a1b75463"
+}

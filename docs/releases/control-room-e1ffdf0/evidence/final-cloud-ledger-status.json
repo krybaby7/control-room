@@ -1,0 +1,373 @@
+{
+  "format": "control-room-release-status",
+  "version": 1,
+  "candidate": "control-room-e1ffdf0",
+  "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+  "artifactSha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5",
+  "artifact": {
+    "id": 12308210179,
+    "name": "control-room-candidate-e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+    "sha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5",
+    "bytes": 3638712,
+    "runId": 39513086298
+  },
+  "phases": {
+    "implementation": "in-progress",
+    "localVerification": "passed",
+    "hostedAcceptance": "owner-dependent"
+  },
+  "checks": [
+    {
+      "id": "node-tests",
+      "status": "passed",
+      "environment": "isolated-ci",
+      "observedAt": "2026-10-20T23:14:59Z",
+      "commandOrProcedure": "npm test",
+      "evidencePath": "https://github.com/krybaby7/control-room/actions/runs/39513086298/job/118938631895#step:5:artifact:12308210179",
+      "limitation": null,
+      "disabledScope": null,
+      "evidence": {
+        "kind": "github-actions",
+        "repository": "krybaby7/control-room",
+        "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+        "runId": 39513086298,
+        "runAttempt": 1,
+        "jobId": 118938631895,
+        "stepNumber": 5,
+        "stepName": "Run npm test",
+        "runUrl": "https://github.com/krybaby7/control-room/actions/runs/39513086298",
+        "jobUrl": "https://github.com/krybaby7/control-room/actions/runs/39513086298/job/118938631895",
+        "artifact": {
+          "id": 12308210179,
+          "name": "control-room-candidate-e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+          "sha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5",
+          "bytes": 3638712,
+          "runId": 39513086298
+        },
+        "verifiedAt": "2026-10-20T23:39:09.177Z"
+      }
+    },
+    {
+      "id": "bridge-tests",
+      "status": "passed",
+      "environment": "isolated-ci",
+      "observedAt": "2026-10-20T23:15:06Z",
+      "commandOrProcedure": "npm run test:bridge",
+      "evidencePath": "https://github.com/krybaby7/control-room/actions/runs/39513086298/job/118938631895#step:6:artifact:12308210179",
+      "limitation": null,
+      "disabledScope": null,
+      "evidence": {
+        "kind": "github-actions",
+        "repository": "krybaby7/control-room",
+        "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+        "runId": 39513086298,
+        "runAttempt": 1,
+        "jobId": 118938631895,
+        "stepNumber": 6,
+        "stepName": "Run npm run test:bridge",
+        "runUrl": "https://github.com/krybaby7/control-room/actions/runs/39513086298",
+        "jobUrl": "https://github.com/krybaby7/control-room/actions/runs/39513086298/job/118938631895",
+        "artifact": {
+          "id": 12308210179,
+          "name": "control-room-candidate-e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+          "sha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5",
+          "bytes": 3638712,
+          "runId": 39513086298
+        },
+        "verifiedAt": "2026-10-20T23:39:10.276Z"
+      }
+    },
+    {
+      "id": "typecheck",
+      "status": "passed",
+      "environment": "isolated-ci",
+      "observedAt": "2026-10-20T23:15:31Z",
+      "commandOrProcedure": "npm run typecheck",
+      "evidencePath": "https://github.com/krybaby7/control-room/actions/runs/39513086298/job/118938631895#step:7:artifact:12308210179",
+      "limitation": null,
+      "disabledScope": null,
+      "evidence": {
+        "kind": "github-actions",
+        "repository": "krybaby7/control-room",
+        "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+        "runId": 39513086298,
+        "runAttempt": 1,
+        "jobId": 118938631895,
+        "stepNumber": 7,
+        "stepName": "Run npm run typecheck",
+        "runUrl": "https://github.com/krybaby7/control-room/actions/runs/39513086298",
+        "jobUrl": "https://github.com/krybaby7/control-room/actions/runs/39513086298/job/118938631895",
+        "artifact": {
+          "id": 12308210179,
+          "name": "control-room-candidate-e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+          "sha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5",
+          "bytes": 3638712,
+          "runId": 39513086298
+        },
+        "verifiedAt": "2026-10-20T23:39:11.338Z"
+      }
+    },
+    {
+      "id": "lint",
+      "status": "passed",
+      "environment": "isolated-ci",
+      "observedAt": "2026-10-20T23:16:01Z",
+      "commandOrProcedure": "npm run lint",
+      "evidencePath": "https://github.com/krybaby7/control-room/actions/runs/39513086298/job/118938631895#step:8:artifact:12308210179",
+      "limitation": null,
+      "disabledScope": null,
+      "evidence": {
+        "kind": "github-actions",
+        "repository": "krybaby7/control-room",
+        "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+        "runId": 39513086298,
+        "runAttempt": 1,
+        "jobId": 118938631895,
+        "stepNumber": 8,
+        "stepName": "Run npm run lint",
+        "runUrl": "https://github.com/krybaby7/control-room/actions/runs/39513086298",
+        "jobUrl": "https://github.com/krybaby7/control-room/actions/runs/39513086298/job/118938631895",
+        "artifact": {
+          "id": 12308210179,
+          "name": "control-room-candidate-e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+          "sha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5",
+          "bytes": 3638712,
+          "runId": 39513086298
+        },
+        "verifiedAt": "2026-10-20T23:39:12.366Z"
+      }
+    },
+    {
+      "id": "build",
+      "status": "passed",
+      "environment": "isolated-ci",
+      "observedAt": "2026-10-20T23:16:12Z",
+      "commandOrProcedure": "npm run build",
+      "evidencePath": "https://github.com/krybaby7/control-room/actions/runs/39513086298/job/118938631895#step:9:artifact:12308210179",
+      "limitation": null,
+      "disabledScope": null,
+      "evidence": {
+        "kind": "github-actions",
+        "repository": "krybaby7/control-room",
+        "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+        "runId": 39513086298,
+        "runAttempt": 1,
+        "jobId": 118938631895,
+        "stepNumber": 9,
+        "stepName": "Run npm run build",
+        "runUrl": "https://github.com/krybaby7/control-room/actions/runs/39513086298",
+        "jobUrl": "https://github.com/krybaby7/control-room/actions/runs/39513086298/job/118938631895",
+        "artifact": {
+          "id": 12308210179,
+          "name": "control-room-candidate-e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+          "sha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5",
+          "bytes": 3638712,
+          "runId": 39513086298
+        },
+        "verifiedAt": "2026-10-20T23:39:13.290Z"
+      }
+    },
+    {
+      "id": "d1-recovery",
+      "status": "passed",
+      "environment": "isolated-ci",
+      "observedAt": "2026-10-20T23:16:26Z",
+      "commandOrProcedure": "npm run test:workspace-d1",
+      "evidencePath": "https://github.com/krybaby7/control-room/actions/runs/39513086298/job/118938631895#step:11:artifact:12308210179",
+      "limitation": null,
+      "disabledScope": null,
+      "evidence": {
+        "kind": "github-actions",
+        "repository": "krybaby7/control-room",
+        "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+        "runId": 39513086298,
+        "runAttempt": 1,
+        "jobId": 118938631895,
+        "stepNumber": 11,
+        "stepName": "Run npm run test:workspace-d1",
+        "runUrl": "https://github.com/krybaby7/control-room/actions/runs/39513086298",
+        "jobUrl": "https://github.com/krybaby7/control-room/actions/runs/39513086298/job/118938631895",
+        "artifact": {
+          "id": 12308210179,
+          "name": "control-room-candidate-e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+          "sha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5",
+          "bytes": 3638712,
+          "runId": 39513086298
+        },
+        "verifiedAt": "2026-10-20T23:39:14.262Z"
+      }
+    },
+    {
+      "id": "r2-recovery",
+      "status": "passed",
+      "environment": "isolated-ci",
+      "observedAt": "2026-10-20T23:17:59Z",
+      "commandOrProcedure": "npm run test:attachment-recovery-r2",
+      "evidencePath": "https://github.com/krybaby7/control-room/actions/runs/39513086298/job/118938631895#step:21:artifact:12308210179",
+      "limitation": null,
+      "disabledScope": null,
+      "evidence": {
+        "kind": "github-actions",
+        "repository": "krybaby7/control-room",
+        "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+        "runId": 39513086298,
+        "runAttempt": 1,
+        "jobId": 118938631895,
+        "stepNumber": 21,
+        "stepName": "Run npm run test:attachment-recovery-r2",
+        "runUrl": "https://github.com/krybaby7/control-room/actions/runs/39513086298",
+        "jobUrl": "https://github.com/krybaby7/control-room/actions/runs/39513086298/job/118938631895",
+        "artifact": {
+          "id": 12308210179,
+          "name": "control-room-candidate-e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+          "sha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5",
+          "bytes": 3638712,
+          "runId": 39513086298
+        },
+        "verifiedAt": "2026-10-20T23:39:15.438Z"
+      }
+    },
+    {
+      "id": "chromium",
+      "status": "passed",
+      "environment": "isolated-ci",
+      "observedAt": "2026-10-20T23:23:00Z",
+      "commandOrProcedure": "npm run test:e2e",
+      "evidencePath": "https://github.com/krybaby7/control-room/actions/runs/39513086298/job/118938631895#step:23:artifact:12308210179",
+      "limitation": null,
+      "disabledScope": null,
+      "evidence": {
+        "kind": "github-actions",
+        "repository": "krybaby7/control-room",
+        "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+        "runId": 39513086298,
+        "runAttempt": 1,
+        "jobId": 118938631895,
+        "stepNumber": 23,
+        "stepName": "Run npm run test:e2e",
+        "runUrl": "https://github.com/krybaby7/control-room/actions/runs/39513086298",
+        "jobUrl": "https://github.com/krybaby7/control-room/actions/runs/39513086298/job/118938631895",
+        "artifact": {
+          "id": 12308210179,
+          "name": "control-room-candidate-e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+          "sha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5",
+          "bytes": 3638712,
+          "runId": 39513086298
+        },
+        "verifiedAt": "2026-10-20T23:39:16.513Z"
+      }
+    },
+    {
+      "id": "r2-chromium",
+      "status": "passed",
+      "environment": "isolated-ci",
+      "observedAt": "2026-10-20T23:23:56Z",
+      "commandOrProcedure": "npm run test:e2e:r2",
+      "evidencePath": "https://github.com/krybaby7/control-room/actions/runs/39513086298/job/118938631895#step:24:artifact:12308210179",
+      "limitation": null,
+      "disabledScope": null,
+      "evidence": {
+        "kind": "github-actions",
+        "repository": "krybaby7/control-room",
+        "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+        "runId": 39513086298,
+        "runAttempt": 1,
+        "jobId": 118938631895,
+        "stepNumber": 24,
+        "stepName": "Run npm run test:e2e:r2",
+        "runUrl": "https://github.com/krybaby7/control-room/actions/runs/39513086298",
+        "jobUrl": "https://github.com/krybaby7/control-room/actions/runs/39513086298/job/118938631895",
+        "artifact": {
+          "id": 12308210179,
+          "name": "control-room-candidate-e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+          "sha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5",
+          "bytes": 3638712,
+          "runId": 39513086298
+        },
+        "verifiedAt": "2026-10-20T23:39:17.539Z"
+      }
+    },
+    {
+      "id": "oversized-owner-recovery",
+      "status": "passed",
+      "environment": "isolated-replacement",
+      "observedAt": "2026-10-20T23:14:52Z",
+      "commandOrProcedure": "Restore an exact owner-size supported recovery package into an isolated replacement, including reviewed private continuity and actual attachment bytes.",
+      "evidencePath": "https://github.com/krybaby7/control-room/actions/runs/39513086276/job/118938628711#step:5:artifact:12307735360",
+      "limitation": null,
+      "disabledScope": null,
+      "evidence": {
+        "kind": "github-actions",
+        "repository": "krybaby7/control-room",
+        "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+        "runId": 39513086276,
+        "runAttempt": 1,
+        "jobId": 118938628711,
+        "stepNumber": 5,
+        "stepName": "Run npm run test:recovery-segments-d1",
+        "runUrl": "https://github.com/krybaby7/control-room/actions/runs/39513086276",
+        "jobUrl": "https://github.com/krybaby7/control-room/actions/runs/39513086276/job/118938628711",
+        "artifact": {
+          "id": 12307735360,
+          "name": "synthetic-segmented-recovery",
+          "sha256": "c4e89ffaf15ebc91487a663328ed1fde6fcad237579f7309d99e729e8aeb3914",
+          "bytes": 1454,
+          "runId": 39513086276
+        },
+        "verifiedAt": "2026-10-20T23:39:19.642Z"
+      }
+    },
+    {
+      "id": "performance",
+      "status": "passed",
+      "environment": "controlled-staging",
+      "observedAt": "2026-10-20T23:10:50Z",
+      "commandOrProcedure": "Measure documented capacity fixtures, concurrency and p50/p95 budgets against the exact candidate.",
+      "evidencePath": "https://github.com/krybaby7/control-room/actions/runs/39513086324/job/118938631899#step:5:artifact:12306740404",
+      "limitation": null,
+      "disabledScope": null,
+      "evidence": {
+        "kind": "github-actions",
+        "repository": "krybaby7/control-room",
+        "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+        "runId": 39513086324,
+        "runAttempt": 1,
+        "jobId": 118938631899,
+        "stepNumber": 5,
+        "stepName": "Run node --experimental-strip-types scripts/benchmark-workspace.mjs",
+        "runUrl": "https://github.com/krybaby7/control-room/actions/runs/39513086324",
+        "jobUrl": "https://github.com/krybaby7/control-room/actions/runs/39513086324/job/118938631899",
+        "artifact": {
+          "id": 12306740404,
+          "name": "synthetic-workspace-performance",
+          "sha256": "3c59b83485ace9a8b9f9931862dde1cc687c849fdff579e1fcfafc52e9e7d73d",
+          "bytes": 7766,
+          "runId": 39513086324
+        },
+        "verifiedAt": "2026-10-20T23:39:18.525Z"
+      }
+    },
+    {
+      "id": "hosted-private-acceptance",
+      "status": "owner-dependent",
+      "environment": "private-staging",
+      "observedAt": "2026-10-20T23:39:20.733Z",
+      "commandOrProcedure": "Observe the exact private published artifact, bindings, migrations, gateway authentication and owner session.",
+      "evidencePath": null,
+      "limitation": "Exact candidate private deployment, bindings, gateway authentication and owner-session acceptance have not been observed.",
+      "disabledScope": null,
+      "evidence": null
+    },
+    {
+      "id": "owner-device-acceptance",
+      "status": "owner-dependent",
+      "environment": "owner-device",
+      "observedAt": "2026-10-20T23:39:20.827Z",
+      "commandOrProcedure": "Owner observes the enabled physical-device workflows on their actual devices.",
+      "evidencePath": null,
+      "limitation": "Actual owner-device workflows have not been observed for this exact candidate.",
+      "disabledScope": null,
+      "evidence": null
+    }
+  ]
+}

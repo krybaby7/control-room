@@ -6,7 +6,203 @@
   "canonical": {
     "run": 39513086298,
     "job": 118938631895,
-    "status": "running"
+    "status": "completed",
+    "conclusion": "success",
+    "node": {
+      "passed": 1834,
+      "failed": 0,
+      "skipped": 0,
+      "durationMs": 320259.74147
+    },
+    "bridge": {
+      "passed": 210,
+      "failed": 0,
+      "platformSkipped": 9,
+      "total": 219
+    },
+    "typecheck": "passed",
+    "lint": {
+      "errors": 0,
+      "existingWarnings": 8
+    },
+    "build": "passed",
+    "nativeD1R2HTTP": "all required stages passed",
+    "chromium": {
+      "passed": 63,
+      "failed": 0
+    },
+    "r2Chromium": {
+      "passed": 3,
+      "failed": 0
+    },
+    "packaging": "passed",
+    "steps": [
+      {
+        "number": 1,
+        "name": "Set up job",
+        "conclusion": "success"
+      },
+      {
+        "number": 2,
+        "name": "Run actions/checkout@v4",
+        "conclusion": "success"
+      },
+      {
+        "number": 3,
+        "name": "Run actions/setup-node@v4",
+        "conclusion": "success"
+      },
+      {
+        "number": 4,
+        "name": "Run npm run install:ci",
+        "conclusion": "success"
+      },
+      {
+        "number": 5,
+        "name": "Run npm test",
+        "conclusion": "success"
+      },
+      {
+        "number": 6,
+        "name": "Run npm run test:bridge",
+        "conclusion": "success"
+      },
+      {
+        "number": 7,
+        "name": "Run npm run typecheck",
+        "conclusion": "success"
+      },
+      {
+        "number": 8,
+        "name": "Run npm run lint",
+        "conclusion": "success"
+      },
+      {
+        "number": 9,
+        "name": "Run npm run build",
+        "conclusion": "success"
+      },
+      {
+        "number": 10,
+        "name": "Run npm run test:generation-d1",
+        "conclusion": "success"
+      },
+      {
+        "number": 11,
+        "name": "Run npm run test:workspace-d1",
+        "conclusion": "success"
+      },
+      {
+        "number": 12,
+        "name": "Run npm run test:sources-d1",
+        "conclusion": "success"
+      },
+      {
+        "number": 13,
+        "name": "Run npm run test:reviews-migration-d1",
+        "conclusion": "success"
+      },
+      {
+        "number": 14,
+        "name": "Run npm run test:reviews-d1",
+        "conclusion": "success"
+      },
+      {
+        "number": 15,
+        "name": "Run npm run test:scheduled-backup-d1",
+        "conclusion": "success"
+      },
+      {
+        "number": 16,
+        "name": "Run npm run test:scheduled-source-d1",
+        "conclusion": "success"
+      },
+      {
+        "number": 17,
+        "name": "Run npm run test:runtime-d1",
+        "conclusion": "success"
+      },
+      {
+        "number": 18,
+        "name": "Run npm run test:fixture-proxy",
+        "conclusion": "success"
+      },
+      {
+        "number": 19,
+        "name": "Run npm run test:fixture",
+        "conclusion": "success"
+      },
+      {
+        "number": 20,
+        "name": "Run npm run test:attachments-r2",
+        "conclusion": "success"
+      },
+      {
+        "number": 21,
+        "name": "Run npm run test:attachment-recovery-r2",
+        "conclusion": "success"
+      },
+      {
+        "number": 22,
+        "name": "Run npx playwright install --with-deps chromium",
+        "conclusion": "success"
+      },
+      {
+        "number": 23,
+        "name": "Run npm run test:e2e",
+        "conclusion": "success"
+      },
+      {
+        "number": 24,
+        "name": "Run npm run test:e2e:r2",
+        "conclusion": "success"
+      },
+      {
+        "number": 25,
+        "name": "Run npm run test:attachments-http",
+        "conclusion": "success"
+      },
+      {
+        "number": 26,
+        "name": "Run actions/upload-artifact@v4",
+        "conclusion": "skipped"
+      },
+      {
+        "number": 27,
+        "name": "Run npm run package:bridge",
+        "conclusion": "success"
+      },
+      {
+        "number": 28,
+        "name": "Run actions/upload-artifact@v4",
+        "conclusion": "success"
+      },
+      {
+        "number": 29,
+        "name": "Run node scripts/package-candidate.mjs",
+        "conclusion": "success"
+      },
+      {
+        "number": 30,
+        "name": "Run actions/upload-artifact@v4",
+        "conclusion": "success"
+      },
+      {
+        "number": 59,
+        "name": "Post Run actions/setup-node@v4",
+        "conclusion": "success"
+      },
+      {
+        "number": 60,
+        "name": "Post Run actions/checkout@v4",
+        "conclusion": "success"
+      },
+      {
+        "number": 61,
+        "name": "Complete job",
+        "conclusion": "success"
+      }
+    ]
   },
   "normalPerformance": {
     "run": 39513086324,
@@ -1304,5 +1500,442 @@
     "tables": 97,
     "guards": 291,
     "hostedCutover": false
-  }
+  },
+  "segmentedRecovery": {
+    "run": 39513086276,
+    "job": 118938628711,
+    "passed": true,
+    "migrations": 27,
+    "modules": 33,
+    "segments": 79,
+    "rows": 10080,
+    "bytes": 17767591,
+    "sourcePlanningUnchanged": true,
+    "hostedBindingChanged": false,
+    "targetStillFenced": true,
+    "artifact": 12307735360,
+    "outerZipSha256": "c4e89ffaf15ebc91487a663328ed1fde6fcad237579f7309d99e729e8aeb3914",
+    "scope": "Synthetic isolated larger-owner recovery; no real owner cutover or backup attestation."
+  },
+  "reviewArtifacts": [
+    {
+      "id": 12308210179,
+      "name": "control-room-candidate-e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "run": 39513086298,
+      "bytes": 3638712,
+      "outerZipSha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5"
+    },
+    {
+      "id": 12307940412,
+      "name": "windows-bridge-package",
+      "run": 39513086298,
+      "bytes": 99550,
+      "outerZipSha256": "8be3fc058cd88a1272a50dfc00663e61819336fd62bca9c1898b3fce8accd385"
+    },
+    {
+      "id": 12306925376,
+      "name": "synthetic-validated-owned-helper-e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "run": 39513086370,
+      "bytes": 79178,
+      "outerZipSha256": "87330842bf606ca2b409e9ff16fd03c111a0f7eca3d1739b75cdc8604b32bbbd"
+    }
+  ],
+  "artifactIntegrity": {
+    "diagnostic": {
+      "head": "1ee1a46bcdd5911cbeaec4b7d13b7a8d2808bb80",
+      "run": 39516350705,
+      "job": 118949320252,
+      "conclusion": "success",
+      "artifacts": [
+        {
+          "id": 12308207496,
+          "name": "cloud-implementation-annotation-e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+          "bytes": 5806,
+          "outerZipSha256": "94b4f5c4a85fb8528d50fa5b5dd0e6ea6440de2d1d007d7e15cd45360ab1cea3"
+        },
+        {
+          "id": 12307389739,
+          "name": "public-review-artifact-integrity-1ee1a46bcdd5911cbeaec4b7d13b7a8d2808bb80",
+          "bytes": 1299,
+          "outerZipSha256": "098ccaab64f444285892ee7d356b7d11aa8d2a5cb6b8a2ed82bbeeb47f5bed9b"
+        },
+        {
+          "id": 12307354750,
+          "name": "final-cloud-ledger-e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+          "bytes": 3184,
+          "outerZipSha256": "0f9c11b73be302ac43de6abd4973b499e214478ef77408d6cfe5bd5246a2f1c0"
+        }
+      ]
+    },
+    "report": {
+      "status": "INTEGRITY_VERIFIED_REVIEW_ONLY",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "outerZipSha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5",
+      "innerArchives": [
+        {
+          "sha256": "a1388c6f60522ec431ae1e84b1c7689b1dcd4c4d1672657153976842d3c13d1a",
+          "bytes": 12503040
+        },
+        {
+          "sha256": "7e9b9c2236edb4320c84488c692db0cbfa9e01eaa0a2c42c2477f8a05e8af2eb",
+          "bytes": 1346975
+        }
+      ],
+      "sourceFiles": 1100,
+      "buildFiles": 333,
+      "bridgeFiles": 49,
+      "bridgeSha256": "d1310e0988907d18952ec57e510578fb8e5a32e955a8cb7718883747acab0894",
+      "releaseAccepted": false,
+      "deployed": false,
+      "sourceGitTreeExactBytes": true,
+      "candidateArtifact": {
+        "id": 12308210179,
+        "zipSha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5",
+        "workflowHead": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+        "runId": 39513086298,
+        "runConclusion": "success",
+        "workflowPath": ".github/workflows/control-room-ci.yml"
+      },
+      "bridgeArtifact": {
+        "id": 12307940412,
+        "zipSha256": "8be3fc058cd88a1272a50dfc00663e61819336fd62bca9c1898b3fce8accd385",
+        "workflowHead": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+        "runId": 39513086298,
+        "runConclusion": "success",
+        "workflowPath": ".github/workflows/control-room-ci.yml"
+      },
+      "helperArtifact": {
+        "id": 12306925376,
+        "zipSha256": "87330842bf606ca2b409e9ff16fd03c111a0f7eca3d1739b75cdc8604b32bbbd",
+        "workflowHead": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+        "runId": 39513086370,
+        "runConclusion": "success",
+        "workflowPath": ".github/workflows/control-room-owned-process-native.yml"
+      },
+      "helper": {
+        "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+        "sha256": "45258c1138ba099d9ddd57242c6bf5fca06dac8ac1ce5c1fe56d3b2fe3f08782",
+        "bytes": 174601,
+        "runtimeRequirement": ".NET 8",
+        "ownerDeviceAcceptance": false,
+        "providerExecution": false
+      },
+      "negativeControls": {
+        "wrongOuterDigest": "rejected",
+        "changedInnerArchiveWithRecomputedOuterDigest": "rejected",
+        "changedWholeSourceAgainstGitTree": "rejected",
+        "changedHelperInteriorPreservingMZWithRecomputedOuterDigest": "rejected",
+        "tarMetadataDecompressionBound": "rejected",
+        "unsupportedPaxExtension": "rejected",
+        "duplicateDirectoryPath": "rejected",
+        "absoluteDirectoryPath": "rejected"
+      },
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false,
+      "limitations": [
+        "Integrity does not establish reproducible build output or pass failed application gates.",
+        "Helper source binding is exact manifest plus public workflow-head provenance; compiler reproducibility is not asserted.",
+        "No artifact code was executed and no private runtime artifact was consumed."
+      ]
+    },
+    "downloadedReportSha256": "7557607b2fc5184f729711ccbf6555787d1a7ec84d5172e23fcaf414a1b75463",
+    "failedPredecessors": [
+      {
+        "head": "0f9b8de5b07f87121b811d1c6976739a52eed9c6",
+        "run": 39515954657,
+        "job": 118948028219,
+        "conclusion": "failure",
+        "cause": "Self-consistent forged-source negative-control fixture used Python default PAX extension encoding for long paths; rejected before intended Git comparison. Corrected to bounded Git-compatible USTAR; validator unchanged."
+      },
+      {
+        "head": "f012f31d8434cfca335d7243eb7518fec1553642",
+        "run": 39516189396,
+        "job": 118948794202,
+        "conclusion": "failure",
+        "integrity": "passed",
+        "cause": "Diagnostic ledger input loop shadowed its argument in the for-of RHS and hit lexical TDZ before recorder invocation. Renamed binding; valid input and four rejecting input preflights passed. Release recorder unchanged."
+      }
+    ]
+  },
+  "strictCloudLedger": {
+    "diagnostic": {
+      "head": "1ee1a46bcdd5911cbeaec4b7d13b7a8d2808bb80",
+      "run": 39516350705,
+      "job": 118949320252,
+      "conclusion": "success",
+      "artifacts": [
+        {
+          "id": 12308207496,
+          "name": "cloud-implementation-annotation-e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+          "bytes": 5806,
+          "outerZipSha256": "94b4f5c4a85fb8528d50fa5b5dd0e6ea6440de2d1d007d7e15cd45360ab1cea3"
+        },
+        {
+          "id": 12307389739,
+          "name": "public-review-artifact-integrity-1ee1a46bcdd5911cbeaec4b7d13b7a8d2808bb80",
+          "bytes": 1299,
+          "outerZipSha256": "098ccaab64f444285892ee7d356b7d11aa8d2a5cb6b8a2ed82bbeeb47f5bed9b"
+        },
+        {
+          "id": 12307354750,
+          "name": "final-cloud-ledger-e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+          "bytes": 3184,
+          "outerZipSha256": "0f9c11b73be302ac43de6abd4973b499e214478ef77408d6cfe5bd5246a2f1c0"
+        }
+      ]
+    },
+    "report": {
+      "format": "control-room-final-cloud-ledger-diagnostic",
+      "version": 1,
+      "status": "cloud-recorded-release-blocked",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "candidate": "control-room-e1ffdf0",
+      "inputSha256": "475b40688d940e334a7d44d8d0a5c8f6ef9ea627d48bf8b301e05c2f31e335a7",
+      "recorderSha256": "3524a4bed694caa540a2af25f16e3b01663caa7e8ea43dcf12d64f8d6a50e19b",
+      "statusSha256": "4bd5112368d3337402de3c8c275ecd72952117d6d864cce29d8ca0d1a1bd5a27",
+      "candidateArtifact": {
+        "id": 12308210179,
+        "name": "control-room-candidate-e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+        "sha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5",
+        "bytes": 3638712,
+        "runId": 39513086298
+      },
+      "cloudChecks": [
+        {
+          "id": "node-tests",
+          "status": "passed",
+          "observedAt": "2026-10-20T23:14:59Z",
+          "runId": 39513086298,
+          "runAttempt": 1,
+          "jobId": 118938631895,
+          "stepNumber": 5,
+          "artifactId": 12308210179,
+          "artifactSha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5"
+        },
+        {
+          "id": "bridge-tests",
+          "status": "passed",
+          "observedAt": "2026-10-20T23:15:06Z",
+          "runId": 39513086298,
+          "runAttempt": 1,
+          "jobId": 118938631895,
+          "stepNumber": 6,
+          "artifactId": 12308210179,
+          "artifactSha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5"
+        },
+        {
+          "id": "typecheck",
+          "status": "passed",
+          "observedAt": "2026-10-20T23:15:31Z",
+          "runId": 39513086298,
+          "runAttempt": 1,
+          "jobId": 118938631895,
+          "stepNumber": 7,
+          "artifactId": 12308210179,
+          "artifactSha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5"
+        },
+        {
+          "id": "lint",
+          "status": "passed",
+          "observedAt": "2026-10-20T23:16:01Z",
+          "runId": 39513086298,
+          "runAttempt": 1,
+          "jobId": 118938631895,
+          "stepNumber": 8,
+          "artifactId": 12308210179,
+          "artifactSha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5"
+        },
+        {
+          "id": "build",
+          "status": "passed",
+          "observedAt": "2026-10-20T23:16:12Z",
+          "runId": 39513086298,
+          "runAttempt": 1,
+          "jobId": 118938631895,
+          "stepNumber": 9,
+          "artifactId": 12308210179,
+          "artifactSha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5"
+        },
+        {
+          "id": "d1-recovery",
+          "status": "passed",
+          "observedAt": "2026-10-20T23:16:26Z",
+          "runId": 39513086298,
+          "runAttempt": 1,
+          "jobId": 118938631895,
+          "stepNumber": 11,
+          "artifactId": 12308210179,
+          "artifactSha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5"
+        },
+        {
+          "id": "r2-recovery",
+          "status": "passed",
+          "observedAt": "2026-10-20T23:17:59Z",
+          "runId": 39513086298,
+          "runAttempt": 1,
+          "jobId": 118938631895,
+          "stepNumber": 21,
+          "artifactId": 12308210179,
+          "artifactSha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5"
+        },
+        {
+          "id": "chromium",
+          "status": "passed",
+          "observedAt": "2026-10-20T23:23:00Z",
+          "runId": 39513086298,
+          "runAttempt": 1,
+          "jobId": 118938631895,
+          "stepNumber": 23,
+          "artifactId": 12308210179,
+          "artifactSha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5"
+        },
+        {
+          "id": "r2-chromium",
+          "status": "passed",
+          "observedAt": "2026-10-20T23:23:56Z",
+          "runId": 39513086298,
+          "runAttempt": 1,
+          "jobId": 118938631895,
+          "stepNumber": 24,
+          "artifactId": 12308210179,
+          "artifactSha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5"
+        },
+        {
+          "id": "oversized-owner-recovery",
+          "status": "passed",
+          "observedAt": "2026-10-20T23:14:52Z",
+          "runId": 39513086276,
+          "runAttempt": 1,
+          "jobId": 118938628711,
+          "stepNumber": 5,
+          "artifactId": 12307735360,
+          "artifactSha256": "c4e89ffaf15ebc91487a663328ed1fde6fcad237579f7309d99e729e8aeb3914"
+        },
+        {
+          "id": "performance",
+          "status": "passed",
+          "observedAt": "2026-10-20T23:10:50Z",
+          "runId": 39513086324,
+          "runAttempt": 1,
+          "jobId": 118938631899,
+          "stepNumber": 5,
+          "artifactId": 12306740404,
+          "artifactSha256": "3c59b83485ace9a8b9f9931862dde1cc687c849fdff579e1fcfafc52e9e7d73d"
+        }
+      ],
+      "externalChecks": [
+        {
+          "id": "hosted-private-acceptance",
+          "status": "owner-dependent",
+          "limitation": "Exact candidate private deployment, bindings, gateway authentication and owner-session acceptance have not been observed."
+        },
+        {
+          "id": "owner-device-acceptance",
+          "status": "owner-dependent",
+          "limitation": "Actual owner-device workflows have not been observed for this exact candidate."
+        }
+      ],
+      "phases": {
+        "implementation": "in-progress",
+        "localVerification": "passed",
+        "hostedAcceptance": "owner-dependent"
+      },
+      "verification": {
+        "exitCode": 1,
+        "candidate": "control-room-e1ffdf0",
+        "accepted": false,
+        "blocked": [
+          "hosted-private-acceptance",
+          "owner-device-acceptance",
+          "implementation",
+          "hostedAcceptance"
+        ]
+      },
+      "releaseAccepted": false,
+      "deployed": false,
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    "annotation": {
+      "format": "control-room-cloud-implementation-annotation",
+      "version": 1,
+      "status": "cloud-implementation-complete-release-blocked",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "sourceTree": "3c050f1bfbf522c2dbe93830df598a7f60c88527",
+      "candidate": "control-room-e1ffdf0",
+      "candidateArtifact": {
+        "id": 12308210179,
+        "name": "control-room-candidate-e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+        "sha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5",
+        "bytes": 3638712,
+        "runId": 39513086298
+      },
+      "inputSha256": "425706f4ea08871ffe41841f1b8d412c8c30a0cf165f46470469792a48d2eaa9",
+      "auditSha256": "93bdf6f2a7af6b6dac852d1cfdbcfc2e0cfa84b9851c02c57d73561542ce4205",
+      "integritySha256": "7557607b2fc5184f729711ccbf6555787d1a7ec84d5172e23fcaf414a1b75463",
+      "originalLedgerVerificationSha256": "51e41c694d876a60a54acdba7d7ed0f91f0301bf477c7d54ed15813cdbd4da01",
+      "beforeStatusSha256": "4bd5112368d3337402de3c8c275ecd72952117d6d864cce29d8ca0d1a1bd5a27",
+      "afterStatusSha256": "b7d78ec2cd8fd48f31633e4d6a9ca84f1d0becc7fa5eb6e0226398b013eb6f6b",
+      "hashProvenance": {
+        "audit": "Explicit integrator-authored conditional cloud-only source audit in the diagnostic checkout.",
+        "integrity": "Runtime SHA256 of the actual same-job inspector output; not an independently supplied report digest.",
+        "input": "Runtime binding of explicit source/artifact/audit identity and actual emitted report digest."
+      },
+      "changedFields": [
+        "phases.implementation"
+      ],
+      "beforePhases": {
+        "implementation": "in-progress",
+        "localVerification": "passed",
+        "hostedAcceptance": "owner-dependent"
+      },
+      "afterPhases": {
+        "implementation": "complete",
+        "localVerification": "passed",
+        "hostedAcceptance": "owner-dependent"
+      },
+      "allOtherFieldsCanonicalEqual": true,
+      "originalFourBlockerFilesPreserved": true,
+      "actualCounts": {
+        "cloudPassed": 11,
+        "externalOwnerDependent": 2,
+        "auditedPhases": 9,
+        "auditedSourcePaths": 22,
+        "distinctAuditedSourcePaths": 21,
+        "sourceFiles": 1100,
+        "buildFiles": 333,
+        "bridgeFiles": 49,
+        "integrityNegativeControls": 8
+      },
+      "beforeVerification": {
+        "exitCode": 1,
+        "candidate": "control-room-e1ffdf0",
+        "accepted": false,
+        "blocked": [
+          "hosted-private-acceptance",
+          "owner-device-acceptance",
+          "implementation",
+          "hostedAcceptance"
+        ]
+      },
+      "afterVerification": {
+        "exitCode": 1,
+        "candidate": "control-room-e1ffdf0",
+        "accepted": false,
+        "blocked": [
+          "hosted-private-acceptance",
+          "owner-device-acceptance",
+          "hostedAcceptance"
+        ]
+      },
+      "releaseAccepted": false,
+      "deployed": false,
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    "originalStatusSha256": "4bd5112368d3337402de3c8c275ecd72952117d6d864cce29d8ca0d1a1bd5a27",
+    "annotatedStatusSha256": "b7d78ec2cd8fd48f31633e4d6a9ca84f1d0becc7fa5eb6e0226398b013eb6f6b",
+    "note": "The unchanged candidate release recorder fetched actual API provenance for all eleven cloud gates. Only the integrator cloud implementation marker was annotated under the unchanged schema. Original four-blocker status and both strict verifier results are preserved. No gate or external acceptance was waived."
+  },
+  "finalCloudStatus": "all_required_source_checks_and_review_integrity_passed"
 }

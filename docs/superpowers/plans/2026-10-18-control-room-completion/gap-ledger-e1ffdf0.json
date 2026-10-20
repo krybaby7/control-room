@@ -1,0 +1,863 @@
+{
+  "format": "control-room-scoped-gap-ledger-v1",
+  "date": "2026-10-21",
+  "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+  "sourceTree": "3c050f1bfbf522c2dbe93830df598a7f60c88527",
+  "cloudImplementationComplete": true,
+  "releaseAccepted": false,
+  "deployed": false,
+  "merged": false,
+  "gaps": [
+    {
+      "id": "G01",
+      "gap": "Fixed project portfolio",
+      "phases": [
+        2
+      ],
+      "criterion": "Create, rename, edit goals/repositories, archive/restore; delete only after impact preview and valid dependent-record resolution",
+      "status": "implemented_cloud_verified_hosted_acceptance_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Implemented and covered by final E1 Node/native D1/R2/HTTP and browser gates; original IDs and owner scope preserved. Real hosted owner acceptance remains separate.",
+      "historicalEvidence": "Implemented source with isolated cloud regressions; Phase6 exact60e50fc CI39167082234 passed full Node/bridge/type/lint/build, D1/R2/HTTP and50+3 Chromium. Private hosted/owner-device acceptance remains separate.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G02",
+      "gap": "Milestone opens only an editor",
+      "phases": [
+        2,
+        3
+      ],
+      "criterion": "Stable milestone URL opens tasks, criteria, evidence, blockers, decisions and history together",
+      "status": "implemented_cloud_verified_hosted_acceptance_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Implemented and covered by final E1 Node/native D1/R2/HTTP and browser gates; original IDs and owner scope preserved. Real hosted owner acceptance remains separate.",
+      "historicalEvidence": "Generated-ID create attribution and exact scoped milestone history passed the 296fd565 native 63/3 R2 browser gate and its targeted history journey. Historical NULL-ID/bulk fallback passed actual 27-migration D1 test 706505/run39192869059, including 55-event pagination, isolation and unchanged payloads. Final integrated-source acceptance remains pending.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G03",
+      "gap": "No milestone archive/delete/reorder",
+      "phases": [
+        2
+      ],
+      "criterion": "Reorder survives reload; archive preserves descendants; delete rejects linked tasks and missing recovery protection",
+      "status": "implemented_cloud_verified_hosted_acceptance_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Implemented and covered by final E1 Node/native D1/R2/HTTP and browser gates; original IDs and owner scope preserved. Real hosted owner acceptance remains separate.",
+      "historicalEvidence": "Implemented source with isolated cloud regressions; Phase6 exact60e50fc CI39167082234 passed full Node/bridge/type/lint/build, D1/R2/HTTP and50+3 Chromium. Private hosted/owner-device acceptance remains separate.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G04",
+      "gap": "Cannot move tasks between projects",
+      "phases": [
+        2
+      ],
+      "criterion": "Dependency-aware move preview preserves IDs, evidence and capture links; invalid completed graph rejected",
+      "status": "implemented_cloud_verified_hosted_acceptance_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Implemented and covered by final E1 Node/native D1/R2/HTTP and browser gates; original IDs and owner scope preserved. Real hosted owner acceptance remains separate.",
+      "historicalEvidence": "Implemented source with isolated cloud regressions; Phase6 exact60e50fc CI39167082234 passed full Node/bridge/type/lint/build, D1/R2/HTTP and50+3 Chromium. Private hosted/owner-device acceptance remains separate.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G05",
+      "gap": "No bulk editing",
+      "phases": [
+        2
+      ],
+      "criterion": "Preview and apply one validated batch atomically; no partial edits on one invalid member",
+      "status": "implemented_cloud_verified_hosted_acceptance_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Implemented and covered by final E1 Node/native D1/R2/HTTP and browser gates; original IDs and owner scope preserved. Real hosted owner acceptance remains separate.",
+      "historicalEvidence": "Implemented source with isolated cloud regressions; Phase6 exact60e50fc CI39167082234 passed full Node/bridge/type/lint/build, D1/R2/HTTP and50+3 Chromium. Private hosted/owner-device acceptance remains separate.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G06",
+      "gap": "Search only within one project's tasks",
+      "phases": [
+        2,
+        3
+      ],
+      "criterion": "Global search covers tasks/milestones/captures/decisions/evidence, scoped to owner and archive preference",
+      "status": "implemented_cloud_verified_hosted_acceptance_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Implemented and covered by final E1 Node/native D1/R2/HTTP and browser gates; original IDs and owner scope preserved. Real hosted owner acceptance remains separate.",
+      "historicalEvidence": "Implemented source with isolated cloud regressions; Phase6 exact60e50fc CI39167082234 passed full Node/bridge/type/lint/build, D1/R2/HTTP and50+3 Chromium. Private hosted/owner-device acceptance remains separate.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G07",
+      "gap": "Dependencies confined to one project",
+      "phases": [
+        2
+      ],
+      "criterion": "Cross-project edges work inside one workspace; global cycles/foreign-owner/missing references rejected",
+      "status": "implemented_cloud_verified_hosted_acceptance_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Implemented and covered by final E1 Node/native D1/R2/HTTP and browser gates; original IDs and owner scope preserved. Real hosted owner acceptance remains separate.",
+      "historicalEvidence": "Cross-project dependency guards and global cycle/owner/reference validation remain implemented with historical cloud coverage; ce865 full 1773/1773 regressions passed. Exact history attribution is separately verified at 296fd565 and 706505; final coherent-source gates remain pending.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G08",
+      "gap": "No dependency visualization",
+      "phases": [
+        2
+      ],
+      "criterion": "Interactive graph/list shows blockers and completed prerequisites with working detail links and accessible equivalent",
+      "status": "implemented_cloud_verified_hosted_acceptance_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Implemented and covered by final E1 Node/native D1/R2/HTTP and browser gates; original IDs and owner scope preserved. Real hosted owner acceptance remains separate.",
+      "historicalEvidence": "Implemented source with isolated cloud regressions; Phase6 exact60e50fc CI39167082234 passed full Node/bridge/type/lint/build, D1/R2/HTTP and50+3 Chromium. Private hosted/owner-device acceptance remains separate.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G09",
+      "gap": "Only first three review items visible",
+      "phases": [
+        2
+      ],
+      "criterion": "Attention queue enumerates all review items with pagination/filter counts agreeing with stored data",
+      "status": "implemented_cloud_verified_hosted_acceptance_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Implemented and covered by final E1 Node/native D1/R2/HTTP and browser gates; original IDs and owner scope preserved. Real hosted owner acceptance remains separate.",
+      "historicalEvidence": "Implemented source with isolated cloud regressions; Phase6 exact60e50fc CI39167082234 passed full Node/bridge/type/lint/build, D1/R2/HTTP and50+3 Chromium. Private hosted/owner-device acceptance remains separate.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G10",
+      "gap": "No unified blocked/overdue/proposed/stale queue",
+      "phases": [
+        2,
+        3,
+        5
+      ],
+      "criterion": "All categories have actionable reason, relevant evidence and a resolution/detail link; no silent truncation",
+      "status": "implemented_cloud_verified_hosted_acceptance_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Unified planning/evidence/source/schedule/job Attention is cloud-tested; real provider connectivity requires consent.",
+      "historicalEvidence": "Unified planning/evidence/source/schedule/job Attention is implemented. Historical native queue/browser proof remains source-specific; ce865 full 1773/1773 regressions and 296fd565 native 63/3 R2 browser gates passed. Real provider connectivity and final integrated-source acceptance remain separate.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G11",
+      "gap": "No weekly history or review archive",
+      "phases": [
+        2,
+        5
+      ],
+      "criterion": "Past weeks retain commitments/completions/review snapshots without silently renewing commitments",
+      "status": "implemented_cloud_verified_hosted_acceptance_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Implemented and covered by final E1 Node/native D1/R2/HTTP and browser gates; original IDs and owner scope preserved. Real hosted owner acceptance remains separate.",
+      "historicalEvidence": "Implemented source with isolated cloud regressions; Phase6 exact60e50fc CI39167082234 passed full Node/bridge/type/lint/build, D1/R2/HTTP and50+3 Chromium. Private hosted/owner-device acceptance remains separate.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G12",
+      "gap": "No recurring tasks",
+      "phases": [
+        2,
+        5
+      ],
+      "criterion": "One proposed unpinned task per occurrence; retries and missed schedules do not create duplicates or invented commitments",
+      "status": "implemented_cloud_verified_hosted_acceptance_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Occurrences create reviewable unpinned proposals, never automatic completion or weekly commitment; live unattended wakeup remains external.",
+      "historicalEvidence": "Implemented source with isolated cloud regressions; Phase6 exact60e50fc CI39167082234 passed full Node/bridge/type/lint/build, D1/R2/HTTP and50+3 Chromium. Private hosted/owner-device acceptance remains separate.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G13",
+      "gap": "No time/capacity planning",
+      "phases": [
+        2
+      ],
+      "criterion": "Optional estimates and weekly capacity show known load and unestimated work separately; over-budget is advisory",
+      "status": "implemented_cloud_verified_hosted_acceptance_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Implemented and covered by final E1 Node/native D1/R2/HTTP and browser gates; original IDs and owner scope preserved. Real hosted owner acceptance remains separate.",
+      "historicalEvidence": "Implemented source with isolated cloud regressions; Phase6 exact60e50fc CI39167082234 passed full Node/bridge/type/lint/build, D1/R2/HTTP and50+3 Chromium. Private hosted/owner-device acceptance remains separate.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G14",
+      "gap": "Capture lacks search and richer triage",
+      "phases": [
+        2
+      ],
+      "criterion": "Search/filter/edit/file/convert/archive/restore work without losing source or duplicate conversion",
+      "status": "implemented_cloud_verified_hosted_acceptance_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Implemented and covered by final E1 Node/native D1/R2/HTTP and browser gates; original IDs and owner scope preserved. Real hosted owner acceptance remains separate.",
+      "historicalEvidence": "Implemented source with isolated cloud regressions; Phase6 exact60e50fc CI39167082234 passed full Node/bridge/type/lint/build, D1/R2/HTTP and50+3 Chromium. Private hosted/owner-device acceptance remains separate.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G15",
+      "gap": "No file attachments",
+      "phases": [
+        3
+      ],
+      "criterion": "Private bounded upload/download with digest, owner check, lifecycle cleanup and portable backup manifest",
+      "status": "implemented_cloud_verified_hosted_acceptance_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Native private reserve/stage/finalize/digest/download/ZIP/rekeyed restore and3R2 journeys pass; hosted bucket/owner acceptance remains external.",
+      "historicalEvidence": "Private attachment reserve/stage/finalize/download, SHA/physical ledger, permanent pending-PUT/cleanup fences and native ZIP/rekeyed restore verified actual D1/R2/HTTP and3 native R2 journeys at60e50fc. Private hosted bucket acceptance not-run.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G16",
+      "gap": "Evidence is only loose text/links",
+      "phases": [
+        3
+      ],
+      "criterion": "Multiple structured evidence versions link to task/milestone/decision, each with provenance/date/basis",
+      "status": "implemented_cloud_verified_hosted_acceptance_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Implemented and covered by final E1 Node/native D1/R2/HTTP and browser gates; original IDs and owner scope preserved. Real hosted owner acceptance remains separate.",
+      "historicalEvidence": "Implemented source with isolated cloud regressions; Phase6 exact60e50fc CI39167082234 passed full Node/bridge/type/lint/build, D1/R2/HTTP and50+3 Chromium. Private hosted/owner-device acceptance remains separate.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G17",
+      "gap": "No acceptance completeness policy",
+      "phases": [
+        3
+      ],
+      "criterion": "Configurable criteria distinguish missing/stale/conflicting evidence; acceptance records cite exact versions and explicit owner assessment",
+      "status": "implemented_cloud_verified_hosted_acceptance_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Implemented and covered by final E1 Node/native D1/R2/HTTP and browser gates; original IDs and owner scope preserved. Real hosted owner acceptance remains separate.",
+      "historicalEvidence": "Implemented source with isolated cloud regressions; Phase6 exact60e50fc CI39167082234 passed full Node/bridge/type/lint/build, D1/R2/HTTP and50+3 Chromium. Private hosted/owner-device acceptance remains separate.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G18",
+      "gap": "Task completion can have no evidence",
+      "phases": [
+        3
+      ],
+      "criterion": "Project/task policy can require evidence or recorded justified waiver; legacy completion is preserved and labeled historical",
+      "status": "implemented_cloud_verified_hosted_acceptance_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Implemented and covered by final E1 Node/native D1/R2/HTTP and browser gates; original IDs and owner scope preserved. Real hosted owner acceptance remains separate.",
+      "historicalEvidence": "Implemented source with isolated cloud regressions; Phase6 exact60e50fc CI39167082234 passed full Node/bridge/type/lint/build, D1/R2/HTTP and50+3 Chromium. Private hosted/owner-device acceptance remains separate.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G19",
+      "gap": "No searchable decision register",
+      "phases": [
+        3
+      ],
+      "criterion": "Decisions have status, rationale, evidence and supersession links; search and milestone backlinks work",
+      "status": "implemented_cloud_verified_hosted_acceptance_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Implemented and covered by final E1 Node/native D1/R2/HTTP and browser gates; original IDs and owner scope preserved. Real hosted owner acceptance remains separate.",
+      "historicalEvidence": "Implemented source with isolated cloud regressions; Phase6 exact60e50fc CI39167082234 passed full Node/bridge/type/lint/build, D1/R2/HTTP and50+3 Chromium. Private hosted/owner-device acceptance remains separate.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G20",
+      "gap": "Baselines never update",
+      "phases": [
+        4,
+        5
+      ],
+      "criterion": "New reviewed baseline revision cites fresh observations; old 17 October baseline remains intact and dated",
+      "status": "implemented_cloud_verified_hosted_acceptance_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Dated immutable reviewed baselines and exact citations retain the original baseline; imports/models never auto-accept observations.",
+      "historicalEvidence": "Reviewed immutable dated baseline revisions and exact contextual citations verified Phase5/6 cloud; original baseline retained. No automatic model or source acceptance.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G21",
+      "gap": "No automatic GitHub updates",
+      "phases": [
+        4
+      ],
+      "criterion": "Real allowed repository refresh retains SHA/check/PR provenance; background run proves access with browser closed",
+      "status": "implemented_cloud_verified_external_activation_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Bounded allowed GitHub adapter and provenance pass isolated native D1; selected repository consent, renewable private ingress and actual closed-browser refresh remain unconfigured.",
+      "historicalEvidence": "Bounded allowed GitHub adapter and exact source provenance/renewable authority tested actual isolated D1. Live selected repository consent, supported private ingress and browser-closed provider proof not configured.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G22",
+      "gap": "No connected document updates",
+      "phases": [
+        4
+      ],
+      "criterion": "Selected real document change appears as a new attributed observation and review proposal",
+      "status": "implemented_cloud_verified_external_activation_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Selected document/manual import and closed adapter contracts produce attributed proposals; live supported API/resource consent/renewal remain external.",
+      "historicalEvidence": "Selected document manual input and closed adapter contracts produce attributed proposals. Live supported document connector/API, resource consent and renewal acceptance required; no automatic connection claim.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G23",
+      "gap": "No automatic conversation ingestion",
+      "phases": [
+        4
+      ],
+      "criterion": "Selected conversation export imports idempotently; automatic refresh additionally requires verified supported API and access",
+      "status": "implemented_cloud_verified_external_activation_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Selected conversation export imports idempotently with review; automatic refresh requires an eligible supported API and explicit selected-resource consent.",
+      "historicalEvidence": "Explicit selected conversation export imports idempotently with review. Automatic conversation refresh requires supported eligible API and consent; not configured or claimed.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G24",
+      "gap": "Refresh does not refresh external evidence",
+      "phases": [
+        4
+      ],
+      "criterion": "Source Refresh invokes its adapter and exposes success/error/freshness independently from plan Refresh",
+      "status": "implemented_cloud_verified_external_activation_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Source refresh/freshness/errors are distinct from plan refresh and tested with native D1; actual provider connection remains external.",
+      "historicalEvidence": "Source Refresh and operational freshness/error are separate from plan refresh; actual isolated D1 adapter failures/retries tested. Live provider execution not-run.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G25",
+      "gap": "No AI analysis of project evidence",
+      "phases": [
+        5,
+        7
+      ],
+      "criterion": "Optional exact-provider/model analysis produces validated cited suggestions under an explicit budget; deterministic brief works without AI",
+      "status": "implemented_cloud_verified_external_activation_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Deterministic cited reviews pass; optional inference has strict exact-provider/model/budget proposal contracts and remains disabled pending actual configuration.",
+      "historicalEvidence": "Deterministic cited reviews and strict optional paid-analysis proposal contract implemented. Paid inference disabled: exact provider/model plus explicit spending budget and connection not configured.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G26",
+      "gap": "No changes-since-review view",
+      "phases": [
+        3,
+        5
+      ],
+      "criterion": "Acknowledged snapshot and source watermark produce reproducible changes; newer events remain unread",
+      "status": "implemented_cloud_verified_hosted_acceptance_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Implemented and covered by final E1 Node/native D1/R2/HTTP and browser gates; original IDs and owner scope preserved. Real hosted owner acceptance remains separate.",
+      "historicalEvidence": "Implemented source with isolated cloud regressions; Phase6 exact60e50fc CI39167082234 passed full Node/bridge/type/lint/build, D1/R2/HTTP and50+3 Chromium. Private hosted/owner-device acceptance remains separate.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G27",
+      "gap": "No background reviews/alerts",
+      "phases": [
+        5
+      ],
+      "criterion": "One real unattended scheduled occurrence, correct next due, quiet unchanged state and deduplicated meaningful notification",
+      "status": "implemented_cloud_verified_external_activation_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Original scheduled source/backup D1 gates and deduplication pass at E1. Real renewable ingress/wakeup and browser-closed provider execution remain unverified; alerts disabled.",
+      "historicalEvidence": "Actual isolated D1 review/backup/source occurrences and deduplication are implemented. The 3b first-wake source admission failed D1's 100-binding ceiling; reviewed canonical-vector admission fix passed34 targeted tests and the original27-migration D1 scheduled-source proof at d2d35/run39194122483. All guards and atomicity remain. Hosted renewable ingress/wakeup and real browser-closed provider acceptance remain unavailable.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G28",
+      "gap": "No push synchronization",
+      "phases": [
+        5
+      ],
+      "criterion": "Verified same-origin SSE reconnects using cursor; fallback polling labeled correctly and never overwrites dirty edits",
+      "status": "implemented_cloud_verified_external_activation_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Actual bounded HTTP/socket stream contracts14/14 pass; production stream registration remains closed, UI labels polling. Hosted same-origin/session/reconnect acceptance remains external.",
+      "historicalEvidence": "Actual bounded owner-scoped SSE/socket/SQLite tests pass at 2c5a (run39177611192). Production stream capability remains unregistered and UI labels polling. Hosted same-origin ingress, reconnect and owner-session acceptance are required before activation.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G29",
+      "gap": "No durable/offline drafts",
+      "phases": [
+        1
+      ],
+      "criterion": "Server draft restore plus explicitly enabled trusted-device offline outbox; logout/account change protects cached private drafts",
+      "status": "implemented_cloud_verified_owner_device_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Durable server drafts, original-ID reconciliation and opt-in trusted-device privacy/outbox pass cloud browser tests. Actual passkey/device offline acceptance remains pending.",
+      "historicalEvidence": "Durable server drafts and original mutation recovery verified native Chromium; explicitly opt-in trusted-device outbox/privacy core tested. Hosted passkey/actual-device offline acceptance remains owner-dependent.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G30",
+      "gap": "Save can wait indefinitely",
+      "phases": [
+        1
+      ],
+      "criterion": "Bounded timeout exits busy state; uncertain outcome reconciles by original mutation ID before resubmit",
+      "status": "implemented_cloud_verified_hosted_acceptance_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Implemented and covered by final E1 Node/native D1/R2/HTTP and browser gates; original IDs and owner scope preserved. Real hosted owner acceptance remains separate.",
+      "historicalEvidence": "Implemented source with isolated cloud regressions; Phase6 exact60e50fc CI39167082234 passed full Node/bridge/type/lint/build, D1/R2/HTTP and50+3 Chromium. Private hosted/owner-device acceptance remains separate.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G31",
+      "gap": "Single manual recovery snapshot",
+      "phases": [
+        1,
+        5
+      ],
+      "criterion": "Multiple complete backups, version browser, tested restore and an actually executed scheduled backup",
+      "status": "implemented_cloud_verified_external_activation_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Multiple complete D1/R2/ZIP snapshots, restore, protected retirement and physical-PUT epoch-race assertions pass at E1. Actual unattended renewable scheduler/private R2 and complete existing-owner snapshot remain external.",
+      "historicalEvidence": "Multiple verified snapshots, complete native ZIP/R2 backups, explicit consent, retained-generation accounting, version download and guarded retirement/cleanup/reauthorization are implemented. Corrected archive ownership and later ce865 full 1773/1773 regressions passed. Real renewable scheduler, private hosted R2 and closed-browser execution remain external; final integrated-source/package gates remain pending.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G32",
+      "gap": "No merge import",
+      "phases": [
+        1
+      ],
+      "criterion": "Dry-run record/ID/reference conflict preview, selective merge and atomic application; source provenance preserved",
+      "status": "implemented_cloud_verified_hosted_acceptance_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Selective insert-only normalized merge, ID/provenance/reference preservation and atomic conflicts pass current native workspace/browser gates; imported effects stay inert until explicit owner review.",
+      "historicalEvidence": "Reviewed insert-only normalized merge preserves original IDs, provenance, baseline grants and inert claims, with exact row/epoch/physical quota guards. Full current-candidate native merge/browser gate remains pending; no automatic owner acceptance or execution.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G33",
+      "gap": "Archive cannot free capacity",
+      "phases": [
+        1,
+        2
+      ],
+      "criterion": "Explicit dependency-aware purge/cleanup with recovery; read-only/export remain available at the byte limit",
+      "status": "implemented_cloud_verified_hosted_acceptance_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Implemented and covered by final E1 Node/native D1/R2/HTTP and browser gates; original IDs and owner scope preserved. Real hosted owner acceptance remains separate.",
+      "historicalEvidence": "Implemented source with isolated cloud regressions; Phase6 exact60e50fc CI39167082234 passed full Node/bridge/type/lint/build, D1/R2/HTTP and50+3 Chromium. Private hosted/owner-device acceptance remains separate.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G34",
+      "gap": "Near-limit legacy migration can block writes/restore",
+      "phases": [
+        1
+      ],
+      "criterion": "Regression fixture migrates, exports/restores and permits reducing edits without silently dropping content",
+      "status": "implemented_cloud_verified_hosted_acceptance_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Implemented and covered by final E1 Node/native D1/R2/HTTP and browser gates; original IDs and owner scope preserved. Real hosted owner acceptance remains separate.",
+      "historicalEvidence": "Implemented source with isolated cloud regressions; Phase6 exact60e50fc CI39167082234 passed full Node/bridge/type/lint/build, D1/R2/HTTP and50+3 Chromium. Private hosted/owner-device acceptance remains separate.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G35",
+      "gap": "Receipts have no retention strategy",
+      "phases": [
+        1
+      ],
+      "criterion": "Bounded receipt payload retention preserves replay tombstones/horizon rejection; pruned old IDs cannot execute again",
+      "status": "implemented_cloud_verified_hosted_acceptance_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Implemented and covered by final E1 Node/native D1/R2/HTTP and browser gates; original IDs and owner scope preserved. Real hosted owner acceptance remains separate.",
+      "historicalEvidence": "Implemented source with isolated cloud regressions; Phase6 exact60e50fc CI39167082234 passed full Node/bridge/type/lint/build, D1/R2/HTTP and50+3 Chromium. Private hosted/owner-device acceptance remains separate.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G36",
+      "gap": "Only 100 generic events and no history screen",
+      "phases": [
+        3
+      ],
+      "criterion": "Paginated immutable structured history beyond 100 events; filter, actor, entity and field changes visible",
+      "status": "implemented_cloud_verified_hosted_acceptance_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Generated-ID scoped history and exact historical NULL/bulk attribution, immutable payloads and paginated history pass current full/native/browser gates; no historical record rewrite.",
+      "historicalEvidence": "Paginated immutable structured history beyond 100 events and exact entity filtering are implemented. Future create events retain their actual generated ID; historical NULL-ID/bulk matches derive exact typed paths without rewriting stored IDs/payloads. Browser 296fd565 and actual D1 historical 706505 tests passed; final integrated-source gate remains separate.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G37",
+      "gap": "Baseline/restore changes skip ordinary history",
+      "phases": [
+        1,
+        3
+      ],
+      "criterion": "Both operations produce correlated committed history including restore lineage; failure produces no false success event",
+      "status": "implemented_cloud_verified_hosted_acceptance_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Implemented and covered by final E1 Node/native D1/R2/HTTP and browser gates; original IDs and owner scope preserved. Real hosted owner acceptance remains separate.",
+      "historicalEvidence": "Implemented source with isolated cloud regressions; Phase6 exact60e50fc CI39167082234 passed full Node/bridge/type/lint/build, D1/R2/HTTP and50+3 Chromium. Private hosted/owner-device acceptance remains separate.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G38",
+      "gap": "No field-level undo",
+      "phases": [
+        3
+      ],
+      "criterion": "Inverse action previews current conflicts and records a new event; cannot blindly rewind external effects",
+      "status": "implemented_cloud_verified_hosted_acceptance_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Implemented and covered by final E1 Node/native D1/R2/HTTP and browser gates; original IDs and owner scope preserved. Real hosted owner acceptance remains separate.",
+      "historicalEvidence": "Implemented source with isolated cloud regressions; Phase6 exact60e50fc CI39167082234 passed full Node/bridge/type/lint/build, D1/R2/HTTP and50+3 Chromium. Private hosted/owner-device acceptance remains separate.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G39",
+      "gap": "PC collector disconnected",
+      "phases": [
+        6
+      ],
+      "criterion": "Real enrolled Windows bridge sends bounded observations, then offline/reconnect/revocation behavior is verified",
+      "status": "implemented_cloud_verified_external_activation_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Protected installable bridge and Windows native10/portable200 tests pass on actual Windows Actions. Owner collector enrollment, Task Scheduler, actual telemetry/offline/revocation remain unperformed.",
+      "historicalEvidence": "Installable protected Windows bridge source/package and actual cloud Windows ACL/DPAPI/SQLite safety verified39167078521. Original owner PC collector/service connection, offline/reconnect/revocation and Task Scheduler installation not-run.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G40",
+      "gap": "No current project runtime health",
+      "phases": [
+        6
+      ],
+      "criterion": "Adapter maps actual deployment/heartbeat/source timestamps; offline/stale/unknown are distinct from healthy/failed",
+      "status": "implemented_cloud_verified_external_activation_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Bounded mapped runtime observations, provenance/history and truthful offline/stale/unknown states pass native D1/bridge/UI gates. Actual owner-device/provider runtime health remains external.",
+      "historicalEvidence": "Owner enrollment, bounded mapped runtime observations/history/freshness and frozen evidence verified actual D1+bridge CLI and native Runtime UI. Actual owner-device/provider connection remains unavailable; unknown is not healthy.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G41",
+      "gap": "No agent dispatch/model selection",
+      "phases": [
+        7
+      ],
+      "criterion": "One configured exact provider/model or authorized CLI runner accepts a bounded project job; no silent fallback",
+      "status": "implemented_cloud_verified_external_activation_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Actual approved private runtime extraction/registration and owned-process integration are implemented. Exact provider/model/budget/effects/path approvals remain enforced. Real provider login, finite private ingress and owner sandbox execution remain unperformed; no silent fallback.",
+      "historicalEvidence": "Actual private runtime extraction/strict registration and Windows owned-process integration implemented and reviewed; exact3c native10+portable192 pass, real D1/R2 cancellation/artifact/nonce recovery tests pass. Models, approvals, finite budgets and proposal-only outputs remain pinned. Default connection closed until native owner-private confirmation and a matching finite manual Sites window are configured; real ingress/provider/sandbox/owner-device acceptance external. Original15s cause unknown; separate proven pool/deadline failures now have negative controls and robust fixture correction, final canonical gate pending.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G42",
+      "gap": "No agent ownership/status/cancel/results",
+      "phases": [
+        7
+      ],
+      "criterion": "Lease, event history, cancellation/reconciliation, result artifacts and human review survive restarts and duplicate delivery",
+      "status": "implemented_cloud_verified_external_activation_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Durable once-claims, leases, restart nonce reconciliation, confirmed process-tree cancellation ACK, event/artifact ownership and physical R2 evidence pass native cloud/Windows tests. Real owner/provider cancellation remains external.",
+      "historicalEvidence": "Owner-only job details, immutable provenance, bounded event history and artifact links are implemented. Exact48320 focused435/435 passed, including five queued-artifact fresh authorization/lease cases; native source-specific artifact D1/R2 jobs passed. No live executor/device acceptance is claimed.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G43",
+      "gap": "No cost/approval scope for execution",
+      "phases": [
+        7
+      ],
+      "criterion": "Requested effects, resource allowlist and budget bound each job; changed requests invalidate approval; unknown cost remains explicit",
+      "status": "implemented_cloud_verified_external_activation_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Immutable exact-model/runtime/effects/path/budget approval and finite reservation pass; changed requests invalidate approval. Paid inference remains off, unknown dollar cost explicit.",
+      "historicalEvidence": "Immutable approval binds exact provider/model/runtime/effects/paths/budget with finite once-only reservation. The budget/enrollment UI is integrated; corrected native pointer interaction passed 296fd565. Paid inference stays off and unknown dollar cost stays explicit; live executor/device acceptance remains separate.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G44",
+      "gap": "Agent Lab is not integrated",
+      "phases": [
+        7
+      ],
+      "criterion": "Read existing run/evaluation evidence and invoke only its actual supported bounded evaluations; general coding uses a separate adapter",
+      "status": "implemented_cloud_verified_external_activation_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Separate approved private extraction has51Linux/Windows tests and actual source-bound installer/adapter-load interoperability. Public49-file bridge/private package boundary, owned-process/runtime/proposal artifacts pass; zero real provider calls, owner install and real evaluations remain external.",
+      "historicalEvidence": "Existing selected-run evidence projection preserves legacy/unverified claims. Authorized actual private runtime extraction has51passingLinux/Windows tests, verified cloud archive/five reviewed files and actual strict installer/adapter-load interoperability; zero provider calls. Native synthetic ownership and real D1/R2 protocol gates pass. Finite manual service adapter is implemented with separate protected credentials and opaque server boundary; actual native ingress, owner installation and evaluation/model execution remain external, disabled by default.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G45",
+      "gap": "Release docs are stale",
+      "phases": [
+        0,
+        8
+      ],
+      "criterion": "Current version/source/deployment/test/device facts agree and link to actual evidence; historical reports retained as historical",
+      "status": "cloud_acceptance_verified",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Current E1 verification, phase handoff, all48gap rows,8intentional boundaries and strict blocked release ledger are reconciled on the evidence branch. Historical failures retain exact attribution; no merge/deployment.",
+      "historicalEvidence": "Current progress/checkpoint and source-specific failure/CPU/component evidence retain exact764 and772 failures. Historical reports remain dated. Reviewed next candidate requires all exact-source gates and actual archive integrity; no merge, deployment or new owner acceptance.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G46",
+      "gap": "No committed automated browser suite/CI proof",
+      "phases": [
+        0,
+        8
+      ],
+      "criterion": "Repeatable isolated browser/failure/migration suite and portable CI script; hosted CI only claimed for a real configured repository/run",
+      "status": "cloud_acceptance_verified",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Configured actual E1 main1834Node/210bridge/63+3browser/native gates and all supplemental workflows pass. Source/package byte checks and8tampering controls pass. Canonical thresholds/assertions/workload unchanged; historical stall causes unproven.",
+      "historicalEvidence": "Actual configured GitHub764 canonical39511585072 passed Node/bridge/type/lint/build/nativeD1/R2 stages and continues browser/package checks. Older complete passes retain their source. New generation assertion source requires fresh complete canonical acceptance; original e4 jobs stall and historical race cause remain unproven.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G47",
+      "gap": "New reliability behavior not proven on phone/tablet",
+      "phases": [
+        8
+      ],
+      "criterion": "Current-version viewport, keyboard/accessibility and actual selected-device acceptance results; passkey step completed by owner",
+      "status": "implemented_cloud_verified_owner_device_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "E1 Chromium/Firefox/WebKit11journeys pass; both browser budget runs pass firstusablep952769.4/2588.8ms<=3000 and20-sessionHTTPsavep95370.046321/274.759344ms<=2000. Physical phone/tablet/passkey remain external.",
+      "historicalEvidence": "764 controlled browser performance push39511581032 and PR39511585153 passed unchanged3000ms assertions, while its normal D1savep955642.077330ms failed unchanged2000ms limit. Next12617 diagnostic1995.699741ms pass is narrow and not canonical. Actual owner phone/tablet/passkey acceptance remains external.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    },
+    {
+      "id": "G48",
+      "gap": "Operational history can outgrow complete recovery bounds",
+      "phases": [
+        4,
+        5,
+        8
+      ],
+      "criterion": "Atomic complete export/restore admission or verified larger-owner segmented recovery; no truncation or eviction",
+      "status": "synthetic_cloud_verified_owner_backup_cutover_pending",
+      "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "evidence": "verification-e1ffdf0.json",
+      "scopeAndNextAction": "Actual E1 segmented isolated recovery passes27migrations/33modules/79segments/10080rows/17767591bytes, source unchanged and target fenced. Maintenance97tables/291guards passes. Complete real owner backup and any cutover remain separate, unperformed.",
+      "historicalEvidence": "Privileged recovery preserves native identities, immutable audit/private provenance, drafts, staged originals, physical fences and unknown-execution journals. Source3b segmented proof passed79 segments/10080 rows/17767591 bytes with a fenced target; earlier872 27-migration/33-module and97-table maintenance proofs retain their own attribution. Final integrated source/package and actual owner cutover remain separate.",
+      "hostedAcceptance": "not performed",
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false
+    }
+  ],
+  "intentionalBoundaries": [
+    {
+      "id": "B01",
+      "boundary": "Previously erased timestamps",
+      "delivery": "Recovery tools search an explicitly supplied trusted backup, retain provenance and allow labeled correction; never infer a historical completion date from current time",
+      "acceptanceLimit": "Recover from evidence where available; otherwise retain `unknown` with an explanation",
+      "status": "intentional_boundary_preserved"
+    },
+    {
+      "id": "B02",
+      "boundary": "Evidence does not prove itself",
+      "delivery": "Store verification method, candidate/version, device/environment, result and explicit owner acceptance; automated checks only cover their named scope",
+      "acceptanceLimit": "Required real tests are run and cited; uncertain claims remain uncertain",
+      "status": "intentional_boundary_preserved"
+    },
+    {
+      "id": "B03",
+      "boundary": "No guaranteed profitability/release readiness",
+      "delivery": "Provide evidence/acceptance workflows and read-only operational metrics",
+      "acceptanceLimit": "Present scoped outcomes without a guarantee; actual product acceptance is separate work",
+      "status": "intentional_boundary_preserved"
+    },
+    {
+      "id": "B04",
+      "boundary": "No work while the Windows PC is off",
+      "delivery": "Cloud planning/briefs continue; Windows jobs wait and show offline device status; optionally use a separately configured cloud executor",
+      "acceptanceLimit": "Correct queue behavior and truthful availability, never fabricated progress",
+      "status": "intentional_boundary_preserved"
+    },
+    {
+      "id": "B05",
+      "boundary": "No live trading actions",
+      "delivery": "Phase 7 defines a typed operational adapter boundary; default unregistered/disabled. Read-only trading status is Phase 6",
+      "acceptanceLimit": "Activation requires a specific separately authorized scope and the trading system's own controls; live order placement is not part of default rollout",
+      "status": "intentional_boundary_preserved"
+    },
+    {
+      "id": "B06",
+      "boundary": "No arbitrary remote shell",
+      "delivery": "Use enumerated executable tasks and isolated runner scope",
+      "acceptanceLimit": "Required planned jobs run through constrained adapters; unrestricted shell remains intentionally unavailable",
+      "status": "intentional_boundary_preserved"
+    },
+    {
+      "id": "B07",
+      "boundary": "No two-way tracker writes",
+      "delivery": "Read synchronization and plan proposals cover this audit's external-data scope. A future write adapter needs provider consent, target/action preview and idempotent effect reconciliation",
+      "acceptanceLimit": "Do not label read synchronization as external write support; no unrequested issue/PR changes",
+      "status": "intentional_boundary_preserved"
+    },
+    {
+      "id": "B08",
+      "boundary": "No unavailable platform API",
+      "delivery": "Build adapters and import fallback, record discovery results and exact missing connection/API",
+      "acceptanceLimit": "Only actual enabled integrations marked complete; fixture-only support stays implemented/unverified",
+      "status": "intentional_boundary_preserved"
+    }
+  ],
+  "externalActions": [
+    "Obtain a complete private current D1/workspace/files snapshot, inventory and checksum; rehearse restoration in isolation. The native read interface truncates the existing saved workspace and is not a complete backup.",
+    "A later separately authorized existing private Site release must use the installed Sites source/build workflow, preserve its identity and owner-only access, provision/validate required private R2, apply compatible migrations, and pass owner/anonymous/read/export checks. No merge or deployment is authorized in this continuation.",
+    "Install the source-bound public bridge/helper and reviewed private runtime on the owner Windows device with Node24/.NET8, protected credentials and exact provider/model/runtime/repository/path/budget/approval pins. Verify actual process-tree cancellation, restart reconciliation, offline behavior and artifact review; synthetic Windows Actions do not attest to that device or provider sandbox.",
+    "For finite manual dispatch, verify the real canonical owner-private Sites URL, audience and consumed bearer, enroll separate protected service credentials and a matching server manual window of at most15minutes, then record a matching capability revision before approving a frozen job. This finite window does not supply unattended renewal.",
+    "Connect only selected provider resources with real consent. Unattended source/review/backup runs require supported renewable private authority/wakeup and browser-closed execution evidence. Hosted SSE requires separate same-origin/session/reconnect acceptance; current polling labels remain truthful.",
+    "Complete actual owner phone/tablet/passkey and explicitly enabled trusted-device offline checks. Keep paid inference off until an exact provider/model and spending budget are configured; trading/operational effects and external alerts stay disabled."
+  ],
+  "verification": "verification-e1ffdf0.json"
+}

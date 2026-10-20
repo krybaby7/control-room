@@ -1,0 +1,71 @@
+{
+  "status": "INTEGRITY_VERIFIED_REVIEW_ONLY",
+  "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+  "outerZipSha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5",
+  "innerArchives": [
+    {
+      "sha256": "a1388c6f60522ec431ae1e84b1c7689b1dcd4c4d1672657153976842d3c13d1a",
+      "bytes": 12503040
+    },
+    {
+      "sha256": "7e9b9c2236edb4320c84488c692db0cbfa9e01eaa0a2c42c2477f8a05e8af2eb",
+      "bytes": 1346975
+    }
+  ],
+  "sourceFiles": 1100,
+  "buildFiles": 333,
+  "bridgeFiles": 49,
+  "bridgeSha256": "d1310e0988907d18952ec57e510578fb8e5a32e955a8cb7718883747acab0894",
+  "releaseAccepted": false,
+  "deployed": false,
+  "sourceGitTreeExactBytes": true,
+  "candidateArtifact": {
+    "id": 12308210179,
+    "zipSha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5",
+    "workflowHead": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+    "runId": 39513086298,
+    "runConclusion": "success",
+    "workflowPath": ".github/workflows/control-room-ci.yml"
+  },
+  "bridgeArtifact": {
+    "id": 12307940412,
+    "zipSha256": "8be3fc058cd88a1272a50dfc00663e61819336fd62bca9c1898b3fce8accd385",
+    "workflowHead": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+    "runId": 39513086298,
+    "runConclusion": "success",
+    "workflowPath": ".github/workflows/control-room-ci.yml"
+  },
+  "helperArtifact": {
+    "id": 12306925376,
+    "zipSha256": "87330842bf606ca2b409e9ff16fd03c111a0f7eca3d1739b75cdc8604b32bbbd",
+    "workflowHead": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+    "runId": 39513086370,
+    "runConclusion": "success",
+    "workflowPath": ".github/workflows/control-room-owned-process-native.yml"
+  },
+  "helper": {
+    "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+    "sha256": "45258c1138ba099d9ddd57242c6bf5fca06dac8ac1ce5c1fe56d3b2fe3f08782",
+    "bytes": 174601,
+    "runtimeRequirement": ".NET 8",
+    "ownerDeviceAcceptance": false,
+    "providerExecution": false
+  },
+  "negativeControls": {
+    "wrongOuterDigest": "rejected",
+    "changedInnerArchiveWithRecomputedOuterDigest": "rejected",
+    "changedWholeSourceAgainstGitTree": "rejected",
+    "changedHelperInteriorPreservingMZWithRecomputedOuterDigest": "rejected",
+    "tarMetadataDecompressionBound": "rejected",
+    "unsupportedPaxExtension": "rejected",
+    "duplicateDirectoryPath": "rejected",
+    "absoluteDirectoryPath": "rejected"
+  },
+  "providerExecution": false,
+  "ownerDeviceAcceptance": false,
+  "limitations": [
+    "Integrity does not establish reproducible build output or pass failed application gates.",
+    "Helper source binding is exact manifest plus public workflow-head provenance; compiler reproducibility is not asserted.",
+    "No artifact code was executed and no private runtime artifact was consumed."
+  ]
+}
