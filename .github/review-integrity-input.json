@@ -1,0 +1,18 @@
+{
+  "candidateCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+  "candidateArtifact": {
+    "id": 12308210179,
+    "zipSha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5",
+    "workflowHead": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e"
+  },
+  "helperArtifact": {
+    "id": 12306925376,
+    "zipSha256": "87330842bf606ca2b409e9ff16fd03c111a0f7eca3d1739b75cdc8604b32bbbd",
+    "workflowHead": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e"
+  },
+  "bridgeArtifact": {
+    "id": 12307940412,
+    "zipSha256": "8be3fc058cd88a1272a50dfc00663e61819336fd62bca9c1898b3fce8accd385",
+    "workflowHead": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e"
+  }
+}

@@ -1,0 +1,100 @@
+name: Inspect exact public review artifacts
+on:
+  push:
+    branches: ['diagnostics/control-room-review-integrity*']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Inspect pinned artifacts without executing them
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/verify-review-artifacts.py .github/review-integrity-input.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: public-review-artifact-integrity-${{ github.sha }}
+          path: artifact-verification.json
+          if-no-files-found: ignore
+          retention-days: 90
+      - name: Resolve pinned final candidate for strict ledger
+        id: ledger-source
+        run: |
+          python3 - <<'PY'
+          import json, os, re
+          from pathlib import Path
+          path=Path('.github/final-cloud-ledger-input.json')
+          if path.stat().st_size>65536: raise SystemExit('Ledger input exceeds bound.')
+          value=json.loads(path.read_text(encoding='utf-8'))
+          commit=value.get('candidateCommit')
+          if not isinstance(commit,str) or not re.fullmatch('[a-f0-9]{40}',commit) or commit=='0'*40: raise SystemExit('Invalid pinned final source.')
+          with open(os.environ['GITHUB_OUTPUT'],'a',encoding='utf-8') as output: output.write('commit='+commit+'\n')
+          PY
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.ledger-source.outputs.commit }}
+          path: verified-candidate
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: verified-candidate/package-lock.json
+      - name: Install exact candidate locked dependencies
+        working-directory: verified-candidate
+        run: npm run install:ci
+      - name: Record final source cloud gates and honest release blockers
+        working-directory: verified-candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node "$GITHUB_WORKSPACE/scripts/record-final-cloud-ledger.mjs" "$GITHUB_WORKSPACE/.github/final-cloud-ledger-input.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: final-cloud-ledger-${{ steps.ledger-source.outputs.commit }}
+          path: |
+            verified-candidate/final-cloud-ledger-status.json
+            verified-candidate/release-ledger-verification.json
+          if-no-files-found: error
+          retention-days: 90
+      - name: Bind integrator audit to actual same-job evidence hashes
+        run: |
+          python3 - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          audit_path=Path('.github/cloud-implementation-audit.json')
+          integrity_path=Path('artifact-verification.json')
+          if audit_path.stat().st_size>65536 or integrity_path.stat().st_size>65536: raise SystemExit('Annotation input exceeds bound.')
+          audit_raw=audit_path.read_bytes()
+          integrity_raw=integrity_path.read_bytes()
+          audit=json.loads(audit_raw)
+          integrity=json.loads(integrity_raw)
+          if integrity.get('status')!='INTEGRITY_VERIFIED_REVIEW_ONLY' or integrity.get('sourceCommit')!=audit.get('sourceCommit'): raise SystemExit('Actual same-source integrity has not passed.')
+          value={'candidateCommit':audit['sourceCommit'],'sourceTree':audit['sourceTree'],'candidate':audit['candidate'],'candidateArtifact':audit['candidateArtifact'],'auditSha256':hashlib.sha256(audit_raw).hexdigest(),'integritySha256':hashlib.sha256(integrity_raw).hexdigest()}
+          # These digests bind the actual files emitted/read in this job. They
+          # are runtime-derived, not invented or independent pre-run report pins.
+          Path('.github/cloud-implementation-annotation-input.json').write_text(json.dumps(value,indent=2)+'\n',encoding='utf-8')
+          PY
+      - name: Apply only reviewed cloud implementation annotation
+        working-directory: verified-candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node --experimental-strip-types "$GITHUB_WORKSPACE/scripts/annotate-cloud-implementation.mjs" "$GITHUB_WORKSPACE/.github/cloud-implementation-annotation-input.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cloud-implementation-annotation-${{ steps.ledger-source.outputs.commit }}
+          path: |
+            .github/cloud-implementation-audit.json
+            .github/cloud-implementation-annotation-input.json
+            verified-candidate/annotated-cloud-implementation-status.json
+            verified-candidate/cloud-implementation-annotation.json
+          if-no-files-found: error
+          retention-days: 90

@@ -1,0 +1,110 @@
+{
+  "format": "control-room-cloud-implementation-audit",
+  "version": 1,
+  "sourceCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+  "sourceTree": "3c050f1bfbf522c2dbe93830df598a7f60c88527",
+  "candidate": "control-room-e1ffdf0",
+  "candidateArtifact": {
+    "id": 12308210179,
+    "name": "control-room-candidate-e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+    "sha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5",
+    "bytes": 3638712,
+    "runId": 39513086298
+  },
+  "authoredBy": "integrator",
+  "authoredAt": "2026-10-20T23:29:55.369Z",
+  "scope": "cloud-implementation-only",
+  "phases": [
+    {
+      "phase": 0,
+      "status": "cloud-implementation-complete",
+      "finding": "Cloud bootstrap, immutable import provenance and shared contracts are delivered. Node24 locked installs and exact gpt-6.1-sol implementation/review model requests were accepted; all final-source canonical checks pass.",
+      "sourcePaths": [
+        "AGENTS.md",
+        "docs/source-import.json",
+        "lib/workspace-protocol.ts"
+      ]
+    },
+    {
+      "phase": 1,
+      "status": "cloud-implementation-complete",
+      "finding": "Owner-scoped transactional saves, CAS, replay, recovery, drafts, reviewed imports and multi-version/file backups are delivered and tested against isolated D1/R2/HTTP. Original owner records were not modified.",
+      "sourcePaths": [
+        "lib/workspace-transaction.ts",
+        "lib/recoverability-snapshot.ts",
+        "lib/workspace-backups.ts"
+      ]
+    },
+    {
+      "phase": 2,
+      "status": "cloud-implementation-complete",
+      "finding": "Planning, milestones, cross-project dependencies, search, attention, weekly history, recurrence proposals and capacity workflows are delivered and covered by final unit/browser checks.",
+      "sourcePaths": [
+        "components/control-center.tsx",
+        "lib/planning-module.ts"
+      ]
+    },
+    {
+      "phase": 3,
+      "status": "cloud-implementation-complete",
+      "finding": "Structured evidence, private attachment contracts, decisions, immutable history and guarded undo are delivered. Final native R2/HTTP and three R2 browser journeys pass; hosted bucket/owner acceptance remains separate.",
+      "sourcePaths": [
+        "lib/evidence-module.ts",
+        "lib/workspace-transaction.ts"
+      ]
+    },
+    {
+      "phase": 4,
+      "status": "cloud-implementation-complete",
+      "finding": "Bounded source adapters, attributed observations and explicit review proposals are delivered. Actual selected provider/document/conversation consent and live refresh remain unconfigured external activation requirements.",
+      "sourcePaths": [
+        "lib/sources/commands.ts",
+        "lib/workspace-modules.ts"
+      ]
+    },
+    {
+      "phase": 5,
+      "status": "cloud-implementation-complete",
+      "finding": "Deterministic reviews, bounded schedule/backup/source occurrences, notifications and explicit polling/SSE boundaries are delivered and tested. Renewable unattended ingress/wakeup and paid inference remain disabled pending configuration and actual acceptance.",
+      "sourcePaths": [
+        "lib/automations/backup-archive-store.ts",
+        "lib/reviews/transaction-controls.ts"
+      ]
+    },
+    {
+      "phase": 6,
+      "status": "cloud-implementation-complete",
+      "finding": "Installable Windows collector/runtime integration and protected device protocols are delivered. Final native Windows and portable tests pass; actual owner PC installation, telemetry and device acceptance remain external.",
+      "sourcePaths": [
+        "bridge/README.md",
+        "lib/runtime/transaction-controls.ts"
+      ]
+    },
+    {
+      "phase": 7,
+      "status": "cloud-implementation-complete",
+      "finding": "Private-runtime installer/adapter boundary, exact model/budget/approval policies, Windows owned-process supervision, cancellation/reconciliation and physical artifacts are delivered and reviewed. Actual provider execution and owner sandbox/device acceptance remain unperformed.",
+      "sourcePaths": [
+        "bridge/executor/README.md",
+        "bridge/windows/owned-process/OwnedProcess.csproj",
+        "lib/agents/transaction-controls.ts"
+      ]
+    },
+    {
+      "phase": 8,
+      "status": "cloud-implementation-complete",
+      "finding": "Final exact-source canonical, normal performance, Windows, browser and segmented recovery checks pass, and source-bound review packages exist. Actual archive integrity and all eleven strict cloud proofs are mandatory predecessor checks before this annotation. Private release and physical owner acceptance remain blocked.",
+      "sourcePaths": [
+        "scripts/package-candidate.mjs",
+        ".github/workflows/control-room-ci.yml",
+        "lib/release-verification.ts"
+      ]
+    }
+  ],
+  "externalBoundaries": {
+    "hostedPrivateAcceptance": "owner-dependent",
+    "ownerDeviceAcceptance": "owner-dependent",
+    "providerExecution": "disabled",
+    "deployment": "not-performed"
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "candidateCommit": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+  "candidateArtifact": {
+    "id": 12308210179,
+    "zipSha256": "4da05c622c8d094c40b02b24f34034d4de4cdb620c90bd0690a60f3e9aae79b5",
+    "workflowHead": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e"
+  },
+  "candidate": "control-room-e1ffdf0",
+  "main": {
+    "runId": 39513086298,
+    "jobId": 118938631895,
+    "artifactId": 12308210179,
+    "steps": {
+      "node-tests": 5,
+      "bridge-tests": 6,
+      "typecheck": 7,
+      "lint": 8,
+      "build": 9,
+      "d1-recovery": 11,
+      "r2-recovery": 21,
+      "chromium": 23,
+      "r2-chromium": 24
+    }
+  },
+  "performance": {
+    "runId": 39513086324,
+    "jobId": 118938631899,
+    "artifactId": 12306740404,
+    "stepNumber": 5
+  },
+  "oversizedOwnerRecovery": {
+    "runId": 39513086276,
+    "jobId": 118938628711,
+    "artifactId": 12307735360,
+    "stepNumber": 5
+  }
+}
