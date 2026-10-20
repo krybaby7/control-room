@@ -263,7 +263,7 @@
       ]
     }
   ],
-  "nextAction": "Run all exact-source canonical GitHub checks, native Windows and unchanged workspace/browser performance gates. Retain every failure and source identity. Verify actual candidate/helper/bridge archives and record formal source-bound cloud evidence after terminal results. No merge or deployment.",
+  "nextAction": "Inspect terminal currentCandidate canonical and normal benchmark logs. Continue evidence-directed repairs after any genuine failure, then all exact-source gates and artifact integrity. No unchanged retry, merge or deployment.",
   "allowedStatuses": [
     "not_started",
     "in_progress",
@@ -596,11 +596,27 @@
       "review": "passed",
       "change": "Same final admission and hydrated current SELECTs in one bounded read-only batch; dependent baseline remains separate. Atomic guard and failure reconciliation logic unchanged.",
       "canonicalAcceptance": "pending",
-      "diagnostic": "one fresh source-specific diagnostic in progress"
+      "diagnostic": "failed unchanged 2000ms limit",
+      "D1saveP95Ms": 2026.2671459999983,
+      "wholePathGain": "nonmaterial"
     },
     "rejectedCompactionProbe": {
       "integrated": false,
       "reason": "No material paired CPU/elapsed gain; public/storage compaction unchanged."
     }
+  },
+  "currentCandidate": {
+    "applicationSource": "764c774382b57ad8ace2be5e0a92ef4ed6a675b9",
+    "tree": "c4d858a4bf1b3a062ef9f42343c0c35d2947eafb",
+    "draftPr": 1,
+    "canonicalRun": 39511585072,
+    "canonicalJob": 118933660328,
+    "normalBenchmarkRun": 39511585081,
+    "normalBenchmarkJob": 118933662322,
+    "status": "canonical_checks_running",
+    "acceptance": "pending",
+    "deployed": false,
+    "merged": false,
+    "privateHistoryPublished": false
   }
 }

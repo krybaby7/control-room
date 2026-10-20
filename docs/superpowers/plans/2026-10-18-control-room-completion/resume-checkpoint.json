@@ -74,7 +74,10 @@
     "Reviewed integrated f0/d949/9d6 component source e9645cd; one unchanged workload combined profile diagnostic in progress. No canonical acceptance yet.",
     "Combined e964 profile diagnostic FAILED 2028.854637 ms against unchanged 2000 ms; material improvement is not acceptance.",
     "Reviewed final read cohort 5242a02 removes one actual RPC while retaining both SELECTs, dependent baseline and retirement/hash error precedence; 5 focused tests/typecheck/targeted lint pass. Fresh diagnostic and exact-source canonical acceptance pending.",
-    "Source publication is a sanitized public-parent commit sequence based only on public772; rejected private checkpoint/history excluded."
+    "Source publication is a sanitized public-parent commit sequence based only on public772; rejected private checkpoint/history excluded.",
+    "Published four sanitized public-parent review commits to existing draft PR1; exact source764c774 treec4d858a4. Canonical39511585072/job118933660328 and unchanged normal39511585081/job118933662322 running; not accepted yet.",
+    "Fresh final-cohort diagnostic5242 failed2026.267146ms>2000; one actualRPC reduction, wholepath gain nonmaterial. No unchanged rerun or threshold waiver.",
+    "Default PR merge checkout feea2db4670557d5e6f06d30d2e23648a6180206 has exact same treec4d858a4 asF; explicit-main/benchmark/helper checkouts useF. No automatic merge performed."
   ],
   "disabled": [
     "paid inference",
@@ -82,8 +85,8 @@
     "external alerts"
   ],
   "deployed": false,
-  "nextCommand": "Inspect exact published candidate Actions runs and logs; wait for terminal results. Preserve all failures, repair actual assertions without weakening gates, and verify actual source-bound archives. No merge or deployment.",
-  "currentCommit": "ef9bf75",
+  "nextCommand": "Inspect Actions runs39511585072 and39511585081 for terminal results and fetch fresh logs. If normal performance fails, run prepared current-source CPU attribution diagnostic, preserve failure, implement a justified correction and rerun all gates on a new exact candidate. If gates pass, inspect actual source/build/bridge/helper artifacts and record formal cloud ledger. No merge/deployment.",
+  "currentCommit": "764c774382b57ad8ace2be5e0a92ef4ed6a675b9",
   "tests": {
     "proxy": "Dedicated regression passed; original negative control fails as expected; existing harness/typecheck pass. Original pre-header hang remains unexplained.",
     "privateRuntime": "Actual cloud extraction artifact outer archive, inner archive SHA, immutable source pin and five reviewed source files verified. Cloud artifact installed, reopened, byte-verified and actual RuntimeAdapter loaded through strict public installer; zero provider calls.",
@@ -271,9 +274,9 @@
     }
   },
   "uncommittedWork": "Only ignored/untracked synthetic benchmark-results; not source or public evidence.",
-  "publicSource": "772a8d7bc1dc2b1de6f6e6747b70722bb03b2050",
+  "publicSource": "764c774382b57ad8ace2be5e0a92ef4ed6a675b9",
   "publicPr": "https://github.com/krybaby7/control-room/pull/1",
-  "checkpointBranch": "checkpoints/control-room-cloud-87",
+  "checkpointBranch": "checkpoints/control-room-cloud-764",
   "repairDiagnostics": {
     "baseline": {
       "source": "195edab",
@@ -312,5 +315,6 @@
     "historicalFailureCause": "unproven",
     "changes": "Require fulfilled physical PUTs, verified settled chunks/index, actual epoch insertion and exact conflict; retain all terminal no-write assertions. No retry, timeout or production change."
   },
-  "nextCommandContext": "Original-source isolated CPU diagnostic worktree, after the independent segmented recovery rehearsal exits; diagnostic overlay only, no acceptance claim."
+  "nextCommandContext": "Original-source isolated CPU diagnostic worktree, after the independent segmented recovery rehearsal exits; diagnostic overlay only, no acceptance claim.",
+  "applicationTree": "c4d858a4bf1b3a062ef9f42343c0c35d2947eafb"
 }
