@@ -526,5 +526,29 @@
     "previous87Canonical": "passed",
     "paidInferenceEnabled": false,
     "deployed": false
+  },
+  "current772Failures": {
+    "source": "772a8d7bc1dc2b1de6f6e6747b70722bb03b2050",
+    "canonical": {
+      "run": 39253998007,
+      "job": 118064595938,
+      "total": 1815,
+      "passed": 1814,
+      "failed": 1,
+      "assertion": "scheduled-backup-archive.test.ts:108 raced false !== true",
+      "subsequentCanonicalStages": "skipped"
+    },
+    "benchmark": {
+      "run": 39253997842,
+      "job": 118064594835,
+      "D1saveP95Ms": 2848.964301999993,
+      "D1saveP50Ms": 2264.573563999991,
+      "limitMs": 2000,
+      "samples": 100,
+      "restores": 6,
+      "errors": []
+    },
+    "status": "isolated_repairs_in_progress",
+    "deploymentAuthorizedThisContinuation": false
   }
 }

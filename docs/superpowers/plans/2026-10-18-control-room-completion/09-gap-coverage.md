@@ -168,3 +168,8 @@ Fixture failure evidence now keeps a finite redacted head/tail and cause summari
 ## Datetime validation candidate — 2026-10-19
 
 Public87 canonical run39251592918 passed, but its first normal D1savep95 remained2319.984152ms against the unchanged2000ms gate. Preserve that failure. The next candidate compiles the exact locked Zod datetime regex once, preserving outputs and first refusal path/message. Independent parity8/8 and focused145 tests, typecheck, lint and build pass; paired parser timings are diagnostic only. Full exact-source acceptance is pending. The rejected digest fanout remains isolated (6/12 wall pairs lower; median slower). No threshold, workload, assertion, owner data, provider activation or deployment changes.
+
+
+## Resumed repair evidence — 2026-10-21
+
+Source772a8d7bc1dc2b1de6f6e6747b70722bb03b2050 failed canonical39253998007/job118064595938:1814/1815 Node cases passed; scheduled-backup-archive terminal epoch race assertion did not reach injection (`raced=false`). Subsequent canonical stages skipped. Controlled benchmark39253997842/job118064594835 failed only D1concurrentSessionSave p952848.964301999993ms (100samples,p502264.573563999991ms,6restores,errors[]), unchanged2000ms limit. Separate exact-source browser acceptance/performance, Windows, isolatedagentsD1/stream/recovery/segmented and runtime checks passed; they do not replace complete canonical acceptance. Isolated Sol workers are diagnosing material fixes. No deployment or merge in this continuation. All48 gap rows retain their external connection/device/consent boundaries; G41/G44 code implementation is retained and G48/performance release acceptance remains blocked.
