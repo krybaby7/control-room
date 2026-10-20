@@ -74,7 +74,14 @@
     "Reviewed integrated f0/d949/9d6 component source e9645cd; one unchanged workload combined profile diagnostic in progress. No canonical acceptance yet.",
     "Combined e964 profile diagnostic FAILED 2028.854637 ms against unchanged 2000 ms; material improvement is not acceptance.",
     "Reviewed final read cohort 5242a02 removes one actual RPC while retaining both SELECTs, dependent baseline and retirement/hash error precedence; 5 focused tests/typecheck/targeted lint pass. Fresh diagnostic and exact-source canonical acceptance pending.",
-    "Source publication is a sanitized public-parent commit sequence based only on public772; rejected private checkpoint/history excluded."
+    "Source publication is a sanitized public-parent commit sequence based only on public772; rejected private checkpoint/history excluded.",
+    "Published four sanitized public-parent review commits to existing draft PR1; exact source764c774 treec4d858a4. Canonical39511585072/job118933660328 and unchanged normal39511585081/job118933662322 running; not accepted yet.",
+    "Fresh final-cohort diagnostic5242 failed2026.267146ms>2000; one actualRPC reduction, wholepath gain nonmaterial. No unchanged rerun or threshold waiver.",
+    "Default PR merge checkout feea2db4670557d5e6f06d30d2e23648a6180206 has exact same treec4d858a4 asF; explicit-main/benchmark/helper checkouts useF. No automatic merge performed.",
+    "764 normal39511585081/job118933662322 FAILED D1savep955642.077330/p501836.110432ms>2000; artifact12306057959/SHA1105d1cc036161c864004675b7c5d41d40612c175ae258f27385ebd91c70a720. All100outcomes/6restores/engine/errors[]; wave4 delayedall20saves, causeunproven. Automaticdiagnostic1938.054299ms passdoesnotreplacefailednormal.",
+    "764 completeNode andbridge steps passed; canonicalrun continues. Bothcontrolledbrowserperformance andnativeWindows runs andsegmented recoverypassed.",
+    "ONEcurrent-sourceCPUobserverdiagnostic failed2217.998636ms; no5.6sstallreproduced. Actualmutationauthorityprepare/bind605pairs1.487s. Narrowpostwritegenerationassertiongrouping authorized, isolatedsource/tests/review inprogress; original12rowgroups/thresholdsunchanged.",
+    "Reviewed next component12617bd integrated06062ab: two fewer ordinary atomic statements (15\u219213), all predicates/backup barriers/native12rowgroups unchanged. Native2/2 plus89regressions/type/lint/review passed. ONEunchanged diagnostic narrowPASS D1p951995.699741ms (4.300259ms headroom), notcanonical orstallcausefix."
   ],
   "disabled": [
     "paid inference",
@@ -82,8 +89,8 @@
     "external alerts"
   ],
   "deployed": false,
-  "nextCommand": "Inspect exact published candidate Actions runs and logs; wait for terminal results. Preserve all failures, repair actual assertions without weakening gates, and verify actual source-bound archives. No merge or deployment.",
-  "currentCommit": "ef9bf75",
+  "nextCommand": "Wait for39511585072 terminal without cancellation. Publish reviewed generation assertion source (12617bd component, integrated06062ab) and sanitized evidence on original PR branch with lease764c774, then fresh exact-source canonical/normal/native/browser/package gates. No unchanged rerun, threshold waiver, merge or deployment.",
+  "currentCommit": "764c774382b57ad8ace2be5e0a92ef4ed6a675b9",
   "tests": {
     "proxy": "Dedicated regression passed; original negative control fails as expected; existing harness/typecheck pass. Original pre-header hang remains unexplained.",
     "privateRuntime": "Actual cloud extraction artifact outer archive, inner archive SHA, immutable source pin and five reviewed source files verified. Cloud artifact installed, reopened, byte-verified and actual RuntimeAdapter loaded through strict public installer; zero provider calls.",
@@ -271,9 +278,9 @@
     }
   },
   "uncommittedWork": "Only ignored/untracked synthetic benchmark-results; not source or public evidence.",
-  "publicSource": "772a8d7bc1dc2b1de6f6e6747b70722bb03b2050",
+  "publicSource": "764c774382b57ad8ace2be5e0a92ef4ed6a675b9",
   "publicPr": "https://github.com/krybaby7/control-room/pull/1",
-  "checkpointBranch": "checkpoints/control-room-cloud-87",
+  "checkpointBranch": "checkpoints/control-room-cloud-764",
   "repairDiagnostics": {
     "baseline": {
       "source": "195edab",
@@ -312,5 +319,24 @@
     "historicalFailureCause": "unproven",
     "changes": "Require fulfilled physical PUTs, verified settled chunks/index, actual epoch insertion and exact conflict; retain all terminal no-write assertions. No retry, timeout or production change."
   },
-  "nextCommandContext": "Original-source isolated CPU diagnostic worktree, after the independent segmented recovery rehearsal exits; diagnostic overlay only, no acceptance claim."
+  "nextCommandContext": "Original-source isolated CPU diagnostic worktree, after the independent segmented recovery rehearsal exits; diagnostic overlay only, no acceptance claim.",
+  "applicationTree": "c4d858a4bf1b3a062ef9f42343c0c35d2947eafb",
+  "workingCandidate": {
+    "componentSource": "12617bd4a631f7f24c20e3a4e558333fc4d1be80",
+    "integratedLocal": "06062ab669e964dd9451cddef76bd789cce9e5d9",
+    "status": "reviewed_diagnostic_narrow_pass_exact_source_canonical_pending",
+    "nativePassed": 2,
+    "regressionPassed": 89,
+    "review": "passed",
+    "D1diagnosticP95Ms": 1995.699741,
+    "limitMs": 2000,
+    "headroomMs": 4.300259,
+    "diagnosticOnly": true,
+    "benchmarkUnchanged": true,
+    "ordinaryAtomicStatementsBefore": 15,
+    "ordinaryAtomicStatementsAfter": 13,
+    "canonicalStallCause": "unproven",
+    "merged": false,
+    "deployed": false
+  }
 }

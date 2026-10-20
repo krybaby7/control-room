@@ -1,3 +1,4 @@
+import {generationAssertionStatements} from './generation-assertions.ts';
 import {readFinalMutation} from './final-mutation-read.ts';
 import {capturePlanningPreflight} from './recoverability-planning-capture.ts';
 import {readMutationAdmission,classifyMutationAdmission} from './mutation-admission-reader.ts';
@@ -266,9 +267,13 @@ async function executeWorkspaceCommandAdmitted(userId:string,input:{protocolVers
   // Materialize the proof separately from the assertion expression: deployed D1 limits
   // expression depth to 100, below the desktop SQLite default used by unit fixtures.
   const generationCte=`WITH admitted_generations AS MATERIALIZED (SELECT a.user_id,a.id,a.storage_key FROM attachments a CROSS JOIN ${generationReviewSource} WHERE a.user_id=? AND a.status='ready' AND ${generationAllowed})`;
-  const assertGenerations=(condition:string,values:(string|number|null)[])=>statements.push(db.prepare(`${generationCte} INSERT INTO workspace_assertions(user_id,mutation_id,valid) SELECT ?,?,CASE WHEN ${condition} THEN 1 ELSE 0 END WHERE ${claim}`).bind(...generationReviewValues,userId,userId,id,...values,...guard));
-  assertGenerations(`NOT EXISTS (SELECT 1 FROM attachments a JOIN attachment_blob_fences f ON f.user_id=a.user_id AND (f.attachment_id=a.id OR f.storage_key=a.storage_key) LEFT JOIN admitted_generations admitted ON admitted.user_id=a.user_id AND admitted.id=a.id AND admitted.storage_key=a.storage_key WHERE a.user_id=? AND a.status IN ('reserved','ready') AND (f.storage_key=a.storage_key OR admitted.id IS NULL))`,[userId]);
-  assertGenerations(`NOT EXISTS (SELECT 1 FROM evidence_versions e JOIN json_each(e.payload_json,'$.attachmentIds') ref JOIN attachment_blob_fences f ON f.user_id=e.user_id AND f.attachment_id=ref.value LEFT JOIN admitted_generations admitted ON admitted.user_id=e.user_id AND admitted.id=ref.value WHERE e.user_id=? AND admitted.id IS NULL)`,[userId]);
+  const generationConditions=[
+    {sql:`NOT EXISTS (SELECT 1 FROM attachments a JOIN attachment_blob_fences f ON f.user_id=a.user_id AND (f.attachment_id=a.id OR f.storage_key=a.storage_key) LEFT JOIN admitted_generations admitted ON admitted.user_id=a.user_id AND admitted.id=a.id AND admitted.storage_key=a.storage_key WHERE a.user_id=? AND a.status IN ('reserved','ready') AND (f.storage_key=a.storage_key OR admitted.id IS NULL))`,bindings:[userId]},
+    {sql:`NOT EXISTS (SELECT 1 FROM evidence_versions e JOIN json_each(e.payload_json,'$.attachmentIds') ref JOIN attachment_blob_fences f ON f.user_id=e.user_id AND f.attachment_id=ref.value LEFT JOIN admitted_generations admitted ON admitted.user_id=e.user_id AND admitted.id=ref.value WHERE e.user_id=? AND admitted.id IS NULL)`,bindings:[userId]},
+  ];
+  // Newly staged private namespaces become readable only in the exact reviewed import transaction.
+  const stagedNamespace={sql:`NOT EXISTS (SELECT 1 FROM attachments a JOIN attachment_blob_namespaces n ON n.user_id=a.user_id AND a.storage_key='attachments/'||n.namespace||'/'||a.id WHERE a.user_id=? AND a.status='ready' AND NOT EXISTS (SELECT 1 FROM attachment_blob_objects o JOIN attachment_archive_stages s ON s.user_id=o.user_id AND s.namespace=o.namespace WHERE o.user_id=a.user_id AND o.storage_key=a.storage_key AND o.attachment_id=a.id AND o.bytes=a.expected_bytes AND o.sha256=a.sha256 AND o.verified_at IS NOT NULL AND o.purged_at IS NULL AND NOT EXISTS(SELECT 1 FROM attachment_archive_cleanup_claims c WHERE c.storage_key=o.storage_key) AND (s.status='committed' OR (s.status='verified' AND s.import_id=? AND s.import_hash=? AND s.target_revision=? AND s.expires_at>?))))`,bindings:[userId,plan.importSource?.id??'',plan.importSource?.hash??'',revision,now]};
+  statements.push(...generationAssertionStatements(db,{cte:generationCte,cteBindings:[...generationReviewValues,userId],owner:userId,mutationId:id,claim,guard,conditions:generationConditions,...(!preparedBackup?{stagedNamespace}:{})}));
   if(preparedBackup){
     const bundle=JSON.parse(preparedBackup.content) as {modules:{attachments?:{records:Array<{id:string;value:{status?:string;storageKey?:string;expectedBytes?:number;sha256?:string|null}}>}}};
     // A deleted tombstone is not a promise of retained file bytes. Unknown legacy rows already fail closed in cleanup.
@@ -280,8 +285,7 @@ async function executeWorkspaceCommandAdmitted(userId:string,input:{protocolVers
       }else assertion('NOT EXISTS (SELECT 1 FROM attachment_blob_fences WHERE user_id=? AND (attachment_id=? OR storage_key=?))',[userId,row.id,value.storageKey??'']);
     }
   }
-  // Newly staged private namespaces become readable only in the exact reviewed import transaction.
-  assertion(`NOT EXISTS (SELECT 1 FROM attachments a JOIN attachment_blob_namespaces n ON n.user_id=a.user_id AND a.storage_key='attachments/'||n.namespace||'/'||a.id WHERE a.user_id=? AND a.status='ready' AND NOT EXISTS (SELECT 1 FROM attachment_blob_objects o JOIN attachment_archive_stages s ON s.user_id=o.user_id AND s.namespace=o.namespace WHERE o.user_id=a.user_id AND o.storage_key=a.storage_key AND o.attachment_id=a.id AND o.bytes=a.expected_bytes AND o.sha256=a.sha256 AND o.verified_at IS NOT NULL AND o.purged_at IS NULL AND NOT EXISTS(SELECT 1 FROM attachment_archive_cleanup_claims c WHERE c.storage_key=o.storage_key) AND (s.status='committed' OR (s.status='verified' AND s.import_id=? AND s.import_hash=? AND s.target_revision=? AND s.expires_at>?))))`,[userId,plan.importSource?.id??'',plan.importSource?.hash??'',revision,now]);
+  if(preparedBackup)assertion(stagedNamespace.sql,stagedNamespace.bindings);
   if(plan.importSource){
     assertion("NOT EXISTS (SELECT 1 FROM attachment_archive_stages WHERE user_id=? AND import_id=? AND (import_hash<>? OR status<>'verified' OR target_revision<>? OR expires_at<=?))",[userId,plan.importSource.id,plan.importSource.hash,revision,now]);
     statements.push(db.prepare(`UPDATE attachment_archive_stages SET status='committed' WHERE user_id=? AND import_id=? AND import_hash=? AND status='verified' AND target_revision=? AND expires_at>? AND ${claim}`).bind(userId,plan.importSource.id,plan.importSource.hash,revision,now,...guard));

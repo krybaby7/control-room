@@ -263,7 +263,7 @@
       ]
     }
   ],
-  "nextAction": "Run all exact-source canonical GitHub checks, native Windows and unchanged workspace/browser performance gates. Retain every failure and source identity. Verify actual candidate/helper/bridge archives and record formal source-bound cloud evidence after terminal results. No merge or deployment.",
+  "nextAction": "Wait for764 full canonical terminal; publish the reviewed generation-assertion candidate as a new exact source on the existing draft PR, then run every canonical stage and unchanged performance gates. Do not substitute the narrow diagnostic or older passes. Verify actual final archives and reconcile the formal ledger only after source-specific terminal results.",
   "allowedStatuses": [
     "not_started",
     "in_progress",
@@ -596,11 +596,51 @@
       "review": "passed",
       "change": "Same final admission and hydrated current SELECTs in one bounded read-only batch; dependent baseline remains separate. Atomic guard and failure reconciliation logic unchanged.",
       "canonicalAcceptance": "pending",
-      "diagnostic": "one fresh source-specific diagnostic in progress"
+      "diagnostic": "failed unchanged 2000ms limit",
+      "D1saveP95Ms": 2026.2671459999983,
+      "wholePathGain": "nonmaterial"
     },
     "rejectedCompactionProbe": {
       "integrated": false,
       "reason": "No material paired CPU/elapsed gain; public/storage compaction unchanged."
     }
+  },
+  "currentCandidate": {
+    "applicationSource": "764c774382b57ad8ace2be5e0a92ef4ed6a675b9",
+    "tree": "c4d858a4bf1b3a062ef9f42343c0c35d2947eafb",
+    "draftPr": 1,
+    "canonicalRun": 39511585072,
+    "canonicalJob": 118933660328,
+    "normalBenchmarkRun": 39511585081,
+    "normalBenchmarkJob": 118933662322,
+    "status": "normal_performance_failed_other_canonical_stages_running",
+    "acceptance": "pending",
+    "deployed": false,
+    "merged": false,
+    "privateHistoryPublished": false,
+    "normalBenchmarkPassed": false,
+    "D1saveP95Ms": 5642.07733,
+    "D1saveP50Ms": 1836.110432,
+    "limitMs": 2000,
+    "normalArtifact": 12306057959,
+    "normalArtifactSha256": "1105d1cc036161c864004675b7c5d41d40612c175ae258f27385ebd91c70a720"
+  },
+  "nextCandidate": {
+    "componentSource": "12617bd4a631f7f24c20e3a4e558333fc4d1be80",
+    "integratedLocal": "06062ab669e964dd9451cddef76bd789cce9e5d9",
+    "status": "reviewed_diagnostic_narrow_pass_exact_source_canonical_pending",
+    "nativePassed": 2,
+    "regressionPassed": 89,
+    "review": "passed",
+    "D1diagnosticP95Ms": 1995.699741,
+    "limitMs": 2000,
+    "headroomMs": 4.300259,
+    "diagnosticOnly": true,
+    "benchmarkUnchanged": true,
+    "ordinaryAtomicStatementsBefore": 15,
+    "ordinaryAtomicStatementsAfter": 13,
+    "canonicalStallCause": "unproven",
+    "merged": false,
+    "deployed": false
   }
 }

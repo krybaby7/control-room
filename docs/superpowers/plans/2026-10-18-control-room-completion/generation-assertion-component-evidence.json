@@ -1,0 +1,59 @@
+{
+  "format": "control-room-generation-assertion-component-v1",
+  "source": "12617bd4a631f7f24c20e3a4e558333fc4d1be80",
+  "tree": "cfd63fb2ff8a0988282c7fbb1ef9cb868bcc6949",
+  "base": "764c774382b57ad8ace2be5e0a92ef4ed6a675b9",
+  "benchmarkScriptSha256": "7e3120e414d6ad50b3bf77e7bc130adca7f0508cb00fd27b0eb3e61439481da3",
+  "workloadAssertionsThresholdsUnchanged": true,
+  "scope": "Two adjacent generation assertions share one identical MATERIALIZED CTE. Third namespace assertion shares only when no preparedBackup; backup assertions remain between generation proof and namespace proof. Same exact predicates, ordered bindings and claim; all three twelve-row recovery groups unchanged.",
+  "bounds": {
+    "parameters": 100,
+    "sqlUtf8Bytes": 100000,
+    "jsonEncodedBindingUtf8Bytes": 1800000,
+    "fallback": "original singleton SQL before preparation; never retry DB failures"
+  },
+  "nativeCalibration": {
+    "tests": 2,
+    "passed": 2,
+    "milliseconds": 5865.059808,
+    "captureAtomicStatementsBefore": 15,
+    "captureAtomicStatementsAfter": 13,
+    "actualCaptureCombinedBindings": 17,
+    "actualBackupCombinedBindings": 12,
+    "actualBackupAtomicStatements": 18,
+    "falsePredicates": [
+      "reserved attachment plus permanent fence",
+      "evidence version reference plus permanent fence",
+      "ready staged namespace without verified object"
+    ],
+    "rollbackAssertions": [
+      "workspace unchanged",
+      "receipt absent",
+      "entire atomic batch rejected"
+    ],
+    "absentClaimChanges": 0,
+    "backupBarrier": "Typed nondeleted attachment backup fence assertion remains after grouped generation proof and before namespace proof."
+  },
+  "regressions": {
+    "passed": 89,
+    "failed": 0,
+    "milliseconds": 4417.141267,
+    "scope": "transaction, attachment archive restore/recovery, generation, blob fences, contiguous assertion grouping"
+  },
+  "checks": [
+    "typecheck passed",
+    "targeted eslint passed",
+    "git diff --check passed",
+    "independent source/test review PASS"
+  ],
+  "developmentFixtureCorrections": [
+    "Initial test expected too few native batch statements; corrected expected count.",
+    "Initial barrier assertion placed generation after workspace UPDATE, whereas unchanged original order is before workspace UPDATE and after module writes; corrected test.",
+    "Typed attachment backup fixture initially omitted required quota ledger; added exact ledger.",
+    "Synthetic fallback test used exactly 100 instead of over 100 parameters; corrected overflow fixture."
+  ],
+  "limitations": [
+    "No canonical 5.6-second shared stall cause established.",
+    "Component removes two prepare/bind pairs from ordinary save; whole-path improvement requires fresh controlled diagnostic."
+  ]
+}
