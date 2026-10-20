@@ -1,0 +1,1308 @@
+{
+  "format": "control-room-exact-candidate-verification-v1",
+  "source": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+  "tree": "3c050f1bfbf522c2dbe93830df598a7f60c88527",
+  "date": "2026-10-21",
+  "canonical": {
+    "run": 39513086298,
+    "job": 118938631895,
+    "status": "running"
+  },
+  "normalPerformance": {
+    "run": 39513086324,
+    "job": 118938631899,
+    "passed": true,
+    "D1saveP95Ms": 1748.4801060000027,
+    "D1saveP50Ms": 1211.1802150000003,
+    "SQLiteSaveP95Ms": 726.1165340000007,
+    "limitMs": 2000,
+    "outcomesPerEngine": 100,
+    "commitsPerEngine": 55,
+    "conflictsPerEngine": 45,
+    "restoresPerEngine": 6,
+    "errors": [],
+    "artifact": 12306740404,
+    "outerZipSha256": "3c59b83485ace9a8b9f9931862dde1cc687c849fdff579e1fcfafc52e9e7d73d",
+    "reportSha256": "7389ecc86775b645083f72b194d05f365131a48c1b2d47d34e9244515bab2150"
+  },
+  "mergeCheckoutTree": {
+    "head": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+    "mergeCommit": "6eff51d6f580b0acd1e704cbb7b4965cd8f820a9",
+    "tree": "3c050f1bfbf522c2dbe93830df598a7f60c88527",
+    "parents": [
+      "c08e8a15dc7291c4f68fa5edebaf2fa8c583d820",
+      "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e"
+    ]
+  },
+  "supplemental": [
+    {
+      "run": 39513086239,
+      "name": "Control Room isolated workspace streaming",
+      "event": "pull_request",
+      "status": "completed",
+      "conclusion": "success",
+      "head": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "url": "https://github.com/krybaby7/control-room/actions/runs/39513086239",
+      "jobs": [
+        {
+          "id": 118938631526,
+          "name": "stream-contracts",
+          "conclusion": "success",
+          "steps": [
+            {
+              "number": 1,
+              "name": "Set up job",
+              "conclusion": "success"
+            },
+            {
+              "number": 2,
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 3,
+              "name": "Run actions/setup-node@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 4,
+              "name": "Run npm run install:ci",
+              "conclusion": "success"
+            },
+            {
+              "number": 5,
+              "name": "Check real HTTP and bounded stream contracts",
+              "conclusion": "success"
+            },
+            {
+              "number": 9,
+              "name": "Post Run actions/setup-node@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 10,
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 11,
+              "name": "Complete job",
+              "conclusion": "success"
+            }
+          ]
+        }
+      ],
+      "artifacts": []
+    },
+    {
+      "run": 39513086427,
+      "name": "Control Room isolated recovery maintenance",
+      "event": "pull_request",
+      "status": "completed",
+      "conclusion": "success",
+      "head": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "url": "https://github.com/krybaby7/control-room/actions/runs/39513086427",
+      "jobs": [
+        {
+          "id": 118938629131,
+          "name": "actual-d1",
+          "conclusion": "success",
+          "steps": [
+            {
+              "number": 1,
+              "name": "Set up job",
+              "conclusion": "success"
+            },
+            {
+              "number": 2,
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 3,
+              "name": "Run actions/setup-node@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 4,
+              "name": "Run npm run install:ci",
+              "conclusion": "success"
+            },
+            {
+              "number": 5,
+              "name": "Run node --experimental-strip-types scripts/test-recovery-maintenance-d1.mjs",
+              "conclusion": "success"
+            },
+            {
+              "number": 9,
+              "name": "Post Run actions/setup-node@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 10,
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 11,
+              "name": "Complete job",
+              "conclusion": "success"
+            }
+          ]
+        }
+      ],
+      "artifacts": []
+    },
+    {
+      "run": 39513086246,
+      "name": "Control Room isolated agents D1",
+      "event": "pull_request",
+      "status": "completed",
+      "conclusion": "success",
+      "head": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "url": "https://github.com/krybaby7/control-room/actions/runs/39513086246",
+      "jobs": [
+        {
+          "id": 118938646704,
+          "name": "agents-d1",
+          "conclusion": "success",
+          "steps": [
+            {
+              "number": 1,
+              "name": "Set up job",
+              "conclusion": "success"
+            },
+            {
+              "number": 2,
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 3,
+              "name": "Run actions/setup-node@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 4,
+              "name": "Run npm run install:ci",
+              "conclusion": "success"
+            },
+            {
+              "number": 5,
+              "name": "Run node --experimental-strip-types scripts/test-agents-d1.mjs",
+              "conclusion": "success"
+            },
+            {
+              "number": 9,
+              "name": "Post Run actions/setup-node@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 10,
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 11,
+              "name": "Complete job",
+              "conclusion": "success"
+            }
+          ]
+        }
+      ],
+      "artifacts": []
+    },
+    {
+      "run": 39513086324,
+      "name": "Control Room controlled workspace benchmark",
+      "event": "pull_request",
+      "status": "completed",
+      "conclusion": "success",
+      "head": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "url": "https://github.com/krybaby7/control-room/actions/runs/39513086324",
+      "jobs": [
+        {
+          "id": 118938631899,
+          "name": "benchmark",
+          "conclusion": "success",
+          "steps": [
+            {
+              "number": 1,
+              "name": "Set up job",
+              "conclusion": "success"
+            },
+            {
+              "number": 2,
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 3,
+              "name": "Run actions/setup-node@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 4,
+              "name": "Run npm run install:ci",
+              "conclusion": "success"
+            },
+            {
+              "number": 5,
+              "name": "Run node --experimental-strip-types scripts/benchmark-workspace.mjs",
+              "conclusion": "success"
+            },
+            {
+              "number": 6,
+              "name": "Run actions/upload-artifact@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 11,
+              "name": "Post Run actions/setup-node@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 12,
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 13,
+              "name": "Complete job",
+              "conclusion": "success"
+            }
+          ]
+        }
+      ],
+      "artifacts": [
+        {
+          "id": 12306740404,
+          "name": "synthetic-workspace-performance",
+          "bytes": 7766,
+          "digest": "sha256:3c59b83485ace9a8b9f9931862dde1cc687c849fdff579e1fcfafc52e9e7d73d",
+          "expired": false,
+          "expiresAt": "2026-11-03T23:10:51Z"
+        }
+      ]
+    },
+    {
+      "run": 39513086350,
+      "name": "Control Room controlled browser performance",
+      "event": "pull_request",
+      "status": "completed",
+      "conclusion": "success",
+      "head": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "url": "https://github.com/krybaby7/control-room/actions/runs/39513086350",
+      "jobs": [
+        {
+          "id": 118938628876,
+          "name": "browser-performance",
+          "conclusion": "success",
+          "steps": [
+            {
+              "number": 1,
+              "name": "Set up job",
+              "conclusion": "success"
+            },
+            {
+              "number": 2,
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 3,
+              "name": "Run actions/setup-node@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 4,
+              "name": "Run npm run install:ci",
+              "conclusion": "success"
+            },
+            {
+              "number": 5,
+              "name": "Run npm run build",
+              "conclusion": "success"
+            },
+            {
+              "number": 6,
+              "name": "Run npx playwright install --with-deps chromium",
+              "conclusion": "success"
+            },
+            {
+              "number": 7,
+              "name": "Run npx playwright test --config playwright.performance.config.ts",
+              "conclusion": "success"
+            },
+            {
+              "number": 8,
+              "name": "Run actions/upload-artifact@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 15,
+              "name": "Post Run actions/setup-node@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 16,
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 17,
+              "name": "Complete job",
+              "conclusion": "success"
+            }
+          ]
+        }
+      ],
+      "artifacts": [
+        {
+          "id": 12306248476,
+          "name": "controlled-browser-performance",
+          "bytes": 68773,
+          "digest": "sha256:9475aca997256d3253d2794420afe6456edff1ef6bd3a0e85215ecfb387af32a",
+          "expired": false,
+          "expiresAt": "2026-10-27T23:11:08Z"
+        }
+      ]
+    },
+    {
+      "run": 39513086370,
+      "name": "Native Windows owned-process checks",
+      "event": "pull_request",
+      "status": "completed",
+      "conclusion": "success",
+      "head": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "url": "https://github.com/krybaby7/control-room/actions/runs/39513086370",
+      "jobs": [
+        {
+          "id": 118938628507,
+          "name": "native",
+          "conclusion": "success",
+          "steps": [
+            {
+              "number": 1,
+              "name": "Set up job",
+              "conclusion": "success"
+            },
+            {
+              "number": 2,
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 3,
+              "name": "Run actions/setup-node@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 4,
+              "name": "Run actions/setup-dotnet@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 5,
+              "name": "Run node --test --test-timeout=180000 bridge/test/owned-process-native.test.mjs",
+              "conclusion": "success"
+            },
+            {
+              "number": 6,
+              "name": "Portable bridge regressions on Windows",
+              "conclusion": "success"
+            },
+            {
+              "number": 7,
+              "name": "Build single-file owned helper",
+              "conclusion": "success"
+            },
+            {
+              "number": 8,
+              "name": "Record exact helper bytes",
+              "conclusion": "success"
+            },
+            {
+              "number": 9,
+              "name": "Run actions/upload-artifact@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 16,
+              "name": "Post Run actions/setup-dotnet@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 17,
+              "name": "Post Run actions/setup-node@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 18,
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 19,
+              "name": "Complete job",
+              "conclusion": "success"
+            }
+          ]
+        }
+      ],
+      "artifacts": [
+        {
+          "id": 12306925376,
+          "name": "synthetic-validated-owned-helper-e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+          "bytes": 79178,
+          "digest": "sha256:87330842bf606ca2b409e9ff16fd03c111a0f7eca3d1739b75cdc8604b32bbbd",
+          "expired": false,
+          "expiresAt": "2027-01-18T23:09:11Z"
+        }
+      ]
+    },
+    {
+      "run": 39513086316,
+      "name": "Control Room accessibility and browser acceptance",
+      "event": "pull_request",
+      "status": "completed",
+      "conclusion": "success",
+      "head": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "url": "https://github.com/krybaby7/control-room/actions/runs/39513086316",
+      "jobs": [
+        {
+          "id": 118938631849,
+          "name": "Native acceptance - firefox",
+          "conclusion": "success",
+          "steps": [
+            {
+              "number": 1,
+              "name": "Set up job",
+              "conclusion": "success"
+            },
+            {
+              "number": 2,
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 3,
+              "name": "Run actions/setup-node@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 4,
+              "name": "Run npm run install:ci",
+              "conclusion": "success"
+            },
+            {
+              "number": 5,
+              "name": "Run npm run build",
+              "conclusion": "success"
+            },
+            {
+              "number": 6,
+              "name": "Run npx playwright install --with-deps firefox",
+              "conclusion": "success"
+            },
+            {
+              "number": 7,
+              "name": "Run npx playwright test --config playwright.acceptance.config.ts --project=firefox",
+              "conclusion": "success"
+            },
+            {
+              "number": 8,
+              "name": "Run actions/upload-artifact@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 15,
+              "name": "Post Run actions/setup-node@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 16,
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 17,
+              "name": "Complete job",
+              "conclusion": "success"
+            }
+          ]
+        },
+        {
+          "id": 118938632233,
+          "name": "Native acceptance - chromium",
+          "conclusion": "success",
+          "steps": [
+            {
+              "number": 1,
+              "name": "Set up job",
+              "conclusion": "success"
+            },
+            {
+              "number": 2,
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 3,
+              "name": "Run actions/setup-node@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 4,
+              "name": "Run npm run install:ci",
+              "conclusion": "success"
+            },
+            {
+              "number": 5,
+              "name": "Run npm run build",
+              "conclusion": "success"
+            },
+            {
+              "number": 6,
+              "name": "Run npx playwright install --with-deps chromium",
+              "conclusion": "success"
+            },
+            {
+              "number": 7,
+              "name": "Run npx playwright test --config playwright.acceptance.config.ts --project=chromium",
+              "conclusion": "success"
+            },
+            {
+              "number": 8,
+              "name": "Run actions/upload-artifact@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 15,
+              "name": "Post Run actions/setup-node@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 16,
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 17,
+              "name": "Complete job",
+              "conclusion": "success"
+            }
+          ]
+        },
+        {
+          "id": 118938632236,
+          "name": "Native acceptance - webkit",
+          "conclusion": "success",
+          "steps": [
+            {
+              "number": 1,
+              "name": "Set up job",
+              "conclusion": "success"
+            },
+            {
+              "number": 2,
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 3,
+              "name": "Run actions/setup-node@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 4,
+              "name": "Run npm run install:ci",
+              "conclusion": "success"
+            },
+            {
+              "number": 5,
+              "name": "Run npm run build",
+              "conclusion": "success"
+            },
+            {
+              "number": 6,
+              "name": "Run npx playwright install --with-deps webkit",
+              "conclusion": "success"
+            },
+            {
+              "number": 7,
+              "name": "Run npx playwright test --config playwright.acceptance.config.ts --project=webkit",
+              "conclusion": "success"
+            },
+            {
+              "number": 8,
+              "name": "Run actions/upload-artifact@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 15,
+              "name": "Post Run actions/setup-node@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 16,
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 17,
+              "name": "Complete job",
+              "conclusion": "success"
+            }
+          ]
+        }
+      ],
+      "artifacts": [
+        {
+          "id": 12307445063,
+          "name": "synthetic-acceptance-webkit",
+          "bytes": 97955,
+          "digest": "sha256:b55e13eb9a823f156606797b58573cf0b2144a54b6ff90fce6edfcf1d7698f27",
+          "expired": false,
+          "expiresAt": "2026-10-27T23:11:40Z"
+        },
+        {
+          "id": 12306960286,
+          "name": "synthetic-acceptance-chromium",
+          "bytes": 97646,
+          "digest": "sha256:3dd2b34c9e5001c581b6ed01b08866cdb9b65912a7a81e8c5a9276e3b7aa857a",
+          "expired": false,
+          "expiresAt": "2026-10-27T23:10:55Z"
+        },
+        {
+          "id": 12306134587,
+          "name": "synthetic-acceptance-firefox",
+          "bytes": 98126,
+          "digest": "sha256:fbe7980181cd9c2958e359d21d5c82440ea71a7bef8f71ad71d4bbc8c52833f3",
+          "expired": false,
+          "expiresAt": "2026-10-27T23:11:04Z"
+        }
+      ]
+    },
+    {
+      "run": 39513081155,
+      "name": "Executor boundary checks",
+      "event": "push",
+      "status": "completed",
+      "conclusion": "success",
+      "head": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "url": "https://github.com/krybaby7/control-room/actions/runs/39513081155",
+      "jobs": [
+        {
+          "id": 118938610935,
+          "name": "executor-boundary",
+          "conclusion": "success",
+          "steps": [
+            {
+              "number": 1,
+              "name": "Set up job",
+              "conclusion": "success"
+            },
+            {
+              "number": 2,
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 3,
+              "name": "Run actions/setup-node@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 4,
+              "name": "Run synthetic executor boundary checks",
+              "conclusion": "success"
+            },
+            {
+              "number": 7,
+              "name": "Post Run actions/setup-node@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 8,
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 9,
+              "name": "Complete job",
+              "conclusion": "success"
+            }
+          ]
+        }
+      ],
+      "artifacts": []
+    },
+    {
+      "run": 39513081239,
+      "name": "Control Room runtime D1",
+      "event": "push",
+      "status": "completed",
+      "conclusion": "success",
+      "head": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "url": "https://github.com/krybaby7/control-room/actions/runs/39513081239",
+      "jobs": [
+        {
+          "id": 118938610826,
+          "name": "runtime",
+          "conclusion": "success",
+          "steps": [
+            {
+              "number": 1,
+              "name": "Set up job",
+              "conclusion": "success"
+            },
+            {
+              "number": 2,
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 3,
+              "name": "Run actions/setup-node@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 4,
+              "name": "Run npm run install:ci",
+              "conclusion": "success"
+            },
+            {
+              "number": 5,
+              "name": "Run npm run test:runtime-d1",
+              "conclusion": "success"
+            },
+            {
+              "number": 9,
+              "name": "Post Run actions/setup-node@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 10,
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 11,
+              "name": "Complete job",
+              "conclusion": "success"
+            }
+          ]
+        }
+      ],
+      "artifacts": []
+    },
+    {
+      "run": 39513081241,
+      "name": "Control Room isolated agent artifacts",
+      "event": "push",
+      "status": "completed",
+      "conclusion": "success",
+      "head": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "url": "https://github.com/krybaby7/control-room/actions/runs/39513081241",
+      "jobs": [
+        {
+          "id": 118938611206,
+          "name": "agent-artifacts",
+          "conclusion": "success",
+          "steps": [
+            {
+              "number": 1,
+              "name": "Set up job",
+              "conclusion": "success"
+            },
+            {
+              "number": 2,
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 3,
+              "name": "Run actions/setup-node@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 4,
+              "name": "Run npm run install:ci",
+              "conclusion": "success"
+            },
+            {
+              "number": 5,
+              "name": "Check artifact SQLite and HTTP boundaries",
+              "conclusion": "success"
+            },
+            {
+              "number": 6,
+              "name": "Check actual isolated D1 and R2 lifecycle",
+              "conclusion": "success"
+            },
+            {
+              "number": 11,
+              "name": "Post Run actions/setup-node@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 12,
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 13,
+              "name": "Complete job",
+              "conclusion": "success"
+            }
+          ]
+        }
+      ],
+      "artifacts": []
+    },
+    {
+      "run": 39513081266,
+      "name": "Control Room controlled browser performance",
+      "event": "push",
+      "status": "completed",
+      "conclusion": "success",
+      "head": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "url": "https://github.com/krybaby7/control-room/actions/runs/39513081266",
+      "jobs": [
+        {
+          "id": 118938611289,
+          "name": "browser-performance",
+          "conclusion": "success",
+          "steps": [
+            {
+              "number": 1,
+              "name": "Set up job",
+              "conclusion": "success"
+            },
+            {
+              "number": 2,
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 3,
+              "name": "Run actions/setup-node@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 4,
+              "name": "Run npm run install:ci",
+              "conclusion": "success"
+            },
+            {
+              "number": 5,
+              "name": "Run npm run build",
+              "conclusion": "success"
+            },
+            {
+              "number": 6,
+              "name": "Run npx playwright install --with-deps chromium",
+              "conclusion": "success"
+            },
+            {
+              "number": 7,
+              "name": "Run npx playwright test --config playwright.performance.config.ts",
+              "conclusion": "success"
+            },
+            {
+              "number": 8,
+              "name": "Run actions/upload-artifact@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 15,
+              "name": "Post Run actions/setup-node@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 16,
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 17,
+              "name": "Complete job",
+              "conclusion": "success"
+            }
+          ]
+        }
+      ],
+      "artifacts": [
+        {
+          "id": 12307255081,
+          "name": "controlled-browser-performance",
+          "bytes": 13567,
+          "digest": "sha256:c52c61d5d86a5786f5d6f3f9d18b1c59adcaed761b985e5c72bee5e750ed7fae",
+          "expired": false,
+          "expiresAt": "2026-10-27T23:10:38Z"
+        }
+      ]
+    },
+    {
+      "run": 39513081163,
+      "name": "Native Windows owned-process checks",
+      "event": "push",
+      "status": "completed",
+      "conclusion": "success",
+      "head": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "url": "https://github.com/krybaby7/control-room/actions/runs/39513081163",
+      "jobs": [
+        {
+          "id": 118938611005,
+          "name": "native",
+          "conclusion": "success",
+          "steps": [
+            {
+              "number": 1,
+              "name": "Set up job",
+              "conclusion": "success"
+            },
+            {
+              "number": 2,
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 3,
+              "name": "Run actions/setup-node@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 4,
+              "name": "Run actions/setup-dotnet@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 5,
+              "name": "Run node --test --test-timeout=180000 bridge/test/owned-process-native.test.mjs",
+              "conclusion": "success"
+            },
+            {
+              "number": 6,
+              "name": "Portable bridge regressions on Windows",
+              "conclusion": "success"
+            },
+            {
+              "number": 7,
+              "name": "Build single-file owned helper",
+              "conclusion": "success"
+            },
+            {
+              "number": 8,
+              "name": "Record exact helper bytes",
+              "conclusion": "success"
+            },
+            {
+              "number": 9,
+              "name": "Run actions/upload-artifact@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 16,
+              "name": "Post Run actions/setup-dotnet@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 17,
+              "name": "Post Run actions/setup-node@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 18,
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 19,
+              "name": "Complete job",
+              "conclusion": "success"
+            }
+          ]
+        }
+      ],
+      "artifacts": [
+        {
+          "id": 12307325113,
+          "name": "synthetic-validated-owned-helper-e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+          "bytes": 79178,
+          "digest": "sha256:ff570a884626a6ffc235369d6e4a0a14165417e2bafb8cd733fd9601db285105",
+          "expired": false,
+          "expiresAt": "2027-01-18T23:09:08Z"
+        }
+      ]
+    },
+    {
+      "run": 39513081226,
+      "name": "Control Room workspace command profiling",
+      "event": "push",
+      "status": "completed",
+      "conclusion": "success",
+      "head": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "url": "https://github.com/krybaby7/control-room/actions/runs/39513081226",
+      "jobs": [
+        {
+          "id": 118938611535,
+          "name": "benchmark",
+          "conclusion": "success",
+          "steps": [
+            {
+              "number": 1,
+              "name": "Set up job",
+              "conclusion": "success"
+            },
+            {
+              "number": 2,
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 3,
+              "name": "Run actions/setup-node@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 4,
+              "name": "Run npm run install:ci",
+              "conclusion": "success"
+            },
+            {
+              "number": 5,
+              "name": "Run node --experimental-strip-types scripts/benchmark-workspace.mjs",
+              "conclusion": "success"
+            },
+            {
+              "number": 6,
+              "name": "Run actions/upload-artifact@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 11,
+              "name": "Post Run actions/setup-node@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 12,
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 13,
+              "name": "Complete job",
+              "conclusion": "success"
+            }
+          ]
+        }
+      ],
+      "artifacts": [
+        {
+          "id": 12306283345,
+          "name": "synthetic-command-profile",
+          "bytes": 83227,
+          "digest": "sha256:82c02652013c8794974f0609e15fed1147eb211ee04033b8d859bc5a95977e9e",
+          "expired": false,
+          "expiresAt": "2026-11-03T23:10:54Z"
+        }
+      ]
+    },
+    {
+      "run": 39513081228,
+      "name": "Control Room agent contract checks",
+      "event": "push",
+      "status": "completed",
+      "conclusion": "success",
+      "head": "e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e",
+      "url": "https://github.com/krybaby7/control-room/actions/runs/39513081228",
+      "jobs": [
+        {
+          "id": 118938611025,
+          "name": "contracts",
+          "conclusion": "success",
+          "steps": [
+            {
+              "number": 1,
+              "name": "Set up job",
+              "conclusion": "success"
+            },
+            {
+              "number": 2,
+              "name": "Run actions/checkout@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 3,
+              "name": "Run actions/setup-node@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 4,
+              "name": "Run npm run install:ci",
+              "conclusion": "success"
+            },
+            {
+              "number": 5,
+              "name": "Run node scripts/test-reporter.mjs --self-test",
+              "conclusion": "success"
+            },
+            {
+              "number": 6,
+              "name": "Run node --experimental-strip-types --test tests/agents*.test.ts tests/evaluation-import.test.ts tests/private-schema.test.ts tests/private-growth.test.ts tests/workspace-private-capacity.test.ts tests/attachment-cleanup-store.test.ts tests/recoverability-snapshot.test.ts tests/workspace-admission.test.ts tests/recovery-staged-inputs.test.ts tests/review-analysis-capacity.test.ts tests/backup-cleanup-http.test.ts tests/planning-module.test.ts tests/agent-artifact-http.test.ts tests/source-schedule-authority.test.ts tests/planning-cas-database.test.ts tests/sqlite-text-order.test.ts tests/recovery-install.test.ts tests/attachment-archive-restore.test.ts tests/backup-reauthorization-ui.test.ts tests/workspace-capacity.test.ts tests/integration-job-store.test.ts tests/source-store.test.ts tests/source-recoverability.test.ts tests/source-http.test.ts tests/scheduled-source-executor.test.ts tests/workspace-transaction.test.ts tests/evidence-transaction.test.ts tests/deletion-recovery.test.ts tests/recoverability-admission.test.ts tests/review-store.test.ts tests/automation-runner.test.ts tests/automation-admission-parameters.test.ts tests/scheduled-backup.test.ts tests/workspace-read-current.test.ts tests/operational-watermarks.test.ts tests/mutation-admission-reader.test.ts tests/workspace-private-capacity-atomic-admission.test.ts tests/recoverability-auxiliary.test.ts tests/recoverability-planning-capture.test.ts tests/history-entity-scope.test.ts tests/history-entity-scope-d1.test.ts tests/sqlite-batch-adapter.test.ts tests/recoverability-diagnostics.test.ts tests/workspace-export-validation.test.ts tests/evidence-module.test.ts tests/operational-health.test.ts tests/package-bridge-source-identity.test.ts tests/recoverability-row-hashes.test.ts tests/recoverability-assertion-batching.test.ts tests/evidence-export-pool.test.ts tests/history-subject-links.test.ts tests/serialization-hash.test.ts tests/recoverability-read-pages.test.ts tests/release-package-policy.test.ts tests/package-candidate-generated-output.test.ts tests/backup-archive-object-stream.test.ts",
+              "conclusion": "success"
+            },
+            {
+              "number": 7,
+              "name": "Run npm run typecheck",
+              "conclusion": "success"
+            },
+            {
+              "number": 8,
+              "name": "Run npm run lint",
+              "conclusion": "success"
+            },
+            {
+              "number": 15,
+              "name": "Post Run actions/setup-node@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 16,
+              "name": "Post Run actions/checkout@v4",
+              "conclusion": "success"
+            },
+            {
+              "number": 17,
+              "name": "Complete job",
+              "conclusion": "success"
+            }
+          ]
+        }
+      ],
+      "artifacts": []
+    }
+  ],
+  "automaticCancelled": [
+    {
+      "run": 39513081275,
+      "name": "Control Room controlled workspace benchmark",
+      "event": "push",
+      "reason": "Automatic concurrency cancellation, not acceptance."
+    },
+    {
+      "run": 39513081103,
+      "name": "Control Room checks",
+      "event": "push",
+      "reason": "Automatic concurrency cancellation, not acceptance."
+    },
+    {
+      "run": 39513081219,
+      "name": "Control Room isolated workspace streaming",
+      "event": "push",
+      "reason": "Automatic concurrency cancellation, not acceptance."
+    },
+    {
+      "run": 39513081153,
+      "name": "Control Room accessibility and browser acceptance",
+      "event": "push",
+      "reason": "Automatic concurrency cancellation, not acceptance."
+    },
+    {
+      "run": 39513081179,
+      "name": "Control Room isolated agents D1",
+      "event": "push",
+      "reason": "Automatic concurrency cancellation, not acceptance."
+    }
+  ],
+  "historicalFailuresRetained": [
+    "772 canonical1814/1815 and D1save2848.964302ms",
+    "764 normal D1save5642.077330ms; common stalled wave cause unproven",
+    "e4 jobs gateway stall and race injection historical causes unproven"
+  ],
+  "model": {
+    "integrator": "gpt-6.1-sol",
+    "configuration": "Explicit session model control; supported worker model requests accepted.",
+    "workers": [
+      "/root/repair_performance",
+      "/root/repair_test",
+      "/root/repair_review"
+    ],
+    "workerModelParameter": "gpt-6.1-sol"
+  },
+  "releaseAccepted": false,
+  "deployed": false,
+  "merged": false,
+  "providerExecution": false,
+  "ownerDeviceAcceptance": false,
+  "browserPerformance": [
+    {
+      "event": "pr",
+      "run": 39513086350,
+      "job": 118938628876,
+      "passed": true,
+      "artifact": 12306248476,
+      "outerZipSha256": "9475aca997256d3253d2794420afe6456edff1ef6bd3a0e85215ecfb387af32a",
+      "selectedReportSha256": "16902826d55feca7addf4b53cf6a63c50e61eba8628b595b7dc3bbc0ed47478b",
+      "firstUsableP95Ms": 2769.4000000000087,
+      "firstUsableLimitMs": 3000,
+      "concurrentHttpSaveP95Ms": 370.046320999998,
+      "concurrentHttpSaveLimitMs": 2000,
+      "sessions": 20,
+      "commits": 2,
+      "conflicts": 18,
+      "replayAdditionalRevisions": 0
+    },
+    {
+      "event": "push",
+      "run": 39513081266,
+      "job": 118938611289,
+      "passed": true,
+      "artifact": 12307255081,
+      "outerZipSha256": "c52c61d5d86a5786f5d6f3f9d18b1c59adcaed761b985e5c72bee5e750ed7fae",
+      "selectedReportSha256": "6cbc2c50c423789b89ddecbdbbdad54621e24e464b4c0d835bf33320c01744c7",
+      "firstUsableP95Ms": 2588.8000000000175,
+      "firstUsableLimitMs": 3000,
+      "concurrentHttpSaveP95Ms": 274.7593440000019,
+      "concurrentHttpSaveLimitMs": 2000,
+      "sessions": 20,
+      "commits": 2,
+      "conflicts": 18,
+      "replayAdditionalRevisions": 0
+    }
+  ],
+  "nativeWindows": {
+    "run": 39513086370,
+    "job": 118938628507,
+    "nativePassed": 10,
+    "nativePlatformSkipped": 1,
+    "portablePassed": 200,
+    "portablePlatformSkipped": 8,
+    "ownerDeviceAcceptance": false
+  },
+  "threeEngineAcceptance": {
+    "run": 39513086316,
+    "passed": 11,
+    "engines": [
+      "chromium",
+      "firefox",
+      "webkit"
+    ],
+    "actualPhoneTabletAcceptance": false
+  },
+  "streaming": {
+    "run": 39513086239,
+    "job": 118938631526,
+    "passed": 14
+  },
+  "maintenance": {
+    "run": 39513086427,
+    "job": 118938629131,
+    "migrations": 27,
+    "tables": 97,
+    "guards": 291,
+    "hostedCutover": false
+  }
+}

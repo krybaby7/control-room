@@ -83,7 +83,9 @@
     "ONEcurrent-sourceCPUobserverdiagnostic failed2217.998636ms; no5.6sstallreproduced. Actualmutationauthorityprepare/bind605pairs1.487s. Narrowpostwritegenerationassertiongrouping authorized, isolatedsource/tests/review inprogress; original12rowgroups/thresholdsunchanged.",
     "Reviewed next component12617bd integrated06062ab: two fewer ordinary atomic statements (15\u219213), all predicates/backup barriers/native12rowgroups unchanged. Native2/2 plus89regressions/type/lint/review passed. ONEunchanged diagnostic narrowPASS D1p951995.699741ms (4.300259ms headroom), notcanonical orstallcausefix.",
     "764fullcanonical39511585072/job118933660328 SUCCESS1832Node/210bridge(9platformskips)/63+3browser/allnative/package. Normal7645642.077330msFAILED remainsblocking; source-specificdiagnosticpassesnotacceptance.",
-    "Published reviewedE1=e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e tree3c050f1bfbf522c2dbe93830df598a7f60c88527 after764canonicalterminal. Freshfull39513086298 andnormal39513086324 inprogress. Prior12rowgroups/benchmarks/thresholds unchanged."
+    "Published reviewedE1=e1ffdf0ebbaf9355bc5377a7dc22fa7bb5b9b58e tree3c050f1bfbf522c2dbe93830df598a7f60c88527 after764canonicalterminal. Freshfull39513086298 andnormal39513086324 inprogress. Prior12rowgroups/benchmarks/thresholds unchanged.",
+    "ExactE1 normal39513086324/job118938631899 SUCCESS D1savep951748.480106ms<=2000, SQLite726.116534ms,100outcomes/6restores/engine/errors[]. Artifact12306740404 SHA3c59b83485ace9a8b9f9931862dde1cc687c849fdff579e1fcfafc52e9e7d73d verifieddownload/reportSHA7389ecc86775b645083f72b194d05f365131a48c1b2d47d34e9244515bab2150. No rerun or thresholdchange.",
+    "ExactE1 bothcontrolledbrowserperfPASS: PRmobilep952769.4ms/HTTP20save370.046321ms; pushmobile2588.8ms/HTTP274.759344ms. Unchangedlimits3000/2000. Both2commits18conflicts/replay0. NativeWindows10+portable200 andthreeengine11acceptancepassed; finalmain/segmented/integritypending."
   ],
   "disabled": [
     "paid inference",

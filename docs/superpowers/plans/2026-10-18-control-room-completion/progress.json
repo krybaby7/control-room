@@ -611,11 +611,18 @@
     "draftPr": 1,
     "canonicalRun": 39513086298,
     "normalBenchmarkRun": 39513086324,
-    "status": "fresh_exact_source_gates_running",
+    "status": "normal_and_supplemental_pass_full_canonical_and_integrity_pending",
     "acceptance": "pending",
     "deployed": false,
     "merged": false,
-    "privateHistoryPublished": false
+    "privateHistoryPublished": false,
+    "normalBenchmarkJob": 118938631899,
+    "normalBenchmarkPassed": true,
+    "D1saveP95Ms": 1748.4801060000027,
+    "D1saveP50Ms": 1211.1802150000003,
+    "limitMs": 2000,
+    "normalArtifact": 12306740404,
+    "normalArtifactSha256": "3c59b83485ace9a8b9f9931862dde1cc687c849fdff579e1fcfafc52e9e7d73d"
   },
   "nextCandidate": {
     "componentSource": "12617bd4a631f7f24c20e3a4e558333fc4d1be80",
