@@ -16,7 +16,7 @@ export type RecoveryPhysicalRow=ModuleRow&{stream_sequence?:number};
 export interface RecoveryReadPages {physical:Map<RegisteredOwnerTable,RecoveryPhysicalRow[]>;auditPage?:Record<string,unknown>[]}
 function fail():never{throw new Error('Invalid closed recovery page response.');}
 function validateInput(input:RecoveryReadPageInput):void{
- if(!input||OWNER_TABLES.length>36||BUNDLE_LIMITS.pageSize!==200||!Array.isArray(input.tables)||!input.tables.length||input.tables.length>36||new Set(input.tables.map(value=>value?.table)).size!==input.tables.length)fail();
+ if(!input||OWNER_TABLES.length>37||BUNDLE_LIMITS.pageSize!==200||!Array.isArray(input.tables)||!input.tables.length||input.tables.length>36||new Set(input.tables.map(value=>value?.table)).size!==input.tables.length)fail();
  for(const value of input.tables)if(!value||!OWNER_TABLES.includes(value.table)||typeof value.after!=='string')fail();
  if(input.audit){if(typeof input.audit.after!=='string')fail();validateOperationalWatermarks(input.audit.watermarks);}
 }

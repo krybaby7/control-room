@@ -164,11 +164,11 @@ test('mixed BMP and astral original IDs retain SQLite BINARY order in real expor
 test('one flat materialized page statement per read-only batch retain independent physical-and-audit pagination',async()=>{
  const f=await fixture();try{
   let sizes:number[]=[];const db=observeDatabase(f.db,()=>{},sqls=>{if(sqls.some(sql=>sql.startsWith('WITH recovery_page_scope'))){assert.ok(sqls.every(sql=>sql.startsWith('WITH recovery_page_scope')));sizes.push(sqls.length);}});
-  const empty=await measureProspectiveRecoverability(db,owner,{now});assert.deepEqual(sizes,[1,1]);assert.equal(empty.measurement.allowed,true);
+  const empty=await measureProspectiveRecoverability(db,owner,{now});assert.deepEqual(sizes,[1,1,1,1]);assert.equal(empty.measurement.allowed,true);
   const payload=canonical({text:'Exact bounded independent cursor'}),digest=await contentHash(payload),insert=f.sqlite.prepare('INSERT INTO evidence_records(user_id,id,row_revision,payload_json,content_hash) VALUES(?,?,1,?,?)');
   for(let index=0;index<450;index++)insert.run(owner,'wide-page-'+String(index).padStart(4,'0'),payload,digest);
   insert.run('different-owner','foreign-not-selected',payload,digest);sizes=[];
-  const quote=await measureProspectiveRecoverability(db,owner,{now});assert.deepEqual(sizes,[1,1,1,1,1,1]);
+  const quote=await measureProspectiveRecoverability(db,owner,{now});assert.deepEqual(sizes,[1,1,1,1,1,1,1,1]);
   assert.equal(quote.boundaryRows.find(row=>row.table==='evidence_records')!.rows.length,450);assert.equal(canonical(quote.boundaryRows).includes('foreign-not-selected'),false);
   assert.equal(quote.measurement.measurements.bundleBytes,byteLength(JSON.stringify(await exportWorkspaceBundle(f.db,owner,{now:()=>now}))));
  }finally{f.sqlite.close();}
@@ -182,7 +182,7 @@ test('actual Miniflare D1 accepts a single flat materialized page read statement
   const payload=canonical({text:'Retained actual D1 original Unicode العربية 😀'}),digest=await contentHash(payload);
   for(const [user,id]of [[owner,'native-selected'],['different-owner','native-foreign']]as const)await native.prepare('INSERT INTO evidence_records(user_id,id,row_revision,payload_json,content_hash) VALUES(?,?,1,?,?)').bind(user,id,payload,digest).run();
   const sizes:number[]=[];const db=observeDatabase(native,()=>{},sqls=>{if(sqls.some(sql=>sql.startsWith('WITH recovery_page_scope'))){assert.ok(sqls.every(sql=>sql.startsWith('WITH recovery_page_scope')));sizes.push(sqls.length);}});
-  const quote=await measureProspectiveRecoverability(db,owner,{now});assert.deepEqual(sizes,[1,1]);assert.equal(quote.measurement.allowed,true);
+  const quote=await measureProspectiveRecoverability(db,owner,{now});assert.deepEqual(sizes,[1,1,1,1]);assert.equal(quote.measurement.allowed,true);
   assert.deepEqual(quote.boundaryRows.find(row=>row.table==='evidence_records')!.rows.map(row=>row.id),['native-selected']);
   assert.equal(quote.measurement.measurements.bundleBytes,byteLength(JSON.stringify(await exportWorkspaceBundle(native,owner,{now:()=>now}))));
   assert.equal((await native.prepare('SELECT COUNT(*) n FROM workspace_mutations WHERE user_id=?').bind(owner).first<{n:number}>())!.n,0);
@@ -203,7 +203,7 @@ test('co-batched audit and normalized pages retain every independent cursor, exa
    if(sqls.some(sql=>sql.startsWith('WITH recovery_page_scope'))){assert.ok(sqls.every(sql=>sql.startsWith('WITH recovery_page_scope')));sizes.push(sqls.length);}
   });
   const changes=f.sqlite.prepare('SELECT total_changes() n').get()!.n,quote=await measureProspectiveRecoverability(db,owner,{now});
-  assert.deepEqual(sizes,[1,1,1,1,1,1]);assert.equal(auditReads,6);
+  assert.deepEqual(sizes,[1,1,1,1,1,1,1,1]);assert.equal(auditReads,6);
   assert.equal(quote.boundaryRows.find(row=>row.table==='evidence_records')!.rows.length,450);
   const bundle=await exportWorkspaceBundle(f.db,owner,{now:()=>now});assert.equal(bundle.modules.audit_events.records.length,450);
   assert.equal(quote.measurement.measurements.bundleBytes,byteLength(JSON.stringify(bundle)));
@@ -225,3 +225,4 @@ test('missing, oversized or repeated co-batched audit rows fail closed without c
   assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM workspace_mutations').get()!.n,0);
  }finally{f.sqlite.close();}}
 });
+

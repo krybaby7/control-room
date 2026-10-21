@@ -1,3 +1,4 @@
+import {validatePersonalState} from '../shared/personal-repository.mjs';
 import {z} from 'zod';
 import {canonical,contentHash} from './canonical-json.ts';
 import {OWNER_TABLES,ownerReader,type RegisteredOwnerTable} from './workspace-modules.ts';
@@ -16,7 +17,7 @@ const coverage:Record<string,readonly RegisteredOwnerTable[]>={
  evidence_links:['evidence_links'],evidence_requirements:['evidence_requirements'],acceptance_records:['acceptance_records'],attachments:['attachments'],attachment_usage:['attachment_usage'],
  source_connections:['source_connections'],source_targets:['source_targets'],source_observations:['source_observations'],source_sync_runs:['source_sync_runs'],source_proposals:['source_proposals'],integration_history:['integration_history'],
  review_snapshots:['review_snapshots'],review_acknowledgements:['review_acknowledgements'],automation_schedules:['automation_schedules'],automation_occurrences:['automation_occurrences'],notification_events:['notification_events'],review_settings:['review_settings'],review_analysis_runs:['review_analysis_runs'],
- project_baseline_revisions:['project_baseline_revisions'],devices:['devices'],runtime_adapter_configurations:['runtime_adapter_configurations'],runtime_evidence:['runtime_evidence'],agent_jobs:['agent_jobs'],agent_results:['agent_results'],evaluation_runs:['evaluation_runs']
+ project_baseline_revisions:['project_baseline_revisions'],devices:['devices'],runtime_adapter_configurations:['runtime_adapter_configurations'],runtime_evidence:['runtime_evidence'],agent_jobs:['agent_jobs'],agent_results:['agent_results'],evaluation_runs:['evaluation_runs'],personal_repository_state:['personal_repository_state']
 };
 export const normalizedMergeRowSchema=z.object({module:z.string().min(1).max(80),table,id,beforeHash:digest.nullable(),afterHash:digest,disposition:z.enum(['insert','deduplicate','derived-quota'])}).strict();
 export const normalizedMergeProofSchema=z.object({id,storageKey:z.string().min(1).max(500),bytes:z.number().int().nonnegative().safe(),sha256:digest}).strict();
@@ -27,6 +28,7 @@ function key(table:string,id:string){return table+'\u0000'+id;}
 function object(value:JsonValue):Record<string,JsonValue>{if(!value||typeof value!=='object'||Array.isArray(value))reject('Normalized merge requires typed object records.');return value as Record<string,JsonValue>;}
 function inert(table:RegisteredOwnerTable,id:string,value:JsonValue):void{
  const row=object(value);
+ if(table==='personal_repository_state'){const state=validatePersonalState(value);if(state.deviceId!==id||state.connected||state.requests.some(request=>['queued','claimed'].includes(request.status)))reject('Imported personal PC state must remain disconnected without pending execution.');}
  if(table==='workspace_configuration')reject('Configuration authority cannot be merged.');
  if(table==='weekly_plans'&&(!Array.isArray(row.taskIds)||row.taskIds.length||row.capacityMinutes!==null))reject('Imported weekly rows cannot create commitments or capacity.');
  if(['recurrence_rules','source_connections','automation_schedules'].includes(table)&&row.enabled!==false)reject('Imported execution settings must remain disabled.');
@@ -69,7 +71,7 @@ export async function validateNormalizedMergePlan(db:SqlDatabase,owner:string,re
  const insertedAttachments:Array<z.infer<typeof attachmentRecordSchema>>=[];
  for(const write of plan.writes){
   const row=reviews.get(key(write.table,write.id));if(!row||row.disposition==='deduplicate'||write.value===undefined||write.operation==='delete'||write.table==='attachment_usage'&&row.disposition!=='derived-quota')reject('A normalized write is outside the exact reviewed insert or quota set.');
-  await moduleProjection(write.table,write.id,write.value);inert(write.table,write.id,write.value);
+  if(write.table==='personal_repository_state'&&snapshot.rows.some(row=>row.module==='personal_repository_state'))reject('An existing personal PC connection cannot be replaced by merge.');await moduleProjection(write.table,write.id,write.value);inert(write.table,write.id,write.value);
   if(write.table==='attachments'){
    const file=attachmentRecordSchema.parse(write.value);if(file.id!==write.id||file.status==='reserved')reject('Imported files cannot create upload reservations.');
    const proof=proofById.get(write.id);
@@ -105,3 +107,4 @@ export function normalizedMergeAttachmentAssertions(db:SqlDatabase,owner:string,
   return db.prepare(sql).bind(owner,proof.id,proof.storageKey,proof.bytes,proof.sha256,source.id,source.hash,revision,now,owner,mutationId,...guard);
  });
 }
+

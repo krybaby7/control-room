@@ -21,7 +21,7 @@ export const reportContentSchema=object({
 export const localAnalysisSchema=object({
  format:{const:'control-room-project-analysis'},version:{const:1},
  repository:object({key:{...str(128),pattern:'^[a-zA-Z0-9_-]+$'},name:str(100),head:{...str(64,40),pattern:'^(?:[a-f0-9]{40}|[a-f0-9]{64})$'},dirty:{type:'boolean'},snapshotSha256:digest,files:integer(1,2000),bytes:integer(1,8*1024*1024),includedChanges:{const:true},excludedFiles:integer(0,1000000)}),
- run:object({id:{...str(36,36),pattern:'^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$'},provider:{const:'codex'},requestedModel:{const:'gpt-6.1-sol'},observedModel:{enum:['gpt-6.1-sol',null]},startedAt:str(40),completedAt:str(40),mode:{const:'read-only'},source:{const:'paired-local-companion'}}),
+ run:object({id:{...str(36,36),pattern:'^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$'},provider:{enum:['codex','claude']},requestedModel:{enum:['gpt-6.1-sol','claude-code-default']},observedModel:nullable({...str(120),pattern:'^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$'}),startedAt:str(40),completedAt:str(40),mode:{const:'read-only'},source:{enum:['paired-local-companion','personal-pc-connector']}}),
  ...reportContentSchema.properties,
 });
 // This one optional field preserves the exact serialized legacy report contract.
@@ -58,6 +58,8 @@ export function validateReportContent(value){
 }
 export function validateLocalAnalysis(value){
  check(localAnalysisSchema,value);
+ if(value.run.provider==='codex'?(value.run.requestedModel!=='gpt-6.1-sol'||value.run.observedModel!==null&&value.run.observedModel!=='gpt-6.1-sol'):(value.run.requestedModel!=='claude-code-default'||value.run.observedModel!==null&&!/^claude[-._/]/u.test(value.run.observedModel)))invalid('run provider model');
+ if(value.run.source==='paired-local-companion'&&value.run.provider!=='codex')invalid('legacy provider');
  validateReportContent({summary:value.summary,architecture:value.architecture,findings:value.findings,suggestedTasks:value.suggestedTasks,limitations:value.limitations});
  for(const time of [value.run.startedAt,value.run.completedAt])if(!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,3})?Z$/u.test(time)||!Number.isFinite(Date.parse(time))||new Date(time).toISOString().slice(0,10)!==time.slice(0,10))invalid('run time');
  if(Date.parse(value.run.completedAt)<Date.parse(value.run.startedAt))invalid('run time order');

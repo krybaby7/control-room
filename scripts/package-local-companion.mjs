@@ -10,6 +10,9 @@ export const COMPANION_SOURCE_PATHS=Object.freeze([
  'companion/server.mjs','companion/snapshot.mjs','companion/start-companion.ps1',
  'companion/analysis-prompt.mjs','companion/chat-context.mjs','companion/chat-selection.mjs',
  'companion/codex-chat-context.mjs','companion/claude-chat-context.mjs',
+ 'companion/claude.mjs','companion/analysis-run.mjs','companion/provider-readiness.mjs',
+ 'companion/personal-connector.mjs','companion/personal-credentials.mjs','companion/personal-credentials.ps1',
+ 'companion/folder-picker.mjs','companion/folder-picker.ps1','scripts/install-personal-companion.ps1',
  'shared/local-analysis.mjs','shared/local-analysis.d.mts',
 ]);
 export async function buildLocalCompanionArchive(){
@@ -28,3 +31,4 @@ export async function packageLocalCompanion(destination=join(root,'public/contro
  const {archive,files,bytes}=await buildLocalCompanionArchive();await mkdir(dirname(destination),{recursive:true});await writeFile(destination,archive);return {path:relative(root,destination).replaceAll('\\','/'),files,bytes};
 }
 if(process.argv[1]&&fileURLToPath(import.meta.url)===process.argv[1])console.log(JSON.stringify(await packageLocalCompanion()));
+

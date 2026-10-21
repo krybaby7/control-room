@@ -1,3 +1,4 @@
+import {isAbsolute,join} from 'node:path';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
@@ -8,7 +9,7 @@ test('harness accepts only explicit local fixture flags and rejects deployment b
  assert.deepEqual(parseFixtureArgs(['--target','local-fixture']),{serve:false,withR2:false});assert.equal(parseFixtureArgs(['--target','local-fixture','--serve']).serve,true);
  for(const args of [[],['--target','production'],['--target','local-fixture','--remote'],['--target','local-fixture','--port','80']])assert.throws(()=>parseFixtureArgs(args));
  for(const unsafe of [{...source,d1_databases:[{database_id:'real-owner-id'}]},{...source,d1_databases:[{database_id:SYNTHETIC_DB_ID,remote:true}]},{...source,r2_buckets:[{binding:'BUCKET'}]},{...source,services:[{}]},{...source,main:'https://foreign.invalid/worker.js'}])assert.throws(()=>fixtureConfig(unsafe));
- const config=fixtureConfig(source);assert.equal(config.d1_databases[0].database_id,SYNTHETIC_DB_ID);assert.equal(config.dev.ip,'127.0.0.1');assert.ok(config.main.startsWith('/'));assert.ok(config.assets.directory.startsWith('/'));assert.equal('r2_buckets' in config,false);const env=fixtureEnvironment('/tmp/synthetic-fixture');assert.equal('CLOUDFLARE_API_TOKEN' in env,false);assert.equal('HOME' in env,false);assert.equal(env.XDG_CONFIG_HOME,'/tmp/synthetic-fixture/config');
+ const config=fixtureConfig(source);assert.equal(config.d1_databases[0].database_id,SYNTHETIC_DB_ID);assert.equal(config.dev.ip,'127.0.0.1');assert.ok(isAbsolute(config.main));assert.ok(isAbsolute(config.assets.directory));assert.equal('r2_buckets' in config,false);const env=fixtureEnvironment('/tmp/synthetic-fixture');assert.equal('CLOUDFLARE_API_TOKEN' in env,false);assert.equal('HOME' in env,false);assert.equal(env.XDG_CONFIG_HOME,join('/tmp/synthetic-fixture','config'));
 });
 test('occupied ports fail closed',async()=>{const server=http.createServer();await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));try{const address=server.address();assert.ok(address&&typeof address==='object');await assert.rejects(requireFreePort(address.port),/occupied/);}finally{await new Promise<void>(resolve=>server.close(()=>resolve()));}});
 test('proxy supplies only synthetic session headers and preserves foreign origin rejection',async()=>{
@@ -81,3 +82,4 @@ test('R2 fixture rejects every source declaration beyond the exact one-BUCKET pu
  }
  for(const patch of [{services:[{binding:'SERVICE',service:'synthetic-service'}]},{unsafe:{bindings:[{name:'EXECUTABLE',type:'service'}]}},{durable_objects:{bindings:[{name:'EXECUTABLE',class_name:'Synthetic'}]}},{queues:{producers:[{binding:'QUEUE',queue:'synthetic-queue'}]}}])for(const withR2 of [false,true])assert.throws(()=>fixtureConfig({...source,r2_buckets:[declaration],...patch},{withR2}));
 });
+
