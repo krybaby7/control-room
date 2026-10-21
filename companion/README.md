@@ -108,6 +108,20 @@ node --test tests/local-companion.test.mjs
 
 ## Recent local chat context
 
+Before inference, the helper prioritizes concise user messages from each
+reader's existing last-six-message window. Length and formatting are heuristics;
+they cannot distinguish personally typed text from pasted text. Complete
+ordinary user messages of at most 800 characters take priority. A nearby safe
+preceding answer is included only for a context-dependent short instruction,
+with at most 600 assistant characters per provider. Long prompts and code blocks
+are deferred; if no concise user message qualifies, the latest safe user input
+has a 1,000-character fallback preserving its beginning and end. Assistant-only
+coverage is deferred. Unused budget stays unused.
+
+This selection uses no model call. Selected text still consumes input tokens in
+the existing single inference call. New coverage records identify the
+`concise-user-first-v1` selection; older report metadata is never rewritten.
+
 Analysis includes a small amount of recent project chat context by default: the
 latest matching local Codex conversation and the latest matching local Claude
 conversation, up to 4,000 characters combined. Only selected user and final
