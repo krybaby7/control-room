@@ -29,13 +29,14 @@ export function transitionPersonalState(raw,action,now,actor){const s=validatePe
  if(a.action==='analyze'&&!s.repositories.some(r=>r.key===a.repositoryKey))fail();
  s.requests.push({id:a.requestId,kind:a.action,status:'queued',createdAt:now,expiresAt:new Date(Date.parse(now)+PERSONAL_LIMITS.queueMs).toISOString(),claimedAt:null,...(a.action==='analyze'?{projectId:a.projectId,repositoryKey:a.repositoryKey,provider:a.provider,requestedModel:a.provider==='codex'?'gpt-6.1-sol':'claude-code-default'}:{})});return s;
  }
- if(a.action!=='poll'){const terminal=s.requests.find(j=>j.id===a.requestId);if(terminal&&['failed','cancelled'].includes(terminal.status))return s;}if(!s.connected){if(a.action==='poll')return s;throw new Error('Personal PC is disconnected.');}s.lastSeenAt=now;if(a.providers)s.providers=parseProviders(a.providers);
+ if(a.action!=='poll'){const terminal=s.requests.find(j=>j.id===a.requestId);if(terminal&&['failed','cancelled'].includes(terminal.status))return s;}if(!s.connected){if(a.action==='poll')return s;throw new Error('Personal PC is disconnected.');}if(a.action!=='poll')s.lastSeenAt=now;if(a.providers)s.providers=parseProviders(a.providers);
  if(a.action==='poll'){if(a.repositories)s.repositories=parseRepositories(a.repositories);if(!s.requests.some(j=>j.status==='claimed')){const j=s.requests.find(j=>j.status==='queued');if(j){j.status='claimed';j.claimedAt=now;j.expiresAt=new Date(Date.parse(now)+PERSONAL_LIMITS.claimMs).toISOString();}}return s;}
  const job=s.requests.find(j=>j.id===a.requestId);if(!job||job.status!=='claimed')fail();
  if(a.action==='fail'){job.status='failed';job.error=a.error;return s;}
  if(job.kind==='browse'){if(!a.repositories||a.report)fail();s.repositories=parseRepositories(a.repositories);}else{if(!a.report||a.repositories||a.report.run.id!==job.id||a.report.repository.key!==job.repositoryKey||a.report.run.provider!==job.provider||a.report.run.requestedModel!==job.requestedModel||a.report.run.source!=='personal-pc-connector')fail();job.report=validateLocalAnalysis(a.report);const repository=s.repositories.find(r=>r.key===job.repositoryKey);if(repository){repository.head=a.report.repository.head;repository.dirty=a.report.repository.dirty;repository.hasPreviousAnalysis=true;}}
  job.status='completed';return s;
 }
+
 
 
 
