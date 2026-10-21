@@ -1,3 +1,5 @@
+import {generationAssertionStatements} from './generation-assertions.ts';
+import {readFinalMutation} from './final-mutation-read.ts';
 import {capturePlanningPreflight} from './recoverability-planning-capture.ts';
 import {readMutationAdmission,classifyMutationAdmission} from './mutation-admission-reader.ts';
 import {withWorkspaceAdmission} from './workspace-admission.ts';
@@ -11,7 +13,7 @@ import {validateNormalizedMergePlan,normalizedMergeAttachmentAssertions,type Nor
 import {agentControlStatements} from './agents/transaction-controls.ts';
 import {deviceControlStatements} from './runtime/transaction-controls.ts';
 import {baselineControlStatements} from './baselines/transaction-controls.ts';
-import {recoverabilityAssertions,RecoverabilityCapacityError} from './recoverability-admission.ts';
+import {recoverabilityConditions,combineClaimConditions,prepareClaimAssertions,RecoverabilityCapacityError} from './recoverability-admission.ts';
 import {RECOVERABILITY_SQL_ARGUMENT_BYTES} from './recoverability-measure.ts';
 import {reviewControlStatements} from './reviews/transaction-controls.ts';
 import {sourceControlStatements} from './sources/transaction-controls.ts';
@@ -139,11 +141,20 @@ async function executeWorkspaceCommandAdmitted(userId:string,input:{protocolVers
   const token=crypto.randomUUID(),guard=[userId,id,token];
   const statements:SqlStatement[]=[db.prepare(`INSERT INTO workspace_command_guards (user_id,mutation_id,claim_token,valid) SELECT ?,?,?,1 FROM workspaces WHERE user_id = ? AND revision = ? AND NOT EXISTS (SELECT 1 FROM workspace_mutations WHERE user_id = ? AND mutation_id = ?)${epoch.status==='active'?" AND EXISTS (SELECT 1 FROM workspace_mutation_epochs WHERE user_id = ? AND epoch = ? AND status = 'active')":''}`).bind(...guard,userId,revision,userId,id,...(epoch.status==='active'?[userId,epoch.epoch]:[]))];
   const assertion=(condition:string,values:(string|number|null)[])=>statements.push(db.prepare(`INSERT INTO workspace_assertions (user_id,mutation_id,valid) SELECT ?,?,CASE WHEN ${condition} THEN 1 ELSE 0 END WHERE ${claim}`).bind(userId,id,...values,...guard));
-  assertion(privateCapacity.sql,privateCapacity.bindings);
-  for(const proof of privateQuote.guards)assertion(proof.sql,proof.bindings);
-  if(agentArtifact)assertion(agentArtifact.material.guard.sql,agentArtifact.material.guard.bindings);
-  statements.push(...recoverabilityAssertions(db,userId,id,recovery,claim,guard));
-  assertion('(SELECT COUNT(*) FROM workspace_mutations WHERE user_id=?) < ?',[userId,RECEIPT_CAPACITY.hard]);
+  // These are the original contiguous pre-write assertions, in the same order.
+  // Keep the three native-calibrated twelve-table groups unchanged. Combining
+  // only their prefix/suffix reduces prepare/bind calls without crossing a DML
+  // barrier, dropping a predicate or replacing the authoritative atomic claim.
+  const recoveryChecks=recoverabilityConditions(userId,id,recovery,guard),boundary=recoveryChecks[0],hasTerminalReserve=Boolean(recovery.agentTerminalReserveRows);
+  const rowChecks=recoveryChecks.slice(1,hasTerminalReserve?-1:undefined),terminal=hasTerminalReserve?recoveryChecks.at(-1):undefined;
+  const prefix=[privateCapacity,...privateQuote.guards,...(agentArtifact?[agentArtifact.material.guard]:[]),boundary];
+  const suffix=[...(terminal?[terminal]:[]),{sql:'(SELECT COUNT(*) FROM workspace_mutations WHERE user_id=?) < ?',bindings:[userId,RECEIPT_CAPACITY.hard]}];
+  // Extended private/artifact prefixes retain their original statement shape;
+  // only the native-calibrated capacity/schema/boundary prefix is combined.
+  const prefixChecks=!agentArtifact&&privateQuote.guards.length===1?combineClaimConditions(userId,id,claim,guard,prefix):prefix;
+  statements.push(...prepareClaimAssertions(db,userId,id,claim,guard,prefixChecks));
+  statements.push(...prepareClaimAssertions(db,userId,id,claim,guard,rowChecks));
+  statements.push(...prepareClaimAssertions(db,userId,id,claim,guard,combineClaimConditions(userId,id,claim,guard,suffix)));
   if(plan.referenceSnapshot){
     const snapshot=plan.referenceSnapshot;
     if(snapshot.coveredModules.length!==OWNER_TABLES.length || new Set(snapshot.coveredModules).size!==OWNER_TABLES.length)throw new CommandValidationError('Incomplete reference snapshot.');
@@ -256,9 +267,13 @@ async function executeWorkspaceCommandAdmitted(userId:string,input:{protocolVers
   // Materialize the proof separately from the assertion expression: deployed D1 limits
   // expression depth to 100, below the desktop SQLite default used by unit fixtures.
   const generationCte=`WITH admitted_generations AS MATERIALIZED (SELECT a.user_id,a.id,a.storage_key FROM attachments a CROSS JOIN ${generationReviewSource} WHERE a.user_id=? AND a.status='ready' AND ${generationAllowed})`;
-  const assertGenerations=(condition:string,values:(string|number|null)[])=>statements.push(db.prepare(`${generationCte} INSERT INTO workspace_assertions(user_id,mutation_id,valid) SELECT ?,?,CASE WHEN ${condition} THEN 1 ELSE 0 END WHERE ${claim}`).bind(...generationReviewValues,userId,userId,id,...values,...guard));
-  assertGenerations(`NOT EXISTS (SELECT 1 FROM attachments a JOIN attachment_blob_fences f ON f.user_id=a.user_id AND (f.attachment_id=a.id OR f.storage_key=a.storage_key) LEFT JOIN admitted_generations admitted ON admitted.user_id=a.user_id AND admitted.id=a.id AND admitted.storage_key=a.storage_key WHERE a.user_id=? AND a.status IN ('reserved','ready') AND (f.storage_key=a.storage_key OR admitted.id IS NULL))`,[userId]);
-  assertGenerations(`NOT EXISTS (SELECT 1 FROM evidence_versions e JOIN json_each(e.payload_json,'$.attachmentIds') ref JOIN attachment_blob_fences f ON f.user_id=e.user_id AND f.attachment_id=ref.value LEFT JOIN admitted_generations admitted ON admitted.user_id=e.user_id AND admitted.id=ref.value WHERE e.user_id=? AND admitted.id IS NULL)`,[userId]);
+  const generationConditions=[
+    {sql:`NOT EXISTS (SELECT 1 FROM attachments a JOIN attachment_blob_fences f ON f.user_id=a.user_id AND (f.attachment_id=a.id OR f.storage_key=a.storage_key) LEFT JOIN admitted_generations admitted ON admitted.user_id=a.user_id AND admitted.id=a.id AND admitted.storage_key=a.storage_key WHERE a.user_id=? AND a.status IN ('reserved','ready') AND (f.storage_key=a.storage_key OR admitted.id IS NULL))`,bindings:[userId]},
+    {sql:`NOT EXISTS (SELECT 1 FROM evidence_versions e JOIN json_each(e.payload_json,'$.attachmentIds') ref JOIN attachment_blob_fences f ON f.user_id=e.user_id AND f.attachment_id=ref.value LEFT JOIN admitted_generations admitted ON admitted.user_id=e.user_id AND admitted.id=ref.value WHERE e.user_id=? AND admitted.id IS NULL)`,bindings:[userId]},
+  ];
+  // Newly staged private namespaces become readable only in the exact reviewed import transaction.
+  const stagedNamespace={sql:`NOT EXISTS (SELECT 1 FROM attachments a JOIN attachment_blob_namespaces n ON n.user_id=a.user_id AND a.storage_key='attachments/'||n.namespace||'/'||a.id WHERE a.user_id=? AND a.status='ready' AND NOT EXISTS (SELECT 1 FROM attachment_blob_objects o JOIN attachment_archive_stages s ON s.user_id=o.user_id AND s.namespace=o.namespace WHERE o.user_id=a.user_id AND o.storage_key=a.storage_key AND o.attachment_id=a.id AND o.bytes=a.expected_bytes AND o.sha256=a.sha256 AND o.verified_at IS NOT NULL AND o.purged_at IS NULL AND NOT EXISTS(SELECT 1 FROM attachment_archive_cleanup_claims c WHERE c.storage_key=o.storage_key) AND (s.status='committed' OR (s.status='verified' AND s.import_id=? AND s.import_hash=? AND s.target_revision=? AND s.expires_at>?))))`,bindings:[userId,plan.importSource?.id??'',plan.importSource?.hash??'',revision,now]};
+  statements.push(...generationAssertionStatements(db,{cte:generationCte,cteBindings:[...generationReviewValues,userId],owner:userId,mutationId:id,claim,guard,conditions:generationConditions,...(!preparedBackup?{stagedNamespace}:{})}));
   if(preparedBackup){
     const bundle=JSON.parse(preparedBackup.content) as {modules:{attachments?:{records:Array<{id:string;value:{status?:string;storageKey?:string;expectedBytes?:number;sha256?:string|null}}>}}};
     // A deleted tombstone is not a promise of retained file bytes. Unknown legacy rows already fail closed in cleanup.
@@ -270,8 +285,7 @@ async function executeWorkspaceCommandAdmitted(userId:string,input:{protocolVers
       }else assertion('NOT EXISTS (SELECT 1 FROM attachment_blob_fences WHERE user_id=? AND (attachment_id=? OR storage_key=?))',[userId,row.id,value.storageKey??'']);
     }
   }
-  // Newly staged private namespaces become readable only in the exact reviewed import transaction.
-  assertion(`NOT EXISTS (SELECT 1 FROM attachments a JOIN attachment_blob_namespaces n ON n.user_id=a.user_id AND a.storage_key='attachments/'||n.namespace||'/'||a.id WHERE a.user_id=? AND a.status='ready' AND NOT EXISTS (SELECT 1 FROM attachment_blob_objects o JOIN attachment_archive_stages s ON s.user_id=o.user_id AND s.namespace=o.namespace WHERE o.user_id=a.user_id AND o.storage_key=a.storage_key AND o.attachment_id=a.id AND o.bytes=a.expected_bytes AND o.sha256=a.sha256 AND o.verified_at IS NOT NULL AND o.purged_at IS NULL AND NOT EXISTS(SELECT 1 FROM attachment_archive_cleanup_claims c WHERE c.storage_key=o.storage_key) AND (s.status='committed' OR (s.status='verified' AND s.import_id=? AND s.import_hash=? AND s.target_revision=? AND s.expires_at>?))))`,[userId,plan.importSource?.id??'',plan.importSource?.hash??'',revision,now]);
+  if(preparedBackup)assertion(stagedNamespace.sql,stagedNamespace.bindings);
   if(plan.importSource){
     assertion("NOT EXISTS (SELECT 1 FROM attachment_archive_stages WHERE user_id=? AND import_id=? AND (import_hash<>? OR status<>'verified' OR target_revision<>? OR expires_at<=?))",[userId,plan.importSource.id,plan.importSource.hash,revision,now]);
     statements.push(db.prepare(`UPDATE attachment_archive_stages SET status='committed' WHERE user_id=? AND import_id=? AND import_hash=? AND status='verified' AND target_revision=? AND expires_at>? AND ${claim}`).bind(userId,plan.importSource.id,plan.importSource.hash,revision,now,...guard));
@@ -346,9 +360,9 @@ async function executeWorkspaceCommandAdmitted(userId:string,input:{protocolVers
     for(const write of plan.writes){const row=await reader.get(write.table,write.id);if(write.operation==='insert'?Boolean(row):!row || row.row_revision!==write.expectedRowRevision)throw new ModuleConflictError('A related record changed. Refresh and review again.');}
     throw new WorkspaceStorageError('The change could not be confirmed. Reconcile its mutation ID before retrying.');
   }
-  const finalAdmission=await readMutationAdmission(db,userId,id);
+  const finalRead=await readFinalMutation(db,userId,id,now),finalAdmission=finalRead.admission;
   if(finalAdmission.epoch.status==='retired')throw new RetiredMutationError('This mutation epoch is retired.');
-  const committed=finalAdmission.receipt;if(!committed)return {status:'conflict',currentRevision:(await readCurrent(db,userId,now)).revision};
+  const committed=finalAdmission.receipt;if(!committed)return {status:'conflict',currentRevision:finalRead.readCurrent().revision};
   if(committed.command_hash!==hash&&committed.command_hash!==legacyHash)throw new MutationIdReuseError('This mutation ID was reused for a different change.');
-  return {status:acquired&&committed.command_hash===hash?'committed':'replayed',envelope:await readCurrent(db,userId,now),receipt:{mutationId:id,commandHash:committed.command_hash,appliedRevision:committed.revision}};
+  return {status:acquired&&committed.command_hash===hash?'committed':'replayed',envelope:finalRead.readCurrent(),receipt:{mutationId:id,commandHash:committed.command_hash,appliedRevision:committed.revision}};
 }

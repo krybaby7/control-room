@@ -1,7 +1,7 @@
 {
   "format": "control-room-resume-checkpoint",
   "version": 1,
-  "date": "2026-10-19",
+  "date": "2026-10-21",
   "baselineSource": "e4af1fc5ae344a029f9677576963700c92aaefee",
   "priorCheckpoint": "09b385af8be40db7b73c166d70406795c2f9363d",
   "branch": "feat/control-room-completion-cloud",
@@ -38,6 +38,21 @@
         "id": "/root/resume_runtime_install",
         "modelParameter": "gpt-6.1-sol",
         "accepted": true
+      },
+      {
+        "id": "/root/repair_test",
+        "modelParameter": "gpt-6.1-sol",
+        "accepted": true
+      },
+      {
+        "id": "/root/repair_performance",
+        "modelParameter": "gpt-6.1-sol",
+        "accepted": true
+      },
+      {
+        "id": "/root/repair_review",
+        "modelParameter": "gpt-6.1-sol",
+        "accepted": true
       }
     ]
   },
@@ -51,10 +66,22 @@
     "preCutoverRecovery": "Native read-only DB projection truncates saved workspace; cannot create complete backup. Full owner/provider D1 snapshot/export required before cutover. No owner record copied to repository or mutated."
   },
   "currentWork": [
-    "Reviewed finite manual Sites adapter, opaque server boundary, policy-derived capability reporting and cutoff enforcement committed. Configuration defaults closed; no activation, credentials imported, model calls or deployment.",
-    "Reviewed fixture transport isolation/deadline correction committed; deterministic original-code negative controls fail. Original e4 internal cause remains unknown.",
-    "Publish this coherent sanitized tree as next PR1 source (parent currentpublic3c), then run final exact-source Node/bridge/nativeWindows/D1R2HTTP/browser/performance/artifact-integrity gates.",
-    "Keep all rejected performance experiments separate. Prepare supported private saved version only after validation; do not deploy without complete verified private pre-cutover snapshot."
+    "Public772 canonical39253998007/job118064595938 FAILED:1815total1814pass1fail, scheduled-backup-archive terminal epoch race test did not reach injection (raced=false). Later canonical stages skipped; not passing.",
+    "Public772 normal39253997842/job118064594835 FAILED: D1 concurrentSessionSave p952848.964301999993ms, p502264.573563999991ms against unchanged2000ms limit;100samples/6restores/errors[].",
+    "Public772 browser acceptance, controlled browser performance, nativeWindows, isolatedagentsD1/stream/recovery/segmented and runtimeD1 passed at their exact source; not substitute for failed complete canonical.",
+    "Resume workers explicitly selected gpt-6.1-sol through supported model parameter, accepted: /root/repair_test, /root/repair_performance, /root/repair_review. Investigations isolated, root integrates.",
+    "Reviewed saved handoff documentation correction integrated. No merge or deployment in this continuation; private pre-cutover backup and owner/provider/device acceptance remain pending.",
+    "Reviewed integrated f0/d949/9d6 component source e9645cd; one unchanged workload combined profile diagnostic in progress. No canonical acceptance yet.",
+    "Combined e964 profile diagnostic FAILED 2028.854637 ms against unchanged 2000 ms; material improvement is not acceptance.",
+    "Reviewed final read cohort 5242a02 removes one actual RPC while retaining both SELECTs, dependent baseline and retirement/hash error precedence; 5 focused tests/typecheck/targeted lint pass. Fresh diagnostic and exact-source canonical acceptance pending.",
+    "Source publication is a sanitized public-parent commit sequence based only on public772; rejected private checkpoint/history excluded.",
+    "Published four sanitized public-parent review commits to existing draft PR1; exact source764c774 treec4d858a4. Canonical39511585072/job118933660328 and unchanged normal39511585081/job118933662322 running; not accepted yet.",
+    "Fresh final-cohort diagnostic5242 failed2026.267146ms>2000; one actualRPC reduction, wholepath gain nonmaterial. No unchanged rerun or threshold waiver.",
+    "Default PR merge checkout feea2db4670557d5e6f06d30d2e23648a6180206 has exact same treec4d858a4 asF; explicit-main/benchmark/helper checkouts useF. No automatic merge performed.",
+    "764 normal39511585081/job118933662322 FAILED D1savep955642.077330/p501836.110432ms>2000; artifact12306057959/SHA1105d1cc036161c864004675b7c5d41d40612c175ae258f27385ebd91c70a720. All100outcomes/6restores/engine/errors[]; wave4 delayedall20saves, causeunproven. Automaticdiagnostic1938.054299ms passdoesnotreplacefailednormal.",
+    "764 completeNode andbridge steps passed; canonicalrun continues. Bothcontrolledbrowserperformance andnativeWindows runs andsegmented recoverypassed.",
+    "ONEcurrent-sourceCPUobserverdiagnostic failed2217.998636ms; no5.6sstallreproduced. Actualmutationauthorityprepare/bind605pairs1.487s. Narrowpostwritegenerationassertiongrouping authorized, isolatedsource/tests/review inprogress; original12rowgroups/thresholdsunchanged.",
+    "Reviewed next component12617bd integrated06062ab: two fewer ordinary atomic statements (15\u219213), all predicates/backup barriers/native12rowgroups unchanged. Native2/2 plus89regressions/type/lint/review passed. ONEunchanged diagnostic narrowPASS D1p951995.699741ms (4.300259ms headroom), notcanonical orstallcausefix."
   ],
   "disabled": [
     "paid inference",
@@ -62,8 +89,8 @@
     "external alerts"
   ],
   "deployed": false,
-  "nextCommand": "Publish reviewed committed tree to PR1 using expected current publichead3c, then run exact public-source canonical/Windows/D1R2HTTP/browser/performance/package-integrity gates. Retain all failed observations. Supported private saved package only after gates; deploy only after complete verified pre-cutover snapshot.",
-  "currentCommit": "873d8d61dcc21b5917aa9b4cd21294eb487b5ff8",
+  "nextCommand": "Wait for39511585072 terminal without cancellation. Publish reviewed generation assertion source (12617bd component, integrated06062ab) and sanitized evidence on original PR branch with lease764c774, then fresh exact-source canonical/normal/native/browser/package gates. No unchanged rerun, threshold waiver, merge or deployment.",
+  "currentCommit": "764c774382b57ad8ace2be5e0a92ef4ed6a675b9",
   "tests": {
     "proxy": "Dedicated regression passed; original negative control fails as expected; existing harness/typecheck pass. Original pre-header hang remains unexplained.",
     "privateRuntime": "Actual cloud extraction artifact outer archive, inner archive SHA, immutable source pin and five reviewed source files verified. Cloud artifact installed, reopened, byte-verified and actual RuntimeAdapter loaded through strict public installer; zero provider calls.",
@@ -147,9 +174,169 @@
       "nativeSitesIngressAcceptance": false,
       "ownerDeviceAcceptance": false,
       "providerExecution": false
+    },
+    "currentPerformance": {
+      "source": "98f9986f12b2088c69bdb7e5e4671694b5bcbba2",
+      "run": 39249240888,
+      "job": 118048666758,
+      "passed": false,
+      "D1saveP95Ms": 2800.471638,
+      "D1saveP50Ms": 2158.847242,
+      "limitMs": 2000,
+      "outcomesPerEngine": 100,
+      "restoresPerEngine": 6,
+      "errors": [],
+      "artifact": 12184836729,
+      "archiveSha256": "b53188b58ee3b10086d2336fdcf31f7b23876e28496dc5333b77b2d1e03acc99"
+    },
+    "currentBrowserPerformance": {
+      "source": "98f9986f12b2088c69bdb7e5e4671694b5bcbba2",
+      "run": 39249240576,
+      "job": 118048662496,
+      "passed": false,
+      "scope": "Workerexit1 aftersample0;secondrequestECONNREFUSED;noacceptedperformancepass",
+      "artifact": 12184558111,
+      "archiveSha256": "a588e7a837caf8d54e7f35223e688f33544dd41a53dfa6206f577bc48c54e3fb"
+    },
+    "currentWindows": {
+      "source": "98f9986f12b2088c69bdb7e5e4671694b5bcbba2",
+      "run": 39249240794,
+      "job": 118048663014,
+      "passed": true,
+      "native": "10pass/0fail/1platformskip",
+      "portable": "200pass/0fail/8platformskips",
+      "helperArtifact": 12184009867,
+      "helperArchiveSha256": "3b69a86a8f5ee0b91dd1e738cc4e27d1ef3dde2eac8e873dc5253de3049c2b62",
+      "ownerDeviceAcceptance": false
+    },
+    "regexCorrection": {
+      "base": "98f9986f12b2088c69bdb7e5e4671694b5bcbba2",
+      "patchSha256": "c786d8dae57635b6a5d6511ecfb0abe528d0f11e23d74c026d287883e8615ba2",
+      "focusedPassed": 141,
+      "differentialPassed": 4,
+      "pairedCpuOldMedianMs": 35.88,
+      "pairedCpuNewMedianMs": 27.994,
+      "pairsNewLower": 20,
+      "normalBenchmarkRun": false,
+      "wholePathImprovementClaimed": false,
+      "independentReview": "no blocking findings"
+    },
+    "coarseDiagnostic": {
+      "source": "98f9986f12b2088c69bdb7e5e4671694b5bcbba2",
+      "diagnosticOnly": true,
+      "D1saveP95Ms": 3450.208293,
+      "passed": false,
+      "overlaySha256": "cca3965e14a4e7cbd66b1c5331d698d04d59762331a03b3afa1a861e95b95933",
+      "claim": "Observer overhead remains; await unions are not database service CPU. Overlay restored and absent from candidate."
+    },
+    "failureEvidenceCorrection": {
+      "proxyAndLogPassed": 10,
+      "existingHarnessAndDiagnosticPassed": 11,
+      "rawLimitBytes": 8388608,
+      "redactionBeforeTruncation": true,
+      "transportChanged": false,
+      "historicalCauseFixedClaimed": false,
+      "independentReview": "no blocking findings"
+    },
+    "current87Performance": {
+      "source": "87c41b57bb3a17d9671580739fbadb507c7f32a0",
+      "run": 39251593013,
+      "job": 118056467995,
+      "passed": false,
+      "D1saveP95Ms": 2319.984152,
+      "D1saveP50Ms": 1588.653718,
+      "SQLiteSaveP95Ms": 677.862331,
+      "limitMs": 2000,
+      "outcomesPerEngine": 100,
+      "restoresPerEngine": 6,
+      "errors": [],
+      "artifact": 12186400352,
+      "archiveSha256": "79cb7a6fa7290e63153e1329eea87dcb122e84596432753021b89f2c8dac11c5"
+    },
+    "current98Canonical": {
+      "source": "98f9986f12b2088c69bdb7e5e4671694b5bcbba2",
+      "run": 39249240628,
+      "job": 118048666153,
+      "passed": true,
+      "nodePassed": 1807,
+      "bridgePassed": 210,
+      "bridgePlatformSkipped": 9,
+      "browserPassed": 63,
+      "r2BrowserPassed": 3,
+      "packageFiles": 49
+    },
+    "current98Integrity": {
+      "run": 39251680756,
+      "job": 118056742473,
+      "sourceFiles": 1077,
+      "buildFiles": 333,
+      "bridgeFiles": 49,
+      "negativeControlsRejected": 8,
+      "artifact": 12184933946,
+      "archiveSha256": "cec4906c2aed3be34ce3778d763aeac85d4e635d72190f1f5cbca842bf45b86c",
+      "releaseAccepted": false
     }
   },
-  "uncommittedWork": "None besides synthetic benchmark outputs excluded from source publication.",
-  "publicSource": "3c6681a39d05b9b40ace26b49e5482aa2a4d40ed",
-  "publicPr": "https://github.com/krybaby7/control-room/pull/1"
+  "uncommittedWork": "Only ignored/untracked synthetic benchmark-results; not source or public evidence.",
+  "publicSource": "764c774382b57ad8ace2be5e0a92ef4ed6a675b9",
+  "publicPr": "https://github.com/krybaby7/control-room/pull/1",
+  "checkpointBranch": "checkpoints/control-room-cloud-764",
+  "repairDiagnostics": {
+    "baseline": {
+      "source": "195edab",
+      "publicEquivalent": "772a8d7bc1dc2b1de6f6e6747b70722bb03b2050",
+      "D1saveP95Ms": 2426.679696,
+      "acceptance": false
+    },
+    "rejectedExactEquality": {
+      "source": "693428b6924fa9f2359df699b4002e9a57c38b90",
+      "D1saveP95Ms": 2505.735776,
+      "integrated": false
+    },
+    "rejectedFinalCohort": {
+      "source": "94e24dd705a49d1ff05505a24ac4c68598ac93c5",
+      "D1saveP95Ms": 2686.411182,
+      "integrated": false,
+      "committedRpcCountLargeBeforeAfter": [
+        16,
+        12
+      ],
+      "committedRpcCountSmallBeforeAfter": [
+        14,
+        11
+      ]
+    },
+    "normalBenchmarkRun": false,
+    "limitMs": 2000,
+    "claim": "Fewer RPCs did not improve full save latency. Both source experiments remain isolated; no passing claim or unchanged normal rerun.",
+    "nextDiagnostic": "Isolated original-source Node inspector CPU/event-loop and synchronous prepare/bind timing; workload/assertions unchanged; observer overhead not acceptance.",
+    "overlaySha256": "432503dc10f6c06c10bb1550461d1640989116c118d1d633a5ad25172a08a012"
+  },
+  "testRegression": {
+    "commit": "91e5ce5a0ec82c750ee0dcacc847036485f3722d",
+    "focusedPassed": 1,
+    "independentReview": "passed",
+    "historicalFailureCause": "unproven",
+    "changes": "Require fulfilled physical PUTs, verified settled chunks/index, actual epoch insertion and exact conflict; retain all terminal no-write assertions. No retry, timeout or production change."
+  },
+  "nextCommandContext": "Original-source isolated CPU diagnostic worktree, after the independent segmented recovery rehearsal exits; diagnostic overlay only, no acceptance claim.",
+  "applicationTree": "c4d858a4bf1b3a062ef9f42343c0c35d2947eafb",
+  "workingCandidate": {
+    "componentSource": "12617bd4a631f7f24c20e3a4e558333fc4d1be80",
+    "integratedLocal": "06062ab669e964dd9451cddef76bd789cce9e5d9",
+    "status": "reviewed_diagnostic_narrow_pass_exact_source_canonical_pending",
+    "nativePassed": 2,
+    "regressionPassed": 89,
+    "review": "passed",
+    "D1diagnosticP95Ms": 1995.699741,
+    "limitMs": 2000,
+    "headroomMs": 4.300259,
+    "diagnosticOnly": true,
+    "benchmarkUnchanged": true,
+    "ordinaryAtomicStatementsBefore": 15,
+    "ordinaryAtomicStatementsAfter": 13,
+    "canonicalStallCause": "unproven",
+    "merged": false,
+    "deployed": false
+  }
 }

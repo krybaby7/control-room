@@ -42,4 +42,12 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm run install:ci
-      - run: node --experimental-strip-types scripts/test-recovery-segments-d1.mjs
+      - name: Run npm run test:recovery-segments-d1
+        run: npm run test:recovery-segments-d1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: synthetic-segmented-recovery
+          path: benchmark-results/segmented-recovery.json
+          if-no-files-found: error
+          retention-days: 30

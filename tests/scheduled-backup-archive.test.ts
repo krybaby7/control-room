@@ -104,8 +104,35 @@ test('corrupt or missing source/object bytes never produce a ready recovery poin
  }finally{await g.mf.dispose();}
 });
 test('terminal epoch race cannot publish archive/backup/occurrence success after physical PUTs',async()=>{
- const f=await fixture({fileBytes:1024});try{const job=await f.admit();let raced=false;f.hooks.beforeBatch=async sqls=>{if(!raced&&sqls.some(sql=>sql.includes('INSERT INTO workspace_backups'))){raced=true;await f.run('INSERT INTO workspace_execution_state(user_id,epoch,restored_at) VALUES(?,1,?)',principal.ownerId,now);}};
-  assert.notEqual((await runScheduledBackup(f.db,principal,job.intentId,{now:()=>now,files:f.services})).status,'completed');assert.equal(raced,true);assert.equal(await f.count('workspace_backups'),0);assert.equal(await f.count('automation_occurrences'),0);assert.equal((await f.db.prepare('SELECT status FROM backup_archives').first<{status:string}>())!.status,'preparing');assert.equal((await f.db.prepare('SELECT last_success_at FROM automation_runtime').first<{last_success_at:string|null}>())!.last_success_at,null);
+ const f=await fixture({fileBytes:1024});
+ try{
+  const job=await f.admit();let raced=false,settledPuts=0,stage='admitted';
+  const bucket:BackupArchiveBucket={
+   get:key=>f.services.bucket.get(key),
+   async put(key,bytes,options){const result=await f.services.bucket.put(key,bytes,options);assert.ok(result);settledPuts++;return result;},
+  };
+  f.hooks.afterBatch=async sqls=>{
+   if(sqls.some(sql=>sql.includes('INSERT INTO backup_archives')))stage='reserved';
+   if(sqls.some(sql=>sql.includes('UPDATE backup_archive_objects SET sha256=')))stage='put-admitted';
+   if(sqls.some(sql=>sql.includes('UPDATE backup_archive_objects SET verified_at=')))stage='verified';
+   if(sqls.some(sql=>sql.includes('UPDATE backup_archives SET index_json=')))stage='indexed';
+  };
+  f.hooks.beforeBatch=async sqls=>{
+   if(raced||!sqls.some(sql=>sql.includes('INSERT INTO workspace_backups')))return;
+   // Prove this is the intended terminal boundary after real R2 PUTs and index
+   // verification. An earlier preparation failure must fail the race assertion.
+   const archive=await f.db.prepare('SELECT status,chunk_count,index_sha256 FROM backup_archives WHERE user_id=? AND id=?').bind(principal.ownerId,job.backupId).first<{status:string;chunk_count:number;index_sha256:string|null}>();
+   assert.ok(archive);assert.equal(archive.status,'preparing');assert.match(archive.index_sha256??'',/^[a-f0-9]{64}$/u);
+   const objects=await f.db.prepare('SELECT COUNT(*) total,SUM(CASE WHEN pending_token IS NOT NULL AND settled_at IS NOT NULL AND verified_at IS NOT NULL AND purged_at IS NULL THEN 1 ELSE 0 END) verified FROM backup_archive_objects WHERE user_id=? AND archive_id=?').bind(principal.ownerId,job.backupId).first<{total:number;verified:number}>();
+   assert.ok(objects);assert.ok(settledPuts>0);assert.equal(settledPuts,archive.chunk_count);assert.equal(objects.total,archive.chunk_count);assert.equal(objects.verified,archive.chunk_count);assert.equal(stage,'indexed');
+   await f.run('INSERT INTO workspace_execution_state(user_id,epoch,restored_at) VALUES(?,1,?)',principal.ownerId,now);raced=true;
+  };
+  const result=await runScheduledBackup(f.db,principal,job.intentId,{now:()=>now,files:{...f.services,bucket}});
+  assert.equal(raced,true,canonical({status:result.status,reason:result.reason??null,settledPuts,stage}));
+  assert.deepEqual(result,{status:'conflict'});
+  assert.equal(await f.count('workspace_backups'),0);assert.equal(await f.count('automation_occurrences'),0);
+  assert.equal((await f.db.prepare('SELECT status FROM backup_archives').first<{status:string}>())!.status,'preparing');
+  assert.equal((await f.db.prepare('SELECT last_success_at FROM automation_runtime').first<{last_success_at:string|null}>())!.last_success_at,null);
  }finally{await f.mf.dispose();}
 });
 test('retained file bytes count against the same 20MB owner quota and no pinned/manual point is evicted',async()=>{

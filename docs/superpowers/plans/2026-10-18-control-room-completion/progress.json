@@ -55,7 +55,7 @@
       ],
       "blockers": [
         "Hosted private owner authentication/passkey and actual-device offline acceptance remain external.",
-        "Exact-e4 normalized merge and complete file-backup native gates passed. Release acceptance remains blocked by canonical main jobs-read failure and unchanged D1 save performance gate; real hosted/device acceptance remains separate."
+        "Final integrated-source canonical, complete recovery and unchanged performance acceptance remain pending; historical e4/772 failures are retained in dated evidence."
       ]
     },
     {
@@ -252,7 +252,7 @@
         "Exacte4 firstnormal39194510942/job117874255539 FAILED ONLYD1savep952499.678949ms>2000,p501797.993855;SQLite978.531809,D1read859.966659 PASS;100outcomes/sixrestores perengine/errors[]. Artifact12161845635 sha256325994989f843e4becbaa72d22b4f77751d0ee98619434ce99f068de4cedcfe4. No rerun or latency waiver; release acceptance blocked."
       ],
       "blockers": [
-        "Final proxy-hardened exact candidate canonical/package-integrity gates pending; current3c canonical performance and Windows gates pass.",
+        "Reviewed combined save-path repair requires exact-source canonical, performance, Windows and package-integrity gates; older source passes do not substitute.",
         "Production cutover requires a complete verified existing-data snapshot. Native read API truncates the saved workspace value, so it cannot establish a complete recovery point. Obtain owner/provider full D1 snapshot before deployment.",
         "Owner authenticated hosted smoke, physical devices, private service/provider consent and enabled-scope acceptance remain external."
       ],
@@ -263,7 +263,7 @@
       ]
     }
   ],
-  "nextAction": "Preserve frozen e4 and UNVALIDATED review packages. No native-SHA integration or rerun: unchanged performance gate failed. Jobs diagnostic is nonreproduction only; investigate any future causal fix against original evidence without changing canonical acceptance. Further bounded causal investigation or missing runtime/sandbox implementation may proceed independently with explicit source-specific tests; neither requires relabeling failed gates.",
+  "nextAction": "Wait for764 full canonical terminal; publish the reviewed generation-assertion candidate as a new exact source on the existing draft PR, then run every canonical stage and unchanged performance gates. Do not substitute the narrow diagnostic or older passes. Verify actual final archives and reconcile the formal ledger only after source-specific terminal results.",
   "allowedStatuses": [
     "not_started",
     "in_progress",
@@ -285,7 +285,10 @@
       "/root/save_client",
       "/root/export_registry",
       "/root/drafts",
-      "/root/runtime_probe"
+      "/root/runtime_probe",
+      "/root/repair_test",
+      "/root/repair_performance",
+      "/root/repair_review"
     ],
     "evidence": "Explicit supported model selection accepted and worker IDs returned."
   },
@@ -346,14 +349,16 @@
       "status": "success",
       "artifactId": 12162087989,
       "artifactDigest": "sha256:58b780d4617e2c4a7780af553023e8a6adfe2bc2b048776aab7f36037479247a"
-    }
+    },
+    "historical": true,
+    "scope": "Historical e4 checkpoint retained verbatim; current status is in combinedSaveRepair and resume-checkpoint.json."
   },
-  "updatedAt": "2026-10-19",
+  "updatedAt": "2026-10-21",
   "resumeIteration": {
-    "date": "2026-10-19",
+    "date": "2026-10-21",
     "branch": "feat/control-room-completion-cloud",
     "checkpoint": "resume-checkpoint.json",
-    "status": "implementation_complete_final_candidate_verification_pending",
+    "status": "reviewed_candidate_ready_for_exact_source_canonical_gates",
     "canonicalCheckpoint": {
       "source": "3c6681a39d05b9b40ace26b49e5482aa2a4d40ed",
       "run": 39244318516,
@@ -387,7 +392,7 @@
       "status": "passed",
       "ownerDeviceAcceptance": false
     },
-    "sites": "Supported existing private Site source helper restored; no deployment or audience change.",
+    "sites": "SupportedexistingprivateSite helper preparedexact98sourcearchive; UNVALIDATEDafterfailedgates, notsaved/deployed; completeprecutoversnapshot unavailable.",
     "external": [
       "Real native Sites dispatch canonical URL, consumed bearer, private audience and finite manual window acceptance still require an actual validated deployment; no activation performed.",
       "Unattended renewal/wakeup requires separately supported renewable authority; finite manual access does not supply it.",
@@ -400,7 +405,7 @@
       "external alerts"
     ],
     "storage": "Existing Site identity and DB preserved; logical BUCKET declaration added without deployment or owner data writes.",
-    "publicSource": "3c6681a39d05b9b40ace26b49e5482aa2a4d40ed",
+    "publicSource": "87c41b57bb3a17d9671580739fbadb507c7f32a0",
     "draftPr": 1,
     "rejectedPerformanceExperiment": {
       "source": "6f2a5c83c64bc9414ab1e263d41b0c8be6e9671b",
@@ -408,6 +413,234 @@
       "D1saveP95Ms": 3199.614369,
       "integrated": false
     },
-    "preCutoverRecovery": "No owner data changed. Bounded native DB read marks saved workspace truncated, so a complete owner/provider snapshot is required before cutover; no incomplete backup claimed."
+    "preCutoverRecovery": "No owner data changed. Bounded native DB read marks saved workspace truncated, so a complete owner/provider snapshot is required before cutover; no incomplete backup claimed.",
+    "currentPerformance": {
+      "source": "98f9986f12b2088c69bdb7e5e4671694b5bcbba2",
+      "run": 39249240888,
+      "job": 118048666758,
+      "passed": false,
+      "D1saveP95Ms": 2800.471638,
+      "D1saveP50Ms": 2158.847242,
+      "limitMs": 2000,
+      "outcomesPerEngine": 100,
+      "restoresPerEngine": 6,
+      "errors": [],
+      "artifact": 12184836729,
+      "archiveSha256": "b53188b58ee3b10086d2336fdcf31f7b23876e28496dc5333b77b2d1e03acc99"
+    },
+    "currentBrowserPerformance": {
+      "source": "98f9986f12b2088c69bdb7e5e4671694b5bcbba2",
+      "run": 39249240576,
+      "job": 118048662496,
+      "passed": false,
+      "scope": "Workerexit1 aftersample0;secondrequestECONNREFUSED;noacceptedperformancepass",
+      "artifact": 12184558111,
+      "archiveSha256": "a588e7a837caf8d54e7f35223e688f33544dd41a53dfa6206f577bc48c54e3fb"
+    },
+    "currentWindows": {
+      "source": "98f9986f12b2088c69bdb7e5e4671694b5bcbba2",
+      "run": 39249240794,
+      "job": 118048663014,
+      "passed": true,
+      "native": "10pass/0fail/1platformskip",
+      "portable": "200pass/0fail/8platformskips",
+      "helperArtifact": 12184009867,
+      "helperArchiveSha256": "3b69a86a8f5ee0b91dd1e738cc4e27d1ef3dde2eac8e873dc5253de3049c2b62",
+      "ownerDeviceAcceptance": false
+    },
+    "pendingCorrection": {
+      "base": "98f9986f12b2088c69bdb7e5e4671694b5bcbba2",
+      "patchSha256": "c786d8dae57635b6a5d6511ecfb0abe528d0f11e23d74c026d287883e8615ba2",
+      "focusedPassed": 141,
+      "differentialPassed": 4,
+      "pairedCpuOldMedianMs": 35.88,
+      "pairedCpuNewMedianMs": 27.994,
+      "pairsNewLower": 20,
+      "normalBenchmarkRun": false,
+      "wholePathImprovementClaimed": false,
+      "independentReview": "no blocking findings"
+    },
+    "failureEvidenceCorrection": {
+      "proxyAndLogPassed": 10,
+      "existingHarnessAndDiagnosticPassed": 11,
+      "rawLimitBytes": 8388608,
+      "redactionBeforeTruncation": true,
+      "transportChanged": false,
+      "historicalCauseFixedClaimed": false,
+      "independentReview": "no blocking findings"
+    },
+    "coarseDiagnostic": {
+      "source": "98f9986f12b2088c69bdb7e5e4671694b5bcbba2",
+      "diagnosticOnly": true,
+      "D1saveP95Ms": 3450.208293,
+      "passed": false,
+      "overlaySha256": "cca3965e14a4e7cbd66b1c5331d698d04d59762331a03b3afa1a861e95b95933",
+      "claim": "Observer overhead remains; await unions are not database service CPU. Overlay restored and absent from candidate."
+    },
+    "current87Performance": {
+      "source": "87c41b57bb3a17d9671580739fbadb507c7f32a0",
+      "run": 39251593013,
+      "job": 118056467995,
+      "passed": false,
+      "D1saveP95Ms": 2319.984152,
+      "D1saveP50Ms": 1588.653718,
+      "SQLiteSaveP95Ms": 677.862331,
+      "limitMs": 2000,
+      "outcomesPerEngine": 100,
+      "restoresPerEngine": 6,
+      "errors": [],
+      "artifact": 12186400352,
+      "archiveSha256": "79cb7a6fa7290e63153e1329eea87dcb122e84596432753021b89f2c8dac11c5"
+    },
+    "current98Canonical": {
+      "source": "98f9986f12b2088c69bdb7e5e4671694b5bcbba2",
+      "run": 39249240628,
+      "job": 118048666153,
+      "passed": true,
+      "nodePassed": 1807,
+      "bridgePassed": 210,
+      "bridgePlatformSkipped": 9,
+      "browserPassed": 63,
+      "r2BrowserPassed": 3,
+      "packageFiles": 49
+    },
+    "current98Integrity": {
+      "run": 39251680756,
+      "job": 118056742473,
+      "sourceFiles": 1077,
+      "buildFiles": 333,
+      "bridgeFiles": 49,
+      "negativeControlsRejected": 8,
+      "artifact": 12184933946,
+      "archiveSha256": "cec4906c2aed3be34ce3778d763aeac85d4e635d72190f1f5cbca842bf45b86c",
+      "releaseAccepted": false
+    },
+    "historicalEvidenceNotice": "Fields naming 3c,87,98 and prior unintegrated candidates retain source-specific historical evidence; current772Failures and combinedSaveRepair describe this continuation."
+  },
+  "datetimeValidationCandidate": {
+    "status": "failed_exact_source_canonical_and_performance",
+    "baseSource": "87c41b57bb3a17d9671580739fbadb507c7f32a0",
+    "change": "Compile locked Zod datetime regex once; preserve acceptance and first path/message",
+    "focusedPassed": 145,
+    "independentParityPassed": 8,
+    "typecheck": "passed",
+    "lint": "0 errors; 8 existing warnings",
+    "build": "passed",
+    "D1LimitMs": 2000,
+    "previous87D1P95Ms": 2319.984152,
+    "previous87CanonicalRun": 39251592918,
+    "previous87Canonical": "passed",
+    "paidInferenceEnabled": false,
+    "deployed": false,
+    "testedSource": "772a8d7bc1dc2b1de6f6e6747b70722bb03b2050"
+  },
+  "current772Failures": {
+    "source": "772a8d7bc1dc2b1de6f6e6747b70722bb03b2050",
+    "canonical": {
+      "run": 39253998007,
+      "job": 118064595938,
+      "total": 1815,
+      "passed": 1814,
+      "failed": 1,
+      "assertion": "scheduled-backup-archive.test.ts:108 raced false !== true",
+      "subsequentCanonicalStages": "skipped"
+    },
+    "benchmark": {
+      "run": 39253997842,
+      "job": 118064594835,
+      "D1saveP95Ms": 2848.964301999993,
+      "D1saveP50Ms": 2264.573563999991,
+      "limitMs": 2000,
+      "samples": 100,
+      "restores": 6,
+      "errors": []
+    },
+    "status": "isolated_repairs_in_progress",
+    "deploymentAuthorizedThisContinuation": false
+  },
+  "hierarchicalQueryRepair": {
+    "commit": "f0ce1fcfacdc60a9be3f65c8f16fefd993759027",
+    "status": "reviewed_component_material_diagnostic_improvement_acceptance_pending",
+    "focusedPassed": 29,
+    "queryBytes": 36159,
+    "bindings": 39,
+    "nativeCompoundTermsMax": 5,
+    "decoderUnchanged": true,
+    "D1saveP95BeforeMs": 2426.679696,
+    "D1saveP95AfterMs": 2140.026446,
+    "limitMs": 2000,
+    "normalRun": false,
+    "nextWork": "Exact byte measurement CPU reduction and bounded contiguous pre-write assertion grouping; independent review and combined exact-source canonical required."
+  },
+  "combinedSaveRepair": {
+    "localSource": "e9645cdafe26e965c7ff5edca8301e3e421307be",
+    "components": [
+      "f0ce1fcfacdc60a9be3f65c8f16fefd993759027",
+      "d949189631542978b1fdbd598dd6a8b636ef96d2",
+      "9d6c893743b8a03a58cdc8a0b8b9e55adf6c9487"
+    ],
+    "status": "material_diagnostic_improvement_but_gate_failed",
+    "benchmarkWorkloadAndThresholdUnchanged": true,
+    "limitMs": 2000,
+    "canonicalAcceptance": "pending",
+    "raceCause": "unproven; strengthened physical-PUT/epoch race assertions retain all conflict/no-success checks",
+    "deploymentAuthorized": false,
+    "D1saveP95Ms": 2028.8546369999967,
+    "diagnosticOnly": true,
+    "normalRun": false,
+    "nextWork": "Investigate remaining synchronous preparation/RPC and storage-compaction CPU. No unchanged rerun or waiver.",
+    "finalReadCohort": {
+      "source": "5242a0226ad41493235dedb1a990181db17d6682",
+      "integrated": "ef9bf75",
+      "focusedPassed": 5,
+      "review": "passed",
+      "change": "Same final admission and hydrated current SELECTs in one bounded read-only batch; dependent baseline remains separate. Atomic guard and failure reconciliation logic unchanged.",
+      "canonicalAcceptance": "pending",
+      "diagnostic": "failed unchanged 2000ms limit",
+      "D1saveP95Ms": 2026.2671459999983,
+      "wholePathGain": "nonmaterial"
+    },
+    "rejectedCompactionProbe": {
+      "integrated": false,
+      "reason": "No material paired CPU/elapsed gain; public/storage compaction unchanged."
+    }
+  },
+  "currentCandidate": {
+    "applicationSource": "764c774382b57ad8ace2be5e0a92ef4ed6a675b9",
+    "tree": "c4d858a4bf1b3a062ef9f42343c0c35d2947eafb",
+    "draftPr": 1,
+    "canonicalRun": 39511585072,
+    "canonicalJob": 118933660328,
+    "normalBenchmarkRun": 39511585081,
+    "normalBenchmarkJob": 118933662322,
+    "status": "normal_performance_failed_other_canonical_stages_running",
+    "acceptance": "pending",
+    "deployed": false,
+    "merged": false,
+    "privateHistoryPublished": false,
+    "normalBenchmarkPassed": false,
+    "D1saveP95Ms": 5642.07733,
+    "D1saveP50Ms": 1836.110432,
+    "limitMs": 2000,
+    "normalArtifact": 12306057959,
+    "normalArtifactSha256": "1105d1cc036161c864004675b7c5d41d40612c175ae258f27385ebd91c70a720"
+  },
+  "nextCandidate": {
+    "componentSource": "12617bd4a631f7f24c20e3a4e558333fc4d1be80",
+    "integratedLocal": "06062ab669e964dd9451cddef76bd789cce9e5d9",
+    "status": "reviewed_diagnostic_narrow_pass_exact_source_canonical_pending",
+    "nativePassed": 2,
+    "regressionPassed": 89,
+    "review": "passed",
+    "D1diagnosticP95Ms": 1995.699741,
+    "limitMs": 2000,
+    "headroomMs": 4.300259,
+    "diagnosticOnly": true,
+    "benchmarkUnchanged": true,
+    "ordinaryAtomicStatementsBefore": 15,
+    "ordinaryAtomicStatementsAfter": 13,
+    "canonicalStallCause": "unproven",
+    "merged": false,
+    "deployed": false
   }
 }

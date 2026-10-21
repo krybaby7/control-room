@@ -1,0 +1,120 @@
+{
+  "format": "control-room-source-verification",
+  "version": 1,
+  "sourceCommit": "98f9986f12b2088c69bdb7e5e4671694b5bcbba2",
+  "canonical": {
+    "run": 39249240628,
+    "job": 118048666153,
+    "conclusion": "success",
+    "nodePassed": 1807,
+    "nodeFailed": 0,
+    "nodeSkipped": 0,
+    "bridgePassed": 210,
+    "bridgePlatformSkipped": 9,
+    "browserPassed": 63,
+    "r2BrowserPassed": 3,
+    "checks": "Node/bridge/type/lint/build/nativeD1/R2/HTTP/browser/package"
+  },
+  "performance": {
+    "run": 39249240888,
+    "passed": false,
+    "D1saveP95Ms": 2800.471638,
+    "limitMs": 2000,
+    "outcomesPerEngine": 100,
+    "restoresPerEngine": 6,
+    "errors": []
+  },
+  "browserPerformance": {
+    "canonicalRun": 39249240576,
+    "passed": false,
+    "cause": "Fixture Worker exited; historical internal cause unproved",
+    "automaticPushRun": 39249233999,
+    "automaticPushP95Ms": 3060.8,
+    "limitMs": 3000
+  },
+  "integrity": {
+    "run": 39251680756,
+    "job": 118056742473,
+    "reportArtifact": 12184933946,
+    "reportArchiveSha256": "cec4906c2aed3be34ce3778d763aeac85d4e635d72190f1f5cbca842bf45b86c",
+    "status": "INTEGRITY_VERIFIED_REVIEW_ONLY",
+    "sourceCommit": "98f9986f12b2088c69bdb7e5e4671694b5bcbba2",
+    "outerZipSha256": "2912164accddc3f049705b916425766f6b0cb078f941fef98b98893c4317ad0a",
+    "innerArchives": [
+      {
+        "sha256": "91ef908e1dbc1ffa06ab9e1b3affb7241a9c4142da3eb5d1234f41cbb72c04a3",
+        "bytes": 12093440
+      },
+      {
+        "sha256": "334300ce730856bac1b6b0eaa859c6b268bffab7f172a3e333734cbfcf4e8427",
+        "bytes": 1344123
+      }
+    ],
+    "sourceFiles": 1077,
+    "buildFiles": 333,
+    "bridgeFiles": 49,
+    "bridgeSha256": "fb48ec69e7a617d626697214e992cbce859d5bafe22b6379ab04acab40bc6ad2",
+    "releaseAccepted": false,
+    "deployed": false,
+    "sourceGitTreeExactBytes": true,
+    "candidateArtifact": {
+      "id": 12185018563,
+      "zipSha256": "2912164accddc3f049705b916425766f6b0cb078f941fef98b98893c4317ad0a",
+      "workflowHead": "98f9986f12b2088c69bdb7e5e4671694b5bcbba2",
+      "runId": 39249240628,
+      "runConclusion": "success",
+      "workflowPath": ".github/workflows/control-room-ci.yml"
+    },
+    "bridgeArtifact": {
+      "id": 12184903801,
+      "zipSha256": "b8583329b934f9bf83660e27fb4e26d2913a1c9e36c5758cdda7c5658d93e7b8",
+      "workflowHead": "98f9986f12b2088c69bdb7e5e4671694b5bcbba2",
+      "runId": 39249240628,
+      "runConclusion": "success",
+      "workflowPath": ".github/workflows/control-room-ci.yml"
+    },
+    "helperArtifact": {
+      "id": 12184009867,
+      "zipSha256": "3b69a86a8f5ee0b91dd1e738cc4e27d1ef3dde2eac8e873dc5253de3049c2b62",
+      "workflowHead": "98f9986f12b2088c69bdb7e5e4671694b5bcbba2",
+      "runId": 39249240794,
+      "runConclusion": "success",
+      "workflowPath": ".github/workflows/control-room-owned-process-native.yml"
+    },
+    "helper": {
+      "sourceCommit": "98f9986f12b2088c69bdb7e5e4671694b5bcbba2",
+      "sha256": "d36491b639f551c91b476bed7f51f788824348d19f263264977cd980054f738f",
+      "bytes": 174601,
+      "runtimeRequirement": ".NET 8",
+      "ownerDeviceAcceptance": false,
+      "providerExecution": false
+    },
+    "negativeControls": {
+      "wrongOuterDigest": "rejected",
+      "changedInnerArchiveWithRecomputedOuterDigest": "rejected",
+      "changedWholeSourceAgainstGitTree": "rejected",
+      "changedHelperInteriorPreservingMZWithRecomputedOuterDigest": "rejected",
+      "tarMetadataDecompressionBound": "rejected",
+      "unsupportedPaxExtension": "rejected",
+      "duplicateDirectoryPath": "rejected",
+      "absoluteDirectoryPath": "rejected"
+    },
+    "providerExecution": false,
+    "ownerDeviceAcceptance": false,
+    "limitations": [
+      "Integrity does not establish reproducible build output or pass failed application gates.",
+      "Helper source binding is exact manifest plus public workflow-head provenance; compiler reproducibility is not asserted.",
+      "No artifact code was executed and no private runtime artifact was consumed."
+    ]
+  },
+  "supportedSitePackage": {
+    "sourceFilesCompared": 1077,
+    "mismatches": 0,
+    "archiveBytes": 1388652,
+    "archiveSha256": "d2a274417090333c8a42c1babc60481d67b8e5c5c66f9e5e74a23769a3dd4a7b",
+    "validated": false,
+    "saved": false,
+    "deployed": false
+  },
+  "releaseAccepted": false
+}

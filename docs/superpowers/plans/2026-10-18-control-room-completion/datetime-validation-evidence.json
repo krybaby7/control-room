@@ -1,0 +1,68 @@
+{
+  "baseLocalCommit": "2cc777b3389bbf059cba2275b1ddc12c8ae78217",
+  "baseTree": "248b16bcf699732aa55640a3408b4f9fc8f11fd6",
+  "baseEquivalence": "Root-confirmed exact public87 source tree; prior ID/text correction already present",
+  "paths": [
+    "lib/workspace-validation.ts",
+    "tests/workspace-datetime-validation-parity.test.ts"
+  ],
+  "patchSha256": "d0c2b4de483491f088f60d83264f8721d248337577a989e9dcecd5082d3636b2",
+  "lockedLibrary": {
+    "package": "zod",
+    "version": "3.25.76",
+    "typesJsSha256": "9763a2938f0e7f983363ef4bf6530e7583e3f2d54f8a4a6684efad58febc6e8e",
+    "proof": "ZodString datetime _parse constructs datetimeRegex(check) for each field; exported datetimeRegex returns newRegExp. Candidate invokes the same generator once at private schema construction.",
+    "exactOptions": {
+      "precision": null,
+      "offset": true,
+      "local": false
+    },
+    "regexFlags": "",
+    "sameExposedMessage": "Invalid datetime",
+    "privateDifference": "Internal validation tag changes datetime to regex; only first path/message exposed by private parser, no public schema/introspection contract."
+  },
+  "checks": {
+    "focusedPassed": 145,
+    "failed": 0,
+    "skipped": 0,
+    "typecheck": "passed",
+    "targetedLint": "passed",
+    "diffCheck": "passed",
+    "independentReview": "resume_review/root approved exact one-line source and8/8datetime+textparity"
+  },
+  "pairedCpu": {
+    "report": "datetime-validation-paired-cpu.json",
+    "reportSha256": "e3986cc4f8bb549dbb44f21101831457345515db3b0a659efc37a38fa95dc160",
+    "pairs": 20,
+    "warmupsEach": 4,
+    "tasks": 1700,
+    "captures": 850,
+    "identicalInputSha256": "c9de9aeed37059edf9fdb1e22e29951efe7ca6a637dd6b7284bd384893b4b447",
+    "summary": {
+      "medianOldCpu": 27.954,
+      "medianNewCpu": 19.999,
+      "medianPairedCpuSaving": 4.234999999999999,
+      "newCpuLowerPairs": 18
+    },
+    "medianOldWallMilliseconds": 27.787929000000076,
+    "medianNewWallMilliseconds": 21.13672799999995,
+    "pairedMedianWallSavingMilliseconds": 6.420480999999995,
+    "proof": "Alternating order, identical immutable input eachpair, old87 fullparser via only prior stamp helper restored; exact outputs asserted each invocation and input unchanged after all pairs."
+  },
+  "parityCoverage": [
+    "Allstampfields, optional/missing/nullable values and primitive errors",
+    "Minute-only times, arbitrary fraction, colonless/colon/out-of-range offsets retained exactly as lockedZod",
+    "Leap/calendar/year0000, uppercase/lowercase/local datetime and finalLF/CRLF/Unicode line separator quirks",
+    "Exact fullparser accepted outputs and first refusal path/message, multipleissueorder",
+    "savedAt and wrapper anchors, legacy1/2/3 migrations and weekly behavior",
+    "Repeated valid/invalid parsing with same unflagged pattern"
+  ],
+  "exclusions": [
+    "Rejected two-digest fanout source absent; original evidence-module.ts byte-identical to base",
+    "No nativebackend/hashcontext/cohort implementation changes",
+    "No threshold/workload/assertion/budget/concurrency changes",
+    "No prior reports/prototypes/docs or diagnostic overlays in patch",
+    "No normal benchmark run for this candidate"
+  ],
+  "performanceLimit": "Paired parser CPU reduction is diagnostic evidence only, not full save latency or canonical acceptance. It does not prove closing the remaining~320ms D1 p95 gap. All prior exact-source failed normals remain retained."
+}

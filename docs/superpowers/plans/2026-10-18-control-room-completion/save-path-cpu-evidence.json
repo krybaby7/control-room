@@ -1,0 +1,135 @@
+{
+  "format": "control-room-loaded-d1-main-thread-cpu-diagnostic-v1",
+  "source": "195edabcb9cf9aa8871d87a18352b74891c532dd",
+  "tree": "15cbe2a2668eb9518b2df82fb254f4bbfc08e655",
+  "overlaySha256": "432503dc10f6c06c10bb1550461d1640989116c118d1d633a5ad25172a08a012",
+  "rawProfileSha256": "76c163f86e7b93ba2738b3f7f22ee7b3224678dd2c24995c45c68ffac190201e",
+  "rawReportSha256": "c56ea460a608ef09ef7baa128b0182328b59d68a919ef572563db85ecf5cf8f4",
+  "diagnosticOnly": true,
+  "workloadUnchanged": true,
+  "status": "failed",
+  "errors": [],
+  "regressionFailures": [
+    "miniflareD1:concurrentSessionSave"
+  ],
+  "diagnosticCpu": {
+    "scope": "unchanged loaded miniflareD1 concurrentSessions only",
+    "samplingIntervalMicroseconds": 1000,
+    "wallMilliseconds": 21139.972773,
+    "processCpuMicroseconds": {
+      "user": 16246134,
+      "system": 1986492
+    },
+    "eventLoop": {
+      "idle": 343.9966199999999,
+      "active": 20795.842161997556,
+      "utilization": 0.9837275665369339
+    },
+    "profileSamples": 19135,
+    "profileNodes": 3633,
+    "limitations": [
+      "Diagnostic observer overhead; never acceptance.",
+      "V8 profile samples the main Node thread only; native workerd child CPU is excluded.",
+      "process.cpuUsage includes this Node process and may include its worker threads; event-loop active time is not a CPU counter."
+    ]
+  },
+  "concurrency": {
+    "sessions": 20,
+    "sameOwnerSessions": 10,
+    "independentOwners": 10,
+    "waves": 5,
+    "commitsPerWave": 11,
+    "conflictsPerWave": 9,
+    "duplicateReplayEffects": 0,
+    "transport": "actual local Miniflare D1 binding; not hosted network clients"
+  },
+  "confirmedRestores": 6,
+  "commandOutcomes": {
+    "committed": 55,
+    "conflict": 45
+  },
+  "synchronousNativeProxyTotalMilliseconds": 6594.703724999803,
+  "limitations": [
+    "Observer overhead means this is diagnostic evidence, never acceptance.",
+    "V8 sample deltas include synchronous blocking/wait time; sampled wall time is not CPU execution time.",
+    "Main Node thread sampling excludes workerd child CPU; process.cpuUsage includes Node process threads.",
+    "Inclusive functions deduplicate recursive occurrences per sample; inclusive rows overlap each other.",
+    "No SQL text, bindings, owner IDs, command bodies, host metadata or absolute paths are included in this summary."
+  ],
+  "publicEquivalentSource": "772a8d7bc1dc2b1de6f6e6747b70722bb03b2050",
+  "topExclusiveFrames": [
+    {
+      "source": "node_modules/miniflare/dist/src/index.js",
+      "function": "fetch",
+      "line": 77771,
+      "column": 8,
+      "sampledMilliseconds": 10152.986,
+      "sampledWallPercent": 47.64565921776541
+    },
+    {
+      "source": "[V8 builtin]",
+      "function": "(idle)",
+      "line": 0,
+      "column": 0,
+      "sampledMilliseconds": 1890.096,
+      "sampledWallPercent": 8.869791596763902
+    },
+    {
+      "source": "[V8 builtin]",
+      "function": "(garbage collector)",
+      "line": 0,
+      "column": 0,
+      "sampledMilliseconds": 980.479,
+      "sampledWallPercent": 4.601165440804844
+    },
+    {
+      "source": "lib/workspace-migrations.ts",
+      "function": "[anonymous]",
+      "line": 28,
+      "column": 33,
+      "sampledMilliseconds": 712.785,
+      "sampledWallPercent": 3.344938248268531
+    },
+    {
+      "source": "lib/workspace-migrations.ts",
+      "function": "bytes",
+      "line": 23,
+      "column": 15,
+      "sampledMilliseconds": 682.56,
+      "sampledWallPercent": 3.2030991824156914
+    },
+    {
+      "source": "node_modules/zod/v3/types.js",
+      "function": "_parse",
+      "line": 1934,
+      "column": 11,
+      "sampledMilliseconds": 643.123,
+      "sampledWallPercent": 3.018030291099283
+    }
+  ],
+  "synchronousNativeProxy": {
+    "bind:physical_page": {
+      "calls": 780,
+      "totalMilliseconds": 1097.310579000019,
+      "maximumMilliseconds": 53.91356499999529
+    },
+    "bind:mutation_authority": {
+      "calls": 715,
+      "totalMilliseconds": 999.5199119998069,
+      "maximumMilliseconds": 25.139914999999746
+    },
+    "prepare:physical_page": {
+      "calls": 780,
+      "totalMilliseconds": 685.4810860000944,
+      "maximumMilliseconds": 21.156113999997615
+    },
+    "prepare:mutation_authority": {
+      "calls": 715,
+      "totalMilliseconds": 540.3935699997965,
+      "maximumMilliseconds": 7.850194999999076
+    }
+  },
+  "D1saveP95Ms": 2443.452511999989,
+  "acceptance": false,
+  "decision": "Retain failed diagnostic. Reduce actual prepared statement fanout; do not change benchmark workload, validation, ownership/CAS/replay/recovery or 2000ms gate. Native compound limit remains five; a direct 74-term flat query was rejected, not retained. Bounded hierarchical materialized query is under source-specific validation."
+}
