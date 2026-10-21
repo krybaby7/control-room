@@ -79,7 +79,7 @@ const ExecutionEnrollmentDialog=deferredPanel<Parameters<typeof import('./execut
 const JobBudgetEditor=deferredPanel<Parameters<typeof import('./job-budget-editor').JobBudgetEditor>[0]>(()=>import('./job-budget-editor').then(module=>({default:module.JobBudgetEditor})));
 const JobEditor=deferredPanel<Parameters<typeof import('./job-editor').JobEditor>[0]>(()=>import('./job-editor').then(module=>({default:module.JobEditor})));
 const BaselineRevisionEditor=deferredPanel<Parameters<typeof import('./baseline-revision-editor').BaselineRevisionEditor>[0]>(()=>import('./baseline-revision-editor').then(module=>({default:module.BaselineRevisionEditor})));
-const LocalRepositoryOnboarding=deferredPanel<Parameters<typeof import('./local-repository-onboarding').LocalRepositoryOnboarding>[0]>(()=>import('./local-repository-onboarding').then(module=>({default:module.LocalRepositoryOnboarding})));
+const LocalRepositoryOnboarding=deferredPanel<Parameters<typeof import('./repository-onboarding').RepositoryOnboarding>[0]>(()=>import('./repository-onboarding').then(module=>({default:module.RepositoryOnboarding})));
 const SourcesView=deferredPanel<Parameters<typeof import('./sources-view').SourcesView>[0]>(()=>import('./sources-view').then(module=>({default:module.SourcesView})));
 const ReviewCenter=deferredPanel<Parameters<typeof import('./review-center').ReviewCenter>[0]>(()=>import('./review-center').then(module=>({default:module.ReviewCenter})));
 const AgentsView=deferredPanel<Parameters<typeof import('./agents-view').AgentsView>[0]>(()=>import('./agents-view').then(module=>({default:module.AgentsView})));
@@ -224,7 +224,7 @@ export default function ControlCenter({ userName }: { userName: string }) {
     } finally { busyRef.current = false;polling.current?.setBusy(false);stream.current?.setBusy((false)||sourceDirtyRef.current||Boolean(editorDraftController.current?.isDirty()));setBusy(false); }
   }
   async function saveLocalAnalysis(command:import('@/lib/workspace-protocol').WorkspaceCommand):Promise<boolean>{
-    try{await mutate(command as Command);return true;}catch(cause){setError(cause instanceof Error?cause.message:'The report save is unconfirmed.');return false;}
+    try{await mutate(command as Command);return true;}catch(cause){setError(cause instanceof Error?cause.message:'The report save is unconfirmed.');if(command.type==='github-analysis.save'&&isConclusiveWorkspaceRejection(cause))throw cause;return false;}
   }
   async function createLocalAnalysisProject(name:string):Promise<string|null>{
     const original=new Set(envelopeRef.current?.workspace.projects.map(project=>project.id));
