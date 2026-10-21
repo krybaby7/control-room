@@ -8,7 +8,9 @@ const array=(items,maxItems)=>({type:'array',items,maxItems});
 const digest={...str(64,64),pattern:'^[a-f0-9]{64}$'};
 const relativePath={...str(500),pattern:'^[^/\\\\:\\u0000-\\u001f\\u007f]+(?:/[^/\\\\:\\u0000-\\u001f\\u007f]+)*$'};
 const nullable=schema=>({anyOf:[schema,{const:null}]});
-export const chatContextSchema=object({policy:{const:'latest-project-chats'},maxCharacters:{const:4000},includedCharacters:integer(0,4000),inputSha256:digest,cloud:{const:'not-connected'},sources:array(object({provider:{enum:['codex','claude']},status:{enum:['included','not-found','unavailable','filtered']},match:{enum:['cwd','git-identity',null]},latestAt:nullable(str(40)),messages:integer(0,6),characters:integer(0,2000),excerptSha256:nullable(digest),truncated:{type:'boolean'}}),2)});
+export const chatContextSchema=object({policy:{const:'latest-project-chats'},maxCharacters:{const:4000},includedCharacters:integer(0,4000),inputSha256:digest,cloud:{const:'not-connected'},sources:array(object({provider:{enum:['codex','claude']},status:{enum:['included','not-found','unavailable','filtered','deferred']},match:{enum:['cwd','git-identity',null]},latestAt:nullable(str(40)),messages:integer(0,6),characters:integer(0,2000),excerptSha256:nullable(digest),truncated:{type:'boolean'}}),2)});
+// Optional strategy metadata leaves existing report serialization untouched.
+chatContextSchema.properties.selection={const:'concise-user-first-v1'};
 export const reportContentSchema=object({
  summary:str(1200),
  architecture:array(object({name:str(80),description:str(400),paths:array(relativePath,4)}),8),

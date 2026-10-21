@@ -1,6 +1,6 @@
 export interface ChatContextMetadata {
- policy:'latest-project-chats';maxCharacters:4000;includedCharacters:number;inputSha256:string;cloud:'not-connected';
- sources:{provider:'codex'|'claude';status:'included'|'not-found'|'unavailable'|'filtered';match:'cwd'|'git-identity'|null;latestAt:string|null;messages:number;characters:number;excerptSha256:string|null;truncated:boolean}[];
+ policy:'latest-project-chats';selection?:'concise-user-first-v1';maxCharacters:4000;includedCharacters:number;inputSha256:string;cloud:'not-connected';
+ sources:{provider:'codex'|'claude';status:'included'|'not-found'|'unavailable'|'filtered'|'deferred';match:'cwd'|'git-identity'|null;latestAt:string|null;messages:number;characters:number;excerptSha256:string|null;truncated:boolean}[];
 }
 export interface LocalAnalysisReport {
  format:'control-room-project-analysis';version:1;
