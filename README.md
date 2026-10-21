@@ -12,7 +12,7 @@ This repository's source is public with the owner's approval. Hosted access, wor
 
 ## Imported first release
 
-- Today: equally visible projects, explained next-action suggestions, weekly focus and review items.
+- Today (mission control): a status strip for the enrolled PC, the personal PC app and its Codex/Claude readiness, agent activity and items that need you; project tiles with milestone/task meters, the live agent job (stage, progress, elapsed time against its budget), the latest saved analysis with recent-chat coverage, recent activity and the next action; live operations with recent runs and recorded token usage; explained next-action suggestions, weekly focus and a mission log. Feeds are read-only and refresh every 10 seconds while an agent is working, otherwise every 45 seconds.
 - Projects: editable goals, milestone acceptance criteria, task planning, dates, priority, Now/Next/Later, dependency links and explicit blockers.
 - Capture: save an idea, proposed task or decision with an optional source. Convert a capture into a task once, preserving its text and source.
 - Reversible archive with completion history, Cairo calendar-week commitments, dated activity and JSON export/validated restore.

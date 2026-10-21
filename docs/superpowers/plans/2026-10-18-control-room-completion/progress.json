@@ -29,6 +29,15 @@
     "cloudBoundary": "Cloud-only histories are not connected; no browser-cookie reuse or unrelated history selection",
     "design": "docs/superpowers/specs/2026-10-21-onboarding-chat-context-design.md"
   },
+  "missionControlDashboard": {
+    "date": "2026-10-21",
+    "status": "implemented_browser_verified_in_fixture",
+    "scope": "Today view replaced by a mission-control dashboard: status strip (enrolled PC heartbeat and load, personal PC app and Codex/Claude readiness, agent counts, execution window and Codex Cloud report recency, attention count), project tiles (milestone/task meters, live agent job stage/progress/elapsed budget, latest saved analysis with recent-chat coverage, recent activity, next action, recorded token totals), live operations with recent runs, needs-you list, weekly focus, mission log; existing Next up and saved brief panels retained",
+    "feeds": "Read-only owner feeds: /api/jobs plus /api/jobs/{id} event tails for active attempts, /api/runtime, /api/personal-repositories, /api/local-analysis, /api/github-analysis. Fast pace 10 s while an agent works, 45 s otherwise, saved reports at most every 90 s or on workspace change; bounded deadlines/bytes, digest checks on job specs/results/events, last good value retained with per-feed check time; no command is issued from the dashboard",
+    "boundary": "Tokens and runtime come only from recorded job results; cloud (Codex Cloud) work shows imported report recency, not live task status; local chat transcripts are never displayed, only companion-reported coverage; lights describe heartbeats and saved records, never inferred execution",
+    "evidence": "tests/dashboard-format, dashboard-model, dashboard-feed and mission-control-render (18 cases) pass; typecheck, lint (0 errors, 8 pre-existing warnings) and production build pass; Playwright mission-control, ready-work and workspace-stream specs pass against the built Worker fixture in Chromium; see docs/superpowers/verification/2026-10-21-mission-control-dashboard.md",
+    "workers": "Implemented directly in the Claude Code session (no gpt-6.1-sol subagent workers were available to select in this runtime); no provider was called"
+  },
   "phases": [
     {
       "id": 0,
