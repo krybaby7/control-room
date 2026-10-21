@@ -1,5 +1,7 @@
 # Control Room
 
+GitHub onboarding now has a subscription-only **Codex Cloud** handoff alongside **This PC** analysis. Prepare a read-only prompt, run it against the selected GitHub repository in Codex Cloud, then import and review its JSON report. See [GitHub cloud analysis](docs/operations/github-cloud-analysis.md) for setup, save recovery and the manual integration boundary. This does not activate a separately billed API provider.
+
 A private planning home for TAMENNI and Trade Graph, built for PC, phone and tablet. Both products have equal priority. The online plan continues to work while the PC is off.
 
 ## Cloud implementation program

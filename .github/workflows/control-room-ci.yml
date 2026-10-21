@@ -27,6 +27,7 @@ jobs:
       - run: npm test
       - run: npm run test:bridge
       - run: npm run test:companion
+      - run: npm run test:github
       - run: npm run typecheck
       - run: npm run lint
       - id: build

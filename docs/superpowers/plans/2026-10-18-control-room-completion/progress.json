@@ -5,6 +5,19 @@
   "baselineCommit": "b50aa5c34783ffc0109c46d91c599923df9cc305",
   "implementationBranch": "feat/control-room-completion-cloud",
   "status": "in_progress",
+  "githubCloudOnboarding": {
+    "date": "2026-10-21",
+    "status": "verified_source_for_private_publication",
+    "branch": "feature/github-cloud-onboarding",
+    "route": "subscription-only Codex Cloud handoff with manual JSON return",
+    "executionChoices": ["Codex Cloud", "This PC"],
+    "verification": "docs/superpowers/verification/2026-10-21-github-cloud-onboarding.md",
+    "evidence": "20 cloud tests; 64 companion regressions; actual isolated Worker/D1 smoke and browser create/reload/replay/concurrent refresh recovery; typecheck, lint and build passed",
+    "baselineSuite": "Bounded run 1847 pass/10 fail/3 skip; isolated environment corrections resolve three failures; seven unchanged Windows platform cases remain. Separate admission file 5/5 passed. No full-green claim.",
+    "liveBoundary": "GitHub authorization and task execution occur in Codex Cloud; no actual cloud model task observed; reports remain unsigned imported claims",
+    "activation": "No paid API provider, unattended GitHub synchronization or direct hosted GitHub connector enabled",
+    "publicationReceipt": "Recorded separately after source packaging; existing private Site identity and owner records preserved"
+  },
   "localRepositoryChatContext": {
     "date": "2026-10-21",
     "status": "verified_private_pilot",
