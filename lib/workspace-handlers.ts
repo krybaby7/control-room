@@ -12,6 +12,7 @@ import {attachmentCommandHandlers} from './attachment-handlers.ts';
 import {historyUndoHandler} from './history-undo-store.ts';
 import {acceptanceCommandHandlers} from './acceptance-handlers.ts';
 import {evidenceCommandHandlers} from './evidence-handlers.ts';
+import {localAnalysisCommandHandlers} from './local-analysis-handler.ts';
 import {decisionCommandHandlers} from './decision-handlers.ts';
 import {occurrenceRemovalHandler} from './recurrence-removal.ts';
 import {planningHandlers,syncLegacyWeeklyPins} from './planning-module.ts';
@@ -65,6 +66,8 @@ for(const [type,handler] of planningHandlers)(workspaceHandlers as Map<string,im
 (workspaceHandlers as Map<string,import('./workspace-transaction.ts').CommandHandler>).set('recurrence.occurrence.remove',occurrenceRemovalHandler);
 
 for(const [type,handler] of [...evidenceCommandHandlers,...decisionCommandHandlers,...acceptanceCommandHandlers,...attachmentCommandHandlers])(workspaceHandlers as Map<string,import('./workspace-transaction.ts').CommandHandler>).set(type,handler);
+
+for(const [type,handler] of localAnalysisCommandHandlers)(workspaceHandlers as Map<string,import('./workspace-transaction.ts').CommandHandler>).set(type,handler);
 
 (workspaceHandlers as Map<string,import('./workspace-transaction.ts').CommandHandler>).set('history.undo',historyUndoHandler);
 
