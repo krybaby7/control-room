@@ -7,7 +7,7 @@ import type {Report} from '../shared/local-analysis.mjs';
 
 export interface LocalRepositoryOnboardingProps {
  envelope:WorkspaceEnvelope;busy:boolean;pending:boolean;onCommand:(command:WorkspaceCommand)=>Promise<boolean>;onCreateProject:(name:string)=>Promise<string|null>;
- onReviewTask?:(projectId:string,suggestion:{title:string;notes:string})=>void;projectId?:string;onSessionExpired?:()=>void;onBusyChange?:(value:boolean)=>void;onDirtyChange?:(value:boolean)=>void;
+ onReviewTask?:(projectId:string,suggestion:{title:string;notes:string})=>void;projectId?:string;onSessionExpired?:()=>void;onBusyChange?:(value:boolean)=>void;onDirtyChange?:(value:boolean)=>void;getRetainedSaveCommand?:(runId:string)=>WorkspaceCommand|undefined;
 }
 interface SavedReport {evidenceId:string;version:number;projectId:string;report:Report;recordedAt:string}
 function ChatContextDetails({report}:{report:Report}) {

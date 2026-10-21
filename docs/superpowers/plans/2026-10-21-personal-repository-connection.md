@@ -10,13 +10,13 @@
 
 ## Foundation and implementation
 
-- [ ] Preserve the unrelated dirty checkout; open native Sites source in a clean checkout and retain owner-private identity. Record current workspace/source fingerprints privately.
-- [ ] Backend worker adds strict shared queue contract, additive migration, owner/device HTTP/store handlers, export/reference adapters and synthetic authorization/replay/cancel/restore tests.
-- [ ] Provider worker adds Claude subscription readiness, fixed no-tool CLI arguments, finite process ownership and validated structured-output parsing with synthetic tests.
-- [ ] Desktop worker adds explicit native folder picker, DPAPI configuration, outbound durable delivery/claim handling, startup/URI launcher and synthetic lifecycle tests.
-- [ ] Integrator adds backward-compatible provider/source provenance, a shared analysis runner, readiness caching and companion CLI/package wiring. Retain exact Codex model and concise-user selection.
-- [ ] Integrator registers the new owner module in schema/export/reference/capacity registries and migration journal. Preserve all existing records and disabled execution boundaries.
-- [ ] Replace routine pairing UI with PC/provider readiness, Choose folder, project/provider selection, Analyze, progress/recovery and repository refresh cards. Simplify primary navigation; retain advanced surfaces under More.
+- [x] Preserve the unrelated dirty checkout; open native Sites source in a clean checkout and retain owner-private identity. Record current workspace/source fingerprints privately.
+- [x] Backend worker adds strict shared queue contract, additive migration, owner/device HTTP/store handlers, export/reference adapters and synthetic authorization/replay/cancel/restore tests.
+- [x] Provider worker adds Claude subscription readiness, fixed no-tool CLI arguments, finite process ownership and validated structured-output parsing with synthetic tests.
+- [x] Desktop worker adds explicit native folder picker, DPAPI configuration, outbound durable delivery/claim handling, startup/URI launcher and synthetic lifecycle tests.
+- [x] Integrator adds backward-compatible provider/source provenance, a shared analysis runner, readiness caching and companion CLI/package wiring. Retain exact Codex model and concise-user selection.
+- [x] Integrator registers the new owner module in schema/export/reference/capacity registries and migration journal. Preserve all existing records and disabled execution boundaries.
+- [x] Replace routine pairing UI with PC/provider readiness, Choose folder, project/provider selection, Analyze, progress/recovery and repository refresh cards. Simplify primary navigation; retain advanced surfaces under More.
 
 ## Verification and release
 
