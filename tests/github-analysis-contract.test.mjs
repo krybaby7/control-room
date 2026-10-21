@@ -67,4 +67,3 @@ test('legacy identity matching safely canonicalizes HTTP and case-insensitive Gi
   assert.equal(api.canonicalGithubRepositoryUrl(input),null,String(input));
  }
 });
-

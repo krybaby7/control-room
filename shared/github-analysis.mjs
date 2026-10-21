@@ -88,5 +88,3 @@ Exact JSON Schema:
 ${JSON.stringify(githubAnalysisSchema)}`;
  return {requestId,repository,prompt};
 }
-
-
