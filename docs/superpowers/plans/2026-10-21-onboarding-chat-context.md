@@ -27,6 +27,8 @@
 
 ## Task 4 — Installed acceptance and release
 
-- [ ] Retain the current private revision6 export and source fingerprints; source/package with native Sites identity and owner-only audience unchanged.
-- [ ] Install the reviewed helper version, inspect real collector coverage without printing text, perform one real refresh for the selected repository, then owner-import it as a new immutable report version. Verify readback and unchanged code/planning.
-- [ ] Synchronize exact source bytes to the public audit clone, push the existing draft PR without merging, publish the existing Site, and record current verification/remaining cloud boundary in private evidence and progress/gap checkpoints.
+- [x] Retain the current private revision6 export and source fingerprints; source/package with native Sites identity and owner-only audience unchanged.
+- [x] Install the reviewed helper version, inspect real collector coverage without printing text, perform one real refresh for the selected repository, then owner-import it as a new immutable report version. Verify readback and unchanged code/planning.
+- [x] Synchronize exact source bytes to the public audit clone, push the existing draft PR without merging, publish the existing Site, and record current verification/remaining cloud boundary in private evidence and progress/gap checkpoints.
+
+Installed acceptance used the same finite inference call with a bounded matching local Codex excerpt. Owner import saved evidence version 2, preserved the original version exactly, and survived reload. Planning, all old module records, source snapshot, Git status and tracked diff were unchanged. No matching local Claude conversation was found; cloud histories remain disconnected. Full-account history coverage and unrelated canonical release gates are not claimed.

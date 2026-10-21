@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,mkdir,writeFile,rm,link,symlink} from 'node:fs/promises';
+import {mkdtemp,mkdir,writeFile,rm,link,symlink,realpath} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {readClaudeChatContext} from '../companion/claude-chat-context.mjs';
-async function fixture(){const root=await mkdtemp(join(tmpdir(),'claude-context-')),repositoryRoot=join(root,'repo'),configRoot=join(root,'claude');await mkdir(repositoryRoot);await mkdir(join(configRoot,'projects','project'),{recursive:true});return {root,repositoryRoot,configRoot,file:join(configRoot,'projects','project','synthetic-session.jsonl')};}
+async function fixture(){const root=await realpath(await mkdtemp(join(tmpdir(),'claude-context-'))),repositoryRoot=join(root,'repo'),configRoot=join(root,'claude');await mkdir(repositoryRoot);await mkdir(join(configRoot,'projects','project'),{recursive:true});return {root,repositoryRoot,configRoot,file:join(configRoot,'projects','project','synthetic-session.jsonl')};}
 const row=(cwd,id,role,text,time='2026-10-21T12:00:00Z',extra={})=>({type:role,cwd,sessionId:'synthetic-session',uuid:id,parentUuid:null,isSidechain:false,timestamp:time,message:{role,content:role==='assistant'?[{type:'text',text}]:text},...extra});
 async function put(file,rows){await writeFile(file,rows.map(r=>JSON.stringify(r)).join('\n')+'\n');}
 test('only the latest exact-cwd main conversation contributes user and assistant text',async()=>{const f=await fixture();try{await put(f.file,[row(f.repositoryRoot,'a','user','Project intent'),row(f.repositoryRoot,'b','assistant','Current project state','2026-10-21T12:01:00Z',{parentUuid:'a'}),row(f.repositoryRoot,'side','assistant','Excluded sidechain','2026-10-21T13:00:00Z',{isSidechain:true}),row(join(f.root,'other','repo'),'other','user','Wrong same basename','2026-10-21T14:00:00Z')]);await put(join(f.configRoot,'projects','project','older.jsonl'),[row(f.repositoryRoot,'older','user','Older conversation','2026-10-20T12:00:00Z',{sessionId:'older'})]);const result=await readClaudeChatContext(f);assert.equal(result.status,'included');assert.equal(result.match,'cwd');assert.deepEqual(result.messages,[{role:'user',text:'Project intent'},{role:'assistant',text:'Current project state'}]);assert.equal(result.latestAt,'2026-10-21T12:01:00.000Z');}finally{await rm(f.root,{recursive:true,force:true});}});
