@@ -166,6 +166,10 @@ absolute paths are never returned to the Site. A shared inference slot prevents
 the legacy and personal interfaces from starting simultaneous model processes.
 A lost response retries delivery of the saved receipt/report, never analysis or
 folder selection. Restarted unfinished jobs are reported as interrupted.
+Completed reports retain private UUID report backups. After acknowledged
+delivery, the request journal keeps a compact identity marker so an old request
+cannot run again; report bodies do not accumulate in that journal. Capacity is
+checked before starting another operation and before replacing the journal.
 Provider availability is a cached CLI/authentication readiness probe, not proof
 that inference or cloud chat access succeeded. No additional AI summarizer or
 watcher is started. New analyses still require the owner's explicit action.
