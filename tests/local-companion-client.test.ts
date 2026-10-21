@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createLocalCompanionClient,localCompanionBase,LocalCompanionRequestError,parseCompanionRun,parseImportedLocalReport,sameLocalAnalysisReport} from '../lib/local-companion-client.ts';
+import {createLocalCompanionClient,localCompanionBase,LocalCompanionRequestError,parseCompanionRun,parseImportedLocalReport,sameLocalAnalysisReport,loadSavedLocalAnalyses,SavedLocalAnalysisReadError} from '../lib/local-companion-client.ts';
 test('companion destination cannot escape literal loopback',()=>{
  assert.equal(localCompanionBase('4319'),'http://127.0.0.1:4319');
  for(const value of ['https://evil.test','4319/path','0','65536','4319@evil',' 4319'])assert.throws(()=>localCompanionBase(value));
@@ -38,10 +38,19 @@ test('only known companion diagnostics are displayed',()=>{
 test('import rejects malformed UTF-8, oversized files and arbitrary JSON before any save',()=>{
  for(const bytes of [new Uint8Array([0xff]),new Uint8Array(55001),new TextEncoder().encode('{"project":"untrusted"}')])assert.throws(()=>parseImportedLocalReport(bytes));
 });
-test('import preserves a valid UTF-8 report and original run identity without requesting inference',()=>{
+test('import preserves a valid UTF-8 report and original run identity without requesting inference',async()=>{
  const report={format:'control-room-project-analysis',version:1,repository:{key:'example',name:'Example',head:'a'.repeat(40),dirty:true,snapshotSha256:'b'.repeat(64),files:1,bytes:10,includedChanges:true,excludedFiles:2},run:{id:'00000000-0000-4000-8000-000000000001',provider:'codex',requestedModel:'gpt-6.1-sol',observedModel:null,startedAt:'2026-10-21T12:00:00Z',completedAt:'2026-10-21T12:01:00Z',mode:'read-only',source:'paired-local-companion'},summary:'Example · مثال',architecture:[],findings:[],suggestedTasks:[],limitations:['Partial source only.']};
  assert.deepEqual(parseImportedLocalReport(new TextEncoder().encode(JSON.stringify(report))),report);
  const valid=parseImportedLocalReport(new TextEncoder().encode(JSON.stringify(report)));
  assert.equal(sameLocalAnalysisReport(valid,{...valid,summary:'Changed under the same run ID'}),false);
  assert.equal(sameLocalAnalysisReport(valid,Object.fromEntries(Object.entries(valid).reverse())),true);
+ const loaded=await loadSavedLocalAnalyses({projectId:'project',fetch:async()=>Response.json({revision:6,asOf:'2026-10-21T12:01:00Z',reports:[{evidenceId:'example',version:1,projectId:'project',report:valid,recordedAt:'2026-10-21T12:01:00Z'}]})});assert.equal(loaded.reports.length,1);assert.deepEqual(loaded.reports[0].report,valid);
+});
+test('saved report loading separates a timed-out request from a successful empty response',async()=>{
+ const empty=await loadSavedLocalAnalyses({fetch:async()=>Response.json({revision:3,asOf:'2026-10-21T12:00:00Z',reports:[]})});assert.deepEqual(empty.reports,[]);
+ const hanging:typeof fetch=async(_input,init)=>await new Promise((_resolve,reject)=>{init?.signal?.addEventListener('abort',()=>reject(new Error('aborted')),{once:true});});
+ await assert.rejects(loadSavedLocalAnalyses({fetch:hanging,timeoutMs:5}),error=>error instanceof SavedLocalAnalysisReadError&&error.reason==='timeout');
+});
+test('saved report reads preserve same-origin session and distinguish expiration without inference',async()=>{
+ let calls=0;await assert.rejects(loadSavedLocalAnalyses({projectId:'example',fetch:async(input,init)=>{calls++;assert.equal(String(input),'/api/local-analysis?projectId=example');assert.equal(init?.credentials,'same-origin');return new Response(null,{status:401});}}),error=>error instanceof SavedLocalAnalysisReadError&&error.reason==='session');assert.equal(calls,1);
 });
