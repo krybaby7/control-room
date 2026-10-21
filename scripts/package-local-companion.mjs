@@ -8,6 +8,8 @@ export const COMPANION_SOURCE_PATHS=Object.freeze([
  'companion/cli.mjs','companion/codex.mjs','companion/local-registration.mjs',
  'companion/owned-process.ps1','companion/OwnedProcess.cs','companion/README.md',
  'companion/server.mjs','companion/snapshot.mjs','companion/start-companion.ps1',
+ 'companion/analysis-prompt.mjs','companion/chat-context.mjs',
+ 'companion/codex-chat-context.mjs','companion/claude-chat-context.mjs',
  'shared/local-analysis.mjs','shared/local-analysis.d.mts',
 ]);
 export async function buildLocalCompanionArchive(){

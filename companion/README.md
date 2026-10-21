@@ -105,3 +105,24 @@ Boundary tests (including synthetic Windows process ownership, no model calls):
 ```powershell
 node --test tests/local-companion.test.mjs
 ```
+
+## Recent local chat context
+
+Analysis includes a small amount of recent project chat context by default: the
+latest matching local Codex conversation and the latest matching local Claude
+conversation, up to 4,000 characters combined. Only selected user and final
+assistant text is eligible. Tool calls, tool outputs, reasoning, system/developer messages,
+unrelated histories and detected credentials are excluded. Filtering is
+heuristic; it cannot recognize every private value.
+
+These excerpts join the selected source pack in the existing single Codex model
+call. The helper does not resume a previous chat, make an extra summarizer call,
+or connect to ChatGPT or Claude cloud history. Missing, unreadable or filtered
+local history is reported as incomplete coverage, not successful access.
+
+New reports show each provider's coverage, recorded activity time, included
+message and character counts, and whether the excerpt was truncated. The report
+records bounded provenance rather than raw transcripts or local session paths.
+Earlier reports remain valid and display: "Chat context was not recorded for
+this report." Chat-derived descriptions remain historical context requiring
+review, not proof of current source behavior or completed work.
