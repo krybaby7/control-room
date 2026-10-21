@@ -65,3 +65,6 @@ next-env.d.ts
 
 # Finite synthetic fixture failure evidence, uploaded only by CI.
 /benchmark-results/fixture-worker-*.log
+
+# Generated local helper download (rebuilt from reviewed source).
+/public/control-room-companion.zip
