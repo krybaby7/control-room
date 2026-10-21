@@ -5,6 +5,18 @@
   "baselineCommit": "b50aa5c34783ffc0109c46d91c599923df9cc305",
   "implementationBranch": "feat/control-room-completion-cloud",
   "status": "in_progress",
+  "personalRepositoryConnection": {
+    "date": "2026-10-21",
+    "status": "live_private_increment_verified",
+    "sourceCommit": "b648048a83747bac950e4faa302e4f77543b1729",
+    "sourceTree": "2dc59ffc8f27f712422859bd4bf1ca42a81f52f8",
+    "privateSiteVersion": 14,
+    "draftPullRequest": "https://github.com/krybaby7/control-room/pull/4",
+    "verification": "docs/superpowers/verification/2026-10-21-personal-repository-connection.md",
+    "evidence": "96 companion, 37 personal backend, 21 save recovery and 32 serialized native/recovery cases passed; typecheck, lint and supported build/package passed; actual Claude analysis automatically saved and acknowledged in owner UI",
+    "preservation": "All existing planning records, immutable report versions, links and audit entries compared equal; only the new report and its associated records were added; private audience remains one owner",
+    "limits": "Native folder-dialog selection and Windows sign-in cycle not physically driven; new live provider run was Claude; broad Windows suite is not fully green; whole-product performance/release gates remain separate"
+  },
   "githubCloudOnboarding": {
     "date": "2026-10-21",
     "status": "verified_source_for_private_publication",
