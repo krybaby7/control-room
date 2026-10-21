@@ -1,3 +1,5 @@
+import {existsSync} from 'node:fs';
+import {join} from 'node:path';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { spawnSync } from 'node:child_process';
@@ -14,7 +16,8 @@ function location(bytes: Uint8Array, signature: number) { const v = new DataView
 test('stored archive roundtrip across small stream chunks and standard Python ZIP reader', async () => {
   const bytes = await archive();
   assert.deepEqual(await decode(bytes), entries);
-  const python = spawnSync('python3', ['-c', 'import sys,zipfile,io,json; z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())); assert z.testzip() is None; print(json.dumps([(x.filename,x.compress_type,x.flag_bits) for x in z.infolist()]))'], { input: bytes, encoding: 'utf8' });
+  const bundledPython=join(process.env.USERPROFILE??'', '.cache','codex-runtimes','codex-primary-runtime','dependencies','python','python.exe');
+  const python = spawnSync(process.env.CONTROL_ROOM_TEST_PYTHON??(process.platform==='win32'&&existsSync(bundledPython)?bundledPython:'python3'), ['-c', 'import sys,zipfile,io,json; z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())); assert z.testzip() is None; print(json.dumps([(x.filename,x.compress_type,x.flag_bits) for x in z.infolist()]))'], { input: bytes, encoding: 'utf8' });
   assert.equal(python.status, 0, python.stderr);
   assert.deepEqual(JSON.parse(python.stdout), entries.map(x => [x.path, 0, 2048]));
 });
@@ -74,3 +77,4 @@ test('reader independently rejects duplicate and unsafe paths even with ordinary
   const unsafe = await archive(); unsafe.set(new TextEncoder().encode('../evil.json!'), 30);
   await assert.rejects(decode(unsafe), /unsupported member path/);
 });
+

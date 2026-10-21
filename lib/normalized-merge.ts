@@ -1,3 +1,4 @@
+import {validatePersonalState} from '../shared/personal-repository.mjs';
 import {z} from 'zod';
 import type {Workspace} from './types.ts';
 import type {JsonValue} from './workspace-protocol.ts';
@@ -11,7 +12,7 @@ import {attachmentRecordSchema,attachmentUsageSchema} from './evidence-module.ts
 import type {AttachmentRecord} from './evidence-contract.ts';
 import type {VerifiedAttachment} from './evidence-requirements.ts';
 const wrapper=z.object({id:z.string().min(1).max(128),rowRevision:z.number().int().positive().safe(),contentHash:z.string().regex(/^[a-f0-9]{64}$/),value:z.unknown()}).strict();
-const closedKeys=new Set(['weekly_plans','weekly_reviews','recurrence_rules','recurrence_occurrences','evidence','decisions','evidence_links','evidence_requirements','acceptance_records','attachments','attachment_usage','source_connections','source_targets','source_observations','source_sync_runs','source_proposals','integration_history','review_snapshots','review_acknowledgements','automation_schedules','automation_occurrences','notification_events','review_settings','review_analysis_runs','project_baseline_revisions','devices','runtime_adapter_configurations','runtime_evidence','agent_jobs','agent_results','evaluation_runs']);
+const closedKeys=new Set(['weekly_plans','weekly_reviews','recurrence_rules','recurrence_occurrences','evidence','decisions','evidence_links','evidence_requirements','acceptance_records','attachments','attachment_usage','source_connections','source_targets','source_observations','source_sync_runs','source_proposals','integration_history','review_snapshots','review_acknowledgements','automation_schedules','automation_occurrences','notification_events','review_settings','review_analysis_runs','project_baseline_revisions','devices','runtime_adapter_configurations','runtime_evidence','agent_jobs','agent_results','evaluation_runs','personal_repository_state']);
 export interface NormalizedMergeRow {module:string;table:RegisteredOwnerTable;id:string;beforeHash:string|null;afterHash:string;disposition:'insert'|'deduplicate'|'derived-quota'}
 export interface NormalizedMergeConflict {module:string;id:string;reason:'different-body'|'physical-identity';currentHash:string;incomingHash:string}
 export interface NormalizedMergeReview {version:1;importHash:string;targetRevision:number;beforeDigest:string;rows:NormalizedMergeRow[];conflicts:NormalizedMergeConflict[];warnings:string[];reviewHash:string}
@@ -43,6 +44,7 @@ async function inert(table:RegisteredOwnerTable,id:string,value:JsonValue,input:
  else if(table==='source_observations')warnings.add('Imported source timestamps and origin remain historical provenance only. Disabled connections and absent private grants or cursors do not establish current freshness.');
  else if(table==='source_proposals')result={...row,state:'pending',decision:null};
  else if(table==='runtime_adapter_configurations')result={...row,manifest:{...(row.manifest as {[key:string]:JsonValue}),enabled:false}};
+ else if(table==='personal_repository_state'){const state=validatePersonalState(value);state.connected=false;for(const request of state.requests)if(['queued','claimed'].includes(request.status)){request.status='failed';request.error='interrupted';}result=state as unknown as JsonValue;}
  else if(table==='runtime_evidence')result={...row,origin:'historical-import'};
  else if(table==='agent_jobs')result={...row,historical:true};
  else if(table==='agent_results')result={...row,historical:true,frozenJob:{...(row.frozenJob as {[key:string]:JsonValue}),historical:true}};
@@ -88,7 +90,7 @@ export async function prepareNormalizedMerge(input:NormalizedMergeInput,registry
   for(const row of rows){
    assertPortable(row.value);if(await contentHash(canonical(row.value))!==row.contentHash)throw new Error('Incoming merge record digest differs.');
    if(key==='attachment_usage')continue;
-   const prior=current.get(row.id);if(!prior)continue;
+   if(key==='personal_repository_state'&&current.size&&!current.has(row.id)){const retained=[...current.values()][0];conflicts.push({module:key,id:row.id,reason:'physical-identity',currentHash:retained.contentHash,incomingHash:row.contentHash});continue;}const prior=current.get(row.id);if(!prior)continue;
    if(canonical(prior.value)!==canonical(row.value)){conflicts.push({module:key,id:row.id,reason:'different-body',currentHash:prior.contentHash,incomingHash:row.contentHash});continue;}
    const target=physicalIdentity(key,tables,row);deduplicated.add(target.table+':'+target.id);const physicalHash=physical.get(target.table)!.find(item=>item.id===target.id)?.content_hash;if(!physicalHash)throw new Error('Portable duplicate lacks its exact physical owner row.');reviewRows.push({module:key,table:target.table,id:target.id,beforeHash:physicalHash,afterHash:physicalHash,disposition:'deduplicate'});
   }
@@ -127,3 +129,4 @@ export async function prepareNormalizedMerge(input:NormalizedMergeInput,registry
  if(writes.length>200||new TextEncoder().encode(canonical(writes)).byteLength>BUNDLE_LIMITS.bytes)throw new Error('Selective merge exceeds one bounded atomic batch; review a smaller disjoint bundle.');
  return {writes:conflicts.length?[]:writes,referenceSnapshot:snapshot,review,historyClaims:conflicts.length?[]:historyClaims,verifiedAttachments:conflicts.length?[]:proofs};
 }
+

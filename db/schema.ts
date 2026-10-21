@@ -162,4 +162,7 @@ export const agentArtifacts=sqliteTable('agent_artifacts',{userId:text('user_id'
 
 export const agentResults=sqliteTable('agent_results',{...moduleColumns(),jobId:text('job_id').notNull(),attemptId:text('attempt_id').notNull(),recordedAt:text('recorded_at').notNull(),streamSequence:integer('stream_sequence').notNull()},t=>[primaryKey({columns:[t.userId,t.id]}),uniqueIndex('agent_result_attempt').on(t.userId,t.attemptId),index('agent_result_job').on(t.userId,t.jobId)]);
 
+export const personalRepositoryState=sqliteTable('personal_repository_state',{...moduleColumns(),createdAt:text('created_at'),archivedAt:text('archived_at')},t=>[primaryKey({columns:[t.userId,t.id]})]);
+
 export {backupArchives,backupArchiveObjects,backupArchiveCleanupClaims,backupArchiveRetainedObjects} from '../lib/automations/backup-schema.ts';
+

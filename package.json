@@ -37,7 +37,7 @@
     "test:benchmark": "node --experimental-strip-types scripts/benchmark-workspace.mjs",
     "test:fixture-proxy": "node --test tests/fixture-proxy-lifecycle.test.mjs tests/fixture-worker-log.test.mjs",
     "prebuild": "node scripts/package-local-companion.mjs",
-    "test:companion": "node --experimental-strip-types --test --test-timeout=30000 tests/local-analysis-contract.test.mjs tests/local-companion.test.mjs tests/local-companion-package.test.mjs tests/local-chat-context.test.mjs tests/local-chat-selection.test.mjs tests/local-claude-chat-context.test.mjs tests/local-analysis-prompt.test.mjs"
+    "test:companion": "node --experimental-strip-types --test --test-timeout=30000 tests/local-analysis-contract.test.mjs tests/local-companion.test.mjs tests/local-companion-package.test.mjs tests/local-chat-context.test.mjs tests/local-chat-selection.test.mjs tests/local-claude-chat-context.test.mjs tests/local-analysis-prompt.test.mjs tests/local-claude-provider.test.mjs tests/local-analysis-run.test.mjs tests/local-companion-cli.test.mjs tests/local-folder-picker.test.mjs tests/local-personal-connector.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

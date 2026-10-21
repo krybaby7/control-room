@@ -27,9 +27,9 @@ type CapturedPhysicalRow=ModuleRow&{stream_sequence?:number};
 /** Closed read-only batches retain independent key cursors, exact row shapes,
  * source sequence, page and row bounds. No JSON aggregate exceeds a row limit. */
 async function readPhysicalImage(db:SqlDatabase,owner:string,auditWatermarks:Record<string,number>):Promise<{physical:Map<RegisteredOwnerTable,CapturedPhysicalRow[]>;auditPage:Record<string,unknown>[]} >{
- // <=36 compiled physical tables plus audit share flat bounded page CTEs
- // in one read-only statement, with an explicit empty certificate per tag.
- if(OWNER_TABLES.length>36)throw new Error('Physical snapshot table batch bound exceeded.');
+ // The closed inventory includes the personal PC state. Each statement still
+ // reads at most 36 physical pages plus audit; the final boundary guards both batches.
+ if(OWNER_TABLES.length>37)throw new Error('Physical snapshot table batch bound exceeded.');
  const image=new Map<RegisteredOwnerTable,CapturedPhysicalRow[]>(),after=new Map<RegisteredOwnerTable,string>();
  let pending=[...OWNER_TABLES],retainedBytes=0,auditPage:Record<string,unknown>[]|undefined;
  for(const table of pending){image.set(table,[]);after.set(table,'');}

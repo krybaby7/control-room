@@ -32,11 +32,11 @@ async function preflight(db:SqlDatabase){
  const prefix=[capacity,{sql:metadata.guard.sql,bindings:[...metadata.guard.bindings]},checks[0]],rows=checks.slice(1,-1),suffix=[checks.at(-1)!,{sql:'(SELECT COUNT(*) FROM workspace_mutations WHERE user_id=?) < ?',bindings:[owner,100000]}];
  return {before,prefix,rows,suffix};
 }
-test('all 41 real prewrite predicates remain ordered while the three twelve-table row groups stay exact',async()=>{
+test('all real prewrite predicates remain ordered while twelve-table row groups and the personal table tail stay exact',async()=>{
  const f=database();try{
-  const {prefix,rows,suffix}=await preflight(f.db);assert.equal(prefix.length,3);assert.equal(rows.length,3);assert.equal(suffix.length,2);
-  assert.deepEqual(rows.map(condition=>(condition.sql.match(/ EXCEPT /gu)??[]).length),[12,12,12]);
-  const grouped=[...combine(prefix),...rows,...combine(suffix)];assert.equal(grouped.length,5);assert.deepEqual(grouped.map(condition=>2+condition.bindings.length+guard.length),[35,53,53,53,11]);
+  const {prefix,rows,suffix}=await preflight(f.db);assert.equal(prefix.length,3);assert.equal(rows.length,4);assert.equal(suffix.length,2);
+  assert.deepEqual(rows.map(condition=>(condition.sql.match(/ EXCEPT /gu)??[]).length),[12,12,12,1]);
+  const grouped=[...combine(prefix),...rows,...combine(suffix)];assert.equal(grouped.length,6);assert.deepEqual(grouped.map(condition=>2+condition.bindings.length+guard.length),[35,53,53,53,9,11]);
   assert.deepEqual(grouped.flatMap(condition=>condition.bindings),[...prefix,...rows,...suffix].flatMap(condition=>condition.bindings));
   for(const group of grouped){assert.ok(2+group.bindings.length+guard.length<=100);assert.ok(new TextEncoder().encode(JSON.stringify([owner,id,...group.bindings,...guard])).length<=1800000);}
   const schemaSql=prefix[1].sql;assert.equal(grouped[0].sql.split(schemaSql).length-1,2);assert.ok(grouped[0].sql.includes(prefix[0].sql));assert.ok(grouped[0].sql.indexOf(prefix[0].sql)<grouped[0].sql.indexOf(prefix[2].sql));
@@ -49,7 +49,7 @@ test('committed capture update keeps prewrite groups before the receipt DML, pos
   const observed:SqlDatabase={prepare(sql){let statement=f.db.prepare(sql);const wrapped:SqlStatement={bind(...values){statement=statement.bind(...values);native.set(wrapped,{statement,sql});return wrapped;},first:()=>statement.first(),all:()=>statement.all(),run:()=>statement.run()};native.set(wrapped,{statement,sql});return wrapped;},async batch(statements){const selected=statements.map(statement=>native.get(statement)!);if(selected[0].sql.startsWith('INSERT INTO workspace_command_guards'))atomicSql=selected.map(item=>item.sql);return f.db.batch(selected.map(item=>item.statement));}};
   const input={protocolVersion:1,expectedRevision:before.revision,mutationId,command},deps={db:observed,handlers:workspaceHandlers,now:()=>now};
   assert.equal((await executeWorkspaceCommand(owner,input,deps)).status,'committed');
-  const receipt=atomicSql.findIndex(sql=>sql.startsWith('INSERT INTO workspace_mutations'));assert.equal(receipt,6);assert.equal(atomicSql.length,13);assert.ok(atomicSql.slice(1,receipt).every(sql=>sql.startsWith('INSERT INTO workspace_assertions')));
+  const receipt=atomicSql.findIndex(sql=>sql.startsWith('INSERT INTO workspace_mutations'));assert.equal(receipt,7);assert.equal(atomicSql.length,14);assert.ok(atomicSql.slice(1,receipt).every(sql=>sql.startsWith('INSERT INTO workspace_assertions')));
   const update=atomicSql.findIndex(sql=>sql.startsWith('UPDATE workspaces SET'));assert.ok(update>receipt);assert.match(atomicSql[update+1],/CASE WHEN EXISTS \(SELECT 1 FROM workspaces/);
   assert.equal((await executeWorkspaceCommand(owner,input,deps)).status,'replayed');assert.equal((await executeWorkspaceCommand(owner,{...input,mutationId:await issueMutationId(f.db,owner,now)},deps)).status,'conflict');
   assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM workspace_mutations').get()!.n,1);assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM workspace_assertions').get()!.n,0);assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM workspace_command_guards').get()!.n,0);
@@ -62,8 +62,8 @@ test('actual D1 accepts combined real prefix and suffix without changing native 
   const nativeDb=await mf.getD1Database('DB'),db:SqlDatabase=nativeDb,files=(await readdir(new URL('../drizzle/',import.meta.url))).filter(name=>/^\d+.*\.sql$/u.test(name)).sort();
   for(const name of files)for(const sql of (await readFile(new URL('../drizzle/'+name,import.meta.url),'utf8')).split('--> statement-breakpoint'))if(sql.trim())await db.prepare(sql.trim()).run();
   const {prefix,rows,suffix}=await preflight(db);await db.prepare('INSERT INTO workspace_command_guards(user_id,mutation_id,claim_token,valid) VALUES(?,?,?,1)').bind(...guard).run();
-  const grouped=[...combine(prefix),...rows,...combine(suffix)];assert.equal(grouped.length,5);assert.deepEqual(grouped.map(condition=>2+condition.bindings.length+guard.length),[35,53,53,53,11]);
-  await db.batch(prepareClaimAssertions(db,owner,id,claim,guard,grouped));assert.equal((await db.prepare('SELECT COUNT(*) n FROM workspace_assertions').first<{n:number}>())!.n,5);
+  const grouped=[...combine(prefix),...rows,...combine(suffix)];assert.equal(grouped.length,6);assert.deepEqual(grouped.map(condition=>2+condition.bindings.length+guard.length),[35,53,53,53,9,11]);
+  await db.batch(prepareClaimAssertions(db,owner,id,claim,guard,grouped));assert.equal((await db.prepare('SELECT COUNT(*) n FROM workspace_assertions').first<{n:number}>())!.n,6);
   await db.prepare('DELETE FROM workspace_assertions').run();
   const deniedCapacity=await privateCapacityGuard(db,owner,{growth:[{table:'workspace_mutations',bytes:100000000,rows:0}]});
   const denyBound=(condition:RecoverabilityCondition,index:number,value:number)=>({...condition,bindings:condition.bindings.map((binding,position)=>position===index?value:binding)});
@@ -84,3 +84,4 @@ test('actual D1 accepts combined real prefix and suffix without changing native 
 
  }finally{await mf.dispose();}
 });
+

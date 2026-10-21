@@ -1,4 +1,5 @@
 import {agentReferenceDescriptors} from './agents/module.ts';
+import {personalRepositoryReferenceDescriptor} from './personal-repository-module.ts';
 import {runtimeReferenceDescriptors} from './runtime/module.ts';
 import {baselineReferenceDescriptors} from './baselines/module.ts';
 import {reviewReferenceDescriptors} from './reviews/module.ts';
@@ -77,4 +78,4 @@ export function referenceImpact(planning:Workspace,snapshot:ReferenceSnapshot,re
   result.canDelete=result.references.length===0;return result;
 }
 
-for(const descriptor of [...planningReferenceDescriptors,...evidenceReferenceDescriptors,...sourceReferenceDescriptors,...reviewReferenceDescriptors,...baselineReferenceDescriptors,...runtimeReferenceDescriptors,...agentReferenceDescriptors])referenceRegistry.register(descriptor);
+for(const descriptor of [...planningReferenceDescriptors,...evidenceReferenceDescriptors,...sourceReferenceDescriptors,...reviewReferenceDescriptors,...baselineReferenceDescriptors,...runtimeReferenceDescriptors,...agentReferenceDescriptors,personalRepositoryReferenceDescriptor])referenceRegistry.register(descriptor);

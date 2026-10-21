@@ -8,9 +8,9 @@ import {buildRecoveryReadPageQueries,decodeRecoveryReadPages,readRecoveryReadPag
 import type {SqlDatabase} from '../lib/workspace-store.ts';
 import {canonical,contentHash} from '../lib/canonical-json.ts';
 const owner='synthetic-union-owner',now='2026-10-18T12:00:00.000Z';
-const allInput=():RecoveryReadPageInput=>({tables:OWNER_TABLES.map(table=>({table,after:''})),audit:{after:'',watermarks:{sources:0}}});
+const allInput=():RecoveryReadPageInput=>({tables:OWNER_TABLES.slice(0,36).map(table=>({table,after:''})),audit:{after:'',watermarks:{sources:0}}});
 async function rawPages(db:SqlDatabase,input:RecoveryReadPageInput){const queries=buildRecoveryReadPageQueries(owner,input),pages=await db.batch(queries.map(query=>db.prepare(query.sql).bind(...query.bindings)));return pages.flatMap(page=>page.results??[]);}
-test('closed query bounds native compound terms, placeholders and SQL size while certifying every empty physical and audit page',async()=>{
+test('closed query bounds native compound terms, placeholders and SQL size while certifying every selected bounded physical and audit page',async()=>{
  const f=database();try{
   await loadWorkspace(f.db,owner,workspaceFixture,now);
   const input=allInput(),queries=buildRecoveryReadPageQueries(owner,input);assert.equal(queries.length,1);
@@ -63,7 +63,7 @@ test('every missing, duplicate, unexpected, malformed, mixed or oversized tag re
   await assert.rejects(()=>readRecoveryReadPages(broken,owner,input),/closed recovery/);assert.equal(groups,1);
  }finally{f.sqlite.close();}
 });
-test('actual Miniflare D1 executes all 37 materialized pages through a native-bounded compound tree at full owner scope with 450 physical and audit records, certificates and exact frozen pages',{timeout:120000},async()=>{
+test('actual Miniflare D1 executes all 37 materialized pages through a native-bounded compound tree at bounded owner scope plus the personal tail with 450 physical and audit records, certificates and exact frozen pages',{timeout:120000},async()=>{
  const {Miniflare}=await import('miniflare'),{readdir,readFile}=await import('node:fs/promises');
  const mf=new Miniflare({modules:true,script:'export default {fetch(){return new Response("isolated synthetic union proof")}}',d1Databases:{DB:'synthetic-union-proof'}});
  try{
@@ -79,9 +79,9 @@ test('actual Miniflare D1 executes all 37 materialized pages through a native-bo
   await db.prepare('INSERT INTO evidence_records(user_id,id,row_revision,payload_json,content_hash) VALUES(?,?,1,?,?)').bind('foreign-owner','foreign-key',payload,digest).run();
   const selected:string[]=[],audit:string[]=[];let after='',auditAfter='';
   for(let round=0;round<3;round++){
-   const input:RecoveryReadPageInput={tables:OWNER_TABLES.map(table=>({table,after:table==='evidence_records'?after:''})),audit:{after:auditAfter,watermarks:{sources:0}}};
+   const input:RecoveryReadPageInput={tables:OWNER_TABLES.slice(0,36).map(table=>({table,after:table==='evidence_records'?after:''})),audit:{after:auditAfter,watermarks:{sources:0}}};
    const queries=buildRecoveryReadPageQueries(owner,input);assert.equal(queries.length,1);assert.ok(queries.every(query=>(query.sql.match(/ AS snapshot_tag/gu)??[]).length===74&&query.bindings.length<=100));
-   const page=await readRecoveryReadPages(db,owner,input),physical=page.physical.get('evidence_records')!,events=page.auditPage!;assert.equal(page.physical.size,36);assert.equal(page.physical.get('notification_events')![0].stream_sequence,7);assert.equal(page.physical.get('notification_events')![0].payload_json,payload);assert.equal(physical.length,round<2?200:50);assert.equal(events.length,round<2?200:50);
+   const page=await readRecoveryReadPages(db,owner,input),physical=page.physical.get('evidence_records')!,events=page.auditPage!;assert.equal(page.physical.size,36);const tail=await readRecoveryReadPages(db,owner,{tables:OWNER_TABLES.slice(36).map(table=>({table,after:''}))});assert.deepEqual(tail.physical.get('personal_repository_state'),[]);assert.equal(page.physical.get('notification_events')![0].stream_sequence,7);assert.equal(page.physical.get('notification_events')![0].payload_json,payload);assert.equal(physical.length,round<2?200:50);assert.equal(events.length,round<2?200:50);
    for(const row of physical){assert.equal(row.payload_json,payload);assert.equal(row.content_hash,digest);assert.equal(Object.hasOwn(row,'stream_sequence'),false);selected.push(row.id as string);}for(const row of events){assert.equal(row.payload_json,payload);assert.equal(row.stream_id,null);assert.equal(row.stream_sequence,null);audit.push(row.event_id as string);}
    after=selected.at(-1)!;auditAfter=audit.at(-1)!;
   }
@@ -91,3 +91,6 @@ test('actual Miniflare D1 executes all 37 materialized pages through a native-bo
   assert.deepEqual(native.map(row=>row.id),selected);assert.equal((await db.prepare('SELECT COUNT(*) n FROM workspace_mutations').first<{n:number}>())!.n,0);
  }finally{await mf.dispose();}
 });
+
+test('the personal repository tail has its own native bounded page without omitting its exact owner rows',async()=>{const f=database();try{const payload='{}',digest=await contentHash(payload);f.sqlite.prepare('INSERT INTO personal_repository_state(user_id,id,row_revision,payload_json,content_hash,created_at) VALUES(?,?,1,?,?,?)').run(owner,'personal-tail',payload,digest,now);const page=await readRecoveryReadPages(f.db,owner,{tables:OWNER_TABLES.slice(36).map(table=>({table,after:''}))});assert.deepEqual(page.physical.get('personal_repository_state'),[{id:'personal-tail',row_revision:1,payload_json:payload,content_hash:digest}]);assert.throws(()=>buildRecoveryReadPageQueries(owner,{tables:OWNER_TABLES.map(table=>({table,after:''}))}),/closed recovery/);}finally{f.sqlite.close();}});
+

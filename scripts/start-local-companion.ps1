@@ -1,3 +1,4 @@
+param([switch]$OpenDashboard)
 $ErrorActionPreference = 'Stop'
 $nodeCommand = Get-Command node -ErrorAction SilentlyContinue
 $nodePath = if ($nodeCommand) { $nodeCommand.Source } else { $null }
@@ -32,4 +33,4 @@ while ([DateTime]::UtcNow -lt $deadline) {
   }
 }
 if (-not $ready) { throw 'The companion did not become ready. Check its private logs.' }
-Start-Process 'http://127.0.0.1:4319' | Out-Null
+if ($OpenDashboard) { Start-Process 'https://adami-project-control-center.roundmoth32.chatgpt.site' | Out-Null }
