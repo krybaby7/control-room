@@ -1,0 +1,40 @@
+/** Local transcript metadata and text only. No CLI/provider, credential or settings access.
+ * The aggregator must secret-filter and redact WHOLE messages before its output clip. */
+import {lstat,realpath,opendir,open} from 'node:fs/promises';
+import {constants} from 'node:fs';
+import {homedir} from 'node:os';
+import path from 'node:path';
+const LIMIT=Symbol('bounded-read');
+const WINDOW=32768,MAX_DIRECTORIES=32,MAX_FILES=32,MAX_ENTRIES=128,MAX_READ_BYTES=2*1024*1024,MAX_TEXT_BYTES=65536;
+const normalize=value=>{const resolved=path.resolve(value);return process.platform==='win32'?resolved.replaceAll('\\','/').toLowerCase():resolved;};
+const sameFile=(a,b)=>a.dev===b.dev&&a.ino===b.ino&&a.size===b.size&&a.mtimeMs===b.mtimeMs&&a.ctimeMs===b.ctimeMs&&a.nlink===1&&b.nlink===1;
+async function safeDirectory(input,check){if(typeof input!=='string'||!path.isAbsolute(input)||input.startsWith('\\\\')||input.includes('\0'))throw new Error('Unsafe directory.');const absolute=path.resolve(input);let cursor=path.parse(absolute).root;for(const part of absolute.slice(cursor.length).split(path.sep).filter(Boolean)){check();cursor=path.join(cursor,part);const info=await lstat(cursor);if(!info.isDirectory()||info.isSymbolicLink())throw new Error('Linked directory.');}if(normalize(await realpath(absolute))!==normalize(absolute))throw new Error('Noncanonical directory.');return absolute;}
+async function directoryEntries(directory,maximum,check){const result=[];const handle=await opendir(directory);for await(const entry of handle){check();if(result.length>=maximum){result.limited=true;break;}result.push(entry);}return result;}
+function decodedLines(buffer,start,size){let first=0,end=buffer.length;if(start>0){const newline=buffer.indexOf(10);if(newline<0)return [];first=newline+1;}if(start+buffer.length<size){const newline=buffer.lastIndexOf(10);if(newline<first)return [];end=newline+1;}return new TextDecoder('utf-8',{fatal:true}).decode(buffer.subarray(first,end)).split('\n').filter(Boolean);}
+function textMessage(row){if(row.isSidechain!==undefined&&row.isSidechain!==false||row.isMeta===true||row.isApiErrorMessage||row.apiError||row.error||!['user','assistant'].includes(row.type)||row.message?.role!==row.type)return null;const content=row.message.content;if(row.type==='assistant'&&[row.stop_reason,row.message.stop_reason].some(reason=>reason!==undefined&&reason!==null&&!['end_turn','stop_sequence'].includes(reason)))return null;if(Array.isArray(content)&&content.some(block=>typeof block?.type==='string'&&(/^(?:tool_use|server_tool_use|tool_result)$/u.test(block.type)||block.type.endsWith('_tool_result'))))return null;if(typeof content==='string')return content.trim()?content:null;if(!Array.isArray(content))return null;const text=content.filter(block=>block&&block.type==='text'&&typeof block.text==='string').map(block=>block.text).join('\n');return text.trim()?text:null;}
+
+export async function readClaudeChatContext({repositoryRoot,signal,configRoot=process.env.CLAUDE_CONFIG_DIR??path.join(homedir(),'.claude')}={}){
+ let limited=false,unsafe=false,readBytes=0,fileCount=0;const candidates=[],deadline=Date.now()+1500;
+ const result=(status,messages=[],latestAt=null)=>({provider:'claude',status,match:messages.length?'cwd':null,messages,latestAt,truncated:limited});
+ const check=()=>{signal?.throwIfAborted();if(Date.now()>deadline)throw LIMIT;};
+ try{
+  check();const canonicalRoot=await safeDirectory(repositoryRoot,check),expected=normalize(canonicalRoot);const projects=await safeDirectory(path.join(configRoot,'projects'),check);
+  const directories=await directoryEntries(projects,MAX_DIRECTORIES,check);limited||=!!directories.limited;
+  // Names are merely a discovery hint; every accepted row must prove its exact cwd.
+  const encoded=canonicalRoot.replace(/[^a-zA-Z0-9]/gu,'-').toLowerCase();directories.sort((a,b)=>Number(b.name.toLowerCase()===encoded)-Number(a.name.toLowerCase()===encoded));
+  for(const directory of directories){check();if(!directory.isDirectory())continue;let folder;try{folder=await safeDirectory(path.join(projects,directory.name),check);}catch(error){if(error===LIMIT||signal?.aborted)throw error;unsafe=true;continue;}
+   const entries=await directoryEntries(folder,MAX_ENTRIES,check);limited||=!!entries.limited;
+   for(const entry of entries){check();if(!/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}\.jsonl$/u.test(entry.name))continue;const sessionId=entry.name.slice(0,-6);if(fileCount++>=MAX_FILES){limited=true;throw LIMIT;}const file=path.join(folder,entry.name);let handle;try{
+    await safeDirectory(folder,check);const before=await lstat(file);if(!before.isFile()||before.isSymbolicLink()||before.nlink!==1){unsafe=true;continue;}
+    handle=await open(file,constants.O_RDONLY|(constants.O_NOFOLLOW??0));if(!sameFile(before,await handle.stat())){unsafe=true;continue;}const size=before.size;if(!Number.isSafeInteger(size)||size<0){unsafe=true;continue;}const windows=[[0,Math.min(size,WINDOW)]];if(size>WINDOW)windows.push([Math.max(WINDOW,size-WINDOW),Math.min(WINDOW,size-WINDOW)]);let clipped=size>2*WINDOW,headScoped=false,headMatches=false;const records=[];
+    for(const [position,length]of windows){if(position>0&&headScoped&&!headMatches)break;check();if(readBytes+length>MAX_READ_BYTES){limited=true;throw LIMIT;}const buffer=Buffer.alloc(length),received=await handle.read(buffer,0,length,position);readBytes+=received.bytesRead;if(received.bytesRead!==length){unsafe=true;throw new Error('Unstable transcript.');}for(const line of decodedLines(buffer,position,size)){check();if(records.length>=2000){clipped=true;break;}let row;try{row=JSON.parse(line);}catch{clipped=true;continue;}if(position===0&&row&&['user','assistant'].includes(row.type)&&typeof row.sessionId==='string'&&/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/u.test(row.sessionId)&&typeof row.cwd==='string'&&path.isAbsolute(row.cwd)&&(row.isSidechain===undefined||row.isSidechain===false)){headScoped=true;if(row.sessionId===sessionId&&normalize(row.cwd)===expected)headMatches=true;}if(!row||row.sessionId!==sessionId||typeof row.cwd!=='string'||!path.isAbsolute(row.cwd)||normalize(row.cwd)!==expected||row.isSidechain!==undefined&&row.isSidechain!==false||typeof row.uuid!=='string'||row.uuid.length>128)continue;records.push(row);}}
+    await safeDirectory(folder,check);if(!sameFile(before,await handle.stat())||!sameFile(before,await lstat(file))){unsafe=true;continue;}
+    const eligible=records.filter(row=>textMessage(row)!==null&&typeof row.timestamp==='string'&&Number.isFinite(Date.parse(row.timestamp)));if(!eligible.length)continue;eligible.sort((a,b)=>Date.parse(a.timestamp)-Date.parse(b.timestamp));const leaf=eligible.at(-1),rows=new Map(records.map(row=>[row.uuid,row])),chain=[],seen=new Set();let current=leaf,total=0;
+    while(current){check();if(seen.has(current.uuid)){clipped=true;break;}seen.add(current.uuid);const text=textMessage(current);if(text!==null){const bytes=Buffer.byteLength(text);if(total+bytes>MAX_TEXT_BYTES){clipped=true;break;}if(chain.length>=6){clipped=true;break;}chain.push({role:current.type,text});total+=bytes;}if(!current.parentUuid)break;const parent=rows.get(current.parentUuid);if(!parent){clipped=true;break;}current=parent;}
+    if(chain.length)candidates.push({messages:chain.reverse(),latestAt:new Date(leaf.timestamp).toISOString(),clipped});
+   }catch(error){if(error===LIMIT||signal?.aborted)throw error;unsafe=true;}finally{await handle?.close();}
+   }
+  }
+ }catch(error){if(signal?.aborted)signal.throwIfAborted();if(error===LIMIT)limited=true;else if(error?.code!=='ENOENT')unsafe=true;}
+ candidates.sort((a,b)=>Date.parse(b.latestAt)-Date.parse(a.latestAt));const selected=candidates[0];if(selected){limited||=selected.clipped;return result('included',selected.messages,selected.latestAt);}return result(unsafe||limited?'unavailable':'not-found');
+}

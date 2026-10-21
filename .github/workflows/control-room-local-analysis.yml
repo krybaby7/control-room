@@ -1,0 +1,22 @@
+name: Local repository analysis checks
+on:
+  pull_request:
+    paths: ['companion/**', 'shared/**', 'scripts/*local-companion*', 'tests/local-*.test.*', '.github/workflows/control-room-local-analysis.yml']
+  push:
+    branches: ['feat/**']
+    paths: ['companion/**', 'shared/**', 'scripts/*local-companion*', 'tests/local-*.test.*', '.github/workflows/control-room-local-analysis.yml']
+permissions:
+  contents: read
+jobs:
+  companion:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm run test:companion
