@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createLocalCompanionClient,localCompanionBase,LocalCompanionRequestError,parseCompanionRun} from '../lib/local-companion-client.ts';
+import {createLocalCompanionClient,localCompanionBase,LocalCompanionRequestError,parseCompanionRun,parseImportedLocalReport,sameLocalAnalysisReport} from '../lib/local-companion-client.ts';
 test('companion destination cannot escape literal loopback',()=>{
  assert.equal(localCompanionBase('4319'),'http://127.0.0.1:4319');
  for(const value of ['https://evil.test','4319/path','0','65536','4319@evil',' 4319'])assert.throws(()=>localCompanionBase(value));
@@ -34,4 +34,14 @@ test('unknown run response is distinguishable without exposing body or credentia
 test('only known companion diagnostics are displayed',()=>{
  const base={id:'00000000-0000-4000-8000-000000000001',status:'failed'};
  assert.equal(parseCompanionRun({...base,error:'Companion restarted; analysis was not repeated.'}).error,'Companion restarted; analysis was not repeated.');assert.equal(parseCompanionRun({...base,error:'secret-code raw failure'}).error,'The local analysis did not complete. Inspect the helper locally.');
+});
+test('import rejects malformed UTF-8, oversized files and arbitrary JSON before any save',()=>{
+ for(const bytes of [new Uint8Array([0xff]),new Uint8Array(55001),new TextEncoder().encode('{"project":"untrusted"}')])assert.throws(()=>parseImportedLocalReport(bytes));
+});
+test('import preserves a valid UTF-8 report and original run identity without requesting inference',()=>{
+ const report={format:'control-room-project-analysis',version:1,repository:{key:'example',name:'Example',head:'a'.repeat(40),dirty:true,snapshotSha256:'b'.repeat(64),files:1,bytes:10,includedChanges:true,excludedFiles:2},run:{id:'00000000-0000-4000-8000-000000000001',provider:'codex',requestedModel:'gpt-6.1-sol',observedModel:null,startedAt:'2026-10-21T12:00:00Z',completedAt:'2026-10-21T12:01:00Z',mode:'read-only',source:'paired-local-companion'},summary:'Example · مثال',architecture:[],findings:[],suggestedTasks:[],limitations:['Partial source only.']};
+ assert.deepEqual(parseImportedLocalReport(new TextEncoder().encode(JSON.stringify(report))),report);
+ const valid=parseImportedLocalReport(new TextEncoder().encode(JSON.stringify(report)));
+ assert.equal(sameLocalAnalysisReport(valid,{...valid,summary:'Changed under the same run ID'}),false);
+ assert.equal(sameLocalAnalysisReport(valid,Object.fromEntries(Object.entries(valid).reverse())),true);
 });

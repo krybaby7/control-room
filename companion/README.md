@@ -26,6 +26,16 @@ descriptions. The local page shows registered names, the pairing code and local
 forms. It is not frameable and loads no external assets. Ctrl+C stops a
 foreground companion, cancelling its owned active analysis.
 
+If the browser blocks Site-to-loopback requests, use **Analyze read-only with
+gpt-6.1-sol** on the local page. The same bounded execution runs once, with a
+local Origin and CSRF guard. The status page refreshes status only. Download its
+completed analysis JSON, choose a project under **AI project analysis** in
+Control Room, and use **Import helper report**. Import validates the report and
+saves through the existing signed-in owner command; it never starts AI. A
+reused run ID with different report contents is rejected. This fallback was
+added after the Codex in-app browser's direct connection failed before reaching
+the local helper; direct pairing must be verified separately in other browsers.
+
 Only `https://adami-project-control-center.roundmoth32.chatgpt.site` is admitted
 as browser Origin. Every API request needs `Authorization: Bearer <code>`;
 preflight is the browser's unauthenticated CORS negotiation, not API access.
@@ -72,6 +82,10 @@ reports are validated against the shared schema and exact selected file hashes
 and citation line ranges, then saved locally. Restarted unfinished requests are
 failed, never relaunched. A report is a proposed description, not independent
 proof of runtime behavior, tests, task completion or deployment.
+
+The companion never automatically starts a second CLI invocation. Codex may
+internally retry network requests within that one invocation; the companion
+does not claim provider billing idempotency.
 
 ## HTTP contract
 
