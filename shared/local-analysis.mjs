@@ -6,7 +6,7 @@ const integer=(minimum,maximum)=>({type:'integer',minimum,maximum});
 const object=properties=>({type:'object',properties,required:Object.keys(properties),additionalProperties:false});
 const array=(items,maxItems)=>({type:'array',items,maxItems});
 const digest={...str(64,64),pattern:'^[a-f0-9]{64}$'};
-const relativePath={...str(500),pattern:'^(?!/)(?!.*[\\\\:\\u0000-\\u001f\\u007f])[^/]+(?:/[^/]+)*$'};
+const relativePath={...str(500),pattern:'^[^/\\\\:\\u0000-\\u001f\\u007f]+(?:/[^/\\\\:\\u0000-\\u001f\\u007f]+)*$'};
 export const reportContentSchema=object({
  summary:str(1200),
  architecture:array(object({name:str(80),description:str(400),paths:array(relativePath,4)}),8),

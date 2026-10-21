@@ -1,9 +1,12 @@
 import {validateLocalAnalysis,type Report} from '../shared/local-analysis.mjs';
+import {canonical} from './canonical-json.ts';
+export function sameLocalAnalysisReport(left:unknown,right:unknown):boolean{return canonical(validateLocalAnalysis(left))===canonical(validateLocalAnalysis(right));}
 export interface CompanionRepository {key:string;name:string;head:string;dirty:boolean}
 export interface CompanionRun {id:string;status:'queued'|'running'|'completed'|'failed'|'cancelled';report?:Report;error?:string}
 export interface CompanionStatus {version:1;repositories:CompanionRepository[];activeRun?:CompanionRun;lastRun?:CompanionRun;recentRuns:Array<{id:string;status:CompanionRun['status'];repositoryKey:string}>}
 const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/u;
 const alias=/^[A-Za-z0-9_-]{1,128}$/u;
+export function parseImportedLocalReport(bytes:Uint8Array):Report {try{if(!bytes.byteLength||bytes.byteLength>55000)throw new Error();return validateLocalAnalysis(JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes)));}catch{throw new Error('Choose a complete UTF-8 project analysis JSON report downloaded from the local helper (at most 55 KB).');}}
 export class LocalCompanionRequestError extends Error {status:number;constructor(status:number){super(status===404?'The original run was not found in this paired helper.':'The local helper rejected the request. Check pairing and local helper status.');this.name='LocalCompanionRequestError';this.status=status;}}
 const safeRunErrors=new Set(['Companion restarted; analysis was not repeated.','Owned process exit was not confirmed. Restart the companion after local inspection.','Analysis cancelled.','Analysis could not produce a verified report. No automatic retry was performed.','Report could not be durably saved.']);
 export function localCompanionBase(port:string):string {if(!/^[1-9][0-9]{0,4}$/u.test(port)||Number(port)>65535)throw new Error('Choose a port from 1 to 65535.');return `http://127.0.0.1:${port}`;}
