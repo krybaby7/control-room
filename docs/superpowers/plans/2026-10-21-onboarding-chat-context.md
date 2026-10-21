@@ -10,20 +10,20 @@
 
 ## Task 1 — Contract and collector
 
-- [ ] Extend shared report validation with optional strict `chatContext` while preserving legacy bytes. Add malformed/oversize/provenance tests before implementing the extension.
-- [ ] Implement `collectProjectChats(root, {signal, snapshotSha256})` in focused `companion/chat-context.mjs` and provider readers. Return `{context, provenance}`. Policy: at most one main conversation/provider, six user/final-assistant messages/provider, 2,000 characters/provider, 4,000 total, bounded byte/tail/discovery limits.
-- [ ] Use synthetic Codex SQLite/rollout and Claude JSONL fixtures to test exact cwd matching, verified remote+known-commit moved identity, safe newest selection, no unrelated data, secret/tool/reasoning exclusions, link/change refusal, partial tails, missing formats and cancellation. Run `node --test tests/local-chat-context.test.mjs` and confirm failure before production implementation.
+- [x] Extend shared report validation with optional strict `chatContext` while preserving legacy bytes. Add malformed/oversize/provenance tests before implementing the extension.
+- [x] Implement `collectProjectChats(root, {signal, snapshotSha256})` in focused `companion/chat-context.mjs` and provider readers. Return `{context, provenance}`. Policy: at most one main conversation/provider, six user/final-assistant messages/provider, 2,000 characters/provider, 4,000 total, bounded byte/tail/discovery limits.
+- [x] Use synthetic Codex SQLite/rollout and Claude JSONL fixtures to test exact cwd matching, verified remote+known-commit moved identity, safe newest selection, no unrelated data, secret/tool/reasoning exclusions, link/change refusal, partial tails, missing formats and cancellation. Run `node --test tests/local-chat-context.test.mjs` and confirm failure before production implementation.
 
 ## Task 2 — Single-call integration and coverage
 
-- [ ] After the source snapshot, collect recent project chat context under the same run deadline; cancellation remains effective. Pass `{context, provenance}` to the existing analyzer without adding an inference call or resuming a previous session.
-- [ ] Add historical context to the bounded model prompt, preserve existing source citation validation, instruct current-source precedence, append trusted provenance only after validating model output. Test actual fake-provider input and generated report metadata.
-- [ ] Add the collector's reviewed files to `COMPANION_SOURCE_PATHS`, update deterministic ZIP tests and documentation. Keep raw chats and owner paths outside Git.
+- [x] After the source snapshot, collect recent project chat context under the same run deadline; cancellation remains effective. Pass `{context, provenance}` to the existing analyzer without adding an inference call or resuming a previous session.
+- [x] Add historical context to the bounded model prompt, preserve existing source citation validation, instruct current-source precedence, append trusted provenance only after validating model output. Test actual fake-provider input and generated report metadata.
+- [x] Add the collector's reviewed files to `COMPANION_SOURCE_PATHS`, update deterministic ZIP tests and documentation. Keep raw chats and owner paths outside Git.
 
 ## Task 3 — Display and compatibility
 
-- [ ] Explain default bounded chat inclusion in helper local page and hosted setup. Saved reports show included source/date/count and unavailable sources/cloud; old reports explicitly have no recorded chat coverage.
-- [ ] Run contract/helper/package/client/storage tests, typecheck, lint and supported build. Independent workers review relevance, privacy, bounds and v1 compatibility.
+- [x] Explain default bounded chat inclusion in helper local page and hosted setup. Saved reports show included source/date/count and unavailable sources/cloud; old reports explicitly have no recorded chat coverage.
+- [x] Run contract/helper/package/client/storage tests, typecheck, lint and supported build. Independent workers review relevance, privacy, bounds and v1 compatibility.
 
 ## Task 4 — Installed acceptance and release
 

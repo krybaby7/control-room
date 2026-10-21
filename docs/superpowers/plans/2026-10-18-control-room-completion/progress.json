@@ -5,6 +5,15 @@
   "baselineCommit": "b50aa5c34783ffc0109c46d91c599923df9cc305",
   "implementationBranch": "feat/control-room-completion-cloud",
   "status": "in_progress",
+  "localRepositoryChatContext": {
+    "date": "2026-10-21",
+    "status": "implemented",
+    "scope": "Default bounded latest matching local Codex and Claude Code chats in the existing one-call read-only onboarding workflow",
+    "limits": "One main conversation/provider, six text messages/provider, 2000 characters/provider, 4000 total; no extra summarization call",
+    "sourceEvidence": "Synthetic collector, prompt, contract, native helper, immutable storage and client checks; installed acceptance and deployment evidence retained privately by owner",
+    "cloudBoundary": "Cloud-only histories are not connected; no browser-cookie reuse or unrelated history selection",
+    "design": "docs/superpowers/specs/2026-10-21-onboarding-chat-context-design.md"
+  },
   "phases": [
     {
       "id": 0,
