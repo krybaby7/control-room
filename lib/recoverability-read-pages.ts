@@ -98,9 +98,18 @@ export function decodeRecoveryReadPages(input:RecoveryReadPageInput,raws:unknown
  for(const [tag,value]of tags){if(!value.empty&&!value.count)fail();if(tag===auditTag)auditPage=value.auditRows;else physical.set(value.table!,value.physicalRows);}
  return {physical,...(input.audit?{auditPage}:{} )};
 }
-export async function readRecoveryReadPages(db:SqlDatabase,owner:string,input:RecoveryReadPageInput):Promise<RecoveryReadPages>{
- const queries=buildRecoveryReadPageQueries(owner,input),results=await db.batch(queries.map(query=>db.prepare(query.sql).bind(...query.bindings)));
+/** At most two independent closed statements share one native read batch.
+ * Results remain positional and each statement retains its exact tag decoder. */
+export async function readRecoveryReadPageGroups(db:SqlDatabase,owner:string,inputs:readonly RecoveryReadPageInput[]):Promise<RecoveryReadPages[]>{
+ if(!Array.isArray(inputs)||inputs.length<1||inputs.length>2)fail();
+ const selected=new Set<RegisteredOwnerTable>();let audit=false;
+ for(const input of inputs){validateInput(input);for(const {table}of input.tables){if(selected.has(table))fail();selected.add(table);}if(input.audit){if(audit)fail();audit=true;}}
+ if(selected.size>38)fail();
+ const queries=inputs.map(input=>{const group=buildRecoveryReadPageQueries(owner,input);if(group.length!==1)fail();return group[0];});
+ const results=await db.batch(queries.map(query=>db.prepare(query.sql).bind(...query.bindings)));
  if(!Array.isArray(results)||results.length!==queries.length)fail();
- const rows:unknown[]=[];for(const result of results){if(!Array.isArray(result?.results))fail();rows.push(...result.results);}
- return decodeRecoveryReadPages(input,rows);
+ return inputs.map((input,index)=>{const result=results[index];if(!Array.isArray(result?.results))fail();return decodeRecoveryReadPages(input,result.results);});
+}
+export async function readRecoveryReadPages(db:SqlDatabase,owner:string,input:RecoveryReadPageInput):Promise<RecoveryReadPages>{
+ return (await readRecoveryReadPageGroups(db,owner,[input]))[0];
 }

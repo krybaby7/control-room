@@ -1,3 +1,4 @@
+import {sourceSemanticDigest} from './source-identity.ts';
 import {z} from 'zod';
 import type {SqlDatabase,SqlStatement} from '../workspace-store.ts';
 import {canonical,contentHash} from '../canonical-json.ts';
@@ -15,7 +16,7 @@ export const AreaAnalysisOriginalSchema=z.union([
 export type AreaAnalysisOriginal=z.infer<typeof AreaAnalysisOriginalSchema>;
 export const AnalysisJobPinSchema=z.object({watermark:z.string().min(1).max(1024),inputDigest:digest}).strict();
 export type AnalysisJobPin=z.infer<typeof AnalysisJobPinSchema>;
-const fence=z.object({kind:z.enum(['source','association_rule','source_removal','ingest_page']),logicalId:z.string().min(1).max(1024),physicalId:z.string().min(1).max(128),rowRevision:z.number().int().positive().safe(),contentHash:digest}).strict();
+const fence=z.object({kind:z.enum(['source','association_rule','source_removal','ingest_page']),logicalId:z.string().min(1).max(1024),physicalId:z.string().min(1).max(128),rowRevision:z.number().int().positive().safe(),contentHash:digest,semanticDigest:digest.optional()}).strict();
 const ControlSchema=z.object({format:z.literal('history-analysis-job/v1'),originalPayload:z.string().min(1).max(65536),originalDigest:digest,controlRevision:z.number().int().positive().safe(),mode:z.enum(['analyze_retained','reproject_removed_source']),fences:z.array(fence).min(1).max(103),pin:AnalysisJobPinSchema,pinDigest:digest,cursor:z.string().min(1).max(16384).nullable(),reservedRequestIds:z.array(id).max(250).refine(unique),attempt:count,retryAt:stamp.nullable(),failure:z.enum(['access','stale_input','processing','timeout']).nullable(),lease:z.object({token:z.string().uuid(),expiresAt:stamp,principalRef:id}).strict().nullable()}).strict();
 export type AreaAnalysisControl=z.infer<typeof ControlSchema>;
 export interface AreaAnalysisJob {ownerId:string;intentId:string;status:string;executionEpoch:number;cancelRequested:boolean;notBefore:string;serialized:string;original:AreaAnalysisOriginal;control:AreaAnalysisControl|null;}
@@ -42,7 +43,7 @@ async function captureFences(db:SqlDatabase,job:AreaAnalysisJob):Promise<AreaAna
  for(const sourceId of [...sourceIds].sort()){const source=await readHistoryRecord(db,job.ownerId,'source',sourceId);if(!source||source.record.value.executionEpoch!==job.executionEpoch)return null;const value=source.record.value;
   if('removalId'in original?value.removedAt===null:value.removedAt!==null)return null;
   if('watermark'in original&&(value.epoch!==original.epoch||value.scopeRevision!==original.scopeRevision))return null;
-  result.push({kind:'source',logicalId:sourceId,physicalId:source.record.id,rowRevision:source.rowRevision,contentHash:source.contentHash});
+  result.push({kind:'source',logicalId:sourceId,physicalId:source.record.id,rowRevision:source.rowRevision,contentHash:source.contentHash,semanticDigest:await sourceSemanticDigest(value)});
  }
  if('watermark'in original){const logicalId=await contentHash(canonical([original.sourceId,original.epoch,original.scopeRevision,original.pageId])),receipt=await readHistoryRecord(db,job.ownerId,'ingest_page',logicalId);if(!receipt||receipt.record.value.executionEpoch!==job.executionEpoch||receipt.record.value.acknowledgement.watermark!==String(original.watermark))return null;result.push({kind:'ingest_page',logicalId,physicalId:receipt.record.id,rowRevision:receipt.rowRevision,contentHash:receipt.contentHash});}
  if('ruleId'in original){const rule=await readHistoryRecord(db,job.ownerId,'association_rule',original.ruleId);if(!rule||rule.rowRevision!==original.ruleRevision||rule.record.value.rowRevision!==original.ruleRevision||rule.record.value.projectId!==original.projectId||rule.record.value.areaId!==original.areaId)return null;let selected:string[];try{selected=[...new Set(rule.record.value.targetIds.map(target=>z.tuple([id,z.string().min(1).max(512)]).parse(JSON.parse(target))[0]))].sort();}catch{return null;}if(canonical(selected)!==canonical([...original.sourceIds].sort())||!original.affectedDestinations.some(d=>d.projectId===original.projectId&&d.areaId===original.areaId))return null;result.push({kind:'association_rule',logicalId:original.ruleId,physicalId:rule.record.id,rowRevision:rule.rowRevision,contentHash:rule.contentHash});}
@@ -119,11 +120,13 @@ export async function rebaseAreaAnalysisJob(db:SqlDatabase,ownerId:string,intent
  const control=job.control,eligible=job.status==='pending'&&control.lease===null||job.status==='running'&&control.lease!==null&&Date.parse(control.lease.expiresAt)<=Date.parse(options.now);if(!eligible)return null;
  const pin=AnalysisJobPinSchema.parse(options.pin),fences=await captureFences(db,job);
  // Trigger scope and original provenance are immutable. A changed source/rule
- // requires its own newly authorized trigger, not a silent rebase of old work.
- if(!fences||canonical(fences)!==canonical(control.fences))return null;
+ // requires its own newly authorized trigger. Only native semantic source
+ // digests can prove an operational capability-only row change; legacy fences
+ // remain exact. The new lease still uses the recaptured physical row CAS.
+ if(!fences||fences.length!==control.fences.length||fences.some((current,index)=>{const previous=control.fences[index];if(canonical(current)===canonical(previous))return false;if(current.kind!=='source'||previous.kind!=='source')return true;const {semanticDigest:oldSemantic,...oldPhysical}=previous,{semanticDigest:newSemantic,...newPhysical}=current;if(canonical(oldPhysical)===canonical(newPhysical))return oldSemantic!==undefined&&oldSemantic!==newSemantic;return current.logicalId!==previous.logicalId||current.physicalId!==previous.physicalId||!oldSemantic||oldSemantic!==newSemantic;}))return null;
  const next:AreaAnalysisControl={...control,controlRevision:control.controlRevision+1,fences,pin,pinDigest:await contentHash(canonical([control.originalDigest,fences,pin])),cursor:null,lease:null,retryAt:options.now,failure:null};
  const native=await pinnedGuard(db,job,options.authority,options.now,next);if(!native)return null;
  const queue:AnalysisJobSqlGuard={sql:"EXISTS(SELECT 1 FROM workspace_job_intents WHERE user_id=? AND id=? AND kind='area_analysis' AND status=? AND payload_json=? AND execution_epoch=? AND cancel_requested=0)",bindings:[ownerId,intentId,job.status,job.serialized,job.executionEpoch]},guard=combine([native,queue]);
- if(canonical(pin)===canonical(control.pin)){const compact=compactGuard(guard);return await db.prepare('SELECT 1 WHERE '+compact.sql).bind(...compact.bindings).first()?job:null;}
+ if(canonical(pin)===canonical(control.pin)&&canonical(fences)===canonical(control.fences)){const compact=compactGuard(guard);return await db.prepare('SELECT 1 WHERE '+compact.sql).bind(...compact.bindings).first()?job:null;}
  return write(db,job,next,'pending',guard,{notBefore:options.now,cancel:false});
 }

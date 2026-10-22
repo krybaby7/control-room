@@ -78,13 +78,19 @@ async function executeWorkspaceCommandAdmitted(userId:string,input:{protocolVers
   const {db}=deps,revision=input.expectedRevision,id=input.mutationId,now=deps.now();
   if (!input.command || typeof input.command!=='object' || Array.isArray(input.command) || typeof (input.command as {type?:unknown}).type!=='string') throw new CommandValidationError('A command type is required.');
   const command=input.command as WorkspaceCommand;
-  const hash=await hashJson({protocolVersion:1,command});
-  // Existing v2 receipts used the command-only hash; preserve their replay semantics.
-  const legacyHash=await hashJson(command);
+  // These are independent read-only preflights for this authenticated request.
+  // Keep both original native SHA identities and their original error priority;
+  // the later planning reread and every atomic claim/epoch/receipt guard remain.
+  const [admissionRead,protocolHash,legacyCommandHash]=await Promise.allSettled([
+    readMutationAdmission(db,userId,id),hashJson({protocolVersion:1,command}),hashJson(command)]);
+  if(protocolHash.status==='rejected')throw protocolHash.reason;
+  if(legacyCommandHash.status==='rejected')throw legacyCommandHash.reason;
+  if(admissionRead.status==='rejected')throw admissionRead.reason;
+  const hash=protocolHash.value,legacyHash=legacyCommandHash.value;
   const checkReceipt=async ():Promise<CommandResult|null>=>{const prior=await receipt(db,userId,id);if(!prior)return null;if(prior.command_hash!==hash && prior.command_hash!==legacyHash)throw new MutationIdReuseError('This mutation ID was reused for a different change.');return {status:'replayed',envelope:await readCurrent(db,userId,now),receipt:{mutationId:id,commandHash:prior.command_hash,appliedRevision:prior.revision}};};
   // One statement freezes the epoch, receipt and revision head together.
   // Later failure reconciliation and every atomic compiler guard stay intact.
-  const admission=await readMutationAdmission(db,userId,id),epoch=admission.epoch;
+  const admission=admissionRead.value,epoch=admission.epoch;
   const decision=classifyMutationAdmission(admission,{commandHash:hash,legacyHash,expectedRevision:revision});
   if(decision.status==='retired')throw new RetiredMutationError('This mutation epoch is retired.');
   if(decision.status==='replayed')return {status:'replayed',envelope:await readCurrent(db,userId,now),receipt:{mutationId:id,commandHash:decision.receipt.command_hash,appliedRevision:decision.receipt.revision}};

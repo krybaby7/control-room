@@ -68,7 +68,7 @@
     "ownerAcceptance": "explicit"
   },
   "currentStage": "S6",
-  "nextAction": "Finish native sweep same-batch job proof and projection, capability-only semantic compatibility; establish unchanged canonical save performance with measured corrections; freeze and rerun all exact-candidate gates.",
+  "nextAction": "Freeze integrated candidate and run exact-candidate canonical, browser, performance, Windows and package-integrity gates; retain nine external live gates.",
   "stages": [
     {
       "id": "S0",
@@ -465,12 +465,20 @@
     {
       "id": "A5",
       "chapter": "03-automatic-sync.md",
-      "status": "in_progress",
-      "changedFiles": [],
-      "commit": null,
-      "verification": [],
+      "status": "implemented",
+      "changedFiles": [
+        "lib/history/sweep-proof.ts",
+        "lib/history/store.ts",
+        "lib/history/job-store.ts",
+        "lib/history/sync-http.ts",
+        "lib/history/overview.ts"
+      ],
+      "commit": "f74e021",
+      "verification": [
+        "33/33 actual SQLite native sweep/HTTP/job/overview tests; cursor-only/default/JSON/foreign/generation/race/expiry checks retain unverified coverage"
+      ],
       "blockers": [],
-      "nextAction": "Wire native sweep proof, private job terminal receipt and bounded overview proof projection; a finished cursor alone never proves content coverage."
+      "nextAction": "Final integrated candidate canonical and browser verification; configure actual private native reader and ingress only after independent live acceptance."
     },
     {
       "id": "A6",
@@ -883,21 +891,22 @@
   },
   "updatedAt": "2026-10-22",
   "checkpoint": {
-    "currentSource": "dacbd5d",
-    "publicSource": "ce9f3233002a357acb3fe4165a82e0bd8547798c",
-    "sourceMeaning": "Windows/default-lanes corrections and native capability verification/publication/scheduling plus initial native sweep proof layer are committed. Optional no-job recovery admission and capability-semantic compatibility edits remain under integration. Performance changes remain isolated until canonical acceptance.",
-    "tests": "Frozen640:2265/2265Node;typecheck/lint/buildpass;collector52;bridge210+9Windows-skipped;companion105+2Windows-skipped;GitHub20. Exact public benchmark fails D1 savep952032.553716ms vs2000 unchanged; browser/Windows failures retained with corrective commits and reruns pending.",
-    "unfinished": "Finish native sweep same-batch job proof and projection, capability-only semantic compatibility; establish unchanged canonical save performance with measured corrections; freeze and rerun all exact-candidate gates.",
-    "nextCommand": "git status --short",
+    "currentSource": "f74e021",
+    "publicSource": "3dfaa32ab46b29db79fc58b85105e508e0fbc226",
+    "sourceMeaning": "Native sweep overlay/atomic private receipt/overview proof integration, source semantic compatibility, save-path concurrency/batching and browser contrast/formatter corrections committed. Source now entering exact-candidate full verification.",
+    "tests": "Frozen640:2265/2265Node;typecheck/lint/buildpass;collector52;bridge210+9Windows-skipped;companion105+2Windows-skipped;GitHub20. Public3dfaa canonical benchmark39863238611 passes D1 save100samples p951216.943472ms vs unchanged2000;12 synthetic restores. Windows/Linux companion and native Windows owned-process CI pass. Historical performance/browser failures retained; final candidate not frozen. Integrated save-focused32/32 passes. Native semantic refresh58/58; private sweep job9focused; native HTTP5/5 including leaseexpiry during actual recovery reads. Browser formatter/contrast18focused. These are focused checks, not final full suite.",
+    "unfinished": "Exact final-candidate full Node/typecheck/lint/build; collector/bridge/companion/GitHub/D1/R2/HTTP/browser/performance/Windows; source-bound candidate archive integrity and screenshot review.",
+    "nextCommand": "npm test",
     "deployed": false,
     "merged": false,
     "knownFailures": [
       "Publicce9 D1 savep952032.553716ms exceeds2000 budget. Same-host frozen640 controlledprofile2176.904913ms alsofails; no unchanged rerun claimed asfix.",
       "Publicce9 browser performance/acceptance fail obsolete navigation assumptions plus real lanes contrast; correcteddd9c069 but unverified in browsers.",
-      "Publicce9 Windows companion105pass2fail; corrected4b3d67d; Windowsrerunpending.",
       "No owner Windows collector/provider/unattended private ingress/complete verified private backup/private Site publication acceptance.",
       "Isolated overlap-only072c82e profiling benchmark2097.474214ms and grouped3317b97 profiling benchmark2086.713317ms fail2000 target. Active-owner4 e01f09f profiling benchmark2149.067782ms also fails and is not integrated. Canonical no-profiling3317 run pending.",
-      "Native capability promotion seam now exists; semantic capability-only refresh compatibility and retained sweep terminal-job/overview plumbing are feasible code work still in progress."
+      "Public3dfaa prior browser performance39863232496 failed unchanged200ms maximum main-thread task; newer run pending. Passing D1 rerun alone is not a demonstrated correction of historical failures.",
+      "Isolated a8c0e7f canonical no-profile benchmark passes D1savep951961.683327ms/100samples and12restores; source recorded by committed worktree/log correlation (runner report says local-source-not-recorded). Same-tree final integrated source still requires canonical CI; earlier failures retained.",
+      "Public3dfaa browserperformance39863238589 now passes2/2 unchanged checks; earlier same-head202ms failure retained. Accessibility39863238648 still fails .mc-brief-hint contrast, corrected8a7830d; final-candidate acceptance pending."
     ]
   }
 }

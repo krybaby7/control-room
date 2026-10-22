@@ -1,3 +1,4 @@
+import {sourceSemanticDigest} from './source-identity.ts';
 import type {SqlDatabase} from '../workspace-store.ts';
 import {readCurrent} from '../workspace-store.ts';
 import {canonical,contentHash} from '../canonical-json.ts';
@@ -23,7 +24,7 @@ export interface LoadedHistoryAnalysisInput {
  retainedClaims:HistoryClaim[];checkpointProofs:{checkpointId:string;requestId:string;inputDigest:string;checkpointDigest:string;extractionDigest:string;sourceIds:string[]}[];
  snapshot:ClaimInputSnapshot;segments:HistorySegment[];checkpoints:AnalysisCheckpoint[];trustedCheckpointIds:string[];
  planningRevision:number;historyHead:HistoryPublicationHead|null;historyInputWatermark:string;executionEpoch:number;
- sourceRefs:{sourceId:string;epoch:string;scopeRevision:number;rowRevision:number;contentHash:string}[];
+ sourceRefs:{sourceId:string;epoch:string;scopeRevision:number;rowRevision:number;contentHash:string;semanticDigest?:string}[];
  expectedRows:HistoryPublicationExpectedRow[];rowProofs:HistoryAnalysisRowProof[];unknowns:string[];privateInputBytes:number;
 }
 interface Captured {record:HistoryRecord;logicalId:string;revision:number;hash:string;sequence:number}
@@ -49,7 +50,7 @@ export async function loadHistoryAnalysisInput(db:SqlDatabase,owner:string,optio
  if(!owner||owner.length>256||!Number.isFinite(Date.parse(options.now))||!Array.isArray(options.sourceIds)||!options.sourceIds.length||options.sourceIds.length>100||options.sourceIds.some(id=>typeof id!=='string'||!id||id.length>128)||new Set(options.sourceIds).size!==options.sourceIds.length)throw Error('Explicit owner and selected history sources required');
  const current=await readCurrent(db,owner,options.now),historyHead=await head(db,owner),executionEpoch=await epoch(db,owner),captured=await capture(db,owner),selected=new Set(options.sourceIds),records=captured.map(row=>row.record),watermark=await historyInputWatermark(records),unknowns:string[]=[];
  const sourceRefs:LoadedHistoryAnalysisInput['sourceRefs']=[];
- for(const sourceId of [...selected].sort()){const row=captured.find(row=>row.record.kind==='source'&&row.record.value.id===sourceId);if(!row||row.record.kind!=='source'||row.record.value.removedAt!==null||row.record.value.executionEpoch!==executionEpoch)throw Error('Selected owner source unavailable or execution epoch differs');sourceRefs.push({sourceId,epoch:row.record.value.epoch,scopeRevision:row.record.value.scopeRevision,rowRevision:row.revision,contentHash:row.hash});}
+ for(const sourceId of [...selected].sort()){const row=captured.find(row=>row.record.kind==='source'&&row.record.value.id===sourceId);if(!row||row.record.kind!=='source'||row.record.value.removedAt!==null||row.record.value.executionEpoch!==executionEpoch)throw Error('Selected owner source unavailable or execution epoch differs');sourceRefs.push({sourceId,epoch:row.record.value.epoch,scopeRevision:row.record.value.scopeRevision,rowRevision:row.revision,contentHash:row.hash,semanticDigest:await sourceSemanticDigest(row.record.value)});}
  const conversations=new Map(records.filter((record):record is HistoryRecord<'conversation'>=>record.kind==='conversation'&&selected.has(record.value.sourceId)).map(record=>[record.value.id,record.value]));
  const allConversations=new Set(records.filter((record):record is HistoryRecord<'conversation'>=>record.kind==='conversation').map(record=>record.value.id));
  for(const record of records)if(record.kind==='message'&&!allConversations.has(record.value.conversationId))throw Error('Retained message conversation identity is unavailable');

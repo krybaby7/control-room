@@ -9,10 +9,12 @@ export const horizonLabels = { now: 'Now', next: 'Next', later: 'Later' };
 export function cairoToday() {
   return cairoDate();
 }
+let shortDateFormatter:Intl.DateTimeFormat|undefined,fullDateFormatter:Intl.DateTimeFormat|undefined;
 export function dateLabel(value: string | null, full = false) {
   if (!value) return 'No target date';
   const date = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T12:00:00Z`) : new Date(value);
-  return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: full ? 'long' : 'short', ...(full ? { year: 'numeric' } : {}), timeZone: 'Africa/Cairo' }).format(date);
+  const formatter=full?(fullDateFormatter??=new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'long',year:'numeric',timeZone:'Africa/Cairo'})):(shortDateFormatter??=new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short',timeZone:'Africa/Cairo'}));
+  return formatter.format(date);
 }
 export function ProjectIcon({ project, small = false }: { project: Project; small?: boolean }) {
   return <span className={`project-icon ${project.color} ${small ? 'small' : ''}`} aria-hidden="true">{project.color === 'orange' ? <Mountain size={small ? 18 : 25} strokeWidth={1.8} /> : <GitBranch size={small ? 18 : 25} strokeWidth={1.8} />}</span>;

@@ -38,6 +38,16 @@ export interface HistoryAdmissionContext {
  guard:string;guardBindings:(string|number|null)[];
  job?:{id:string;kind:'area_analysis';dedupeKey:string;payload:Record<string,unknown>;executionEpoch:number};
 }
+export interface NativeHistoryOverlay {
+ readonly database:SqlDatabase;readonly owner:string;readonly sourceId:string;readonly epoch:string;readonly scopeRevision:number;readonly executionEpoch:number;readonly runId:string;readonly observedConversationIds:readonly string[];readonly planningRevision:number;readonly receipt:IngestReceipt;
+ readonly rows:readonly {record:HistoryRecord;revision:number;hash:string;previous:{id:string;revision:number;hash:string}|null}[];
+}
+const nativeAdmissionContexts=new WeakMap<object,{seal:string;overlay:NativeHistoryOverlay}>();
+/** Only the actual ingestion admission callback receives this identity. JSON,
+ * copied contexts and changed row proposals never acquire a postimage witness. */
+export function requireNativeHistoryOverlay(context:unknown,owner:string):NativeHistoryOverlay{
+ if(!context||typeof context!=='object')throw Error('Native history admission context required.');const found=nativeAdmissionContexts.get(context);if(!found||found.seal!==canonical(context)||found.overlay.owner!==owner)throw Error('Native history admission context identity or seal differs.');return found.overlay;
+}
 export interface HistoryIngestOptions {
  now:string;
  /** Server-bound acquisition phase: content pages do not create another inventory generation. */
@@ -187,7 +197,12 @@ export async function ingestHistoryPage(db:SqlDatabase,owner:string,input:unknow
  const unused:string[]=[];if(candidates.length){const referenced=(await db.prepare("SELECT DISTINCT candidate.value key FROM json_each(?) candidate JOIN project_history record ON record.user_id=? AND (json_extract(record.payload_json,'$.value.bodyObjectKey')=candidate.value OR json_extract(record.payload_json,'$.value.objectKey')=candidate.value)").bind(canonical(candidates),owner).all<{key:string}>()).results;const used=new Set(referenced.map(row=>row.key));unused.push(...candidates.filter(key=>!used.has(key)));}
  const unitGrowth=privateRowGrowth('history_object_ledger',{status:'ready'},{status:'abandoned'}),additionalPrivateGrowth=unused.length?[{...unitGrowth,bytes:unitGrowth.bytes*unused.length}]:[];
  const jobId='history_analysis_'+receiptLogical,job={id:jobId,kind:'area_analysis' as const,dedupeKey:receiptLogical,payload:{sourceId:page.sourceId,epoch:envelope.epoch,scopeRevision:envelope.scopeRevision,watermark:sequence,pageId:page.pageId},executionEpoch:globalEpoch};
- statements.push(...await options.prepareAdmission({owner,now:options.now,mutationId,planningRevision:planning.revision,watermark:sequence,rows,guard,guardBindings,job,additionalPrivateGrowth}));
+ const admissionContext:HistoryAdmissionContext={owner,now:options.now,mutationId,planningRevision:planning.revision,watermark:sequence,rows,guard,guardBindings,job,additionalPrivateGrowth};
+ const overlayRows=await Promise.all(rows.map(async row=>({record:structuredClone(row.value),revision:row.rowRevision,hash:await contentHash(canonical(row.value)),previous:row.previous?{id:row.previous.record.id,revision:row.previous.rowRevision,hash:row.previous.contentHash}:null})));
+ const freeze=(value:unknown):void=>{if(value&&typeof value==='object'){for(const child of Object.values(value))freeze(child);Object.freeze(value);}};freeze(overlayRows);const immutableReceipt=structuredClone(receipt);freeze(immutableReceipt);
+ nativeAdmissionContexts.set(admissionContext,{seal:canonical(admissionContext),overlay:Object.freeze({database:db,owner,sourceId:page.sourceId,epoch:envelope.epoch,scopeRevision:envelope.scopeRevision,executionEpoch:globalEpoch,runId:page.runId,observedConversationIds:Object.freeze(page.conversations.map(value=>value.id)),planningRevision:planning.revision,receipt:immutableReceipt,rows:overlayRows})});
+ statements.push(...await options.prepareAdmission(admissionContext));
+ requireNativeHistoryOverlay(admissionContext,owner);
  for(const row of rows){const payload=canonical(row.value),hash=await contentHash(payload);if(row.previous)statements.push(db.prepare(`UPDATE project_history SET row_revision=?,payload_json=?,content_hash=?,stream_sequence=? WHERE user_id=? AND id=? AND row_revision=? AND ${guard}`).bind(row.rowRevision,payload,hash,sequence,owner,row.id,row.previous.rowRevision,...guardBindings));else statements.push(db.prepare(`INSERT INTO project_history(user_id,id,row_revision,payload_json,content_hash,stream_sequence) SELECT ?,?,?,?,?,? WHERE ${guard}`).bind(owner,row.id,row.rowRevision,payload,hash,sequence,...guardBindings));}
  if(unused.length)statements.push(db.prepare(`UPDATE history_object_ledger SET status='abandoned' WHERE user_id=? AND source_id=? AND epoch=? AND scope_revision=? AND status='ready' AND pending_token IS NULL AND purged_at IS NULL AND key IN(SELECT value FROM json_each(?)) AND NOT EXISTS(SELECT 1 FROM project_history record WHERE record.user_id=history_object_ledger.user_id AND (json_extract(record.payload_json,'$.value.bodyObjectKey')=history_object_ledger.key OR json_extract(record.payload_json,'$.value.objectKey')=history_object_ledger.key)) AND ${guard}`).bind(owner,page.sourceId,envelope.epoch,envelope.scopeRevision,canonical(unused),...guardBindings));
  statements.push(db.prepare(`INSERT INTO operational_stream_heads(user_id,stream_id,revision,last_sequence) SELECT ?,'history',?,? WHERE ${guard} ON CONFLICT(user_id,stream_id) DO UPDATE SET revision=excluded.revision,last_sequence=excluded.last_sequence`).bind(owner,(head?.revision??0)+1,sequence,...guardBindings));

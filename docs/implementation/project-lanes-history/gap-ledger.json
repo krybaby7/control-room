@@ -20,7 +20,7 @@
       "id": "integration-collection",
       "status": "implemented_pending_final_verification",
       "requirement": "Durable hosted continuation, leases and scheduling on existing workspace_job_intents; exact phase/run/receipt/source fencing.",
-      "evidence": "Native durable queue/leases/continuations, object reservations/cleanup, authenticated sync HTTP and batch activity-backed overview freshness integrated. Owner/device/private-ingress live operation remains unconfigured."
+      "evidence": "Native durable queue/leases/continuations, object reservations/cleanup, authenticated sync HTTP and batch activity-backed overview freshness integrated. Owner/device/private-ingress live operation remains unconfigured. Native capability publication, strict private sweep progress, genuine ingestion postimage overlay, native EOF/finalized-byte verification, same-batch terminal receipt and branded overview projection now integrated.33/33 actual SQLite integration checks passf74e021; final candidate gates pending."
     },
     {
       "id": "integration-analysis",
@@ -32,7 +32,7 @@
       "id": "integration-ui",
       "status": "in_progress",
       "requirement": "Default Project lanes central wiring, source mapping, full retained context, search context and responsive/browser acceptance.",
-      "evidence": "Default lanes and guarded owner forms/context/citations integrated. Initial real browser axe found contrast; default/secondary-nav tests and contrast correcteddd9c069, final browser verification pending."
+      "evidence": "Default lanes and guarded owner forms/context/citations integrated. Initial real browser axe found contrast; default/secondary-nav tests and contrast correcteddd9c069, final browser verification pending. Actual Today hint contrast corrected8a7830d; immutable Intl formatter reuse reduces measured Today mount work; unchanged browser performance3dfaa passes2/2 while prior202ms failure remains recorded. Final source acceptance pending."
     },
     {
       "id": "reobservation",
@@ -85,9 +85,9 @@
     },
     {
       "id": "native-sweep-retention",
-      "status": "in_progress",
+      "status": "implemented_pending_final_verification",
       "requirement": "Retain exact membership, EOF, row/object/parser proof and terminal receipt atomically; verify before reporting content complete.",
-      "evidence": "dacbd5d initial native private proof codec/factory/reader passes6 focused tests. Private job payload/receipt, projected-row same-batch binding and overview integration remain feasible unfinished code. No cursor-only content proof claimed."
+      "evidence": "Native same-batch proof/job/terminal receipt and branded retained overview integration committed throughf74e021;33/33 actual SQLite checks pass. All real source coverage gates remain unverified."
     }
   ],
   "currentCheckpoint": "dacbd5d"
