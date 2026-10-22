@@ -1,0 +1,588 @@
+{
+  "planVersion": 1,
+  "createdDate": "2026-10-22",
+  "timezone": "Africa/Cairo",
+  "status": "planned",
+  "requiredImplementationModel": "gpt-6.1-sol",
+  "actualImplementationBaseline": null,
+  "implementationBranch": null,
+  "modelSelections": [],
+  "approvedDirection": {
+    "home": "project_lanes",
+    "cloudClaudeScope": "claude_code_web_cloud",
+    "taskContext": [
+      "project",
+      "area",
+      "work_type"
+    ],
+    "ownerAcceptance": "explicit"
+  },
+  "currentStage": "S0",
+  "nextAction": "Read START-HERE.md and repository instructions; execute F1 against the actual checkout. No implementation tasks have started.",
+  "stages": [
+    {
+      "id": "S0",
+      "tasks": [
+        "F1"
+      ],
+      "dependsOn": [],
+      "status": "not_started",
+      "evidence": [],
+      "blockers": []
+    },
+    {
+      "id": "S1",
+      "tasks": [
+        "F2",
+        "F3",
+        "F4",
+        "F5",
+        "F6",
+        "C1"
+      ],
+      "dependsOn": [
+        "S0"
+      ],
+      "status": "not_started",
+      "evidence": [],
+      "blockers": []
+    },
+    {
+      "id": "S2",
+      "tasks": [
+        "C2",
+        "C3",
+        "C4",
+        "C5"
+      ],
+      "dependsOn": [
+        "S1"
+      ],
+      "status": "not_started",
+      "evidence": [],
+      "blockers": []
+    },
+    {
+      "id": "S3",
+      "tasks": [
+        "A1",
+        "A2",
+        "A3",
+        "A4",
+        "A5",
+        "A6"
+      ],
+      "dependsOn": [
+        "S1"
+      ],
+      "integrationDependencies": [
+        "S2:first working adapter"
+      ],
+      "status": "not_started",
+      "evidence": [],
+      "blockers": []
+    },
+    {
+      "id": "S4",
+      "tasks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6"
+      ],
+      "dependsOn": [
+        "S1"
+      ],
+      "integrationDependencies": [
+        "S2:normalized fixtures and retained inputs"
+      ],
+      "status": "not_started",
+      "evidence": [],
+      "blockers": []
+    },
+    {
+      "id": "S5",
+      "tasks": [
+        "L1",
+        "L2",
+        "L3",
+        "L4"
+      ],
+      "dependsOn": [
+        "S1"
+      ],
+      "integrationDependencies": [
+        "S4:area progress/story contracts"
+      ],
+      "status": "not_started",
+      "evidence": [],
+      "blockers": []
+    },
+    {
+      "id": "S6",
+      "tasks": [
+        "R1",
+        "R2",
+        "R3"
+      ],
+      "dependsOn": [
+        "S2",
+        "S3",
+        "S4",
+        "S5"
+      ],
+      "status": "not_started",
+      "evidence": [],
+      "blockers": []
+    }
+  ],
+  "tasks": [
+    {
+      "id": "F1",
+      "chapter": "01-foundation-contracts.md",
+      "status": "not_started",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": null
+    },
+    {
+      "id": "F2",
+      "chapter": "01-foundation-contracts.md",
+      "status": "not_started",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": null
+    },
+    {
+      "id": "F3",
+      "chapter": "01-foundation-contracts.md",
+      "status": "not_started",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": null
+    },
+    {
+      "id": "F4",
+      "chapter": "01-foundation-contracts.md",
+      "status": "not_started",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": null
+    },
+    {
+      "id": "F5",
+      "chapter": "01-foundation-contracts.md",
+      "status": "not_started",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": null
+    },
+    {
+      "id": "F6",
+      "chapter": "01-foundation-contracts.md",
+      "status": "not_started",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": null
+    },
+    {
+      "id": "C1",
+      "chapter": "02-history-collection.md",
+      "status": "not_started",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": null
+    },
+    {
+      "id": "C2",
+      "chapter": "02-history-collection.md",
+      "status": "not_started",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": null
+    },
+    {
+      "id": "C3",
+      "chapter": "02-history-collection.md",
+      "status": "not_started",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": null
+    },
+    {
+      "id": "C4",
+      "chapter": "02-history-collection.md",
+      "status": "not_started",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": null
+    },
+    {
+      "id": "C5",
+      "chapter": "02-history-collection.md",
+      "status": "not_started",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": null
+    },
+    {
+      "id": "A1",
+      "chapter": "03-automatic-sync.md",
+      "status": "not_started",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": null
+    },
+    {
+      "id": "A2",
+      "chapter": "03-automatic-sync.md",
+      "status": "not_started",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": null
+    },
+    {
+      "id": "A3",
+      "chapter": "03-automatic-sync.md",
+      "status": "not_started",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": null
+    },
+    {
+      "id": "A4",
+      "chapter": "03-automatic-sync.md",
+      "status": "not_started",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": null
+    },
+    {
+      "id": "A5",
+      "chapter": "03-automatic-sync.md",
+      "status": "not_started",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": null
+    },
+    {
+      "id": "A6",
+      "chapter": "03-automatic-sync.md",
+      "status": "not_started",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": null
+    },
+    {
+      "id": "U1",
+      "chapter": "04-project-understanding.md",
+      "status": "not_started",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": null
+    },
+    {
+      "id": "U2",
+      "chapter": "04-project-understanding.md",
+      "status": "not_started",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": null
+    },
+    {
+      "id": "U3",
+      "chapter": "04-project-understanding.md",
+      "status": "not_started",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": null
+    },
+    {
+      "id": "U4",
+      "chapter": "04-project-understanding.md",
+      "status": "not_started",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": null
+    },
+    {
+      "id": "U5",
+      "chapter": "04-project-understanding.md",
+      "status": "not_started",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": null
+    },
+    {
+      "id": "U6",
+      "chapter": "04-project-understanding.md",
+      "status": "not_started",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": null
+    },
+    {
+      "id": "L1",
+      "chapter": "05-project-lanes-and-release.md",
+      "status": "not_started",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": null
+    },
+    {
+      "id": "L2",
+      "chapter": "05-project-lanes-and-release.md",
+      "status": "not_started",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": null
+    },
+    {
+      "id": "L3",
+      "chapter": "05-project-lanes-and-release.md",
+      "status": "not_started",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": null
+    },
+    {
+      "id": "L4",
+      "chapter": "05-project-lanes-and-release.md",
+      "status": "not_started",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": null
+    },
+    {
+      "id": "R1",
+      "chapter": "05-project-lanes-and-release.md",
+      "status": "not_started",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": null
+    },
+    {
+      "id": "R2",
+      "chapter": "05-project-lanes-and-release.md",
+      "status": "not_started",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": null
+    },
+    {
+      "id": "R3",
+      "chapter": "05-project-lanes-and-release.md",
+      "status": "not_started",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": null
+    }
+  ],
+  "sources": [
+    {
+      "kind": "codex_local",
+      "capability": "unverified",
+      "implemented": false,
+      "verifiedLocal": false,
+      "verifiedUnattended": false,
+      "verifiedHosted": false,
+      "proofRefs": [],
+      "limitations": []
+    },
+    {
+      "kind": "codex_cloud",
+      "capability": "unverified",
+      "implemented": false,
+      "verifiedLocal": false,
+      "verifiedUnattended": false,
+      "verifiedHosted": false,
+      "proofRefs": [],
+      "limitations": []
+    },
+    {
+      "kind": "claude_code_local",
+      "capability": "unverified",
+      "implemented": false,
+      "verifiedLocal": false,
+      "verifiedUnattended": false,
+      "verifiedHosted": false,
+      "proofRefs": [],
+      "limitations": []
+    },
+    {
+      "kind": "claude_code_cloud",
+      "capability": "unverified",
+      "implemented": false,
+      "verifiedLocal": false,
+      "verifiedUnattended": false,
+      "verifiedHosted": false,
+      "proofRefs": [],
+      "limitations": []
+    }
+  ],
+  "liveGates": [
+    {
+      "id": "G-local-codex",
+      "status": "not_verified",
+      "requiredForFullRequestedCompletion": true,
+      "evidence": [],
+      "blockers": []
+    },
+    {
+      "id": "G-local-claude",
+      "status": "not_verified",
+      "requiredForFullRequestedCompletion": true,
+      "evidence": [],
+      "blockers": []
+    },
+    {
+      "id": "G-cloud-codex",
+      "status": "not_verified",
+      "requiredForFullRequestedCompletion": true,
+      "evidence": [],
+      "blockers": []
+    },
+    {
+      "id": "G-cloud-claude",
+      "status": "not_verified",
+      "requiredForFullRequestedCompletion": true,
+      "evidence": [],
+      "blockers": []
+    },
+    {
+      "id": "G-unattended",
+      "status": "not_verified",
+      "requiredForFullRequestedCompletion": true,
+      "evidence": [],
+      "blockers": []
+    },
+    {
+      "id": "G-story-runtime",
+      "status": "not_verified",
+      "requiredForFullRequestedCompletion": true,
+      "evidence": [],
+      "blockers": []
+    },
+    {
+      "id": "G-private-hosted",
+      "status": "not_verified",
+      "requiredForFullRequestedCompletion": true,
+      "evidence": [],
+      "blockers": []
+    },
+    {
+      "id": "G-owner-workflow",
+      "status": "not_verified",
+      "requiredForFullRequestedCompletion": true,
+      "evidence": [],
+      "blockers": []
+    },
+    {
+      "id": "G-physical-acceptance",
+      "status": "not_verified",
+      "requiredForFullRequestedCompletion": false,
+      "evidence": [],
+      "blockers": []
+    }
+  ],
+  "inference": {
+    "provider": null,
+    "model": null,
+    "budget": null,
+    "authorized": false,
+    "enabled": false,
+    "status": "not_configured"
+  },
+  "release": {
+    "checks": [],
+    "review": null,
+    "pullRequest": null,
+    "deployment": null,
+    "fullRequestedCoverage": false
+  },
+  "allowedTaskStatuses": [
+    "not_started",
+    "in_progress",
+    "implemented",
+    "verified",
+    "externally_blocked"
+  ],
+  "allowedGateStatuses": [
+    "not_verified",
+    "verified",
+    "partial",
+    "externally_blocked",
+    "not_applicable"
+  ],
+  "checkpointRules": [
+    "Update tasks and evidence after each meaningful commit; actual git/code/tests outrank stale checkpoint claims.",
+    "S1 freezes all Chapter 1, C1 and Chapter 4 shared contracts before worker implementation.",
+    "Verification entries record command, outcome, timestamp and evidence reference; public files contain no private transcript bytes or secrets.",
+    "An implemented task can have open live gates. Unavailable cloud access never becomes verified from fixtures/manual imports.",
+    "S6 can deliver a partial release with explicitly open gates; fullRequestedCoverage remains false until all four requested source classes pass.",
+    "Physical acceptance applies to the user's projects, not a prerequisite to shipping Control Room.",
+    "Do not mutate the older program's unrelated phase statuses. Cross-reference overlap after implementation."
+  ]
+}
