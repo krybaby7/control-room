@@ -19,6 +19,9 @@ test('mission control shows the status strip, project tiles, live operations and
   await expect(tile.getByRole('progressbar',{name:/^Tasks completed/})).toBeVisible();
   await expect(tile.getByRole('status')).toContainText(/No agent working|Agent|Awaiting your approval|Run needs reconciliation/);
   await expect(tile.getByRole('button',{name:'Open project',exact:true})).toBeVisible();
+  // Every project carries its owner briefing card; without a PC connection it explains what is needed instead of pretending.
+  const briefing=tile.getByRole('region',{name:`Briefing for ${project.name}`,exact:true});await expect(briefing).toBeVisible();
+  await expect(briefing).toContainText(/Where we.re at/);await expect(briefing).toContainText(/No briefing yet|On track|At risk|Blocked|Paused|Unclear|Briefing in progress/);
  }
  await expect(page.getByRole('region',{name:'Live operations',exact:true})).toBeVisible();
  await expect(page.getByRole('region',{name:'Needs you',exact:true})).toBeVisible();

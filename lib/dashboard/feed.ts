@@ -9,6 +9,7 @@ import type {LocalAnalysisReport} from '../../shared/local-analysis.mjs';
 import type {GithubAnalysisReport} from '../../shared/github-analysis.mjs';
 import {loadSavedLocalAnalyses,SavedLocalAnalysisReadError} from '../local-companion-client.ts';
 import {loadSavedGithubAnalyses,SavedGithubAnalysisReadError} from '../github-analysis-client.ts';
+import {loadSavedProjectBriefings,SavedBriefingReadError,type SavedProjectBriefing} from '../project-briefing-client.ts';
 
 /** Read-only owner feeds behind the mission-control overview. Every read is bounded in time
  * and bytes, tolerates individual feed failures (the last good value stays, marked stale) and
@@ -16,11 +17,11 @@ import {loadSavedGithubAnalyses,SavedGithubAnalysisReadError} from '../github-an
 export const FEED_LIMITS=Object.freeze({deadlineMs:15_000,bodyBytes:2*1024*1024,eventPages:24,fastMs:10_000,slowMs:45_000,slowFeedMs:90_000,failureMs:[30_000,60_000,120_000,300_000]});
 export interface FeedSnapshot {
  jobs:JobReadModel|null;jobDetails:Record<string,JobDetailLike>;runtime:{devices:RuntimeDeviceLike[]}|null;connector:PersonalConnectorView|null;
- localReports:SavedReportLike<LocalAnalysisReport>[];cloudReports:SavedReportLike<GithubAnalysisReport>[];feeds:FeedStates;slowFeedsAt:string|null;
+ localReports:SavedReportLike<LocalAnalysisReport>[];cloudReports:SavedReportLike<GithubAnalysisReport>[];briefings:SavedProjectBriefing[];feeds:FeedStates;slowFeedsAt:string|null;
 }
 export function emptyFeedSnapshot():FeedSnapshot{
  const loading=():FeedState=>({status:'loading',checkedAt:null});
- return {jobs:null,jobDetails:{},runtime:null,connector:null,localReports:[],cloudReports:[],feeds:{jobs:loading(),runtime:loading(),connector:loading(),local:loading(),cloud:loading()},slowFeedsAt:null};
+ return {jobs:null,jobDetails:{},runtime:null,connector:null,localReports:[],cloudReports:[],briefings:[],feeds:{jobs:loading(),runtime:loading(),connector:loading(),local:loading(),cloud:loading(),briefings:loading()},slowFeedsAt:null};
 }
 class FeedUnavailableError extends Error {constructor(message='Feed unavailable.'){super(message);this.name='FeedUnavailableError';}}
 class FeedUnconfiguredError extends Error {constructor(){super('Feed not configured.');this.name='FeedUnconfiguredError';}}
@@ -87,7 +88,7 @@ export async function readConnectorFeed(options:FeedReadOptions={}):Promise<Pers
 function settle<T>(key:FeedKey,outcome:PromiseSettledResult<T>,previous:T,feeds:FeedStates,now:string):T{
  if(outcome.status==='fulfilled'){feeds[key]={status:'ok',checkedAt:now};return outcome.value;}
  const reason=outcome.reason;
- if(reason instanceof SessionExpiredError||(reason instanceof SavedLocalAnalysisReadError||reason instanceof SavedGithubAnalysisReadError)&&reason.reason==='session')throw new SessionExpiredError();
+ if(reason instanceof SessionExpiredError||(reason instanceof SavedLocalAnalysisReadError||reason instanceof SavedGithubAnalysisReadError||reason instanceof SavedBriefingReadError)&&reason.reason==='session')throw new SessionExpiredError();
  if(reason instanceof FeedUnconfiguredError){feeds[key]={status:'unconfigured',checkedAt:now};return previous;}
  feeds[key]={status:'failed',checkedAt:now,message:reason instanceof Error?reason.message:'Feed unavailable.'};
  return previous;
@@ -103,10 +104,12 @@ export async function readFeedSnapshot(previous:FeedSnapshot,options:FeedReadOpt
  const connectorValue=settle('connector',connector,previous.connector,feeds,now);
  next.connector=feeds.connector.status==='unconfigured'?null:connectorValue;
  if(options.includeSlow){
-  const [local,cloud]=await Promise.allSettled([loadSavedLocalAnalyses({fetch:options.fetch,signal:options.signal,timeoutMs:options.deadlineMs??FEED_LIMITS.deadlineMs}),loadSavedGithubAnalyses({fetch:options.fetch,signal:options.signal,timeoutMs:options.deadlineMs??FEED_LIMITS.deadlineMs})]);
+  const bounded={fetch:options.fetch,signal:options.signal,timeoutMs:options.deadlineMs??FEED_LIMITS.deadlineMs};
+  const [local,cloud,briefings]=await Promise.allSettled([loadSavedLocalAnalyses(bounded),loadSavedGithubAnalyses(bounded),loadSavedProjectBriefings(bounded)]);
   const reportsOf=<R,>(outcome:PromiseSettledResult<{reports:R[]}>):PromiseSettledResult<R[]>=>outcome.status==='fulfilled'?{status:'fulfilled',value:outcome.value.reports}:outcome;
   next.localReports=settle('local',reportsOf(local),previous.localReports,feeds,now);
   next.cloudReports=settle('cloud',reportsOf(cloud),previous.cloudReports,feeds,now);
+  next.briefings=settle('briefings',briefings.status==='fulfilled'?{status:'fulfilled',value:briefings.value.briefings}:briefings,previous.briefings,feeds,now);
   next.slowFeedsAt=now;
  }
  if(next.jobs){
