@@ -56,6 +56,7 @@ async function fixtureFetch(overrides:Record<string,()=>Response|Promise<Respons
   '/api/personal-repositories':()=>json(fixture.connector),
   '/api/local-analysis':()=>json({revision:3,asOf:NOW,reports:fixture.localReports}),
   '/api/github-analysis':()=>json({revision:3,asOf:NOW,reports:fixture.cloudReports}),
+  '/api/project-briefings':()=>json({revision:3,asOf:NOW,briefings:fixture.briefings}),
   '/api/jobs/job-running':async()=>json({revision:3,generatedAt:NOW,job:running,provenance:null,artifacts:[],events:await page(0,events.slice(0,2),2)}),
   '/api/jobs/job-running/events?attemptId=attempt-1&afterSequence=2':async()=>json(await page(2,events.slice(2),null)),
   ...overrides,
@@ -70,11 +71,14 @@ test('one snapshot read combines every feed, follows active event pages and tole
  const snapshot=await readFeedSnapshot(previous,{includeSlow:true,fetch:fetcher,now:()=>NOW});
  assert.equal(snapshot.jobs?.jobs.length,4);assert.equal(snapshot.feeds.jobs.status,'ok');
  assert.equal(snapshot.runtime,fixture.runtime,'a failed feed keeps the last good value');assert.equal(snapshot.feeds.runtime.status,'failed');
- assert.equal(snapshot.connector?.online,true);assert.equal(snapshot.localReports.length,1);assert.equal(snapshot.cloudReports.length,1);assert.equal(snapshot.slowFeedsAt,NOW);
+ assert.equal(snapshot.connector?.online,true);assert.equal(snapshot.localReports.length,1);assert.equal(snapshot.cloudReports.length,1);assert.equal(snapshot.briefings.length,1);assert.equal(snapshot.feeds.briefings.status,'ok');assert.equal(snapshot.connector?.policies?.length,1);assert.equal(snapshot.slowFeedsAt,NOW);
  assert.deepEqual(Object.keys(snapshot.jobDetails),['job-running']);assert.equal(snapshot.jobDetails['job-running'].events.length,4,'event pages are followed to the tail');
  assert.ok(calls.includes('/api/jobs/job-running/events?attemptId=attempt-1&afterSequence=2'));
  const fast=await readFeedSnapshot(snapshot,{includeSlow:false,fetch:fetcher,now:()=>NOW});
- assert.equal(fast.localReports.length,1,'slow feeds are retained between fast reads');assert.ok(!calls.slice(calls.length-6).includes('/api/local-analysis')||true);
+ assert.equal(fast.localReports.length,1,'slow feeds are retained between fast reads');assert.equal(fast.briefings.length,1);
+ const broken=await fixtureFetch({'/api/project-briefings':()=>json({revision:3,asOf:NOW,briefings:[{...fixture.briefings[0],briefing:{...fixture.briefings[0].briefing,headline:''}}]})});
+ const rejected=await readFeedSnapshot(snapshot,{includeSlow:true,fetch:broken.fetcher,now:()=>NOW});
+ assert.equal(rejected.feeds.briefings.status,'failed');assert.equal(rejected.briefings.length,1,'an invalid briefing feed keeps the last good briefings');assert.ok(!calls.slice(calls.length-6).includes('/api/local-analysis')||true);
 });
 test('an unconfigured personal connector is a state, not an error; 401 expires the session',async()=>{
  const {fetcher}=await fixtureFetch({'/api/personal-repositories':()=>json({configured:false,error:'Personal PC connection is unavailable.'},503)});

@@ -5,6 +5,8 @@ import type {DeviceConnectivity,RuntimeMetrics} from '../runtime/contracts.ts';
 import type {ChatContextMetadata,LocalAnalysisReport} from '../../shared/local-analysis.mjs';
 import type {GithubAnalysisReport} from '../../shared/github-analysis.mjs';
 import type {PersonalConnectorJob,PersonalConnectorView} from './contracts.ts';
+import {validateProjectBriefing,type BriefingStatusLevel,type BriefingWorkOutcome,type BriefingWorkPlace,type ProjectBriefing} from '../../shared/project-briefing.mjs';
+import type {SavedProjectBriefing} from '../project-briefing-client.ts';
 import {getBlockers,getRecommendations} from '../planning.ts';
 import {cairoDate,isCurrentWeek} from '../calendar.ts';
 import {archivedEntity} from '../entity-links.ts';
@@ -16,12 +18,12 @@ export type JobRow=JobReadModel['jobs'][number];
 export interface JobDetailLike {provider:AgentProvider|null;events:AgentJobEventV1[]}
 export interface RuntimeDeviceLike {device:{id:string;label:string;archivedAt:string|null};enrolled:boolean;revoked:boolean;connectivity:DeviceConnectivity;lastLiveReceivedAt:string|null;sources:{source:string;instanceId:string;freshness:{source:string;heartbeatAgeSeconds:number|null;effectiveSampleAgeUpperBoundSeconds:number|null};observation:{state:string;diagnostic:string;metrics:RuntimeMetrics|null}|null}[]}
 export interface SavedReportLike<R> {evidenceId:string;version:number;projectId:string;report:R;recordedAt:string}
-export type FeedKey='jobs'|'runtime'|'connector'|'local'|'cloud';
+export type FeedKey='jobs'|'runtime'|'connector'|'local'|'cloud'|'briefings';
 export interface FeedState {status:'loading'|'ok'|'failed'|'unconfigured';checkedAt:string|null;message?:string}
 export type FeedStates=Record<FeedKey,FeedState>;
 export interface DashboardInputs {
  now:string;workspace:Workspace;jobs:JobReadModel|null;jobDetails:Record<string,JobDetailLike>;runtime:{devices:RuntimeDeviceLike[]}|null;
- connector:PersonalConnectorView|null;localReports:SavedReportLike<LocalAnalysisReport>[];cloudReports:SavedReportLike<GithubAnalysisReport>[];feeds:FeedStates;
+ connector:PersonalConnectorView|null;localReports:SavedReportLike<LocalAnalysisReport>[];cloudReports:SavedReportLike<GithubAnalysisReport>[];briefings:SavedProjectBriefing[];feeds:FeedStates;
 }
 export type SignalTone='good'|'warn'|'bad'|'idle'|'live';
 export interface PcStatus {state:'online'|'stale'|'offline'|'never-seen'|'revoked'|'not-enrolled'|'unknown';label:string;detail:string;tone:SignalTone;deviceLabel:string|null;heartbeatAgeSeconds:number|null;metrics:{cpu:number|null;memory:number|null;gpu:number|null;gpuTemperatureC:number|null}|null;metricsAgeSeconds:number|null;metricsFreshness:string|null}
@@ -32,12 +34,28 @@ export interface ActiveJob {id:string;projectId:string;projectName:string;projec
 export interface RecentJob {id:string;projectId:string;projectName:string;projectColor:Project['color'];taskTitle:string;operation:string;operationLabel:string;status:AgentJobStatus;statusLabel:string;tone:SignalTone;provider:AgentProvider;providerLabel:string;model:string;observedModel:string|null;modelVerified:boolean|null;finishedAt:string|null;runtimeSeconds:number|null;tokens:{input:number|null;output:number|null}|null;accepted:boolean;artifacts:number;diagnostic:string}
 export interface PersonalJob {id:string;kind:string;status:PersonalConnectorJob['status'];projectId:string|null;projectName:string|null;repositoryName:string|null;provider:'codex'|'claude'|null;providerLabel:string|null;createdAt:string;claimedAt:string|null;active:boolean;tone:SignalTone;label:string}
 export interface ChatSource {provider:'codex'|'claude';label:string;status:ChatContextMetadata['sources'][number]['status'];statusLabel:string;latestAt:string|null;messages:number;characters:number;truncated:boolean}
-export interface ProjectBriefing {kind:'local'|'cloud';kindLabel:string;provider:'codex'|'claude';providerLabel:string;model:string;observedModel:string|null;recordedAt:string;completedAt:string;repositoryName:string;head:string;dirty:boolean|null;summary:string;excerpt:string;suggestedTasks:number;findings:number;chats:ChatSource[]|null;chatCharacters:number|null}
+export interface ProjectAnalysis {kind:'local'|'cloud';kindLabel:string;provider:'codex'|'claude';providerLabel:string;model:string;observedModel:string|null;recordedAt:string;completedAt:string;repositoryName:string;head:string;dirty:boolean|null;summary:string;excerpt:string;suggestedTasks:number;findings:number;chats:ChatSource[]|null;chatCharacters:number|null}
 export interface ProjectProgress {milestonesDone:number;milestonesTotal:number;milestonePercent:number;tasksDone:number;tasksOpen:number;tasksTotal:number;taskPercent:number;inProgress:number;inReview:number;proposed:number;blocked:number;weeklyPinned:number;overdue:number}
 export type ProjectAgentState='running'|'cancelling'|'queued'|'reconcile'|'awaiting_approval'|'idle';
-export interface ProjectTile {project:Project;progress:ProjectProgress;level:number;milestone:{id:string;title:string;status:MilestoneStatus;targetDate:string|null}|null;agent:{state:ProjectAgentState;label:string;tone:SignalTone;jobs:ActiveJob[];personal:PersonalJob[]};briefing:ProjectBriefing|null;activity:LogEntry[];nextAction:{task:Task;reason:string}|null;tokens:{input:number;output:number;runs:number;reported:number};lastRunAt:string|null;lastActivityAt:string|null}
+export interface BriefingWorkRow {title:string;outcome:BriefingWorkOutcome;outcomeLabel:string;tone:SignalTone;whereLabel:string;when:string|null;detail:string;evidence:string[]}
+/** The owner-facing briefing for one project: the freshest of the saved copy and a completed-but-unsaved
+ * briefing from the PC, plus what the dashboard needs to request or keep one current. */
+export interface BriefingView {
+ state:'ready'|'running'|'queued'|'none';
+ report:ProjectBriefing|null;source:'saved'|'completed'|null;recordedAt:string|null;version:number|null;evidenceId:string|null;
+ unsaved:{requestId:string;briefingSha256:string}|null;
+ status:{level:BriefingStatusLevel|null;label:string;tone:SignalTone};work:BriefingWorkRow[];
+ freshness:{newWork:boolean;detail:string|null;basedOnAt:string|null};evidenceLine:string;
+ providerLabel:string|null;originLabel:string|null;
+ repositoryKey:string|null;repositoryName:string|null;repositoryChoices:{key:string;name:string}[];
+ policy:{repositoryKey:string;provider:'codex'|'claude';enabled:boolean;minIntervalMinutes:number;lastBriefAt:string|null}|null;
+ providers:{id:'codex'|'claude';label:string;ready:boolean}[];connector:ConnectorStatus['state'];canRequest:boolean;requestHint:string|null;
+ activeJob:{id:string;status:'queued'|'claimed';providerLabel:string;origin:'owner'|'auto';createdAt:string;claimedAt:string|null}|null;
+ lastFailure:{at:string;providerLabel:string;reason:string}|null;
+}
+export interface ProjectTile {project:Project;progress:ProjectProgress;level:number;milestone:{id:string;title:string;status:MilestoneStatus;targetDate:string|null}|null;agent:{state:ProjectAgentState;label:string;tone:SignalTone;jobs:ActiveJob[];personal:PersonalJob[]};analysis:ProjectAnalysis|null;briefing:BriefingView;activity:LogEntry[];nextAction:{task:Task;reason:string}|null;tokens:{input:number;output:number;runs:number;reported:number};lastRunAt:string|null;lastActivityAt:string|null}
 export interface LogEntry {id:string;text:string;at:string;projectId:string|null;projectName:string|null;projectColor:Project['color']|null}
-export interface AttentionItem {key:string;kind:'review'|'approval'|'reconcile'|'inbox'|'overdue'|'carry';title:string;detail:string;projectId:string|null;projectName:string|null;taskId?:string;jobId?:string;tone:SignalTone}
+export interface AttentionItem {key:string;kind:'review'|'approval'|'reconcile'|'inbox'|'overdue'|'carry'|'decision';title:string;detail:string;projectId:string|null;projectName:string|null;taskId?:string;jobId?:string;tone:SignalTone}
 export interface DashboardModel {
  now:string;today:string;
  hud:{pc:PcStatus;connector:ConnectorStatus;cloud:CloudStatus;agents:{running:number;queued:number;awaitingApproval:number;cancelling:number;reconcile:number;personalActive:number;label:string;tone:SignalTone};attention:{total:number;label:string;tone:SignalTone}};
@@ -55,6 +73,10 @@ const CHAT_STATUS:Record<ChatSource['status'],string>={included:'Included','not-
 const EXECUTION_LABELS:Record<string,{label:string;tone:SignalTone}>={ready:{label:'Execution window open',tone:'good'},not_configured:{label:'Execution not configured',tone:'idle'},private_ingress_unavailable:{label:'Private access window closed',tone:'idle'},not_installed:{label:'Executor not installed',tone:'idle'}};
 const ACTIVE_ORDER:Record<string,number>={running:0,leased:1,cancelling:2,queued:3};
 const TONE_RANK:Record<SignalTone,number>={bad:0,warn:1,live:2,good:3,idle:4};
+const BRIEFING_STATUS:Record<BriefingStatusLevel,{label:string;tone:SignalTone}>={'on-track':{label:'On track',tone:'good'},'at-risk':{label:'At risk',tone:'warn'},blocked:{label:'Blocked',tone:'bad'},paused:{label:'Paused',tone:'idle'},unclear:{label:'Unclear',tone:'idle'}};
+const WORK_OUTCOME:Record<BriefingWorkOutcome,{label:string;tone:SignalTone}>={finished:{label:'Finished',tone:'good'},unfinished:{label:'Unfinished',tone:'warn'},unclear:{label:'Unclear',tone:'idle'}};
+const WORK_PLACE:Record<BriefingWorkPlace,string>={local:'on your PC',cloud:'in the cloud',both:'PC and cloud',chat:'mentioned in chats'};
+const BRIEF_FAILURES:Record<string,string>={provider_unavailable:'the assistant was not signed in on your PC',deadline_exceeded:'it took longer than allowed',cancelled:'it was cancelled',analysis_failed:'the assistant did not return a usable briefing',interrupted:'your PC app was restarted',disconnected:'your PC was disconnected'};
 
 export function providerForModel(model:string):AgentProvider{return /^claude/iu.test(model)?'claude':'codex';}
 export function operationLabel(operation:string):string{return OPERATION_LABELS[operation]??operation;}
@@ -119,10 +141,10 @@ function recentJob(row:JobRow,workspace:Workspace):RecentJob{
 function personalJob(job:PersonalConnectorJob,connector:PersonalConnectorView,workspace:Workspace):PersonalJob{
  const project=projectOf(workspace,job.projectId),repository=connector.repositories.find(row=>row.key===job.repositoryKey)??null,active=job.status==='queued'||job.status==='claimed';
  const labels:Record<PersonalConnectorJob['status'],{label:string;tone:SignalTone}>={queued:{label:'Queued on this PC',tone:'live'},claimed:{label:'Running on this PC',tone:'live'},completed:{label:'Completed on this PC',tone:'good'},failed:{label:'Failed on this PC',tone:'bad'},cancelled:{label:'Cancelled',tone:'idle'}};
- const what=job.kind==='analyze'?`Analysis${repository?` of ${repository.name}`:''}`:job.kind==='browse'?'Folder picker':job.kind;
+ const what=job.kind==='analyze'?`Analysis${repository?` of ${repository.name}`:''}`:job.kind==='brief'?`Briefing${repository?` of ${repository.name}`:''}${job.origin==='auto'?' (kept current)':''}`:job.kind==='browse'?'Folder picker':job.kind;
  return {id:job.id,kind:job.kind,status:job.status,projectId:job.projectId??null,projectName:project?.name??null,repositoryName:repository?.name??null,provider:job.provider??null,providerLabel:job.provider?PROVIDER_LABELS[job.provider]:null,createdAt:job.createdAt,claimedAt:job.claimedAt??null,active,tone:labels[job.status].tone,label:`${what} · ${labels[job.status].label}`};
 }
-function briefing(localReports:SavedReportLike<LocalAnalysisReport>[],cloudReports:SavedReportLike<GithubAnalysisReport>[],projectId:string):ProjectBriefing|null{
+function analysis(localReports:SavedReportLike<LocalAnalysisReport>[],cloudReports:SavedReportLike<GithubAnalysisReport>[],projectId:string):ProjectAnalysis|null{
  const local=localReports.filter(row=>row.projectId===projectId).sort((a,b)=>Date.parse(b.recordedAt)-Date.parse(a.recordedAt))[0]??null;
  const cloud=cloudReports.filter(row=>row.projectId===projectId).sort((a,b)=>Date.parse(b.recordedAt)-Date.parse(a.recordedAt))[0]??null;
  const useLocal=local&&(!cloud||Date.parse(local.recordedAt)>=Date.parse(cloud.recordedAt));
@@ -135,6 +157,50 @@ function briefing(localReports:SavedReportLike<LocalAnalysisReport>[],cloudRepor
   return {kind:'cloud',kindLabel:'GitHub repository · Codex Cloud handoff',provider:'codex',providerLabel:PROVIDER_LABELS.codex,model:report.run.requestedModel,observedModel:report.run.observedModel,recordedAt:cloud.recordedAt,completedAt:report.run.completedAt,repositoryName:report.repository.fullName,head:report.repository.head,dirty:null,summary:report.summary,excerpt:excerpt(report.summary,220),suggestedTasks:report.suggestedTasks.length,findings:report.findings.length,chats:null,chatCharacters:null};
  }
  return null;
+}
+const plural=(count:number,noun:string,many=noun+'s')=>`${count} ${count===1?noun:many}`;
+function evidenceLine(report:ProjectBriefing):string{
+ const e=report.evidence,parts:string[]=[];
+ parts.push(`${plural(e.local.commits,'local commit')} on ${plural(e.local.branches,'branch','branches')}${e.local.uncommittedFiles?` and ${plural(e.local.uncommittedFiles,'uncommitted file')}`:''}`);
+ if(e.cloud.status==='no-remote')parts.push('no GitHub remote');
+ else if(e.cloud.status==='unavailable')parts.push('GitHub could not be reached from your PC');
+ else parts.push(`${plural(e.cloud.commits,'cloud commit')} on ${plural(e.cloud.branches,'GitHub branch','GitHub branches')}${e.cloud.pullRequests!==null?`, ${e.cloud.openPullRequests??0} open of ${plural(e.cloud.pullRequests,'pull request')}`:''}${e.cloud.status==='stale'?' (as last fetched)':''}`);
+ const chats=e.chats.filter(chat=>chat.status==='included').map(chat=>`${plural(chat.sessions,`${PROVIDER_LABELS[chat.provider]} chat`)}`);
+ parts.push(chats.length?chats.join(' and '):'no recent local chats');
+ if(e.plan)parts.push(`${plural(e.plan.milestones,'milestone')} and ${plural(e.plan.tasks,'task')} from your plan`);
+ return parts.join(' · ');
+}
+function briefingView(project:Project,saved:SavedProjectBriefing[],localReports:SavedReportLike<LocalAnalysisReport>[],connector:PersonalConnectorView|null,connectorState:ConnectorStatus['state']):BriefingView{
+ const rows=saved.filter(row=>row.projectId===project.id).sort((a,b)=>Date.parse(b.recordedAt)-Date.parse(a.recordedAt)),latestSaved=rows[0]??null;
+ let completed:{requestId:string;briefingSha256:string;briefing:ProjectBriefing}|null=null;
+ if(connector?.completedBriefing&&connector.completedBriefing.projectId===project.id){try{completed={requestId:connector.completedBriefing.requestId,briefingSha256:connector.completedBriefing.briefingSha256,briefing:validateProjectBriefing(connector.completedBriefing.briefing)};}catch{completed=null;}}
+ const useCompleted=completed&&(!latestSaved||completed.briefing.run.id!==latestSaved.briefing.run.id&&Date.parse(completed.briefing.run.completedAt)>=Date.parse(latestSaved.briefing.run.completedAt));
+ const report=useCompleted?completed!.briefing:latestSaved?.briefing??null;
+ const jobs=(connector?.jobs??[]).filter(job=>job.kind==='brief'&&job.projectId===project.id).sort((a,b)=>Date.parse(b.createdAt)-Date.parse(a.createdAt));
+ const active=jobs.find(job=>job.status==='queued'||job.status==='claimed')??null;
+ const failed=jobs[0]&&jobs[0].status==='failed'&&(!report||Date.parse(jobs[0].createdAt)>Date.parse(report.run.completedAt))?jobs[0]:null;
+ const policies=(connector?.policies??[]).filter(policy=>policy.projectId===project.id);
+ const localRepository=localReports.filter(row=>row.projectId===project.id).sort((a,b)=>Date.parse(b.recordedAt)-Date.parse(a.recordedAt))[0]?.report.repository.key??null;
+ const choices=(connector?.repositories??[]).map(({key,name})=>({key,name}));
+ const known=(key:string|null|undefined)=>key&&choices.some(row=>row.key===key)?key:null;
+ const policy=policies.find(row=>row.repositoryKey===(report?.repository.key??row.repositoryKey))??policies[0]??null;
+ const repositoryKey=known(report?.repository.key)??known(policy?.repositoryKey)??known(localRepository)??(choices.length===1?choices[0].key:null);
+ const repositoryName=choices.find(row=>row.key===repositoryKey)?.name??report?.repository.name??null;
+ const providers=(['codex','claude'] as const).map(id=>({id,label:PROVIDER_LABELS[id],ready:connector?.providers[id].ready??false}));
+ const liveRepository=report?connector?.repositories.find(row=>row.key===report.repository.key)??null:null;
+ const newWork=Boolean(liveRepository&&(liveRepository.head!==report!.repository.head||liveRepository.dirty!==report!.repository.dirty));
+ const state:BriefingView['state']=active?(active.status==='claimed'?'running':'queued'):report?'ready':'none';
+ const requestHint=active?null:connectorState!=='online'?(connectorState==='unconfigured'?'Connect your PC under Repositories to brief this project.':connectorState==='disconnected'?'Reconnect your PC under Repositories to brief this project.':'Start Control Room on your PC to brief this project.'):!repositoryKey?(choices.length?'Choose which folder on your PC holds this project.':'Choose this project\'s folder under Repositories first.'):!providers.some(row=>row.ready)?'Sign in to Codex or Claude Code on your PC first.':null;
+ return {state,report,source:report?(useCompleted?'completed':'saved'):null,recordedAt:report?(useCompleted?report.run.completedAt:latestSaved!.recordedAt):null,version:useCompleted?null:latestSaved?.version??null,evidenceId:useCompleted?null:latestSaved?.evidenceId??null,
+  unsaved:useCompleted?{requestId:completed!.requestId,briefingSha256:completed!.briefingSha256}:null,
+  status:report?{level:report.status.level,...BRIEFING_STATUS[report.status.level]}:{level:null,label:state==='none'?'No briefing yet':'Briefing in progress',tone:state==='none'?'idle':'live'},
+  work:(report?.recentWork??[]).map(row=>({title:row.title,outcome:row.outcome,outcomeLabel:WORK_OUTCOME[row.outcome].label,tone:WORK_OUTCOME[row.outcome].tone,whereLabel:WORK_PLACE[row.where],when:row.when,detail:row.detail,evidence:row.evidence})),
+  freshness:{newWork,detail:newWork?(liveRepository!.head!==report!.repository.head?'New commits have landed since this briefing.':'There are uncommitted changes since this briefing.'):null,basedOnAt:report?.evidence.window.until??null},
+  evidenceLine:report?evidenceLine(report):'',providerLabel:report?PROVIDER_LABELS[report.run.provider]:null,originLabel:report?(report.run.origin==='auto'?'kept current automatically':'on your request'):null,
+  repositoryKey,repositoryName,repositoryChoices:choices,policy:policy?{repositoryKey:policy.repositoryKey,provider:policy.provider,enabled:policy.enabled,minIntervalMinutes:policy.minIntervalMinutes,lastBriefAt:policy.lastBriefAt}:null,
+  providers,connector:connectorState,canRequest:requestHint===null&&!active,requestHint,
+  activeJob:active?{id:active.id,status:active.status as 'queued'|'claimed',providerLabel:active.provider?PROVIDER_LABELS[active.provider]:'Assistant',origin:active.origin??'owner',createdAt:active.createdAt,claimedAt:active.claimedAt??null}:null,
+  lastFailure:failed?{at:failed.claimedAt??failed.createdAt,providerLabel:failed.provider?PROVIDER_LABELS[failed.provider]:'Assistant',reason:BRIEF_FAILURES[failed.error??'']??'it did not finish'}:null};
 }
 function logEntry(entry:Activity,workspace:Workspace):LogEntry{const project=projectOf(workspace,entry.projectId);return {id:entry.id,text:entry.text,at:entry.at,projectId:entry.projectId,projectName:project?.name??null,projectColor:project?.color??null};}
 
@@ -149,7 +215,7 @@ export function buildDashboardModel(input:DashboardInputs):DashboardModel{
  const counts={running:active.filter(job=>job.status==='running'||job.status==='leased').length,queued:active.filter(job=>job.status==='queued').length,cancelling:active.filter(job=>job.status==='cancelling').length,awaitingApproval:awaiting.length,reconcile:reconcile.length,personalActive:personal.filter(job=>job.active).length};
  const working=counts.running+counts.personalActive,agentParts=[working?`${working} working`:'',counts.queued?`${counts.queued} queued`:'',counts.awaitingApproval?`${counts.awaitingApproval} awaiting approval`:'',counts.reconcile?`${counts.reconcile} to reconcile`:''].filter(Boolean);
  const agents={...counts,label:agentParts.length?agentParts.join(' · '):'No agent working',tone:(working?'live':counts.awaitingApproval||counts.reconcile||counts.cancelling?'warn':'idle') as SignalTone};
- const recommendations=getRecommendations(workspace,today);
+ const recommendations=getRecommendations(workspace,today),connectorState=connectorStatus(input.connector,input.feeds.connector,now).state;
  const projects=workspace.projects.filter(project=>!project.archivedAt).map((project):ProjectTile=>{
   const tasks=workspace.tasks.filter(task=>task.projectId===project.id&&task.status!=='archived'&&!archivedEntity(workspace,{kind:'task',id:task.id}));
   const milestones=workspace.milestones.filter(milestone=>milestone.projectId===project.id&&!milestone.archivedAt);
@@ -164,7 +230,7 @@ export function buildDashboardModel(input:DashboardInputs):DashboardModel{
   const activity=workspace.activity.filter(entry=>entry.projectId===project.id).sort((a,b)=>Date.parse(b.at)-Date.parse(a.at)).slice(0,3).map(entry=>logEntry(entry,workspace));
   const recommendation=recommendations.map(row=>({row,task:workspace.tasks.find(task=>task.id===row.taskId)})).find(item=>item.task?.projectId===project.id);
   const lastRunAt=projectJobs.map(row=>row.attempt?.lastEventAt??row.record.createdAt).sort((a,b)=>Date.parse(b)-Date.parse(a))[0]??null;
-  return {project,progress,level:1+milestonesDone+Math.floor(done/5),milestone:current?{id:current.id,title:current.title,status:current.status,targetDate:current.targetDate}:null,agent:{state,...agentLabels[state],jobs,personal:personalJobs},briefing:briefing(input.localReports,input.cloudReports,project.id),activity,nextAction:recommendation?.task?{task:recommendation.task,reason:recommendation.row.reason}:null,tokens,lastRunAt,lastActivityAt:activity[0]?.at??null};
+  return {project,progress,level:1+milestonesDone+Math.floor(done/5),milestone:current?{id:current.id,title:current.title,status:current.status,targetDate:current.targetDate}:null,agent:{state,...agentLabels[state],jobs,personal:personalJobs},analysis:analysis(input.localReports,input.cloudReports,project.id),briefing:briefingView(project,input.briefings,input.localReports,input.connector,connectorState),activity,nextAction:recommendation?.task?{task:recommendation.task,reason:recommendation.row.reason}:null,tokens,lastRunAt,lastActivityAt:activity[0]?.at??null};
  });
  const attention:AttentionItem[]=[];
  for(const task of workspace.tasks.filter(task=>task.status==='review'&&!archivedEntity(workspace,{kind:'task',id:task.id}))){const project=projectOf(workspace,task.projectId);attention.push({key:`review:${task.id}`,kind:'review',title:task.title,detail:'Waiting for your review decision',projectId:task.projectId,projectName:project?.name??null,taskId:task.id,tone:'warn'});}
@@ -172,6 +238,7 @@ export function buildDashboardModel(input:DashboardInputs):DashboardModel{
  for(const row of reconcile){const project=projectOf(workspace,row.record.spec.projectId),task=workspace.tasks.find(item=>item.id===row.record.spec.taskId);attention.push({key:`reconcile:${row.record.id}`,kind:'reconcile',title:`${operationLabel(row.record.spec.operation)} · ${task?.title??row.record.spec.taskId}`,detail:'Execution outcome is uncertain and needs reconciliation',projectId:row.record.spec.projectId,projectName:project?.name??null,jobId:row.record.id,tone:'bad'});}
  for(const task of workspace.tasks.filter(task=>openTask(task)&&task.dueDate!==null&&task.dueDate<today&&!archivedEntity(workspace,{kind:'task',id:task.id}))){const project=projectOf(workspace,task.projectId);attention.push({key:`overdue:${task.id}`,kind:'overdue',title:task.title,detail:`Overdue since ${task.dueDate}`,projectId:task.projectId,projectName:project?.name??null,taskId:task.id,tone:'bad'});}
  for(const task of workspace.tasks.filter(task=>openTask(task)&&task.weekly&&!isCurrentWeek(task,now)&&!archivedEntity(workspace,{kind:'task',id:task.id}))){const project=projectOf(workspace,task.projectId);attention.push({key:`carry:${task.id}`,kind:'carry',title:task.title,detail:`Pinned in the week of ${task.weeklyWeek??'an earlier week'} and still open`,projectId:task.projectId,projectName:project?.name??null,taskId:task.id,tone:'idle'});}
+ for(const tile of projects){const report=tile.briefing.report;if(!report)continue;report.decisionsNeeded.slice(0,3).forEach((text,index)=>attention.push({key:`decision:${tile.project.id}:${index}`,kind:'decision',title:text,detail:'Raised by the project briefing',projectId:tile.project.id,projectName:tile.project.name,tone:'warn'}));}
  const inbox=workspace.captures.filter(capture=>capture.status==='inbox').length;
  if(inbox)attention.push({key:'inbox',kind:'inbox',title:`${inbox} capture${inbox===1?'':'s'} in the inbox`,detail:'File, convert or archive them',projectId:null,projectName:null,tone:'idle'});
  // Severity first; carried-over pins are informational and sort after everything else.
