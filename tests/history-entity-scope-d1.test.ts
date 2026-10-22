@@ -15,10 +15,10 @@ function historical(id:string,patch:Partial<AuditEventDraft>={}):AuditEventDraft
  const value=milestoneFixture({id:'native-original',title:'Retained native original'});
  return {id,kind:'milestone.create',entityType:'milestone',entityId:null,changes:[{path:['milestones',value.id],before:{exists:false,value:null},after:{exists:true,value:value as unknown as JsonValue}}],origin:'owner',actorId:owner,occurredAt:now,sourceRef:null,undoOf:null,...patch};
 }
-test('actual27-migration D1 retains historical NULL identity and bulk-member scope with exact frozen pagination and no rewritten claims',{timeout:120000},async()=>{
+test('actual29-migration D1 retains historical NULL identity and bulk-member scope with exact frozen pagination and no rewritten claims',{timeout:120000},async()=>{
  const mf=new Miniflare({modules:true,script:'export default {fetch(){return new Response("isolated native history proof")}}',d1Databases:{DB:'synthetic-native-history'}});
  try{
-  const db=await mf.getD1Database('DB'),migrations=(await readdir(new URL('../drizzle/',import.meta.url))).filter(name=>/^\d+.*\.sql$/u.test(name)).sort();assert.equal(migrations.length,27);
+  const db=await mf.getD1Database('DB'),migrations=(await readdir(new URL('../drizzle/',import.meta.url))).filter(name=>/^\d+.*\.sql$/u.test(name)).sort();assert.equal(migrations.length,29);
   for(const name of migrations)for(const sql of (await readFile(new URL('../drizzle/'+name,import.meta.url),'utf8')).split('--> statement-breakpoint'))if(sql.trim())await db.prepare(sql.trim()).run();
   for(const user of [owner,foreign,badOwner])await loadWorkspace(db,user,()=>workspaceFixture({tasks:[taskFixture('native-first'),taskFixture('native-second')]}),now);
   const bulk=await executeWorkspaceCommand(owner,{protocolVersion:1,expectedRevision:1,mutationId:crypto.randomUUID(),command:{type:'task.bulk',ids:['native-first','native-second'],patch:{priority:'high'}}},{db,handlers:workspaceHandlers,now:()=>now});assert.ok(bulk.status!=='conflict');
@@ -61,3 +61,5 @@ test('actual27-migration D1 retains historical NULL identity and bulk-member sco
   assert.equal((await db.prepare('SELECT COUNT(*) n FROM workspace_mutations WHERE user_id=?').bind(badOwner).first<{n:number}>())!.n,0);
  }finally{await mf.dispose();}
 });
+
+

@@ -38,7 +38,7 @@ test('actual Miniflare D1 capture preserves measurement and rejects late same-re
  try{
  const db=await mf.getD1Database('DB');
  const migrations=(await readdir(new URL('../drizzle/',import.meta.url))).filter(name=>/^\d+.*\.sql$/u.test(name)).sort();
- assert.equal(migrations.length,27,'Native capture proof requires all 27 actual migrations.');
+ assert.equal(migrations.length,29,'Native capture proof requires all 29 actual migrations.');
  for(const name of migrations)for(const sql of (await readFile(new URL('../drizzle/'+name,import.meta.url),'utf8')).split('--> statement-breakpoint'))if(sql.trim())await db.prepare(sql.trim()).run();
  await loadWorkspace(db,owner,workspaceFixture,now);
  const ordinary=await measureProspectiveRecoverability(db,owner,{now}),first=await capturePlanningPreflight(db,owner,scope);
@@ -133,3 +133,5 @@ test('baseline candidate hydration remains dependent and matches the original re
  assert.equal(preflight.readReceiptCount(),0);
  }finally{f.sqlite.close();}
 });
+
+

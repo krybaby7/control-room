@@ -140,3 +140,41 @@ records bounded provenance rather than raw transcripts or local session paths.
 Earlier reports remain valid and display: "Chat context was not recorded for
 this report." Chat-derived descriptions remain historical context requiring
 review, not proof of current source behavior or completed work.
+
+## Personal PC connection
+
+When the owner private connection is configured, the same launcher also starts
+an outbound HTTPS connector to the fixed private Control Room Site. The dashboard
+can then queue an explicit native Windows folder chooser and one finite analysis
+using the selected existing Codex or Claude Code subscription login. Reports are
+returned and saved automatically to the original selected project. Browser
+loopback access, port entry, pairing-code entry and JSON report imports are not
+part of this personal connection flow. The legacy local page remains available.
+
+The private connection file is CurrentUser DPAPI encrypted under
+`%LOCALAPPDATA%\ControlRoomCompanion\personal-connection.dat`, with the current
+Windows user and SYSTEM as the directory ACL principals. Credentials are provided
+through the owner provisioning flow, never command-line arguments or logs.
+`install-personal-companion.ps1` registers only a per-user Startup shortcut and
+`controlroom://open` launcher; it requires the existing reviewed package and
+PowerShell 7 and does not install a service or obtain other users' credentials.
+
+The folder chooser opens only for a queued owner Browse action while the PC is
+signed in. Cancellation and a finite two-minute selection deadline do not start
+inference. Only validated exact local Git roots enter the private registry;
+absolute paths are never returned to the Site. A shared inference slot prevents
+the legacy and personal interfaces from starting simultaneous model processes.
+A lost response retries delivery of the saved receipt/report, never analysis or
+folder selection. Restarted unfinished jobs are reported as interrupted.
+Completed reports retain private UUID report backups. After acknowledged
+delivery, the request journal keeps a compact identity marker so an old request
+cannot run again; report bodies do not accumulate in that journal. Capacity is
+checked before starting another operation and before replacing the journal.
+Provider availability is a cached CLI/authentication readiness probe, not proof
+that inference or cloud chat access succeeded. No additional AI summarizer or
+watcher is started. New analyses still require the owner's explicit action.
+
+Claude preserves the model saved in the personal `.claude/settings.json` by
+reading a bounded regular file and copying only its validated model value into
+the fixed safe settings. Other personal settings are ignored. Missing model
+configuration uses the subscription default; unsafe configuration fails closed.

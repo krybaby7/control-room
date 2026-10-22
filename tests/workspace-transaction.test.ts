@@ -1,3 +1,4 @@
+import {initialPersonalState} from '../shared/personal-repository.mjs';
 import {buildAgentJobSpec,agentJobSpecSha256} from '../lib/agents/policy.ts';
 import {normalizeEvaluationSummary} from '../lib/agents/evaluation-import.ts';
 import {decodePlanning} from '../lib/workspace-codec.ts';
@@ -113,6 +114,7 @@ async function seedRestoreModule(sqlite:ReturnType<typeof database>['sqlite'],ta
  const subject={type:'task',id:currentPlanning.tasks[0].id};
  const head={id:'preserved',currentVersion:1,archivedAt:null};
  const add=(name:string,value:unknown,columns:string[]=[],values:(string|number|null)[]=[],rowId='preserved')=>sqlite.prepare(`INSERT INTO ${name} (user_id,id,row_revision,payload_json,content_hash${columns.length?','+columns.join(','):''}) VALUES (${Array.from({length:5+columns.length},()=>'?').join(',')})`).run('a',rowId,1,JSON.stringify(value),fixtureHash(value),...values);
+ if(table==='personal_repository_state'){const state=initialPersonalState('preserved');state.connected=false;add(table,state);return;}
  if(['agent_jobs','agent_results','evaluation_runs'].includes(table)){
   // These are typed historical records only: no queue, approval, capability,
   // budget reservation or live process authority is seeded by this fixture.
@@ -176,7 +178,8 @@ async function seedRestoreModule(sqlite:ReturnType<typeof database>['sqlite'],ta
 for(const table of OWNER_TABLES)test(`planning restore refuses to omit ${table} data`,async()=>{
   const {db,sqlite}=await setup();await seedRestoreModule(sqlite,table);
   if(table==='project_baseline_revisions'){const bundle=await exportWorkspaceBundle(db,'a',{now:()=>now});assert.equal(bundle.modules.project_baseline_revisions.records.length,1);assert.equal(bundle.modules.review_snapshots.records.length,1);}
-  if(['agent_jobs','agent_results','evaluation_runs'].includes(table)){const bundle=await exportWorkspaceBundle(db,'a',{now:()=>now});assert.equal(bundle.modules[table].records.length,1,'typed historical fixture must export before testing guarded restore');if(table==='agent_results')assert.equal(bundle.modules.agent_jobs.records.length,1);if(table==='evaluation_runs')assert.equal(bundle.modules.devices.records.length,1);}
+  if(table==='personal_repository_state'){const bundle=await exportWorkspaceBundle(db,'a',{now:()=>now});assert.equal(bundle.modules.personal_repository_state.records.length,1);}
+ if(['agent_jobs','agent_results','evaluation_runs'].includes(table)){const bundle=await exportWorkspaceBundle(db,'a',{now:()=>now});assert.equal(bundle.modules[table].records.length,1,'typed historical fixture must export before testing guarded restore');if(table==='agent_results')assert.equal(bundle.modules.agent_jobs.records.length,1);if(table==='evaluation_runs')assert.equal(bundle.modules.devices.records.length,1);}
   const originals=new Map(OWNER_TABLES.map(name=>[name,sqlite.prepare(`SELECT * FROM ${name} ORDER BY user_id,id`).all()]));
   await assert.rejects(executeWorkspaceCommand('a',{protocolVersion:1,expectedRevision:1,mutationId:id,command:{type:'workspace.restore',workspace:createSeedWorkspace(now)}},deps(db,workspaceHandlers)));
   assert.equal(count(sqlite,table),1);for(const name of OWNER_TABLES)assert.deepEqual(sqlite.prepare(`SELECT * FROM ${name} ORDER BY user_id,id`).all(),originals.get(name),name);for(const affected of ['workspace_mutations','workspace_recovery','audit_events','workspace_job_intents','workspace_command_guards','workspace_assertions'])assert.equal(count(sqlite,affected),0,affected);
@@ -209,3 +212,5 @@ for(const race of ['insert','update','delete'] as const)test(`complete normalize
  for(const table of ['workspace_mutations','workspace_command_guards','workspace_assertions','evidence_records','audit_events','workspace_job_intents'])assert.equal(count(sqlite,table),0,table);
  assert.equal((await readCurrent(db,'a')).revision,1);sqlite.close();
 });
+
+

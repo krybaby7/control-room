@@ -5,7 +5,7 @@ export interface ChatContextMetadata {
 export interface LocalAnalysisReport {
  format:'control-room-project-analysis';version:1;
  repository:{key:string;name:string;head:string;dirty:boolean;snapshotSha256:string;files:number;bytes:number;includedChanges:true;excludedFiles:number};
- run:{id:string;provider:'codex';requestedModel:'gpt-6.1-sol';observedModel:'gpt-6.1-sol'|null;startedAt:string;completedAt:string;mode:'read-only';source:'paired-local-companion'};
+ run:{id:string;provider:'codex'|'claude';requestedModel:'gpt-6.1-sol'|'claude-code-default';observedModel:string|null;startedAt:string;completedAt:string;mode:'read-only';source:'paired-local-companion'|'personal-pc-connector'};
  summary:string;architecture:{name:string;description:string;paths:string[]}[];
  findings:{path:string;line:number;sha256:string;claim:string}[];
  suggestedTasks:{title:string;notes:string}[];limitations:string[];
