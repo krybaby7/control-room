@@ -891,11 +891,11 @@
   },
   "updatedAt": "2026-10-22",
   "checkpoint": {
-    "currentSource": "f74e021",
-    "publicSource": "3dfaa32ab46b29db79fc58b85105e508e0fbc226",
-    "sourceMeaning": "Native sweep overlay/atomic private receipt/overview proof integration, source semantic compatibility, save-path concurrency/batching and browser contrast/formatter corrections committed. Source now entering exact-candidate full verification.",
-    "tests": "Frozen640:2265/2265Node;typecheck/lint/buildpass;collector52;bridge210+9Windows-skipped;companion105+2Windows-skipped;GitHub20. Public3dfaa canonical benchmark39863238611 passes D1 save100samples p951216.943472ms vs unchanged2000;12 synthetic restores. Windows/Linux companion and native Windows owned-process CI pass. Historical performance/browser failures retained; final candidate not frozen. Integrated save-focused32/32 passes. Native semantic refresh58/58; private sweep job9focused; native HTTP5/5 including leaseexpiry during actual recovery reads. Browser formatter/contrast18focused. These are focused checks, not final full suite.",
-    "unfinished": "Exact final-candidate full Node/typecheck/lint/build; collector/bridge/companion/GitHub/D1/R2/HTTP/browser/performance/Windows; source-bound candidate archive integrity and screenshot review.",
+    "currentSource": "cde6f0b5a54b905a0db8bf637a01a79c9defca37",
+    "publicSource": "111c5333a37cbbe35379572170ce0f2cab36d358",
+    "sourceMeaning": "Native sweep/semantic/save/browser implementation complete in source; new actual D1 sweep gate382265c and strict consent-boundary fixcde6f0b integrated. Final combined source entering complete verification.",
+    "tests": "Public111/local6eef fullNode2309:2301pass8fail0cancel/skip208101ms; all8 semanticDigest strict consent boundary failures fixedcde6f0b,commands+actualD1focused9/9pass. Native sweep combined33/33; new actual D1 proof gate1/1max53binds/51261bytes/twoatomicproofbatches. Public111 canonical D1savep951840.711268ms/100samples passes unchanged2000;12restores; browserperformance2/2 andall3accessibilityengines pass. Collector52;bridge210+9skips;companion108+2skips;GitHub20. Final-candidate full source checks pending.",
+    "unfinished": "Complete exact final-candidate Node/typecheck/lint/build/D1/R2/HTTP/browser/performance/Windows gates, screenshot review and source-bound package/archive integrity. Nine real live gates remain external.",
     "nextCommand": "npm test",
     "deployed": false,
     "merged": false,
@@ -906,7 +906,8 @@
       "Isolated overlap-only072c82e profiling benchmark2097.474214ms and grouped3317b97 profiling benchmark2086.713317ms fail2000 target. Active-owner4 e01f09f profiling benchmark2149.067782ms also fails and is not integrated. Canonical no-profiling3317 run pending.",
       "Public3dfaa prior browser performance39863232496 failed unchanged200ms maximum main-thread task; newer run pending. Passing D1 rerun alone is not a demonstrated correction of historical failures.",
       "Isolated a8c0e7f canonical no-profile benchmark passes D1savep951961.683327ms/100samples and12restores; source recorded by committed worktree/log correlation (runner report says local-source-not-recorded). Same-tree final integrated source still requires canonical CI; earlier failures retained.",
-      "Public3dfaa browserperformance39863238589 now passes2/2 unchanged checks; earlier same-head202ms failure retained. Accessibility39863238648 still fails .mc-brief-hint contrast, corrected8a7830d; final-candidate acceptance pending."
+      "Public3dfaa browserperformance39863238589 now passes2/2 unchanged checks; earlier same-head202ms failure retained. Accessibility39863238648 still fails .mc-brief-hint contrast, corrected8a7830d; final-candidate acceptance pending.",
+      "Public111/local6eef fullNode2309failed8 at strict consent source schema rejecting semanticDigest; explicit live-row allowlist correctioncde6f0b passes9focused including actual D1. Final full rerun pending; no schema loosening."
     ]
   }
 }

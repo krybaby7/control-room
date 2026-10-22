@@ -27,7 +27,10 @@ function requireNative(raw:unknown,owner:string,commandType:string,bindings:read
 export const historyAnalysisCommandHandler:CommandHandler={async prepare(ctx):Promise<MutationPlan>{
  const command=historyAnalysisCommandSchema.parse(ctx.command),mutationId=mutation.parse(ctx.mutationId);stamp.parse(ctx.now);let control:HistoryAnalysisConsentControl;
  if(command.type==='history.analysis.authorize'){
-  const prepared=await prepareHistoryAnalysisAuthorization(ctx);control=native(controlSchema.parse({ownerId:ctx.userId,mutationId,now:ctx.now,scopeHash:prepared.scopeHash,action:'authorize',privacyScope:'selected_history',policyHash:prepared.policyHash,sources:prepared.sources,executionEpoch:prepared.executionEpoch,policyRow:prepared.policyRow,consent:prepared.consent}));
+  const prepared=await prepareHistoryAnalysisAuthorization(ctx);
+  // Historical journal identity includes semantic metadata. Live consent only
+  // accepts the existing exact physical-row pins; its strict codec stays closed.
+  const sources=prepared.sources.map(({sourceId,epoch,scopeRevision,rowRevision,contentHash})=>({sourceId,epoch,scopeRevision,rowRevision,contentHash}));control=native(controlSchema.parse({ownerId:ctx.userId,mutationId,now:ctx.now,scopeHash:prepared.scopeHash,action:'authorize',privacyScope:'selected_history',policyHash:prepared.policyHash,sources,executionEpoch:prepared.executionEpoch,policyRow:prepared.policyRow,consent:prepared.consent}));
   return plan(control,prepared.preconditions,ctx);
  }
  control=native(controlSchema.parse({ownerId:ctx.userId,mutationId,now:ctx.now,scopeHash:command.scopeHash,action:'revoke',reason:command.reason}));return plan(control,[],ctx);
