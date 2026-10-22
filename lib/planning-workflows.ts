@@ -1,3 +1,4 @@
+import {classification,WORK_TYPES} from './areas.ts';
 import { z } from 'zod';
 import type { Workspace, Task } from './types.ts';
 import type { WorkflowContext, WorkflowResult } from './planning-contract.ts';
@@ -18,10 +19,10 @@ const schema=z.discriminatedUnion('type',[
  z.object({type:z.enum(['milestone.archive','milestone.restore']),id}).strict(),
  z.object({type:z.literal('milestone.delete'),id,impactToken:z.string()}).strict(),
  z.object({type:z.literal('milestone.reorder'),projectId:id,orderedIds:z.array(id).max(100).refine(values=>new Set(values).size===values.length)}).strict(),
- z.object({type:z.literal('task.move'),ids,projectId:id,milestoneId:id.nullable()}).strict(),
- z.object({type:z.literal('task.bulk'),ids,patch:z.object({status:z.enum(['proposed','todo','doing','review','done','archived']).optional(),priority:z.enum(['high','normal','low']).optional(),horizon:horizon.optional(),dueDate:date.nullable().optional(),milestoneId:id.nullable().optional()}).strict().refine(value=>Object.keys(value).length>0)}).strict(),
+ z.object({type:z.literal('task.move'),ids,projectId:id,milestoneId:id.nullable(),areaId:id.nullable().optional(),workType:z.enum(WORK_TYPES).optional()}).strict(),
+ z.object({type:z.literal('task.bulk'),ids,patch:z.object({areaId:id.nullable().optional(),workType:z.enum(WORK_TYPES).optional(),status:z.enum(['proposed','todo','doing','review','done','archived']).optional(),priority:z.enum(['high','normal','low']).optional(),horizon:horizon.optional(),dueDate:date.nullable().optional(),milestoneId:id.nullable().optional()}).strict().refine(value=>Object.keys(value).length>0)}).strict(),
  z.object({type:z.literal('capture.bulk'),ids,patch:z.object({projectId:id.nullable().optional(),status:z.enum(['inbox','filed','archived']).optional()}).strict().refine(value=>Object.keys(value).length>0)}).strict(),
- z.object({type:z.literal('capture.bulkConvert'),items:z.array(z.object({id,projectId:id,milestoneId:id.nullable(),horizon}).strict()).min(1).max(50).refine(items=>new Set(items.map(item=>item.id)).size===items.length)}).strict(),
+ z.object({type:z.literal('capture.bulkConvert'),items:z.array(z.object({id,projectId:id,milestoneId:id.nullable(),horizon,areaId:id.nullable().optional(),workType:z.enum(WORK_TYPES).optional()}).strict()).min(1).max(50).refine(items=>new Set(items.map(item=>item.id)).size===items.length)}).strict(),
 ]);
 function found<T extends {id:string}>(rows:T[],id:string,label:string):T{const row=rows.find(row=>row.id===id);if(!row)throw new Error(`${label} is missing or unavailable.`);return row;}
 function repositories(rows:Workspace['projects'][number]['repositories']){return [...new Map(rows.map(row=>[row.url,row])).values()];}
@@ -29,7 +30,7 @@ function repositories(rows:Workspace['projects'][number]['repositories']){return
 export function applyWorkflowCommand(workspace:Workspace,value:unknown,context:WorkflowContext):WorkflowResult {
  const command=schema.parse(value);
  if(!z.string().datetime({offset:true}).safeParse(context.now).success||typeof context.newId!=='function')throw new Error('A saved command timestamp and ID factory are required.');
- const next=structuredClone(workspace);let impact:WorkflowResult['impact']=null;
+ const next=parsePlanningImport(workspace,context.now);let impact:WorkflowResult['impact']=null;
  const freshId=()=>{const value=context.newId();if(!id.safeParse(value).success||[...next.projects,...next.milestones,...next.tasks,...next.captures,...next.activity].some(row=>row.id===value))throw new Error('Generated entity ID is invalid or already exists.');return value;};
  const activeProject=(projectId:string)=>{const project=found(next.projects,projectId,'Project');if(project.archivedAt)throw new Error('Select an active project.');return project;};
  const assign=(projectId:string,milestoneId:string|null,existing?:Task)=>{activeProject(projectId);if(milestoneId!==null){const milestone=found(next.milestones,milestoneId,'Milestone');if(milestone.projectId!==projectId)throw new Error('Milestone must belong to the destination project.');if(milestone.archivedAt&&existing?.milestoneId!==milestoneId)throw new Error('Select an active milestone.');}};
@@ -43,7 +44,7 @@ export function applyWorkflowCommand(workspace:Workspace,value:unknown,context:W
  case 'task.move':{
   activeProject(command.projectId);const selected=command.ids.map(id=>found(next.tasks,id,'Task')),previousProjectIds=[...new Set(selected.map(task=>task.projectId))];
   for(const task of selected)assign(command.projectId,command.milestoneId,task);
-  for(const task of selected){task.projectId=command.projectId;task.milestoneId=command.milestoneId;}
+  for(const task of selected){Object.assign(task,classification(next,command.projectId,command.areaId===undefined?(task.projectId===command.projectId?task.areaId:null):command.areaId,command.workType??task.workType,task));task.projectId=command.projectId;task.milestoneId=command.milestoneId;}
   const moved=new Set(command.ids),index=new Map(next.tasks.map(task=>[task.id,task]));
   impact={taskIds:[...command.ids],previousProjectIds,targetProjectId:command.projectId,crossProjectEdges:next.tasks.flatMap(task=>task.dependsOn.filter(id=>(moved.has(task.id)||moved.has(id))&&index.get(id)?.projectId!==task.projectId).map(id=>({from:task.id,to:id}))).sort((a,b)=>a.from.localeCompare(b.from)||a.to.localeCompare(b.to)),captureIds:next.captures.filter(capture=>capture.convertedTaskId&&moved.has(capture.convertedTaskId)).map(capture=>capture.id)};break;
  }
@@ -51,6 +52,7 @@ export function applyWorkflowCommand(workspace:Workspace,value:unknown,context:W
   const selected=command.ids.map(id=>found(next.tasks,id,'Task'));
   for(const task of selected){
    if(command.patch.milestoneId!==undefined&&command.patch.milestoneId!==null&&command.patch.milestoneId!==task.milestoneId)assign(task.projectId,command.patch.milestoneId,task);
+   if(command.patch.areaId!==undefined||command.patch.workType!==undefined)Object.assign(task,classification(next,task.projectId,command.patch.areaId===undefined?task.areaId:command.patch.areaId,command.patch.workType??task.workType,task));
    const status=command.patch.status??task.status;
    const archivedFromStatus=status==='archived'?(task.status==='archived'?task.archivedFromStatus??(task.completedAt?'done':'todo'):task.status):null;
    const completedAt=status==='done'||status==='archived'&&archivedFromStatus==='done'?task.completedAt??context.now:null;
@@ -65,7 +67,7 @@ export function applyWorkflowCommand(workspace:Workspace,value:unknown,context:W
  case 'capture.bulkConvert':{
   if(next.tasks.length+command.items.length>2000)throw new Error('Task capacity limit reached.');
   const selected=command.items.map(item=>{const capture=found(next.captures,item.id,'Capture');if(capture.convertedTaskId||capture.status==='archived')throw new Error(`Capture “${capture.title}” is already converted or archived.`);assign(item.projectId,item.milestoneId);return {item,capture};});
-  for(const {item,capture} of selected){const task:Task={id:freshId(),projectId:item.projectId,milestoneId:item.milestoneId,title:capture.title,notes:capture.body,status:'proposed',horizon:item.horizon,priority:'normal',dueDate:null,weekly:false,weeklyWeek:null,dependsOn:[],blocker:'',sourceUrl:capture.sourceUrl,evidence:'',estimateMinutes:null,createdAt:context.now,updatedAt:context.now,completedAt:null,archivedFromStatus:null};next.tasks.push(task);capture.projectId=item.projectId;capture.convertedTaskId=task.id;capture.status='filed';}break;
+  for(const {item,capture} of selected){const task:Task={...classification(next,item.projectId,item.areaId,item.workType),id:freshId(),projectId:item.projectId,milestoneId:item.milestoneId,title:capture.title,notes:capture.body,status:'proposed',horizon:item.horizon,priority:'normal',dueDate:null,weekly:false,weeklyWeek:null,dependsOn:[],blocker:'',sourceUrl:capture.sourceUrl,evidence:'',estimateMinutes:null,createdAt:context.now,updatedAt:context.now,completedAt:null,archivedFromStatus:null};next.tasks.push(task);capture.projectId=item.projectId;capture.convertedTaskId=task.id;capture.status='filed';}break;
  }
  }
  validateTaskGraph(next);

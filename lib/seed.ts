@@ -77,7 +77,7 @@ export function createSeedWorkspace(now?: string): Workspace {
     'https://github.com/krybaby7/trade-graph', 'later', 'normal', [operationReview]);
 
   return {
-    schemaVersion: 4,
+    schemaVersion: 5, areas: [],
     projects: [
       { id: tamenni, name: 'TAMENNI', color: 'orange', priority: 'equal', archivedAt:null,
         description: 'Android product and map experience, with explicit acceptance for reliability, launch coverage, integration, scaling and economics.',

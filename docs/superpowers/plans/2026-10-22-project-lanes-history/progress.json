@@ -2,11 +2,54 @@
   "planVersion": 1,
   "createdDate": "2026-10-22",
   "timezone": "Africa/Cairo",
-  "status": "planned",
+  "status": "in_progress",
   "requiredImplementationModel": "gpt-6.1-sol",
-  "actualImplementationBaseline": null,
-  "implementationBranch": null,
-  "modelSelections": [],
+  "actualImplementationBaseline": "17f7103e131bd6b9979a404d8a7535bba3b3a661",
+  "implementationBranch": "feat/project-lanes-history-cloud",
+  "modelSelections": [
+    {
+      "workerId": "/root",
+      "modelParameter": "gpt-6.1-sol",
+      "accepted": true,
+      "selectionEvidence": "Delegated turn explicitly selected through supported send-message model control; accepted execution continuation. Opaque execution chat ID is not exposed by available runtime tools.",
+      "delegatingThreadId": "01a1650a-9d49-7030-a1e8-4e69f0199a08"
+    },
+    {
+      "workerId": "/root/lanes_import_review",
+      "modelParameter": "gpt-6.1-sol",
+      "forkTurns": "none",
+      "accepted": true,
+      "selectionEvidence": "Supported spawn_agent parameter accepted and canonical worker ID returned."
+    },
+    {
+      "workerId": "/root/lanes_contracts",
+      "modelParameter": "gpt-6.1-sol",
+      "forkTurns": "none",
+      "accepted": true,
+      "selectionEvidence": "Supported spawn_agent parameter accepted and canonical worker ID returned."
+    },
+    {
+      "workerId": "/root/lanes_capability_audit",
+      "modelParameter": "gpt-6.1-sol",
+      "forkTurns": "none",
+      "accepted": true,
+      "selectionEvidence": "Supported spawn_agent parameter accepted and canonical worker ID returned."
+    },
+    {
+      "workerId": "/root/lanes_areas",
+      "modelParameter": "gpt-6.1-sol",
+      "forkTurns": "none",
+      "accepted": true,
+      "selectionEvidence": "Supported spawn_agent parameter accepted and canonical worker ID returned."
+    },
+    {
+      "workerId": "/root/lanes_objects",
+      "modelParameter": "gpt-6.1-sol",
+      "forkTurns": "none",
+      "accepted": true,
+      "selectionEvidence": "Supported spawn_agent parameter accepted and canonical worker ID returned."
+    }
+  ],
   "approvedDirection": {
     "home": "project_lanes",
     "cloudClaudeScope": "claude_code_web_cloud",
@@ -17,8 +60,8 @@
     ],
     "ownerAcceptance": "explicit"
   },
-  "currentStage": "S0",
-  "nextAction": "Read START-HERE.md and repository instructions; execute F1 against the actual checkout. No implementation tasks have started.",
+  "currentStage": "S1",
+  "nextAction": "Finish F1 baseline lint cleanup diagnosis; integrate and review F2/F3/C1 and private object lifecycle, then complete F4/F5/F6. Freeze all shared S1 contracts before dependent features. Baseline Node241936tests/typecheck/build pass; lint generated test artifact failure retained.",
   "stages": [
     {
       "id": "S0",
@@ -26,8 +69,10 @@
         "F1"
       ],
       "dependsOn": [],
-      "status": "not_started",
-      "evidence": [],
+      "status": "implemented",
+      "evidence": [
+        "F1 actual imported Node24 baseline and capabilities recorded."
+      ],
       "blockers": []
     },
     {
@@ -43,7 +88,7 @@
       "dependsOn": [
         "S0"
       ],
-      "status": "not_started",
+      "status": "in_progress",
       "evidence": [],
       "blockers": []
     },
@@ -142,17 +187,32 @@
     {
       "id": "F1",
       "chapter": "01-foundation-contracts.md",
-      "status": "not_started",
-      "changedFiles": [],
+      "status": "implemented",
+      "changedFiles": [
+        "docs/implementation/project-lanes-history/baseline.md",
+        "docs/implementation/project-lanes-history/capabilities.md",
+        "docs/implementation/project-lanes-history/cloud-capability-proof.md"
+      ],
       "commit": null,
-      "verification": [],
-      "blockers": [],
+      "verification": [
+        {
+          "command": "npm run install:ci; npm test; npm run typecheck; npm run lint; npm run build",
+          "outcome": "install/pass;1936/1936Node;typecheck/pass;lint/fail21generatedbundleerrors28warnings;build/pass",
+          "date": "2026-10-22",
+          "evidenceRef": "docs/implementation/project-lanes-history/baseline.md",
+          "sourceCommit": "17f7103e131bd6b9979a404d8a7535bba3b3a661",
+          "localEquivalentCommit": "b75e2c87eb312bbf86deeb4c27e12e667b83a3cc"
+        }
+      ],
+      "blockers": [
+        "Baseline lint generated CommonJS render artifact cleanup needs correction; no live owner/provider inventory access."
+      ],
       "nextAction": null
     },
     {
       "id": "F2",
       "chapter": "01-foundation-contracts.md",
-      "status": "not_started",
+      "status": "in_progress",
       "changedFiles": [],
       "commit": null,
       "verification": [],
@@ -162,7 +222,7 @@
     {
       "id": "F3",
       "chapter": "01-foundation-contracts.md",
-      "status": "not_started",
+      "status": "in_progress",
       "changedFiles": [],
       "commit": null,
       "verification": [],
@@ -172,7 +232,7 @@
     {
       "id": "F4",
       "chapter": "01-foundation-contracts.md",
-      "status": "not_started",
+      "status": "in_progress",
       "changedFiles": [],
       "commit": null,
       "verification": [],
@@ -202,7 +262,7 @@
     {
       "id": "C1",
       "chapter": "02-history-collection.md",
-      "status": "not_started",
+      "status": "in_progress",
       "changedFiles": [],
       "commit": null,
       "verification": [],
@@ -584,5 +644,31 @@
     "S6 can deliver a partial release with explicitly open gates; fullRequestedCoverage remains false until all four requested source classes pass.",
     "Physical acceptance applies to the user's projects, not a prerequisite to shipping Control Room.",
     "Do not mutate the older program's unrelated phase statuses. Cross-reference overlap after implementation."
-  ]
+  ],
+  "preservedIncrement": {
+    "publicCommit": "17f7103e131bd6b9979a404d8a7535bba3b3a661",
+    "localCommit": "b75e2c87eb312bbf86deeb4c27e12e667b83a3cc",
+    "tree": "08a6b569fe0fc47c30df023dec2d0e0a2970094c",
+    "paths": 47,
+    "insertions": 1343,
+    "deletions": 145,
+    "sanitizationPreserved": true,
+    "reviewWorker": "/root/lanes_import_review",
+    "review": "No import-blocking issue; dirty-file fingerprint follow-up recorded."
+  },
+  "updatedAt": "2026-10-22",
+  "checkpoint": {
+    "currentSource": "17f7103e131bd6b9979a404d8a7535bba3b3a661",
+    "sourceMeaning": "Public preserved increment; newer foundation work is being integrated in this same managed cloud checkout.",
+    "tests": "F1 baseline1936/1936Node,typecheck/buildpass;lint21generatedartifacterrors28warnings retained. Focused S1 workers pass their reported tests; integrator freeze not yet accepted.",
+    "unfinished": "S1 final review/storage/recovery/roadmap; S2-S6 dependent work; all nine live gates.",
+    "nextCommand": "git status --short",
+    "deployed": false,
+    "merged": false,
+    "knownFailures": [
+      "Baseline lint21errors in generated CommonJS render output; no ordinary missing-finally path established.",
+      "F2 focused11pass/typecheckpass; older version4 assertions and measurement oracle/old1MB boundary tests require compatibility review; not waived or yet fixed.",
+      "S1 contracts reviewed14focusedpass after fixing inherited-range, foreign-gap and misleading-current bugs. Private object lifecycle4focusedpass before further integration auth/parameter-bound hardening; fullcandidate not yet validated."
+    ]
+  }
 }
