@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "integrator": "/root",
+  "requestedModel": "gpt-6.1-sol",
+  "acceptedSelection": true,
+  "firstCandidate": {
+    "commit": "b6f5cce5673dfde68c799b8ccc40ab8147c544c2",
+    "node": {
+      "tests": 2019,
+      "passed": 1962,
+      "failed": 57,
+      "cancelled": 0,
+      "skipped": 0,
+      "durationMs": 239669.459844
+    },
+    "typecheck": "passed",
+    "lint": "passed;12warnings",
+    "build": "passed"
+  },
+  "focusedCorrections": [
+    {
+      "scope": "new history ingest on real MiniflareD1",
+      "passed": 1,
+      "details": "30 migrations;250 unavailable messages;53 maximum bindings;replay;CAS rollback;owner/epoch isolation;unchanged editor revision"
+    },
+    {
+      "scope": "recovery classification/install/staged continuity plus native capture",
+      "passed": 20
+    },
+    {
+      "scope": "inert history merge/export and existing normalized merge",
+      "passed": 29
+    },
+    {
+      "scope": "area/recurrence/API/repair/rehearsal/baseline compatibility",
+      "passed": 62
+    },
+    {
+      "scope": "closed recovery inventories and assertion groups including native D1",
+      "passed": 27
+    },
+    {
+      "scope": "legacy/current budget and preservation compatibility",
+      "passed": 53
+    },
+    {
+      "scope": "module initialization, migration and normalized merge",
+      "passed": 36
+    }
+  ],
+  "companion": {
+    "passed": 105,
+    "failed": 0,
+    "skipped": 2,
+    "skipReason": "Physical Windows owned-process tests cannot execute on Linux."
+  },
+  "correctedFullCandidate": "pending",
+  "liveSourceGates": "all four unverified",
+  "publication": "not attempted",
+  "limitations": [
+    "Standard workspace backups include history metadata, not all private history bytes.",
+    "Dedicated history package helper is bounded buffered offline code; hosted streaming and collection routes are not yet implemented.",
+    "Source removal is a reviewed logical tombstone; physical bytes remain pending verified private backup and reviewed retention cleanup."
+  ]
+}

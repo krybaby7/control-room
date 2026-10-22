@@ -63,8 +63,8 @@ test('final merge enforces count and UTF-8 content budgets across individually v
   incoming.tasks=[{...incoming.tasks[0],id:'additional-task'}];
   assert.throws(()=>previewPlanningMerge(current,incoming,selection({tasks:['additional-task']})),/2000/);
   const target=seed(),source=seed();
-  target.tasks=Array.from({length:60},(_,i)=>({...target.tasks[0],id:`current-${i}`,notes:'ع'.repeat(4500)}));
-  source.tasks=Array.from({length:60},(_,i)=>({...source.tasks[0],id:`incoming-${i}`,notes:'ع'.repeat(4500)}));
+  target.tasks=Array.from({length:90},(_,i)=>({...target.tasks[0],id:`current-${i}`,notes:'ع'.repeat(4500)}));
+  source.tasks=Array.from({length:90},(_,i)=>({...source.tasks[0],id:`incoming-${i}`,notes:'ع'.repeat(4500)}));
   assert.throws(()=>previewPlanningMerge(target,source,selection({tasks:source.tasks.map(t=>t.id)})),/user-content storage limit/);
 });
 test('empty selection is a detached unchanged preview and archived incoming additions remain proposals',()=>{

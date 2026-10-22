@@ -5,7 +5,7 @@ import {parseWorkspaceExport} from '../lib/workspace-validation.ts';
 import {encodePlanning,decodePlanning} from '../lib/workspace-codec.ts';
 const now='2026-10-22T10:00:00.000Z';
 test('legacy planning migrates without inferred classification or changed owner fields',()=>{
- const original=createSeedWorkspace(now);original.schemaVersion=4;
+ const original=createSeedWorkspace(now);original.schemaVersion=4;delete original.areas;for(const task of original.tasks){delete task.areaId;delete task.workType;}
  const before=structuredClone(original),migrated=parseWorkspaceExport(original,now);
  assert.equal(migrated.schemaVersion,5);assert.deepEqual(migrated.areas,[]);
  for(const task of migrated.tasks){assert.equal(task.areaId,null);assert.equal(task.workType,'other');const {areaId:_a,workType:_w,...rest}=task;assert.deepEqual(rest,before.tasks.find(t=>t.id===task.id));}
@@ -30,7 +30,7 @@ test('v5 content headroom and compact generated defaults use exact measurement',
  assert.deepEqual(measurePlanning(ws),measureValidatedPlanning(ws));assert.deepEqual(decodePlanning(encodePlanning(ws)),ws);
 });
 test('v4 migration preserves weekly commitments, archived completion and baseline markers',()=>{
- const legacy=createSeedWorkspace(now);legacy.schemaVersion=4;delete legacy.areas;
+ const legacy=createSeedWorkspace(now);legacy.schemaVersion=4;delete legacy.areas;for(const task of legacy.tasks){delete task.areaId;delete task.workType;}
  legacy.tasks=[{id:'baseline:synthetic:task',projectId:legacy.projects[0].id,milestoneId:null,title:'Historical owner title',notes:'Owner notes',status:'archived',horizon:'now',priority:'high',dueDate:'2026-10-22',weekly:false,dependsOn:[],blocker:'',sourceUrl:'https://example.test/owner',evidence:'Saved evidence',estimateMinutes:25,createdAt:now,updatedAt:now,completedAt:now,weeklyWeek:null,archivedFromStatus:'done'}, {id:'weekly-task',projectId:legacy.projects[1].id,milestoneId:null,title:'Pinned owner task',notes:'',status:'todo',horizon:'next',priority:'normal',dueDate:null,weekly:true,dependsOn:['baseline:synthetic:task'],blocker:'',sourceUrl:null,evidence:'',estimateMinutes:null,createdAt:now,updatedAt:now,completedAt:null,weeklyWeek:'2026-10-19',archivedFromStatus:null}];
  const migrated=parseWorkspaceExport(legacy);for(const task of migrated.tasks){const {areaId:_a,workType:_w,...retained}=task;assert.deepEqual(retained,legacy.tasks.find(row=>row.id===task.id));}assert.deepEqual(decodePlanning(encodePlanning(migrated)),migrated);
 });

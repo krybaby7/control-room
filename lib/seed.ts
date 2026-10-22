@@ -18,7 +18,7 @@ export function createSeedWorkspace(now?: string): Workspace {
 
   function task(projectId: string, milestoneId: string, title: string, notes: string, sourceUrl: string, horizon: Horizon = 'now', priority: Priority = 'normal', dependsOn: string[] = []): string {
     const id = crypto.randomUUID();
-    tasks.push({ estimateMinutes:null, id, projectId, milestoneId, title, notes, sourceUrl, horizon, priority, dependsOn, status: 'proposed', dueDate: null, weekly: false, weeklyWeek: null, archivedFromStatus: null, blocker: '', evidence: '', createdAt: at, updatedAt: at, completedAt: null });
+    tasks.push({ areaId:null,workType:'other',estimateMinutes:null, id, projectId, milestoneId, title, notes, sourceUrl, horizon, priority, dependsOn, status: 'proposed', dueDate: null, weekly: false, weeklyWeek: null, archivedFromStatus: null, blocker: '', evidence: '', createdAt: at, updatedAt: at, completedAt: null });
     return id;
   }
 

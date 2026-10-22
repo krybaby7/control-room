@@ -18,7 +18,7 @@ async function manual(db:SqlDatabase,index:number){const current=await readCurre
 async function removal(db:SqlDatabase,selected:string){const backups=await listWorkspaceBackups(db,'a');const item=backups.find(row=>row.id===selected)!;return envelope({type:'workspace.backup.remove',id:item.id,sha256:item.sha256,targetRevision:(await readCurrent(db,'a')).revision},(await readCurrent(db,'a')).revision,'snapshot-remove-0001');}
 
 for(const kind of ['task','capture'] as const)test(`archived unreferenced ${kind} deletion retains its exact original ID and record in a complete backup`,async()=>{
- const {db,workspace}=await setup();const original=kind==='task'?workspace.tasks[0]:workspace.captures[0];const before=await readCurrent(db,'a');const input=await deletion(db,kind);
+ const {db}=await setup();const before=await readCurrent(db,'a');const original=kind==='task'?before.workspace.tasks[0]:before.workspace.captures[0];const input=await deletion(db,kind);
  assert.equal((await executeWorkspaceCommand('a',input,deps(db))).status,'committed');const current=await readCurrent(db,'a');const collection=kind==='task'?'tasks':'captures';assert.equal(current.workspace[collection].length,before.workspace[collection].length-1);assert.ok(!current.workspace[collection].some(row=>row.id===original.id));
  const [manifest]=await listWorkspaceBackups(db,'a');assert.equal(manifest.reason,'delete');const backup=await readWorkspaceBackup(db,'a',manifest.id);assert.ok(backup);assert.deepEqual(backup.bundle.planning[collection].find(row=>row.id===original.id),original);assert.deepEqual(backup.bundle.planning,before.workspace);
  assert.equal((await executeWorkspaceCommand('a',input,deps(db))).status,'replayed');assert.equal((await listWorkspaceBackups(db,'a')).length,1);

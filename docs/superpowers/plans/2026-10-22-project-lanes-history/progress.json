@@ -61,7 +61,7 @@
     "ownerAcceptance": "explicit"
   },
   "currentStage": "S1",
-  "nextAction": "Finish F1 baseline lint cleanup diagnosis; integrate and review F2/F3/C1 and private object lifecycle, then complete F4/F5/F6. Freeze all shared S1 contracts before dependent features. Baseline Node241936tests/typecheck/build pass; lint generated test artifact failure retained.",
+  "nextAction": "Run the complete corrected S1 exact-candidate Node24 suite, typecheck/lint/build and preserve any remaining failures. Freeze S1 only after acceptance, then implement S2-S6 against the fixed contracts.",
   "stages": [
     {
       "id": "S0",
@@ -193,7 +193,7 @@
         "docs/implementation/project-lanes-history/capabilities.md",
         "docs/implementation/project-lanes-history/cloud-capability-proof.md"
       ],
-      "commit": null,
+      "commit": "6edcaf4744d9f4ca1996c5072a684e4ee53c0b31",
       "verification": [
         {
           "command": "npm run install:ci; npm test; npm run typecheck; npm run lint; npm run build",
@@ -204,70 +204,110 @@
           "localEquivalentCommit": "b75e2c87eb312bbf86deeb4c27e12e667b83a3cc"
         }
       ],
-      "blockers": [
-        "Baseline lint generated CommonJS render artifact cleanup needs correction; no live owner/provider inventory access."
-      ],
+      "blockers": [],
       "nextAction": null
     },
     {
       "id": "F2",
       "chapter": "01-foundation-contracts.md",
-      "status": "in_progress",
+      "status": "implemented",
       "changedFiles": [],
-      "commit": null,
-      "verification": [],
+      "commit": "1fbc05a98ce5661b352bf329db9e17238e6424a5",
+      "verification": [
+        {
+          "command": "Focused strict codec, migration, area/recurrence, owner source controls, native D1 ingestion, storage/admission, object quota, roadmap, export/restore and normalized merge regressions",
+          "outcome": "Passing focused checks; complete corrected candidate rerun pending. See s1-verification.json for source-specific results.",
+          "date": "2026-10-22",
+          "evidenceRef": "docs/implementation/project-lanes-history/s1-verification.json"
+        }
+      ],
       "blockers": [],
-      "nextAction": null
+      "nextAction": "Accept full corrected S1 candidate before dependent features."
     },
     {
       "id": "F3",
       "chapter": "01-foundation-contracts.md",
-      "status": "in_progress",
+      "status": "implemented",
       "changedFiles": [],
-      "commit": null,
-      "verification": [],
+      "commit": "1fbc05a98ce5661b352bf329db9e17238e6424a5",
+      "verification": [
+        {
+          "command": "Focused strict codec, migration, area/recurrence, owner source controls, native D1 ingestion, storage/admission, object quota, roadmap, export/restore and normalized merge regressions",
+          "outcome": "Passing focused checks; complete corrected candidate rerun pending. See s1-verification.json for source-specific results.",
+          "date": "2026-10-22",
+          "evidenceRef": "docs/implementation/project-lanes-history/s1-verification.json"
+        }
+      ],
       "blockers": [],
-      "nextAction": null
+      "nextAction": "Accept full corrected S1 candidate before dependent features."
     },
     {
       "id": "F4",
       "chapter": "01-foundation-contracts.md",
-      "status": "in_progress",
+      "status": "implemented",
       "changedFiles": [],
-      "commit": null,
-      "verification": [],
+      "commit": "1fbc05a98ce5661b352bf329db9e17238e6424a5",
+      "verification": [
+        {
+          "command": "Focused strict codec, migration, area/recurrence, owner source controls, native D1 ingestion, storage/admission, object quota, roadmap, export/restore and normalized merge regressions",
+          "outcome": "Passing focused checks; complete corrected candidate rerun pending. See s1-verification.json for source-specific results.",
+          "date": "2026-10-22",
+          "evidenceRef": "docs/implementation/project-lanes-history/s1-verification.json"
+        }
+      ],
       "blockers": [],
-      "nextAction": null
+      "nextAction": "Accept full corrected S1 candidate before dependent features."
     },
     {
       "id": "F5",
       "chapter": "01-foundation-contracts.md",
-      "status": "not_started",
+      "status": "implemented",
       "changedFiles": [],
-      "commit": null,
-      "verification": [],
+      "commit": "1fbc05a98ce5661b352bf329db9e17238e6424a5",
+      "verification": [
+        {
+          "command": "Focused strict codec, migration, area/recurrence, owner source controls, native D1 ingestion, storage/admission, object quota, roadmap, export/restore and normalized merge regressions",
+          "outcome": "Passing focused checks; complete corrected candidate rerun pending. See s1-verification.json for source-specific results.",
+          "date": "2026-10-22",
+          "evidenceRef": "docs/implementation/project-lanes-history/s1-verification.json"
+        }
+      ],
       "blockers": [],
-      "nextAction": null
+      "nextAction": "Accept full corrected S1 candidate before dependent features."
     },
     {
       "id": "F6",
       "chapter": "01-foundation-contracts.md",
-      "status": "not_started",
+      "status": "implemented",
       "changedFiles": [],
-      "commit": null,
-      "verification": [],
+      "commit": "1fbc05a98ce5661b352bf329db9e17238e6424a5",
+      "verification": [
+        {
+          "command": "Focused strict codec, migration, area/recurrence, owner source controls, native D1 ingestion, storage/admission, object quota, roadmap, export/restore and normalized merge regressions",
+          "outcome": "Passing focused checks; complete corrected candidate rerun pending. See s1-verification.json for source-specific results.",
+          "date": "2026-10-22",
+          "evidenceRef": "docs/implementation/project-lanes-history/s1-verification.json"
+        }
+      ],
       "blockers": [],
-      "nextAction": null
+      "nextAction": "Accept full corrected S1 candidate before dependent features."
     },
     {
       "id": "C1",
       "chapter": "02-history-collection.md",
-      "status": "in_progress",
+      "status": "implemented",
       "changedFiles": [],
-      "commit": null,
-      "verification": [],
+      "commit": "1fbc05a98ce5661b352bf329db9e17238e6424a5",
+      "verification": [
+        {
+          "command": "Focused strict codec, migration, area/recurrence, owner source controls, native D1 ingestion, storage/admission, object quota, roadmap, export/restore and normalized merge regressions",
+          "outcome": "Passing focused checks; complete corrected candidate rerun pending. See s1-verification.json for source-specific results.",
+          "date": "2026-10-22",
+          "evidenceRef": "docs/implementation/project-lanes-history/s1-verification.json"
+        }
+      ],
       "blockers": [],
-      "nextAction": null
+      "nextAction": "Accept full corrected S1 candidate before dependent features."
     },
     {
       "id": "C2",
@@ -658,17 +698,18 @@
   },
   "updatedAt": "2026-10-22",
   "checkpoint": {
-    "currentSource": "17f7103e131bd6b9979a404d8a7535bba3b3a661",
-    "sourceMeaning": "Public preserved increment; newer foundation work is being integrated in this same managed cloud checkout.",
-    "tests": "F1 baseline1936/1936Node,typecheck/buildpass;lint21generatedartifacterrors28warnings retained. Focused S1 workers pass their reported tests; integrator freeze not yet accepted.",
-    "unfinished": "S1 final review/storage/recovery/roadmap; S2-S6 dependent work; all nine live gates.",
-    "nextCommand": "git status --short",
+    "currentSource": "1fbc05a98ce5661b352bf329db9e17238e6424a5",
+    "publicSource": "bfa16bf01a1190596ac2240307edaec07535c4c5",
+    "sourceMeaning": "Public source equals local58227cf tree e4d7ddeb; newer narrowly reviewed S1 fixes retained locally for next publication. No private rejected diagnostic history included.",
+    "tests": "Initial exact b6f5cce:2019tests1962pass57fail0cancel; typecheck/lint/buildpass. Failures retained; focused corrections pass, complete corrected candidate pending. Companion105pass2Windows-onlyskips. Native historyD1 250messages53maxbindings pass.",
+    "unfinished": "S1 corrected full acceptance; S2-S6 implementation; all nine live gates. Physical history removal stays retained pending verified private backup.",
+    "nextCommand": "npm test",
     "deployed": false,
     "merged": false,
     "knownFailures": [
-      "Baseline lint21errors in generated CommonJS render output; no ordinary missing-finally path established.",
-      "F2 focused11pass/typecheckpass; older version4 assertions and measurement oracle/old1MB boundary tests require compatibility review; not waived or yet fixed.",
-      "S1 contracts reviewed14focusedpass after fixing inherited-range, foreign-gap and misleading-current bugs. Private object lifecycle4focusedpass before further integration auth/parameter-bound hardening; fullcandidate not yet validated."
+      "Initial b6f5cce full Node57fail: missing history inert merge/compiler/recovery authority classification, recurrence fields, old closed inventory/schema/size expectations; focused corrections passed, final full confirmation pending.",
+      "Baseline imported companion sanitized-origin fixture mismatch corrected with fixed injected synthetic transport policy; production exact-origin validation unchanged.",
+      "Two real Windows owned-process companion tests skipped on Linux; actual owner/provider/private ingress and publication unverified."
     ]
   }
 }

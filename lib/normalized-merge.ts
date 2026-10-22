@@ -1,3 +1,4 @@
+import {inertHistoryMergeValue} from './history/module.ts';
 import {validatePersonalState} from '../shared/personal-repository.mjs';
 import {z} from 'zod';
 import type {Workspace} from './types.ts';
@@ -12,7 +13,7 @@ import {attachmentRecordSchema,attachmentUsageSchema} from './evidence-module.ts
 import type {AttachmentRecord} from './evidence-contract.ts';
 import type {VerifiedAttachment} from './evidence-requirements.ts';
 const wrapper=z.object({id:z.string().min(1).max(128),rowRevision:z.number().int().positive().safe(),contentHash:z.string().regex(/^[a-f0-9]{64}$/),value:z.unknown()}).strict();
-const closedKeys=new Set(['weekly_plans','weekly_reviews','recurrence_rules','recurrence_occurrences','evidence','decisions','evidence_links','evidence_requirements','acceptance_records','attachments','attachment_usage','source_connections','source_targets','source_observations','source_sync_runs','source_proposals','integration_history','review_snapshots','review_acknowledgements','automation_schedules','automation_occurrences','notification_events','review_settings','review_analysis_runs','project_baseline_revisions','devices','runtime_adapter_configurations','runtime_evidence','agent_jobs','agent_results','evaluation_runs','personal_repository_state']);
+const closedKeys=new Set(['weekly_plans','weekly_reviews','recurrence_rules','recurrence_occurrences','evidence','decisions','evidence_links','evidence_requirements','acceptance_records','attachments','attachment_usage','source_connections','source_targets','source_observations','source_sync_runs','source_proposals','integration_history','review_snapshots','review_acknowledgements','automation_schedules','automation_occurrences','notification_events','review_settings','review_analysis_runs','project_baseline_revisions','devices','runtime_adapter_configurations','runtime_evidence','agent_jobs','agent_results','evaluation_runs','personal_repository_state','project_history']);
 export interface NormalizedMergeRow {module:string;table:RegisteredOwnerTable;id:string;beforeHash:string|null;afterHash:string;disposition:'insert'|'deduplicate'|'derived-quota'}
 export interface NormalizedMergeConflict {module:string;id:string;reason:'different-body'|'physical-identity';currentHash:string;incomingHash:string}
 export interface NormalizedMergeReview {version:1;importHash:string;targetRevision:number;beforeDigest:string;rows:NormalizedMergeRow[];conflicts:NormalizedMergeConflict[];warnings:string[];reviewHash:string}
@@ -37,7 +38,8 @@ function physicalIdentity(key:string,tables:RegisteredOwnerTable[],row:z.infer<t
 }
 async function inert(table:RegisteredOwnerTable,id:string,value:JsonValue,input:NormalizedMergeInput,proofs:NormalizedMergeProof[],warnings:Set<string>,proofDeadline:number):Promise<JsonValue>{
  const row=value as {[key:string]:JsonValue};let result=value;
- if(table==='weekly_plans'){result={...row,taskIds:[],capacityMinutes:null};warnings.add('Imported weekly plans retain their identity but create no commitments or capacity settings; original source bodies remain in import history.');}
+ if(table==='project_history'){result=inertHistoryMergeValue(value);warnings.add('Imported history remains historical: sources are paused, agreement and owner grants are not transferred, and unverified private object namespaces are unavailable. Use explicit verified history recovery for bytes.');}
+ else if(table==='weekly_plans'){result={...row,taskIds:[],capacityMinutes:null};warnings.add('Imported weekly plans retain their identity but create no commitments or capacity settings; original source bodies remain in import history.');}
  else if(table==='recurrence_rules'||table==='source_connections'||table==='automation_schedules')result={...row,enabled:false};
  else if(table==='evidence_requirements')result={...row,archivedAt:row.archivedAt??input.importedAt};
  else if(table==='devices')result={...row,archivedAt:row.archivedAt??input.importedAt};

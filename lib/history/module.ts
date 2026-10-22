@@ -64,3 +64,17 @@ export const historyExportAdapter:ExportModule={...base,legacyOptional:true,vali
  }return [{table:'project_history',records}];},
 };
 export const historyReferenceDescriptor:ReferenceDescriptor={key:'project_history',schemaVersion:1,parse:parseHistoryRecord,references:value=>refs(parseHistoryRecord(value))};
+
+/** Generic normalized merge has no authenticated private-byte proof. Imported
+ * history therefore preserves identities/provenance but cannot import runnable
+ * sources, native namespaces, current agreement or readable object authority.
+ * The original portable record is retained by normalized merge's historyClaims.
+ * Verified byte recovery uses the separate staged history artifact workflow. */
+export function inertHistoryMergeValue(input:unknown):JsonValue{
+ let record=parseHistoryRecord(input);
+ if(record.kind==='source')record={...record,value:{...record.value,paused:true,configuration:{...record.value.configuration,roots:[],accountId:null,deviceId:null,exclusions:[]},capability:{...record.value.capability,inventory:'unverified',contentRead:'unverified',unattendedRead:false,verifiedAt:null,proofRef:null,limitation:'Imported historical source requires fresh owner enrollment and scope verification.'}}};
+ else if(record.kind==='message'||record.kind==='repository_evidence')record={...record,value:{...record.value,bodyObjectKey:`unavailable:history-import:${record.id}`,availability:'unavailable'}} as HistoryRecord;
+ else if(record.kind==='segment'||record.kind==='attachment')record={...record,value:{...record.value,objectKey:null,sha256:null,bytes:null,availability:'unavailable',unavailableReason:'Imported metadata only; private history bytes require explicit verified recovery.'}} as HistoryRecord;
+ else if(record.kind==='roadmap_head'||record.kind==='roadmap_scope')record={...record,value:{...record.value,agreedAt:null}} as HistoryRecord;
+ return parseHistoryRecord(record) as unknown as JsonValue;
+}

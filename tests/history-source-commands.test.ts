@@ -42,3 +42,20 @@ test('reviewed removal fences the source and keeps owner records and retained ev
   await assert.rejects(send({type:'history.source.resume',sourceId:'source-a',expectedRowRevision:3},'history_remove_resume_001'),/Removed source/);
  }finally{sqlite.close();}
 });
+
+test('a removal preview cannot commit across an independently changed history row set',async()=>{
+ const {db,sqlite}=database();try{
+  const owner='synthetic-removal-race';await loadWorkspace(db,owner,()=>createSeedWorkspace(now),now);
+  const send=(expectedRevision:number,command:unknown,mutationId:string,handlers=workspaceHandlers)=>executeWorkspaceCommand(owner,{protocolVersion:1,expectedRevision,mutationId,command},{db,now:()=>now,handlers});
+  await send(1,{type:'history.source.configure',sourceId:'source-race',expectedRowRevision:null,kind:'codex_local',scopeLabel:'Synthetic',roots:[],accountId:null,deviceId:null,includeArchived:true,exclusions:[]},'history_removal_race_cfg');
+  await send(2,{type:'history.source.pause',sourceId:'source-race',expectedRowRevision:1},'history_removal_race_pause');
+  const {ownerReader}=await import('../lib/workspace-modules.ts'),{previewHistoryRemoval}=await import('../lib/history/removal.ts'),{historyRecordId}=await import('../lib/history/record.ts'),{canonical,contentHash}=await import('../lib/canonical-json.ts');
+  const preview=await previewHistoryRemoval(ownerReader(db,owner),'source-race'),handlers=new Map(workspaceHandlers),original=handlers.get('history.source.remove')!;
+  handlers.set('history.source.remove',{async prepare(ctx){const plan=await original.prepare(ctx),id=await historyRecordId('gap','new-gap'),record={id,kind:'gap',value:{id:'new-gap',sourceId:'source-race',conversationId:null,kind:'access',explanation:'Independent retained gap',detectedAt:now,resolvedAt:null}},payload=canonical(record);await db.prepare('INSERT INTO project_history(user_id,id,row_revision,payload_json,content_hash) VALUES(?,?,1,?,?)').bind(owner,id,payload,await contentHash(payload)).run();return plan;}});
+  await assert.rejects(send(3,{type:'history.source.remove',sourceId:'source-race',expectedRowRevision:2,previewDigest:preview.digest,reason:'Reviewed request'},'history_removal_race_apply',handlers));
+  assert.equal((await readHistoryRecord(db,owner,'source','source-race'))!.record.value.removedAt,null);
+  assert.equal((await db.prepare('SELECT revision FROM workspaces WHERE user_id=?').bind(owner).first<{revision:number}>())!.revision,3);
+  assert.equal((await db.prepare("SELECT COUNT(*) count FROM project_history WHERE user_id=? AND json_extract(payload_json,'$.kind')='source_removal'").bind(owner).first<{count:number}>())!.count,0);
+  assert.equal((await db.prepare("SELECT COUNT(*) count FROM workspace_job_intents WHERE user_id=? AND kind='area_analysis'").bind(owner).first<{count:number}>())!.count,0);
+ }finally{sqlite.close();}
+});

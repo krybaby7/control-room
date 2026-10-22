@@ -1,3 +1,4 @@
+import {inertHistoryMergeValue} from './history/module.ts';
 import {validatePersonalState} from '../shared/personal-repository.mjs';
 import {z} from 'zod';
 import {canonical,contentHash} from './canonical-json.ts';
@@ -12,6 +13,7 @@ import type {SqlDatabase,SqlStatement} from './workspace-store.ts';
 import {CommandValidationError} from './workspace-errors.ts';
 const digest=z.string().regex(/^[a-f0-9]{64}$/u),id=z.string().min(1).max(128).refine(value=>value.trim()===value),table=z.enum(OWNER_TABLES);
 const coverage:Record<string,readonly RegisteredOwnerTable[]>={
+ project_history:['project_history'],
  weekly_plans:['weekly_plans'],weekly_reviews:['weekly_reviews'],recurrence_rules:['recurrence_rules'],recurrence_occurrences:['recurrence_occurrences'],
  evidence:['evidence_records','evidence_versions','evidence_mappings'],decisions:['decision_records','decision_versions','decisions'],
  evidence_links:['evidence_links'],evidence_requirements:['evidence_requirements'],acceptance_records:['acceptance_records'],attachments:['attachments'],attachment_usage:['attachment_usage'],
@@ -28,6 +30,7 @@ function key(table:string,id:string){return table+'\u0000'+id;}
 function object(value:JsonValue):Record<string,JsonValue>{if(!value||typeof value!=='object'||Array.isArray(value))reject('Normalized merge requires typed object records.');return value as Record<string,JsonValue>;}
 function inert(table:RegisteredOwnerTable,id:string,value:JsonValue):void{
  const row=object(value);
+ if(table==='project_history'&&canonical(inertHistoryMergeValue(value))!==canonical(value))reject('Imported history cannot retain source, private-byte or agreement authority.');
  if(table==='personal_repository_state'){const state=validatePersonalState(value);if(state.deviceId!==id||state.connected||state.requests.some(request=>['queued','claimed'].includes(request.status)))reject('Imported personal PC state must remain disconnected without pending execution.');}
  if(table==='workspace_configuration')reject('Configuration authority cannot be merged.');
  if(table==='weekly_plans'&&(!Array.isArray(row.taskIds)||row.taskIds.length||row.capacityMinutes!==null))reject('Imported weekly rows cannot create commitments or capacity.');
