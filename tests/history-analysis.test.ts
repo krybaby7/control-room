@@ -9,12 +9,12 @@ test('full selected history includes old requests and changed revisions; extract
  old.message.occurredAt='2020-01-01T00:00:00.000Z';const input=snapshot([old,resumed]);
  const plan=await planAnalysis(input,[],[],'unicode-v1','extractor-v1');assert.deepEqual(plan.chunks.flatMap(c=>c.messageRevisionIds).sort(),['new','old']);assert.equal(plan.coverageProof,false);
  const first=plan.chunks[0],checkpoint={id:'analysis:'+first.inputDigest,sourceWatermark:input.sourceWatermark,inputDigest:first.inputDigest,normalizationVersion:'unicode-v1',extractorVersion:'extractor-v1',processedMessageRevisionIds:first.messageRevisionIds,processedSegmentIds:[],affectedAreaIds:[],state:'complete' as const};
- assert.equal((await planAnalysis(input,[],[checkpoint],'unicode-v1','extractor-v1')).chunks.length,1,'imported complete JSON is not native checkpoint proof');
- assert.equal((await planAnalysis(input,[],[checkpoint],'unicode-v1','extractor-v1',()=>true)).chunks.length,0);
- assert.equal((await planAnalysis(input,[],[checkpoint],'unicode-v1','extractor-v2',()=>true)).chunks.length,1);
- assert.equal((await planAnalysis({...input,sourceWatermark:'later'},[],[checkpoint],'unicode-v1','extractor-v1',()=>true)).chunks.length,1);
+ assert.equal((await planAnalysis(input,[],[checkpoint],'unicode-v1','extractor-v1')).chunks.length,plan.chunks.length,'imported complete JSON is not native checkpoint proof');
+ assert.equal((await planAnalysis(input,[],[checkpoint],'unicode-v1','extractor-v1',()=>true)).chunks.length,plan.chunks.length-1);
+ assert.equal((await planAnalysis(input,[],[checkpoint],'unicode-v1','extractor-v2',()=>true)).chunks.length,plan.chunks.length);
+ assert.equal((await planAnalysis({...input,sourceWatermark:'later'},[],[checkpoint],'unicode-v1','extractor-v1',()=>true)).chunks.length,plan.chunks.length-1);
  const segment:HistorySegment={id:'late',sourceId:'source',conversationId:'old',nativeSegmentId:'native',inheritedFromSegmentId:null,inheritedRange:null,sha256:'a'.repeat(64),bytes:1,objectKey:'synthetic',availability:'complete',unavailableReason:null};
- assert.equal((await planAnalysis(input,[segment],[checkpoint],'unicode-v1','extractor-v1',()=>true)).chunks.length,1);
+ assert.equal((await planAnalysis(input,[segment],[checkpoint],'unicode-v1','extractor-v1',()=>true)).chunks.length,plan.chunks.length-1);
  const missing=await planAnalysis(snapshot([{...old,requiredContentAvailable:false}]),[],[],'unicode-v1','extractor-v1');assert.equal(missing.chunks.length,0);assert.ok(missing.unknowns.length);
  const many=await Promise.all(Array.from({length:300},(_,i)=>body('message-'+i,'Retained source '+i+' '+'.'.repeat(250))));
  const bounded=await planAnalysis(snapshot(many),[],[],'unicode-v1','extractor-v1');assert.ok(bounded.chunks.length>1);assert.equal(new Set(bounded.chunks.flatMap(c=>c.messageRevisionIds)).size,300);assert.ok(bounded.chunks.every(c=>c.messageRevisionIds.length<=250&&new TextEncoder().encode(JSON.stringify(c.providerInput)).length<65536));
@@ -79,4 +79,28 @@ test('semantic analysis is disabled without exact identity/privacy/access/consen
  // An adapter ignoring abort cannot hold the caller indefinitely or cause a retry.
  const timer=setTimeout(()=>{},1000);
  try{const timed=await runAnalysis({...base,policy:{...policy,timeoutMs:10},consent,adapter:{...adapter,analyze:async()=>new Promise(()=>{})}});assert.equal(timed.checkpoint.state,'cancelled');assert.match(timed.diagnostics[0],/uncertain/);}finally{clearTimeout(timer);}
+});
+test('bounded retained work context and closed operation proposals carry no model authority or operation IDs',async()=>{
+ const input=snapshot([await body('continuation','Cancel the previously requested synthetic harness.')]),item={id:'stable-work',title:'Synthetic prior request',state:'open' as const,workType:'implementation' as const,disposition:'requested' as const,claimIds:['prior-claim']};
+ const plan=await planAnalysis(input,[],[],'unicode-v1','extractor-v1',()=>false,{workItems:[item]});assert.deepEqual(plan.chunks[0].providerInput.workItems,[item]);
+ const adapter:HistoryAnalysisAdapter={provider:'synthetic-provider',model:'synthetic-model',async analyze(){return {provider:this.provider,model:this.model,output:{claims:[],operations:[{kind:'cancel',workItemId:'stable-work',claimIds:['new-claim']}]},inputTokens:1,outputTokens:1,costDollars:0};}};
+ const policy={id:'analysis' as const,enabled:true,provider:adapter.provider,model:adapter.model,maxCostDollars:1,maxInputBytes:65536,maxOutputTokens:1000,timeoutMs:1000},consent={ownerId:owner,provider:adapter.provider,model:adapter.model,sourceIds:['source'],privacyScope:'selected_history' as const,expiresAt:'2027-01-01T00:00:00.000Z',renewableAccess:true};
+ const result=await runAnalysis({chunk:plan.chunks[0],policy,consent,adapter,now,reserve:async()=> 'admitted',verifySupport:async()=>({supported:true,contradictions:[]})});assert.equal(result.checkpoint.state,'complete');assert.deepEqual(result.operations,[{kind:'cancel',workItemId:'stable-work',claimIds:['new-claim']}]);assert.equal('operationId'in result.operations[0],false);
+ const oversized=await planAnalysis(input,[],[],'unicode-v1','extractor-v1',()=>false,{workItems:[{...item,title:'x'.repeat(100000)}]});assert.deepEqual(oversized.chunks[0].providerInput.workItems,[]);assert.ok(oversized.unknowns.length);assert.ok(Buffer.byteLength(JSON.stringify(oversized.chunks[0].providerInput))<65536);
+});
+test('native completed conversation chunks retain immutable identity when a new chat changes global watermark',async()=>{
+ const original=await body('original','Original request.','user','old-chat'),later=await body('later','Unrelated later request.','user','new-chat'),before=snapshot([original]);
+ const first=(await planAnalysis(before,[],[],'unicode-v1','extractor-v1')).chunks[0],checkpoint={id:'analysis:'+first.inputDigest,sourceWatermark:before.sourceWatermark,inputDigest:first.inputDigest,normalizationVersion:'unicode-v1',extractorVersion:'extractor-v1',processedMessageRevisionIds:first.messageRevisionIds,processedSegmentIds:[],affectedAreaIds:[],state:'complete' as const};
+ const after={...snapshot([original,later]),sourceWatermark:'new-semantic-watermark'},plan=await planAnalysis(after,[],[checkpoint],'unicode-v1','extractor-v1',()=>true);
+ assert.deepEqual(plan.chunks.flatMap(chunk=>chunk.messageRevisionIds),['later']);assert.ok(plan.completedMessageRevisionIds.includes('original'));
+ assert.equal((await planAnalysis(after,[],[checkpoint],'unicode-v1','extractor-v1',()=>false)).chunks.length,2);
+ const changed={...after,contexts:after.contexts.map(context=>context.messageRevisionId==='original'?{...context,branch:'changed'}:context)};
+ assert.equal((await planAnalysis(changed,[],[checkpoint],'unicode-v1','extractor-v1',()=>true)).chunks.length,2);
+});
+test('private extraction proof skips old text despite changed work state while request digests bind actual context',async()=>{
+ const old=await body('old-request','Old physical acceptance request.','user','z-old'),added=await body('new-request','New continuation.','user','a-new'),item={id:'stable-work',title:'Physical acceptance loop',state:'open' as const,workType:'testing' as const,disposition:'requested' as const,claimIds:['old-claim']};
+ const first=(await planAnalysis(snapshot([old]),[],[],'unicode-v1','extractor-v1',()=>false,{workItems:[item]})).chunks[0];
+ const changed=(await planAnalysis({...snapshot([old]),sourceWatermark:'later'},[],[],'unicode-v1','extractor-v1',()=>false,{workItems:[{...item,state:'cancelled'}]})).chunks[0];assert.equal(first.extractionDigest,changed.extractionDigest);assert.notEqual(first.inputDigest,changed.inputDigest);
+ const after=await planAnalysis({...snapshot([old,added]),sourceWatermark:'later'},[],[],'unicode-v1','extractor-v1',()=>false,{workItems:[{...item,state:'cancelled'}],trustedExtractionDigests:[first.extractionDigest]});assert.deepEqual(after.chunks.flatMap(chunk=>chunk.messageRevisionIds),['new-request']);assert.equal(after.chunks[0].providerInput.workItems?.[0].state,'cancelled');
+ const associationChanged={...snapshot([old]),associations:[{messageRevisionId:old.message.id,projectId:'different-project',areaId:null}]};assert.equal((await planAnalysis(associationChanged,[],[],'unicode-v1','extractor-v1',()=>false,{trustedExtractionDigests:[first.extractionDigest]})).chunks.length,1);
 });

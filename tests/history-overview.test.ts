@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {database} from './helpers/sqlite.ts';
 import {workspaceFixture} from './helpers/workspace.ts';
-import {loadWorkspace,readCurrent} from '../lib/workspace-store.ts';
+import {loadWorkspace,readCurrent,type SqlDatabase,type SqlStatement} from '../lib/workspace-store.ts';
 import {executeWorkspaceCommand} from '../lib/workspace-transaction.ts';
 import {workspaceHandlers} from '../lib/workspace-handlers.ts';
 import {readHistoryRecord,ingestHistoryPage} from '../lib/history/store.ts';
@@ -31,4 +31,30 @@ test('retained evidence resolves exact Unicode spans and bounded windows, with o
  const envelope={protocolVersion:1,epoch:f.source.epoch,scopeRevision:1,page:{codecVersion:1,sourceId:'source',runId:'run',pageId:'page',previousCursor:null,nextCursor:null,inventoryExhausted:true,conversations:[{id:'conversation',sourceId:'source',nativeThreadId:'native',sessionTreeId:null,parentConversationId:null,title:'Synthetic',projectId:'p1',repositoryIdentity:null,branch:null,createdAt:null,sourceUpdatedAt:null,archived:false,availability:'complete'}],messages:[message],segments:[],attachments:[],gaps:[],objectManifest:[manifest]}};
  assert.equal((await ingestHistoryPage(f.db,owner,envelope,{now,prepareAdmission:historyRecoveryAdmission(f.db)})).status,'committed');const citation={messageRevisionId:'message',revisionDigest:sha256,start:1,end:2};const first=await retainedCitationView(f.db,f.bucket,owner,citation);assert.equal(first.quote,'🌱');assert.equal(Array.from(first.text).length,16000);assert.equal(first.nextOffset,16000);const next=await retainedCitationView(f.db,f.bucket,owner,citation,first.nextOffset!);assert.equal(next.quote,'🌱');assert.equal(next.nextOffset,null);assert.equal(next.context.nativeLink,null);
  await assert.rejects(retainedCitationView(f.db,f.bucket,'foreign',citation));await assert.rejects(retainedCitationView(f.db,f.bucket,owner,{...citation,end:999999}));f.bucket.get=async()=>new Uint8Array([0]);await assert.rejects(retainedCitationView(f.db,f.bucket,owner,citation),/integrity/);
+ }finally{f.sqlite.close();}});
+
+import * as jobs from '../lib/history/job-store.ts';
+test('overview uses actual queued, running, expired, failed and cancelled sync work without inventing success',async()=>{const f=await fixture();try{
+ const authority:jobs.HistoryRunnerAuthority={ownerId:owner,sourceId:'source',epoch:f.source.epoch,scopeRevision:1,principalRef:'overview-principal',verifiedAt:now,expiresAt:'2026-10-23T00:00:00.000Z',renewable:true,freshProcessReadVerified:true,renewalAndRevocationVerified:true,async guardAt(clock){return {sql:'EXISTS(SELECT 1 FROM integration_service_principals WHERE user_id=? AND id=? AND revoked_at IS NULL AND julianday(expires_at)>julianday(?))',bindings:[owner,'overview-principal',clock]};}};
+ f.sqlite.prepare('INSERT INTO integration_service_principals VALUES(?,?,?,?,?,?,?)').run(owner,'overview-principal','b'.repeat(64),'["history:read"]',authority.expiresAt,null,now);
+ const get=async(clock=now)=>(await readHistoryOverview(f.db,owner,clock)).sources[0];
+ assert.equal((await get()).coverage!.status,'unverified');
+ const id=(await jobs.enqueueHistorySync(f.db,{ownerId:owner,sourceId:'source',kind:'history_import',dueAt:now,now,authority}))!;assert.ok(id);assert.equal((await get()).coverage!.status,'syncing');
+ const claim=(await jobs.claimHistorySync(f.db,owner,id,{now,authority}))!;assert.ok(claim);assert.equal((await get()).coverage!.status,'syncing');
+ assert.equal((await get('2026-10-22T00:00:21.000Z')).coverage!.status,'stale');
+ assert.ok(await jobs.finishHistorySync(f.db,claim,{now,authority,outcome:'failed',failure:'access',retryAt:'2026-10-22T00:01:00.000Z'}));assert.equal((await get()).coverage!.status,'error');
+ assert.ok(await jobs.cancelHistorySync(f.db,owner,id,now));const cancelled=await get();assert.equal(cancelled.coverage!.status,'unverified');assert.equal(cancelled.analysisAt,null);assert.equal(cancelled.coverage!.lastContentSuccessAt,null);assert.equal(cancelled.capability.unattendedRead,false);
+ const cancelledJob=(await jobs.readHistorySyncJob(f.db,owner,id))!;assert.ok(await jobs.resetHistorySync(f.db,cancelledJob,authority,now));let scans=0;
+ const wrap=(statement:SqlStatement,activity:boolean):SqlStatement=>({bind(...values){return wrap(statement.bind(...values),activity);},first<T>(){return statement.first<T>();},run(){return statement.run();},async all<T>(){const rows=await statement.all<T>();if(activity&&++scans===1)assert.ok(await jobs.cancelHistorySync(f.db,owner,id,now));return rows;}});
+ const raced:SqlDatabase={prepare(sql){return wrap(f.db.prepare(sql),sql.includes('h.payload_json,NULL status'));},batch:statements=>f.db.batch(statements)};
+ assert.equal((await readHistoryOverview(raced,owner,now)).sources[0].coverage!.status,'unverified');assert.equal(scans,4,'queue change retries the coherent projection');
+
+ }finally{f.sqlite.close();}});
+test('overview treats unknown activity as partial and preserves bounded coherent queue reads',async()=>{const f=await fixture();try{
+ f.sqlite.prepare('INSERT INTO workspace_job_intents VALUES(?,?,?,?,?,?,?,?,?)').run(owner,'untyped-sync','history_reconcile','untyped-sync','{"sourceId":"source","watermark":1}',now,'pending',0,0);
+ assert.equal((await readHistoryOverview(f.db,owner,now)).sources[0].coverage!.status,'partial');
+ f.sqlite.prepare("UPDATE workspace_job_intents SET payload_json=replace(hex(zeroblob(2097153)),'00','x') WHERE id='untyped-sync'").run();assert.equal((await readHistoryOverview(f.db,owner,now)).sources[0].coverage!.status,'partial');
+ const base=(await readHistoryRecord(f.db,owner,'source','source'))!.record;
+ for(let n=0;n<100;n++){const logical='extra-source-'+n,id=await historyRecordId('source',logical),record={...base,id,value:{...base.value,id:logical,configuration:{...base.value.configuration,sourceId:logical},capability:{...base.value.capability,sourceId:logical}}},payload=canonical(record);f.sqlite.prepare('INSERT INTO project_history(user_id,id,row_revision,payload_json,content_hash) VALUES(?,?,1,?,?)').run(owner,id,payload,await contentHash(payload));}
+ await assert.rejects(readHistoryOverview(f.db,owner,now),/100 source activity capacity/);
  }finally{f.sqlite.close();}});

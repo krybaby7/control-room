@@ -53,3 +53,16 @@ test('multiple affected areas advance one stable native cursor per attempt and f
  assert.equal((await runHistoryRemovalProjection(f.db,f.job,{authority:f.authority,now})).status,'continued');const continued=await jobs.readAreaAnalysisJob(f.db,'owner','removal-job');assert.equal(continued!.status,'pending');assert.equal(continued!.control!.cursor,'removal:1');assert.equal((await runHistoryRemovalProjection(f.db,continued!,{authority:f.authority,now})).status,'removal_reprojected');assert.equal((await jobs.readAreaAnalysisJob(f.db,'owner','removal-job'))!.status,'succeeded');assert.equal(f.sqlite.prepare("SELECT COUNT(*) n FROM project_history WHERE json_extract(payload_json,'$.kind')='analysis_checkpoint'").get()!.n,4);
  }finally{f.sqlite.close();}
 });
+
+test('fresh clock rejects authority expiring during awaited pin proof before any publication or job success',async()=>{
+ const f=await removed();try{let current=now,reads=0;const authority={...f.authority,expiresAt:'2026-10-22T12:00:01.000Z',async pinGuardAt(){reads++;await Promise.resolve();current='2026-10-22T12:00:02.000Z';return {sql:'1=1',bindings:[]};}};const before=f.job.serialized,result=await runHistoryRemovalProjection(f.db,f.job,{authority,now,currentTime:()=>current});assert.equal(result.status,'conflict');assert.ok(reads>0);assert.equal((await jobs.readAreaAnalysisJob(f.db,'owner','removal-job'))!.serialized,before);assert.equal(f.sqlite.prepare("SELECT COUNT(*) n FROM project_history WHERE json_extract(payload_json,'$.kind')='analysis_checkpoint'").get()!.n,0);}finally{f.sqlite.close();}
+});
+for(const withTarget of [true,false])test(`fresh final boundary rejects expiry after preparation (affected target=${withTarget})`,async()=>{
+ const f=await removed(withTarget);try{let current=now;const authority={...f.authority,expiresAt:'2026-10-22T12:00:01.000Z'},result=await runHistoryRemovalProjection(f.db,f.job,{authority,now,currentTime:()=>current,beforeCommit:async()=>{await Promise.resolve();current='2026-10-22T12:00:02.000Z';}});assert.equal(result.status,'conflict');assert.notEqual((await jobs.readAreaAnalysisJob(f.db,'owner','removal-job'))!.status,'succeeded');assert.equal(f.sqlite.prepare("SELECT COUNT(*) n FROM project_history WHERE json_extract(payload_json,'$.kind')='analysis_checkpoint'").get()!.n,0);}finally{f.sqlite.close();}
+});
+
+test('no-target native finish rechecks fresh expiry after private capacity await',async()=>{
+ const f=await removed(false);try{let current=now,capacityReads=0;const authority={...f.authority,expiresAt:'2026-10-22T12:00:01.000Z'},db={...f.db,prepare(sql:string){const statement=f.db.prepare(sql);if(sql.includes('WITH private_capacity_owner')){const first=statement.first.bind(statement);statement.first=async<T>()=>{const result=await first<T>();capacityReads++;if(capacityReads===3)current='2026-10-22T12:00:02.000Z';return result;};}return statement;}};
+ const result=await runHistoryRemovalProjection(db,f.job,{authority,now,currentTime:()=>current});assert.equal(capacityReads,3);assert.equal(result.status,'conflict');assert.equal((await jobs.readAreaAnalysisJob(f.db,'owner','removal-job'))!.status,'running');assert.equal(f.sqlite.prepare("SELECT COUNT(*) n FROM project_history WHERE json_extract(payload_json,'$.kind')='analysis_checkpoint'").get()!.n,0);
+ }finally{f.sqlite.close();}
+});

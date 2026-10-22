@@ -173,6 +173,13 @@ async function executeWorkspaceCommandAdmitted(userId:string,input:{protocolVers
     if(command.type!=='history.source.remove'||rows.length>10000||new TextEncoder().encode(payload).length>RECOVERABILITY_SQL_ARGUMENT_BYTES)throw new CommandValidationError('Invalid history removal snapshot.');
     assertion(`(SELECT COUNT(*) FROM project_history WHERE user_id=?)=? AND NOT EXISTS(SELECT id,row_revision,content_hash FROM project_history WHERE user_id=? EXCEPT SELECT json_extract(value,'$.id'),json_extract(value,'$.row_revision'),json_extract(value,'$.content_hash') FROM json_each(?))`,[userId,rows.length,userId,payload]);
   }
+  // Native source commands bind their new source boundary to the current
+  // execution epoch. A restore racing preparation cannot install an obsolete
+  // source or enqueue cleanup against a different execution authority.
+  if(command.type.startsWith('history.source.'))for(const write of plan.writes)if(write.table==='project_history'&&write.operation!=='delete'){
+    const record=parseHistoryRecord(write.value);
+    if(record.kind==='source')assertion('COALESCE((SELECT epoch FROM workspace_execution_state WHERE user_id=?),0)=?',[userId,record.value.executionEpoch]);
+  }
   for(const pre of plan.preconditions??[]){const table=ownerTable(pre.table);assertion(`EXISTS (SELECT 1 FROM ${table} WHERE user_id = ? AND id = ? AND row_revision = ?${pre.expectedHash===undefined?'':' AND content_hash = ?'})`,[userId,pre.id,pre.expectedRowRevision,...(pre.expectedHash===undefined?[]:[pre.expectedHash])]);}
   for(const grant of plan.decisionGrants??[])assertion('EXISTS (SELECT 1 FROM decision_owner_grants WHERE user_id=? AND decision_id=? AND version=? AND content_hash=?)',[userId,grant.id,grant.version,grant.hash]);
   if(plan.backupRemoval){if(plan.fileBackupRemoval)statements.push(...fileBackupRemovalStatements(db,userId,plan.fileBackupRemoval,now,claim,guard,id));else assertion('NOT EXISTS(SELECT 1 FROM backup_archives WHERE user_id=? AND id=?)',[userId,plan.backupRemoval.id]);const removal=plan.backupRemoval;assertion(`EXISTS (SELECT 1 FROM workspace_backups old JOIN workspace_backups newer ON newer.user_id=old.user_id WHERE old.user_id=? AND old.id=? AND old.sha256=? AND old.status='ready' AND newer.id=? AND newer.sha256=? AND newer.status='ready' AND (newer.source_revision>old.source_revision OR (newer.source_revision=old.source_revision AND newer.created_at>old.created_at)))`,[userId,removal.id,removal.sha256,removal.newerId,removal.newerSha256]);}

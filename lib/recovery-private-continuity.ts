@@ -287,6 +287,7 @@ export async function captureRecoveryPrivateContinuity(db:SqlDatabase,owner:stri
 export function assessPrivateRecoveryContinuity(value:RecoveryPrivateContinuity):{installable:false;blockers:string[];nextExecutionEpoch:number;retainedUnknownAttempts:number}{
  const parsed=recoveryPrivateContinuitySchema.parse(value),blockers=['source_freeze_unverified','inactive_target_and_cutover_authority_unimplemented'];
  if(parsed.sourceContext.executionEpoch===Number.MAX_SAFE_INTEGER)throw new Error('Execution epoch exhausted.');
+ if(parsed.tables.history_object_ledger.some(row=>row.pending_token!==null||row.status==='staging'))blockers.push('unsettled_history_put');
  if(parsed.tables.attachment_upload_attempts.some(row=>row.settled_at===null))blockers.push('unsettled_upload_attempts');
  if(parsed.tables.backup_archive_objects.some(row=>row.pending_token!==null&&row.settled_at===null))blockers.push('unsettled_backup_archive_put');
  if(parsed.tables.backup_archive_objects.some(row=>row.purged_at===null))blockers.push('backup_archive_namespace_handoff_required');

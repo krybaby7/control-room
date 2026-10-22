@@ -3,7 +3,7 @@ import {openFixture,workspace} from './helpers';
 import type {Workspace} from '../../lib/types';
 
 test('mission control shows the status strip, project tiles, live operations and attention without saving',async({page})=>{
- await openFixture(page);const before=await workspace(page);const saved=before.workspace as Workspace;
+ await openFixture(page);await page.getByRole('button',{name:'Today',exact:true}).click();const before=await workspace(page);const saved=before.workspace as Workspace;
  await expect(page.getByRole('heading',{name:'Mission control',exact:true})).toBeVisible();
  const hud=page.getByRole('region',{name:'Status overview',exact:true});
  await expect(hud.getByRole('button').filter({hasText:/^PC /})).toBeVisible();

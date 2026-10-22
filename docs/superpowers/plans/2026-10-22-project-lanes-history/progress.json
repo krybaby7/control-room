@@ -67,8 +67,8 @@
     ],
     "ownerAcceptance": "explicit"
   },
-  "currentStage": "S2",
-  "nextAction": "Integrate bounded readers, durable collector transport, SQL-backed continuation/job leases and validated story publication; wire Project lanes as the default home, then run exact integrated candidate regressions and packaging/browser/performance gates.",
+  "currentStage": "S6",
+  "nextAction": "Resolve integrated review findings (unsettled history PUT recovery fencing, live authority clocks, final job CAS), finish queue freshness projection, then freeze and run all exact-candidate canonical/browser/performance/package gates.",
   "stages": [
     {
       "id": "S0",
@@ -187,8 +187,10 @@
         "S4",
         "S5"
       ],
-      "status": "not_started",
-      "evidence": [],
+      "status": "in_progress",
+      "evidence": [
+        "Native isolated D1 ingest/duplicate/analysis/owner acceptance/selected-byte export/reviewed same-owner restore macro passes; browser scenarios implemented, execution pending. Integrated Sol review identified three substantive fixes in progress."
+      ],
       "blockers": []
     }
   ],
@@ -439,22 +441,22 @@
     {
       "id": "A4",
       "chapter": "03-automatic-sync.md",
-      "status": "not_started",
+      "status": "in_progress",
       "changedFiles": [],
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": null
+      "nextAction": "Finish exact-candidate integration and record source-specific evidence; live activation gates remain unverified."
     },
     {
       "id": "A5",
       "chapter": "03-automatic-sync.md",
-      "status": "not_started",
+      "status": "in_progress",
       "changedFiles": [],
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": null
+      "nextAction": "Finish exact-candidate integration and record source-specific evidence; live activation gates remain unverified."
     },
     {
       "id": "A6",
@@ -569,32 +571,32 @@
     {
       "id": "R1",
       "chapter": "05-project-lanes-and-release.md",
-      "status": "not_started",
+      "status": "in_progress",
       "changedFiles": [],
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": null
+      "nextAction": "Finish exact-candidate integration and record source-specific evidence; live activation gates remain unverified."
     },
     {
       "id": "R2",
       "chapter": "05-project-lanes-and-release.md",
-      "status": "not_started",
+      "status": "in_progress",
       "changedFiles": [],
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": null
+      "nextAction": "Finish exact-candidate integration and record source-specific evidence; live activation gates remain unverified."
     },
     {
       "id": "R3",
       "chapter": "05-project-lanes-and-release.md",
-      "status": "not_started",
+      "status": "in_progress",
       "changedFiles": [],
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": null
+      "nextAction": "Finish exact-candidate integration and record source-specific evidence; live activation gates remain unverified."
     }
   ],
   "sources": [
@@ -768,18 +770,20 @@
   },
   "updatedAt": "2026-10-22",
   "checkpoint": {
-    "currentSource": "aeae8a6",
-    "publicSource": "f5266a101e7596ad1a2703fd1a0da1dfd0a8fb47",
-    "sourceMeaning": "Committed native loader/journal/claim/story publication, private pending objects, owner task provenance and metadata-only removal follow the published checkpoint. Incremental extraction and continuing-work dispatcher changes remain isolated until their focused gates pass.",
-    "tests": "Frozen ba6bc0d: Node2221 total,2219pass,2collector lock failures,0cancel/skip,236945.792736ms. Typecheck1 missing extractionDigest field (corrected next checkpoint), lint0errors15warnings. Lock fix aeae8a6 focused52/52 pass. Native evidence/sync/overview focused28pass; native task bounds4pass. Final exact-candidate canonical gates pending.",
-    "unfinished": "Finish incremental extraction + typed cross-chat operations/dispatcher, browser acceptance and exact final Node/bridge/D1/R2/HTTP/performance/archive gates. All nine live gates remain open.",
+    "currentSource": "c82f310",
+    "publicSource": "d244673798a33e289638b3916410ac7e2e83593c",
+    "sourceMeaning": "Native incremental dispatcher, dual extraction/provider identities, cited work proposals, default-closed service route, bounded activity reader and selected-byte restore macro are committed. Shared review fixes and freshness wiring remain uncommitted until focused verification.",
+    "tests": "Frozen ba6:2219/2221 Node,2 TCP collector lock failures; lock corrected with52 parallel focused regressions. S1 exact2037/2037 plus typecheck/lint/build passed. New native D1 full flow focused passes with original citation/record IDs retained after isolated same-owner restore; max57bindings/51517argumentbytes. This is synthetic selected-body evidence, not full private backup or live provider acceptance. Final canonical checks pending.",
+    "unfinished": "Resolve recovery PUT freeze, live-clock expiry and final job CAS findings; finish activity projection; run frozen final Node/typecheck/lint/build/collector/bridge/companion/GitHub/D1/R2/HTTP/browser/performance/archive gates. All nine live gates open.",
     "nextCommand": "git status --short",
     "deployed": false,
     "merged": false,
     "knownFailures": [
-      "Frozenba6 canonical2collector integration failures caused by deterministic TCP lock collisions with ephemeral ports. aeae8a6 replaces TCP lock with kernel local endpoint and52parallel regressions pass; finalcanonical rerun pending.",
-      "Frozenba6 typecheck missing extractionDigest return field during concurrent integration. Field correction included next checkpoint; current worker typecheck passes.",
-      "Uncommitted incremental dispatcher changes are not final verification. No live provider, unattended private ingress, actual owner Windows/device or publication verified."
+      "Historical ba6 Node2 collector TCP-lock collisions fixed at aeae8a6; final full rerun pending.",
+      "Historical ba6 missing extractionDigest return field corrected at b31d964; final typecheck pending.",
+      "Review reproduced freeze accepting unsettled history PUT; fix underway.",
+      "Review found frozen provider authority clocks and ignored final job CAS; fixes underway.",
+      "No owner Windows, real provider, renewable unattended private ingress, complete verified private backup or Site publication proven."
     ]
   }
 }
