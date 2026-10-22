@@ -31,7 +31,6 @@ import {parseReviewLink,reviewHref,type ReviewTarget} from '@/lib/review-links';
 import {parseEvidenceSubjectLink,resolveEvidenceSubject} from '@/lib/evidence-subject-links';
 import { MilestoneEditor } from './planning-editors';
 import { CaptureEditor, ConvertEditor } from './capture-editors';
-import { MissionControl } from './mission-control';
 import { ProjectDetail, ProjectsView } from './projects-view';
 import {ProjectLanesHome,type HistoryLanesSaveContext} from './project-lanes-home';
 import { InboxView } from './inbox-view';
@@ -61,6 +60,7 @@ function deferredPanel<P extends object>(load:()=>Promise<{default:ComponentType
   return createElement(Selected,props);
  };
 }
+const MissionControl=deferredPanel<Parameters<typeof import('./mission-control').MissionControl>[0]>(()=>import('./mission-control').then(module=>({default:module.MissionControl})));
 const AttachmentReserveEditor=deferredPanel<Parameters<typeof import('./attachment-dialogs').AttachmentReserveEditor>[0]>(()=>import('./attachment-dialogs').then(module=>({default:module.AttachmentReserveEditor})));
 const AttachmentUploadDialog=deferredPanel<Parameters<typeof import('./attachment-dialogs').AttachmentUploadDialog>[0]>(()=>import('./attachment-dialogs').then(module=>({default:module.AttachmentUploadDialog})));
 const AttachmentLifecycleDialog=deferredPanel<Parameters<typeof import('./attachment-dialogs').AttachmentLifecycleDialog>[0]>(()=>import('./attachment-dialogs').then(module=>({default:module.AttachmentLifecycleDialog})));
@@ -85,15 +85,15 @@ const SourcesView=deferredPanel<Parameters<typeof import('./sources-view').Sourc
 const ReviewCenter=deferredPanel<Parameters<typeof import('./review-center').ReviewCenter>[0]>(()=>import('./review-center').then(module=>({default:module.ReviewCenter})));
 const AgentsView=deferredPanel<Parameters<typeof import('./agents-view').AgentsView>[0]>(()=>import('./agents-view').then(module=>({default:module.AgentsView})));
 function ViewLoading({label}:{label:string}){return <p role="status" className="muted">Loading {label}…</p>;}
-class PanelLoadBoundary extends Component<{label:string;children:ReactNode;onRetry:()=>void;onBack:()=>void},{failed:boolean}>{
+class PanelLoadBoundary extends Component<{label:string;children:ReactNode;onRetry:()=>void;onBack:()=>void;backLabel?:string},{failed:boolean}>{
  state={failed:false};
  static getDerivedStateFromError(error:unknown){if(!(error instanceof PanelModuleLoadError))throw error;return {failed:true};}
- render(){return this.state.failed?<section className="panel" role="alert"><h2>{this.props.label} could not be loaded.</h2><p>The selected panel did not finish loading. Retry loading it or return to Today. Review any pending save outcome before retrying a change; saved draft recovery remains available.</p><div className="data-actions"><button type="button" className="button secondary" onClick={this.props.onRetry}>Retry loading panel</button><button type="button" className="button secondary" onClick={this.props.onBack}>Return to Today</button></div></section>:this.props.children;}
+ render(){return this.state.failed?<section className="panel" role="alert"><h2>{this.props.label} could not be loaded.</h2><p>The selected panel did not finish loading. Retry loading it or return to {this.props.backLabel??'Today'}. Review any pending save outcome before retrying a change; saved draft recovery remains available.</p><div className="data-actions"><button type="button" className="button secondary" onClick={this.props.onRetry}>Retry loading panel</button><button type="button" className="button secondary" onClick={this.props.onBack}>Return to {this.props.backLabel??'Today'}</button></div></section>:this.props.children;}
 }
-function DeferredPanel({label,children,canRetry,onBack}:{label:string;children:ReactNode;canRetry:()=>boolean;onBack:()=>void}){
+function DeferredPanel({label,children,canRetry,onBack,backLabel}:{label:string;children:ReactNode;canRetry:()=>boolean;onBack:()=>void;backLabel?:string}){
  const [retry,setRetry]=useState<{attempt:number;resources:ReadonlyMap<symbol,unknown>|null}>({attempt:0,resources:null});
  const retryModule=()=>{if(!canRetry())return;const resources=new Map<symbol,unknown>();for(const [id,create]of panelModuleFactories)resources.set(id,create());setRetry(value=>({attempt:value.attempt+1,resources}));};
- return <PanelRetryContext.Provider value={retry.resources}><PanelLoadBoundary key={retry.attempt} label={label} onRetry={retryModule} onBack={onBack}><Suspense fallback={<ViewLoading label={label}/>}>{children}</Suspense></PanelLoadBoundary></PanelRetryContext.Provider>;
+ return <PanelRetryContext.Provider value={retry.resources}><PanelLoadBoundary key={retry.attempt} label={label} onRetry={retryModule} onBack={onBack} backLabel={backLabel}><Suspense fallback={<ViewLoading label={label}/>}>{children}</Suspense></PanelLoadBoundary></PanelRetryContext.Provider>;
 }
 
 type View = 'lanes' | 'today' | 'projects' | 'inbox' | 'sources' | 'reviews' | 'search' | 'attention' | 'weekly' | 'evidence' | 'history' | 'runtime' | 'agents' | 'local-analysis';
@@ -387,7 +387,7 @@ export default function ControlCenter({ userName }: { userName: string }) {
       {workspace && <p className="refresh-metadata" role="status">Last saved {new Date(envelope!.updatedAt).toLocaleString('en-GB', { timeZone: 'Africa/Cairo', hour12: false })} Cairo · Last successful refresh {lastRefreshed ? new Date(lastRefreshed).toLocaleString('en-GB', { timeZone: 'Africa/Cairo', hour12: false }) + ' Cairo' : 'not yet confirmed'}{stale ? ' · This view may be out of date.' : ''}</p>}
       {expired ? <div className="loading-screen" role="alert"><AlertCircle size={30} /><h1>Your session has expired.</h1><p>Sign in again to open your private workspace. Private content has been closed. Server drafts remain recoverable after sign-in. Active device drafts are cleared on expiry; copies locked since an earlier visit may require signing in to the same account and choosing Forget device drafts.</p><a className="button primary" href="/signin-with-chatgpt?return_to=%2F">Sign in again<ArrowRight size={16} /></a></div> : !workspace ? <div className="loading-screen">{loading ? <><LoaderCircle size={30} className="spinning" /><h1>A little clarity is on its way.</h1><p>Loading your private workspace…</p></> : <><AlertCircle size={30} /><h1>Your workspace is waiting.</h1><p>We couldn’t load it. Your saved work has not been changed.</p><button className="button primary" onClick={() => void refresh()}>Try again<ArrowRight size={16} /></button></>}</div> : <>
         {view === 'lanes' && <ProjectLanesHome onDirtyChange={dirty=>lanesGuard('dirty',dirty)} onPendingChange={pending=>lanesGuard('pending',pending)} workspace={workspace} revision={envelope!.revision} busy={busy} canRefresh={!editor&&!busy&&unresolved.length===0} onCommand={saveLanesCommand} onOpenTask={id=>{const task=workspace.tasks.find(row=>row.id===id);if(task)openTask(task);}} onOpenProject={id=>{const row=workspace.projects.find(project=>project.id===id);if(row)openProject(row);}} onCapture={()=>{if(mayNavigate())openEditor({type:'capture'});}} />}
-        {view === 'today' && <MissionControl workspace={workspace} revision={envelope!.revision} onProject={openProject} onTask={openTask} onPin={pinTask} onNavigate={navigate} onRepositories={openLocalAnalysis} onCommand={saveLocalAnalysis} onCapture={() => openEditor({ type: 'capture' })} busy={busy} />}
+        {view === 'today' && <DeferredPanel label="Today" backLabel="Project lanes" canRetry={mayNavigate} onBack={()=>navigate('lanes')}><MissionControl workspace={workspace} revision={envelope!.revision} onProject={openProject} onTask={openTask} onPin={pinTask} onNavigate={navigate} onRepositories={openLocalAnalysis} onCommand={saveLocalAnalysis} onCapture={() => openEditor({ type: 'capture' })} busy={busy} /></DeferredPanel>}
         {unavailableTarget && <div className="panel" role="status"><h2>This item is unavailable.</h2><p>It may be missing or unavailable in this workspace.</p><button className="button secondary" onClick={()=>navigate('today')}>Go home</button></div>}
         {!unavailableTarget && reviewTarget && <DeferredPanel label="Exact review citation" canRetry={mayNavigate} onBack={()=>navigate('today')}><ReviewCitation key={reviewHref(reviewTarget)} target={reviewTarget} revision={envelope!.revision}/></DeferredPanel>}
         {!unavailableTarget && !reviewTarget && view==='history' && <DeferredPanel label="History" canRetry={mayNavigate} onBack={()=>navigate('today')}><HistoryView key={evidenceSubject?`history:${evidenceSubject.type}:${evidenceSubject.id}`:'history:all'} subject={evidenceSubject} revision={envelope!.revision} onCommand={(command,revision)=>mutate(command as Command,undefined,revision)} /></DeferredPanel>}

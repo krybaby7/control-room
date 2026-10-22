@@ -47,6 +47,8 @@ jobs:
       - run: npm run build
       - name: Verify locked browser package matches pinned image
         run: node -e "require('node:assert/strict').equal(require('playwright/package.json').version,'1.64.1')"
+      - name: Match ephemeral browser home ownership to the container user
+        run: node -e "const fs=require('node:fs'),home=process.env.HOME,s=fs.lstatSync(home);if(!s.isDirectory()||s.isSymbolicLink())throw new Error('Expected isolated directory');fs.chownSync(home,process.getuid(),process.getgid())"
       - run: npx playwright test --config playwright.acceptance.config.ts --project=${{ matrix.browser }}
       - uses: actions/upload-artifact@v4
         if: always()

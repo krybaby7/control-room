@@ -68,7 +68,7 @@
     "ownerAcceptance": "explicit"
   },
   "currentStage": "S6",
-  "nextAction": "Commit narrow trace-based corrections, publish reviewed sanitized candidate and rerun full exact-source canonical stages without weakened assertions/budgets.",
+  "nextAction": "PublishreviewedTodaydeferral,ephemeralFirefoxhomeownershipfixandR1layoutfixtures; rerun75main+3R2 andallrequiredexact-sourcecanonical/performance/packagegates.",
   "stages": [
     {
       "id": "S0",
@@ -891,8 +891,8 @@
   },
   "updatedAt": "2026-10-22",
   "checkpoint": {
-    "currentSource": "b6a9bf6",
-    "publicSource": "29c1b8305fe6a5eaf2438b4f9664714bd30db358",
+    "currentSource": "a202603",
+    "publicSource": "1639b0c7c4437d7bb8c618809bab44b01702437f",
     "sourceMeaning": "Public29 main40passed5failed27notrun;R2threepass. Actual trace-based legacy fixture,stable expansion,Today preview and accessible dependency-label corrections underway; exact source rerun required.",
     "tests": "Exact62 CI2310/2310Node0fail/cancel/skip280473.675ms; local2310/2310in207522.765ms;typecheck/lint/buildpass15warnings;collector52;bridge210+9Win-skipped;companion108+2Win-skipped;GitHub20. D1savep951292.436711ms/100samples vs2000;12restores;controlledbrowserfirstusep952972.8ms/3000,maxnavigation164ms/200. Chrome/Firefox acceptance pass;WebKitinstallpending. Canonical39865844323 main5failed32passed34notrun,R2threefailed; actualfailurecorrection4f9ed78parse/lint/typepass;72main+3R2 rerunpending.",
     "unfinished": "Exact corrected-candidate canonical72main/3R2/browser/Windows/performance and source-bound package integrity; final synthetic screenshot review; nine live owner/provider/device/backup/hosted gates remain external.",
@@ -909,7 +909,8 @@
       "Public3dfaa browserperformance39863238589 now passes2/2 unchanged checks; earlier same-head202ms failure retained. Accessibility39863238648 still fails .mc-brief-hint contrast, corrected8a7830d; final-candidate acceptance pending.",
       "Public111/local6eef fullNode2309failed8 at strict consent source schema rejecting semanticDigest; explicit live-row allowlist correctioncde6f0b passes9focused including actual D1. Final full rerun pending; no schema loosening.",
       "Exact62 canonical39865844323/job120128099800 main5failed32passed34notrun;R2all3failed. Traces show reload URL-restoration/disclosure race and four direct hidden R2 navigation clicks. Corrected4f9ed78 with stable selected-view readiness and real reload regression; assertions/timeouts unchanged; rerunpending.",
-      "Public29 canonical39868523205/job120137313011 main5failed40passed27notrun;R2threepass; actual archived trace diagnoses and narrow corrections recorded in acceptance.md. D1save1917.061107/2000 andbrowser2786.2/3000,124/200pass independently;not finalcanonicalgreen."
+      "Public29 canonical39868523205/job120137313011 main5failed40passed27notrun;R2threepass; actual archived trace diagnoses and narrow corrections recorded in acceptance.md. D1save1917.061107/2000 andbrowser2786.2/3000,124/200pass independently;not finalcanonicalgreen.",
+      "Public1639 browserfirstusablep953105.2ms/3000failed; actualassetsdelayGETuntil2581ms. ReviewedToday-onlymoduledeferral33059b9 removes31080gzipinitialbytes; no perfpassclaimedbeforeexactrerun. Firefoxcontainerlaunchhomeownershipfailurebeforeassertionscorrectedwithoutenvreassignment/sandboxflags;Chrome/WebKitpass."
     ]
   }
 }

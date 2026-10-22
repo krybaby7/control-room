@@ -28,3 +28,28 @@ test('narrow viewport and 200 percent zoom retain keyboard access without horizo
  await page.setViewportSize({width:390,height:844});await openFixture(page,'b');await installLanesOverview(page,fixture);await page.reload();const project=page.locator('.project-lane-card').filter({has:page.getByRole('heading',{name:fixture.projectName,exact:true})});await project.locator('.project-lane-toggle').filter({hasText:'Map'}).focus();await page.keyboard.press('Enter');await expect(project.getByRole('heading',{name:'Finished',exact:true})).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);await page.screenshot({path:testInfo.outputPath('project-lanes-390-synthetic.png'),fullPage:true});
  await page.setViewportSize({width:1440,height:1000});await expect(project.getByRole('heading',{name:'Finished',exact:true})).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);await page.screenshot({path:testInfo.outputPath('project-lanes-1440-synthetic.png'),fullPage:true});await page.evaluate(()=>{document.documentElement.style.zoom='2';});await expect(project.locator('.project-lane-toggle').filter({hasText:'Map'})).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);await page.screenshot({path:testInfo.outputPath('project-lanes-200-percent-synthetic.png'),fullPage:true});
 });
+
+
+// Routed workspace/overview fixtures below test layout only. They never clear or
+// extend the isolated owner's stored projects and are not live history evidence.
+test('many long-named synthetic areas wrap at 390px and the last area is keyboard reachable',async({page},testInfo)=>{
+ await page.setViewportSize({width:390,height:844});await openFixture(page,'b');
+ const before=await workspace(page),display=structuredClone(before),routed=await installLanesOverview(page,fixture);
+ const extra=Array.from({length:18},(_,index)=>({id:`synthetic-layout-area-${index}`,projectId:fixture.projectId,name:`Synthetic ${String(index+1).padStart(2,'0')} long area — Android acceptance and map review across retained conversation boundaries`,aliases:[],order:100+index,archivedAt:null}));
+ display.workspace.areas=[...(display.workspace.areas??[]),...extra];
+ await page.route('**/api/workspace',async route=>{if(route.request().method()==='GET')await route.fulfill({status:200,json:display});else await route.continue();});
+ await page.reload();const project=page.locator('.project-lane-card').filter({has:page.getByRole('heading',{name:fixture.projectName,exact:true})}),toggles=project.locator('.project-lane-toggle');
+ await expect(toggles).toHaveCount(20);await toggles.first().focus();
+ for(let index=1;index<20;index++)await page.keyboard.press('Tab');
+ const last=toggles.last();await expect(last).toBeFocused();await expect(last.locator('strong')).toHaveText(extra.at(-1)!.name);await expect(last).toHaveAttribute('aria-expanded','false');await page.keyboard.press('Enter');await expect(last).toHaveAttribute('aria-expanded','true');await expect(project.getByText('No tasks in this area.',{exact:true})).toBeVisible();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);await page.screenshot({path:testInfo.outputPath('project-lanes-many-long-areas-390-synthetic.png'),fullPage:true});
+ expect(routed.reads()).toBeGreaterThan(0);expect((await workspace(page)).workspace).toEqual(before.workspace);expect((await workspace(page)).revision).toBe(before.revision);
+});
+
+test('routed empty synthetic workspace keeps capture reachable without clearing owner records',async({page},testInfo)=>{
+ await page.setViewportSize({width:390,height:844});await openFixture(page,'b');const before=await workspace(page),display={...before,workspace:{schemaVersion:5,projects:[],areas:[],milestones:[],tasks:[],captures:[],activity:[]}};
+ await page.route('**/api/workspace',async route=>{if(route.request().method()==='GET')await route.fulfill({status:200,json:display});else await route.continue();});
+ await page.route('**/api/history/overview',route=>route.fulfill({status:200,json:{planningRevision:before.revision,sourceWatermark:'synthetic-empty-ui-only',progress:[],stories:[],scopes:[],workItems:[],claims:[],unassignedConversations:[],associationRules:[],unassignedHistoryCount:0,sources:[],configurations:[]}}));
+ await page.reload();await expect(page.getByRole('heading',{name:'Your projects',exact:true})).toBeVisible();await expect(page.locator('.project-lane-card')).toHaveCount(0);await expect(page.getByRole('alert')).toHaveCount(0);const capture=page.getByRole('button',{name:'Capture +',exact:true});await expect(capture).toBeEnabled();await capture.focus();await expect(capture).toBeFocused();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);await page.screenshot({path:testInfo.outputPath('project-lanes-empty-390-synthetic.png'),fullPage:true});
+ expect((await workspace(page)).workspace).toEqual(before.workspace);expect((await workspace(page)).revision).toBe(before.revision);
+});
