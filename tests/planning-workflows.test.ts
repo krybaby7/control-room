@@ -6,7 +6,7 @@ import {parseWorkspaceExport} from '../lib/workspace-validation.ts';
 import {encodePlanning,decodePlanning,measurePlanning} from '../lib/workspace-codec.ts';
 import type {Workspace} from '../lib/types.ts';
 const at='2026-10-18T00:00:00.000Z';
-function legacyV3():Workspace {const raw=JSON.parse(JSON.stringify(createSeedWorkspace(at)));raw.schemaVersion=3;for(const row of raw.projects)delete row.archivedAt;for(const row of raw.milestones){delete row.archivedAt;delete row.sortKey;}for(const row of raw.tasks)delete row.estimateMinutes;return raw;}
+function legacyV3():Workspace {const raw=JSON.parse(JSON.stringify(createSeedWorkspace(at)));raw.schemaVersion=3;delete raw.areas;for(const row of raw.projects)delete row.archivedAt;for(const row of raw.milestones){delete row.archivedAt;delete row.sortKey;}for(const row of raw.tasks){delete row.estimateMinutes;delete row.areaId;delete row.workType;}return raw;}
 test('v3 to v4 clones only explicit defaults and preserves every source record and ID',()=>{
  const source=legacyV3(),original=JSON.stringify(source),result=migratePlanningV3ToV4(source);assert.equal(JSON.stringify(source),original);assert.equal(result.schemaVersion,4);
  for(const collection of ['projects','milestones','tasks','captures','activity'] as const)assert.deepEqual(result[collection].map(row=>row.id),source[collection].map(row=>row.id));
