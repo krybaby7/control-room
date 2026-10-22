@@ -178,3 +178,33 @@ Claude preserves the model saved in the personal `.claude/settings.json` by
 reading a bounded regular file and copying only its validated model value into
 the fixed safe settings. Other personal settings are ignored. Missing model
 configuration uses the subscription default; unsafe configuration fails closed.
+
+## Project briefings
+
+A briefing is a short plain-language status report for the owner, written by
+Codex or Claude Code on this PC from a bounded evidence pack the companion
+assembles itself: recent commits on local branches, one `git fetch --prune`
+of `origin` (using this PC's existing Git credentials, never prompting), the
+cloud branches and pull requests that fetch reveals (pull requests only when a
+signed-in GitHub CLI is installed), uncommitted changes, and the last few local
+Codex and Claude Code chats for the repository. The owner's own plan (goal,
+milestones, tasks) is projected by the server and travels with the request;
+the companion never reads workspace data itself.
+
+Evidence is clipped (14 days, 24 branches, 160 commits, 5 chats per provider,
+10 messages per chat, 160 KB in all), credential-looking text is dropped and
+local paths are redacted before the single model call. The model receives no
+tools. Its JSON answer is validated against the shared briefing contract and
+must stay under 9,600 characters. The briefing is delivered through the same
+personal channel as analyses and saved by the owner's browser as immutable
+evidence; the private backup under the state directory keeps a copy.
+
+**Keep current.** When the owner switches it on for a repository, the server
+records a policy (provider, minimum interval). While the companion is idle it
+checks, at most every ten minutes, whether that repository's work fingerprint
+(heads, remote refs after fetch, uncommitted paths, chat recency) changed.
+Only then, and only after the owner's minimum interval, does it ask the server
+to admit one automatic briefing. The server re-checks the policy, projects the
+plan and claims the request; the companion then runs it like any other job.
+Switching the policy off stops admissions immediately. Nothing in a briefing
+accepts tasks, approves execution or spends.
