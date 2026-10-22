@@ -251,3 +251,35 @@ test('foreign discard keys reject the response before acknowledging or clearing 
         assert.equal((await f.spool.finalizedAsset(f.entry.envelope,f.asset)).key,serverKey);
     }finally{await rm(f.dir,{recursive:true,force:true});}
 });
+test('later pages reusing discarded assets have independent upload identities without walking earlier failed attempts',async()=>{
+    const f=await setup();
+    try{
+        const states=new Map(),uploadIds=[],counts={uploads:0,metadata:0};
+        const sender=createTransport({...options,fetchImpl:async(url,input)=>{
+            if(url.endsWith('/objects')){
+                counts.uploads++;
+                const id=input.headers.get('X-History-Upload-Id');uploadIds.push(id);
+                const prior=states.get(id);
+                if(prior?.abandoned)return Response.json({diagnostic:'object_upload_attempt_failed'},{status:410});
+                const manifest=prior?.manifest??{key:`history/${crypto.randomUUID()}/${crypto.randomUUID()}`,sha256:f.asset.sha256,bytes:f.asset.bytes};
+                states.set(id,{manifest,abandoned:false});return Response.json(manifest);
+            }
+            counts.metadata++;
+            const envelope=JSON.parse(input.body),keys=envelope.page.objectManifest.map(row=>row.key);
+            for(const state of states.values())if(keys.includes(state.manifest.key))state.abandoned=true;
+            return Response.json({receipt:receipt(envelope),discardedObjectKeys:keys});
+        }});
+        for(let index=0;index<3;index++){
+            const spool=await openSpool(f.dir),envelope=structuredClone(f.entry.envelope);
+            envelope.page.pageId=index===0?f.entry.envelope.page.pageId:'repeated-discard-'+index;
+            envelope.page.previousCursor=index===0?null:index===1?'next':'continuation-'+(index-1);
+            envelope.page.nextCursor=index===2?null:index===0?'next':'continuation-'+index;
+            envelope.page.inventoryExhausted=index===2;
+            const entry=index===0?await spool.load(f.entry.id):await spool.acquire(envelope,[f.asset]);
+            await sender.deliver(spool,entry.id);
+            assert.ok((await spool.load(entry.id)).receipt);
+            assert.equal(await spool.finalizedAsset(envelope,f.asset),null);
+        }
+        assert.deepEqual(counts,{uploads:3,metadata:3});assert.equal(new Set(uploadIds).size,3);
+    }finally{await rm(f.dir,{recursive:true,force:true});}
+});

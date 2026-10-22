@@ -20,6 +20,7 @@ export interface HistoryObjectDeps {
   guardSql?:HistoryObjectSqlGuard;
   now?:()=>string;
 }
+export class HistoryObjectCapacityError extends Error{}
 export class HistoryObjectAttemptError extends Error{readonly code:'pending'|'failed';constructor(code:'pending'|'failed'){super('History object attempt '+code);this.code=code;}}
 export const MAX_HISTORY_OBJECT_BYTES=16*1024*1024;
 export const MAX_HISTORY_OWNER_OBJECT_BYTES=256*1024*1024;
@@ -64,7 +65,7 @@ export async function stageHistoryObject(deps:HistoryObjectDeps,input:HistoryObj
     if(input.reservationKey&&await deps.db.prepare('SELECT 1 FROM history_object_ledger WHERE user_id=? AND key=?').bind(input.ownerId,manifest.key).first())return stageHistoryObject(deps,input);
     throw error;
   }
-  if(admitted.meta.changes!==1)throw Error('History object capacity or authority changed before staging.');
+  if(admitted.meta.changes!==1){await authorized(deps);if(deps.guardSql&&!await deps.db.prepare('SELECT 1 WHERE '+deps.guardSql.sql).bind(...deps.guardSql.params).first())throw Error('History object authority changed before staging.');throw new HistoryObjectCapacityError('History object capacity changed before staging.');}
   // The pending token stays persisted until the actual physical attempt settles. A timed-out
   // caller must not detach the PUT and clear it, or later cleanup could race a late write.
   try{

@@ -20,18 +20,19 @@
       "id": "integration-collection",
       "status": "in_progress",
       "requirement": "Durable hosted continuation, leases and scheduling on existing workspace_job_intents; exact phase/run/receipt/source fencing.",
-      "evidence": "Existing queue17SQLite tests and real private collector2HTTPtests pass. Production injected dispatcher composition in progress; live ingress remains closed."
+      "evidence": "Existing queue, owner HTTP admission, native private pending envelope objects and receipt-only source-removal job projections implemented. Real synthetic HTTP/SQLite tests pass; deployment reader/principal registration remains default closed."
     },
     {
       "id": "integration-analysis",
       "status": "in_progress",
-      "requirement": "Atomic exact-model budget reservation and validated proposal/story publication at pinned source/editor heads; paid inference remains off."
+      "requirement": "Atomic exact-model budget reservation and validated proposal/story publication at pinned source/editor heads; paid inference remains off.",
+      "evidence": "Native selected-history consent authority pool, exact-model shared spending ledger, uncertain-call extraction fence, attested claim reload and atomic journal/projection/job publication pass focused SQLite checks. Incremental extraction and actual cross-chat dispatcher integration remain in progress; paid inference off."
     },
     {
       "id": "integration-ui",
       "status": "in_progress",
       "requirement": "Default Project lanes central wiring, source mapping, full retained context, search context and responsive/browser acceptance.",
-      "evidence": "Default lanes central route, exact retained citation windows, explicit native-granted source mapping and Home10tests implemented. Browser/full-context/search integration remains pending."
+      "evidence": "Default lanes/native semantic GET, owner mapping/roadmap/source controls, native owner task completion provenance, full retained Unicode citation windows and task-context surfaces implemented. Exact browser acceptance remains in progress."
     },
     {
       "id": "reobservation",
@@ -66,8 +67,10 @@
     },
     {
       "id": "final-verification",
-      "status": "not_started",
-      "requirement": "Exact integrated source Node/collector/bridge/D1/R2/HTTP/browser/performance and archive-integrity gates; no deployment claim."
+      "status": "in_progress",
+      "requirement": "Exact integrated source Node/collector/bridge/D1/R2/HTTP/browser/performance and archive-integrity gates; no deployment claim.",
+      "evidence": "Frozenba6:2219/2221Node;2TCP lock failures fixed narrowly ataeae8a6 with52parallel tests. One type field integration error fixed. No final green claim; all unchanged canonical/performance thresholds remain."
     }
-  ]
+  ],
+  "currentCheckpoint": "aeae8a6"
 }

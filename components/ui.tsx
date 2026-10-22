@@ -24,7 +24,7 @@ export function Status({ status }: { status: TaskStatus }) {
 export function EmptyState({ title, text, action }: { title: string; text: string; action?: React.ReactNode }) {
   return <div className="empty-state"><span className="empty-symbol"><Sparkles size={21} strokeWidth={1.5} /></span><h3>{title}</h3><p>{text}</p>{action}</div>;
 }
-export function TaskContext({task,workspace,showProject=true}:{task:Task;workspace:Workspace;showProject?:boolean}){
+export function TaskContext({task,workspace,showProject=true}:{task:Pick<Task,'projectId'|'areaId'|'workType'>;workspace:Workspace;showProject?:boolean}){
  const project=workspace.projects.find(row=>row.id===task.projectId),area=(workspace.areas??[]).find(row=>row.id===task.areaId&&row.projectId===task.projectId);
  const type=WORK_TYPE_LABELS[task.workType??'other'],label=taskContext(project?.name??'Unknown project',area?.name??null,type);
  return <span className="task-context" aria-label={label}>{showProject?label:[area?.name??'Unclassified',type].join(' / ')}{area?.archivedAt?' · Area archived':''}</span>;

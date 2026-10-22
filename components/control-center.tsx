@@ -33,7 +33,7 @@ import { MilestoneEditor } from './planning-editors';
 import { CaptureEditor, ConvertEditor } from './capture-editors';
 import { MissionControl } from './mission-control';
 import { ProjectDetail, ProjectsView } from './projects-view';
-import {ProjectLanesHome} from './project-lanes-home';
+import {ProjectLanesHome,type HistoryLanesSaveContext} from './project-lanes-home';
 import { InboxView } from './inbox-view';
 import {z} from 'zod';
 import {canonical,contentHash} from '@/lib/canonical-json';
@@ -97,7 +97,7 @@ function DeferredPanel({label,children,canRetry,onBack}:{label:string;children:R
 }
 
 type View = 'lanes' | 'today' | 'projects' | 'inbox' | 'sources' | 'reviews' | 'search' | 'attention' | 'weekly' | 'evidence' | 'history' | 'runtime' | 'agents' | 'local-analysis';
-type SaveBase = { revision: number; submission?: Submission | null };
+type SaveBase = { revision: number; submission?: Submission | null; controller?:DurableDraftController };
 type Editor = {type:'agent-budget';budget?:JobBudgetDisplay}|{type:'execution-enrollment'}|{type:'agent-job';projectId?:string;taskId?:string}|{type:'baseline-revision';projectId:string;snapshot:ReviewSnapshot;snapshotHash:string}|{type:'attachment-reserve';snapshot:EvidenceSnapshot}|{type:'attachment-upload';attachment:AttachmentSnapshot;snapshot:EvidenceSnapshot}|{type:'attachment-lifecycle';attachment:AttachmentSnapshot;snapshot:EvidenceSnapshot;action:'finalize'|'retire'}|{type:'evidence';evidence?:EvidenceVersion;snapshot?:EvidenceSnapshot}|{type:'decision';decision?:DecisionVersion;snapshot?:EvidenceSnapshot}|{type:'evidence-link';evidence:EvidenceVersion;snapshot:EvidenceSnapshot;subject?:EvidenceSubject}|{type:'requirement';requirement?:{value:EvidenceRequirement;rowRevision:number};snapshot:EvidenceSnapshot;subject?:EvidenceSubject}|{type:'acceptance';snapshot:EvidenceSnapshot;subject?:EvidenceSubject}|{type:'decision-action';decision:DecisionVersion;snapshot:EvidenceSnapshot;action:'decide'|'supersede'}|{ type: 'task'; task?: Task; projectId: string; milestoneId?:string; suggestion?:{title:string;notes:string;draftKey:string} } | { type: 'milestone'; milestone?: Milestone; project: Project } | { type: 'project'; project?: Project } | { type: 'capture'; capture?: Capture } | { type: 'convert'; capture: Capture } | {type:'recurrence';rule?:{value:RecurrenceRule;rowRevision:number}} | {type:'weekly-review';draft:WeeklyReviewDraft};
 const navItems = [{id:'lanes',label:'Project lanes',icon:LayoutGrid},{id:'local-analysis',label:'Repositories',icon:FolderOpen}, { id: 'today', label: 'Today', icon: Sun }, { id: 'projects', label: 'Projects', icon: LayoutGrid }, { id: 'inbox', label: 'Inbox', icon: Inbox }, {id:'weekly',label:'Weekly',icon:CalendarDays}, { id: 'search', label: 'Search', icon: Search }, { id: 'attention', label: 'Attention', icon: ListChecks }, { id: 'history', label: 'History', icon: FolderOpen }, { id: 'evidence', label: 'Evidence & decisions', icon: ListChecks }, { id: 'sources', label: 'Sources', icon: FolderOpen },{id:'reviews',label:'Briefs & automations',icon:Radio},{id:'runtime',label:'Runtime',icon:Radio},{id:'agents',label:'Agents',icon:Radio}] as const;
 
@@ -120,7 +120,6 @@ export default function ControlCenter({ userName }: { userName: string }) {
   const agentGuard=(key:'jobsDirty'|'jobsPending'|'enrollmentDirty'|'enrollmentPending',value:boolean)=>{agentPanelGuards.current[key]=value;syncPanelGuards();};
   const lanesGuard=(key:'dirty'|'pending',value:boolean)=>{lanesPanelGuards.current[key]=value;syncPanelGuards();};
   const panelGuard=(key:'dirty'|'pending',value:boolean)=>{otherPanelGuards.current[key]=value;syncPanelGuards();};
-  useEffect(()=>{const leave=(event:BeforeUnloadEvent)=>{if(sourceDirtyRef.current||sourcePendingRef.current)event.preventDefault();};window.addEventListener('beforeunload',leave);return()=>window.removeEventListener('beforeunload',leave);},[]);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [expired, setExpired] = useState(false);
@@ -131,6 +130,9 @@ export default function ControlCenter({ userName }: { userName: string }) {
   const editorDraftController=useRef<DurableDraftController|null>(null);
   const deviceDraftController=useRef<DeviceDraftController|null>(null);
   const [unresolved,setUnresolved]=useState<{submission:Submission;command:Command}[]>([]);
+  const unresolvedRef=useRef(unresolved);useEffect(()=>{unresolvedRef.current=unresolved;},[unresolved]);
+  const lanesSaveBase=useRef<SaveBase|null>(null);
+  useEffect(()=>{const leave=(event:BeforeUnloadEvent)=>{if(sourceDirtyRef.current||sourcePendingRef.current||unresolvedRef.current.length>0)event.preventDefault();};window.addEventListener('beforeunload',leave);return()=>window.removeEventListener('beforeunload',leave);},[]);
   const runtimeEnrollment=useRef<{key:string;body:string;mutationId:string;commandHash:string;revision:number;generation:number}|null>(null);
   const directSubmission = useRef<Submission | null>(null);
   const [pendingDirectCommand, setPendingDirectCommand] = useState<Command | null>(null);
@@ -178,11 +180,13 @@ export default function ControlCenter({ userName }: { userName: string }) {
     return()=>{active=false;notices.dispose();if(stream.current===notices)stream.current=null;coordinator.dispose();if(polling.current===coordinator)polling.current=null;window.removeEventListener('focus',focus);window.removeEventListener('online',online);document.removeEventListener('visibilitychange',visibility);};
   },[requestCurrent,acceptEnvelope,expireSession]);
   useEffect(() => { if (!notice) return; const timer = window.setTimeout(() => setNotice(''), 4500); return () => window.clearTimeout(timer); }, [notice]);
+  function retainUnconfirmed(submission:Submission,command:Command){const prior=unresolvedRef.current;if(!prior.some(item=>item.submission.mutationId===submission.mutationId)){const next=[...prior,{submission,command}];unresolvedRef.current=next;setUnresolved(next);}}
   async function mutate(command: Command, editorBase?: SaveBase, expectedRevision?:number) {
     if (expiredRef.current) throw new SessionExpiredError();
     if (!envelopeRef.current) throw new Error('Load your workspace before saving.');
     if (busyRef.current) throw new Error('Another change is saving. Please try again in a moment.');
     busyRef.current = true;polling.current?.setBusy(true);stream.current?.setBusy((true)||sourceDirtyRef.current||Boolean(editorDraftController.current?.isDirty()));setBusy(true); setError('');
+    const draftController=editorBase?.controller??editorDraftController.current;
     const previous=editorBase?editorBase.submission:directSubmission.current;
     let submission = submissionFor(previous ?? null, command);
     try {
@@ -198,7 +202,7 @@ export default function ControlCenter({ userName }: { userName: string }) {
         if(original.status!=='not-found')throw new Error('The original outcome could not be resolved. Check the original save before retrying.');
       }
       if (editorBase){editorBase.submission = submission;setEditorSubmissionId(submission.mutationId);}else directSubmission.current = submission;
-      if(editorBase){try{const controller=editorDraftController.current;if(!controller)throw new Error('This editor is still preparing its recovery state. Keep it open and try again.');await controller.preserveSubmission(command,submission.mutationId);}catch(cause){await editorDraftController.current?.releaseSubmission();editorBase.submission=null;throw cause;}}
+      if(editorBase){try{const controller=draftController;if(!controller)throw new Error('This editor is still preparing its recovery state. Keep it open and try again.');await controller.preserveSubmission(command,submission.mutationId);}catch(cause){await draftController?.releaseSubmission();editorBase.submission=null;throw cause;}}
       if(expiredRef.current)throw new SessionExpiredError();
       const generation=sessionGeneration.current.capture();
       let next: WorkspaceEnvelope;
@@ -208,17 +212,17 @@ export default function ControlCenter({ userName }: { userName: string }) {
         if(cause instanceof SessionExpiredError){expireSession();throw cause;}
         if(cause instanceof StaleSessionError)throw cause;
         if(cause instanceof WorkspaceRequestError && cause.status===409 && isConclusiveWorkspaceRejection(cause)){
-          if(cause.diagnostic==='revision_conflict'||cause.diagnostic==='module_conflict'){if(editorBase){await editorDraftController.current?.releaseSubmission();editorBase.submission=null;}else directSubmission.current=null;}
+          if(cause.diagnostic==='revision_conflict'||cause.diagnostic==='module_conflict'){if(editorBase){await draftController?.releaseSubmission();editorBase.submission=null;}else directSubmission.current=null;}
           const latest=await read(true);
           if(editorBase)editorBase.revision=latest.revision;
           cause.message='This workspace changed in another session. The latest version is loaded and your draft is still here. Review your changes, then save again.';throw cause;
         }
-        if(isConclusiveWorkspaceRejection(cause)){if(editorBase){await editorDraftController.current?.releaseSubmission();editorBase.submission=null;}else directSubmission.current=null;throw cause;}
+        if(isConclusiveWorkspaceRejection(cause)){if(editorBase){await draftController?.releaseSubmission();editorBase.submission=null;}else directSubmission.current=null;throw cause;}
         let outcome;
         try {outcome=await reconcileSubmission(submission.mutationId,{session:sessionGeneration.current,generation});}
-        catch(reconcileError){if(reconcileError instanceof SessionExpiredError)expireSession();throw reconcileError;}
+        catch(reconcileError){if(reconcileError instanceof SessionExpiredError)expireSession();else if(!(reconcileError instanceof StaleSessionError))retainUnconfirmed(submission,command);throw reconcileError;}
         if(outcome.status==='retired')throw new Error('This submission has retired. Review the authoritative plan before starting a new change.');
-        if(outcome.status!=='committed'){setUnresolved(items=>items.some(item=>item.submission.mutationId===submission.mutationId)?items:[...items,{submission,command}]);throw new Error('The save is still unconfirmed. Your draft and original submission are retained. Retry the unchanged change after checking the connection.');}
+        if(outcome.status!=='committed'){retainUnconfirmed(submission,command);throw new Error('The save is still unconfirmed. Your draft and original submission are retained. Retry the unchanged change after checking the connection.');}
         next=await read(true);
       }
       if (expiredRef.current) throw new SessionExpiredError();
@@ -227,6 +231,16 @@ export default function ControlCenter({ userName }: { userName: string }) {
       setUnresolved(items=>items.filter(item=>item.submission.mutationId!==submission.mutationId));
       setNotice('Saved to your workspace');
     } finally { busyRef.current = false;polling.current?.setBusy(false);stream.current?.setBusy((false)||sourceDirtyRef.current||Boolean(editorDraftController.current?.isDirty()));setBusy(false); }
+  }
+  async function saveLanesCommand(command:Command,context?:HistoryLanesSaveContext){
+    if(!context){await mutate(command);return;}
+    let base=lanesSaveBase.current;
+    if(!base||base.controller!==context.controller){
+      base={revision:context.baseRevision,controller:context.controller};
+      if(context.recovered?.command&&context.recovered.mutationId)base.submission=submissionFor(null,context.recovered.command,()=>context.recovered!.mutationId!);
+      lanesSaveBase.current=base;
+    }
+    await mutate(command,base);
   }
   async function saveLocalAnalysis(command:import('@/lib/workspace-protocol').WorkspaceCommand):Promise<boolean>{
     try{await mutate(command as Command);return true;}catch(cause){setError(cause instanceof Error?cause.message:'The report save is unconfirmed.');if(['github-analysis.save','local-analysis.save','project-briefing.save'].includes(command.type)&&isConclusiveWorkspaceRejection(cause)){const key=submissionFor(null,command).key;setUnresolved(items=>items.filter(item=>item.submission.key!==key));throw cause;}return false;}
@@ -350,7 +364,7 @@ export default function ControlCenter({ userName }: { userName: string }) {
   const openEntity=(target:EntityTarget)=>{const ws=envelopeRef.current?.workspace;if(!ws)return;if(target.kind==='project'){const row=ws.projects.find(row=>row.id===target.id);if(row)openProject(row);}else if(target.kind==='milestone'){const row=ws.milestones.find(row=>row.id===target.id);if(row)openMilestone(row);}else if(target.kind==='task'){const row=ws.tasks.find(row=>row.id===target.id);if(row)openTask(row);}else{const row=ws.captures.find(row=>row.id===target.id);if(row&&mayNavigate()){setView('inbox');openEditor({type:'capture',capture:row});writeLocation(entityHref(target));}}};
   useEffect(()=>{
     if(!envelope||expired)return;
-    let active=true;const apply=(force=false)=>{if(!active||expiredRef.current||envelopeRef.current!==envelope)return;const key=window.location.search;if(!force&&locationKey.current===key)return;if(busyRef.current||sourcePendingRef.current){window.history.pushState({},'',`/${locationKey.current??''}`);setError('Wait for the current save outcome before leaving this editor.');return;}if(sourceDirtyRef.current&&!window.confirm('Leave these edits? Unsaved selections and previews will be discarded.')){window.history.pushState({},'',`/${locationKey.current??''}`);return;}if(editorDraftController.current?.isDirty()&&!window.confirm('Leave this editor? Unsaved changes may be discarded. Saved draft copies remain available.')){window.history.pushState({},'',`/${locationKey.current??''}`);return;}locationKey.current=key;const params=new URLSearchParams(key);setEditor(null);setEditorSubmissionId(null);editorBaseRef.current=null;editorReturnLocation.current=null;setMilestoneId(null);setProjectId(null);setReviewTarget(null);setEvidenceSubject(undefined);setUnavailableTarget(false);
+    let active=true;const apply=(force=false)=>{if(!active||expiredRef.current||envelopeRef.current!==envelope)return;const key=window.location.search;if(!force&&locationKey.current===key)return;if(unresolvedRef.current.length>0||busyRef.current||sourcePendingRef.current){window.history.pushState({},'',`/${locationKey.current??''}`);setError('Wait for the current save outcome before leaving this editor.');return;}if(sourceDirtyRef.current&&!window.confirm('Leave these edits? Unsaved selections and previews will be discarded.')){window.history.pushState({},'',`/${locationKey.current??''}`);return;}if(editorDraftController.current?.isDirty()&&!window.confirm('Leave this editor? Unsaved changes may be discarded. Saved draft copies remain available.')){window.history.pushState({},'',`/${locationKey.current??''}`);return;}locationKey.current=key;const params=new URLSearchParams(key);setEditor(null);setEditorSubmissionId(null);editorBaseRef.current=null;editorReturnLocation.current=null;setMilestoneId(null);setProjectId(null);setReviewTarget(null);setEvidenceSubject(undefined);setUnavailableTarget(false);
       if(params.has('review')){const result=parseReviewLink(params);if(result.status==='unavailable'){setUnavailableTarget(true);return;}setReviewTarget(result.target);setView(result.target.kind==='history'?'history':'evidence');}
       else if(params.has('subject')){const historyScope=params.get('view')==='history';const parsed=historyScope?parseHistorySubjectLink(params):parseEvidenceSubjectLink(params);if(parsed.status==='unavailable'||resolveEvidenceSubject(envelope.workspace,parsed.target).status==='unavailable'){setUnavailableTarget(true);return;}setEvidenceSubject(parsed.target);setView(historyScope?'history':'evidence');}
       else if(params.has('entity')){const result=parseEntityLink(params,envelope.workspace);if(result.status==='unavailable'){setUnavailableTarget(true);return;}const target=result.target;setView(target.kind==='capture'?'inbox':'projects');if(target.kind==='project')setProjectId(target.id);else if(target.kind==='milestone'){const row=envelope.workspace.milestones.find(row=>row.id===target.id)!;setProjectId(row.projectId);setMilestoneId(row.id);}else if(target.kind==='task'){const row=envelope.workspace.tasks.find(row=>row.id===target.id)!;setProjectId(row.projectId);editorBaseRef.current={revision:envelope.revision};setEditorRevision(envelope.revision);setEditor({type:'task',task:row,projectId:row.projectId});}else{const row=envelope.workspace.captures.find(row=>row.id===target.id)!;editorBaseRef.current={revision:envelope.revision};setEditorRevision(envelope.revision);setEditor({type:'capture',capture:row});}}
@@ -372,7 +386,7 @@ export default function ControlCenter({ userName }: { userName: string }) {
       {workspace && <p className="refresh-metadata"><span>{streamStatus==='streaming'?'Live updates: stream notices with polling safety':streamStatus==='connecting'?'Live updates: polling while stream connects':streamStatus==='polling-fallback'?'Live updates: polling (stream unavailable)':'Live updates: polling (streaming unverified)'}</span></p>}
       {workspace && <p className="refresh-metadata" role="status">Last saved {new Date(envelope!.updatedAt).toLocaleString('en-GB', { timeZone: 'Africa/Cairo', hour12: false })} Cairo · Last successful refresh {lastRefreshed ? new Date(lastRefreshed).toLocaleString('en-GB', { timeZone: 'Africa/Cairo', hour12: false }) + ' Cairo' : 'not yet confirmed'}{stale ? ' · This view may be out of date.' : ''}</p>}
       {expired ? <div className="loading-screen" role="alert"><AlertCircle size={30} /><h1>Your session has expired.</h1><p>Sign in again to open your private workspace. Private content has been closed. Server drafts remain recoverable after sign-in. Active device drafts are cleared on expiry; copies locked since an earlier visit may require signing in to the same account and choosing Forget device drafts.</p><a className="button primary" href="/signin-with-chatgpt?return_to=%2F">Sign in again<ArrowRight size={16} /></a></div> : !workspace ? <div className="loading-screen">{loading ? <><LoaderCircle size={30} className="spinning" /><h1>A little clarity is on its way.</h1><p>Loading your private workspace…</p></> : <><AlertCircle size={30} /><h1>Your workspace is waiting.</h1><p>We couldn’t load it. Your saved work has not been changed.</p><button className="button primary" onClick={() => void refresh()}>Try again<ArrowRight size={16} /></button></>}</div> : <>
-        {view === 'lanes' && <ProjectLanesHome onDirtyChange={dirty=>lanesGuard('dirty',dirty)} onPendingChange={pending=>lanesGuard('pending',pending)} workspace={workspace} revision={envelope!.revision} busy={busy} canRefresh={!editor&&!busy&&unresolved.length===0} onCommand={async command=>{await mutate(command);}} onOpenTask={id=>{const task=workspace.tasks.find(row=>row.id===id);if(task)openTask(task);}} onOpenProject={id=>{const row=workspace.projects.find(project=>project.id===id);if(row)openProject(row);}} onCapture={()=>{if(mayNavigate())openEditor({type:'capture'});}} />}
+        {view === 'lanes' && <ProjectLanesHome onDirtyChange={dirty=>lanesGuard('dirty',dirty)} onPendingChange={pending=>lanesGuard('pending',pending)} workspace={workspace} revision={envelope!.revision} busy={busy} canRefresh={!editor&&!busy&&unresolved.length===0} onCommand={saveLanesCommand} onOpenTask={id=>{const task=workspace.tasks.find(row=>row.id===id);if(task)openTask(task);}} onOpenProject={id=>{const row=workspace.projects.find(project=>project.id===id);if(row)openProject(row);}} onCapture={()=>{if(mayNavigate())openEditor({type:'capture'});}} />}
         {view === 'today' && <MissionControl workspace={workspace} revision={envelope!.revision} onProject={openProject} onTask={openTask} onPin={pinTask} onNavigate={navigate} onRepositories={openLocalAnalysis} onCommand={saveLocalAnalysis} onCapture={() => openEditor({ type: 'capture' })} busy={busy} />}
         {unavailableTarget && <div className="panel" role="status"><h2>This item is unavailable.</h2><p>It may be missing or unavailable in this workspace.</p><button className="button secondary" onClick={()=>navigate('today')}>Go home</button></div>}
         {!unavailableTarget && reviewTarget && <DeferredPanel label="Exact review citation" canRetry={mayNavigate} onBack={()=>navigate('today')}><ReviewCitation key={reviewHref(reviewTarget)} target={reviewTarget} revision={envelope!.revision}/></DeferredPanel>}

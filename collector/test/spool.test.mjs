@@ -106,3 +106,26 @@ test('first observedAt, sequence and gap observation survive reordered scans; ch
 });
 import {symlink,truncate} from 'node:fs/promises';
 test('asset symlinks and oversized declared files are rejected before buffering or accepting a draft',async()=>{const dir=await mkdtemp(join(tmpdir(),'history-asset-safety-')),outside=await mkdtemp(join(tmpdir(),'history-outside-'));try{const spool=await openSpool(dir),content=Buffer.from('matching private bytes'),asset={key:'local:asset',content,sha256:(await import('../src/spool.mjs')).digest(content),bytes:content.length},envelope={...draft(),page:{...draft().page,objectManifest:[{key:asset.key,sha256:asset.sha256,bytes:asset.bytes}]}},entry=await spool.acquire(envelope,[asset]),assetPath=join(entry.path,entry.assets[0].file),target=join(outside,'other-private-file');await writeFile(target,content,{mode:0o600});await rm(assetPath);await symlink(target,assetPath);await assert.rejects(spool.load(entry.id),/private|link|asset|file/i);await rm(assetPath);await writeFile(assetPath,content,{mode:0o600});await truncate(assetPath,16*1024*1024+1);await assert.rejects(spool.load(entry.id),/size|oversized|bound/i);}finally{await rm(dir,{recursive:true,force:true});await rm(outside,{recursive:true,force:true});}});
+
+import {createServer} from 'node:net';
+import {spawn} from 'node:child_process';
+import {once} from 'node:events';
+import {digest} from '../src/spool.mjs';
+import {resolve} from 'node:path';
+test('kernel instance identity does not collide with unrelated occupied TCP ports and releases on process death', {skip:!['linux','win32'].includes(process.platform),timeout:15000},async()=>{
+ const dir=await mkdtemp(join(tmpdir(),'history-kernel-lock-')),other=await mkdtemp(join(tmpdir(),'history-kernel-other-'));
+ const legacyPort=40000+parseInt(digest(resolve(dir)).slice(0,8),16)%20000,unrelated=createServer(socket=>socket.destroy());let child,release;
+ try{
+  await new Promise((ok,no)=>{unrelated.once('error',no);unrelated.listen({host:'127.0.0.1',port:legacyPort},ok);});
+  // The former lock is deterministically blocked by an unrelated listener.
+  const oldProbe=createServer();const oldError=await new Promise(ok=>{oldProbe.once('error',ok);oldProbe.listen({host:'127.0.0.1',port:legacyPort});});assert.equal(oldError.code,'EADDRINUSE');
+  const moduleUrl=new URL('../src/spool.mjs',import.meta.url).href;
+  child=spawn(process.execPath,['--input-type=module','-e',`import {acquireSingleInstance} from ${JSON.stringify(moduleUrl)};await acquireSingleInstance(process.argv[1]);process.stdout.write('locked\\n');`,dir],{stdio:['ignore','pipe','pipe']});
+  const [output]=await once(child.stdout,'data');assert.equal(output.toString(),'locked\n');
+  await assert.rejects(acquireSingleInstance(dir),error=>{assert.equal(error.code,'EADDRINUSE');assert.equal(error.cause.code,'EADDRINUSE');assert.ok(!error.message.includes(dir));assert.ok(!error.cause.message.includes(dir));return true;});
+  const distinctRelease=await acquireSingleInstance(other);await distinctRelease();
+  const exited=once(child,'exit');child.kill('SIGKILL');await exited;child=null;
+  release=await acquireSingleInstance(dir);await release();release=null;
+  release=await acquireSingleInstance(dir);
+ }finally{if(child){const exited=once(child,'exit');child.kill('SIGKILL');await exited;}await release?.();await new Promise(ok=>unrelated.close(ok));await rm(dir,{recursive:true,force:true});await rm(other,{recursive:true,force:true});}
+});

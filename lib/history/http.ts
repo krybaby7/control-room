@@ -3,7 +3,7 @@ import {historyUploadReservationKey} from './upload-identity.ts';
 import type {SqlDatabase} from '../workspace-store.ts';
 import type {PrivateIngressVerifier} from '../devices/contracts.ts';
 import type {PrivateHistoryBucket} from './object-store.ts';
-import {stageHistoryObject,MAX_HISTORY_OBJECT_BYTES,HistoryObjectAttemptError,purgeAbandonedHistoryObjects} from './object-store.ts';
+import {stageHistoryObject,MAX_HISTORY_OBJECT_BYTES,HistoryObjectAttemptError,HistoryObjectCapacityError,purgeAbandonedHistoryObjects} from './object-store.ts';
 import {authenticateHistoryIngest,historyAuthorityGuard} from './auth.ts';
 import {CollectionEnvelopeSchema} from './validation.ts';
 import {ingestHistoryPage} from './store.ts';
@@ -32,6 +32,7 @@ export async function handleHistoryTransport(operation:'ingest'|'objects',reques
   const auth=await authenticateHistoryIngest(request,services.db,{now:services.now(),privateIngress:services.privateIngress});
   if(!auth)return response({error:'History authorization is unavailable.',diagnostic:'history_authorization'},401);
   const {principal}=auth,contentType=request.headers.get('content-type')?.split(';')[0].trim().toLowerCase();
+  const cleanup=async()=>{if(!services.bucket)return;const db=services.db!;await purgeAbandonedHistoryObjects({db,bucket:services.bucket,now:services.now,authorize:async()=>!!await historyAuthorityGuard(db,principal,services.now())},principal.ownerId,5*60000,async(owner,key)=>!!await db.prepare("SELECT 1 FROM project_history WHERE user_id=? AND (json_extract(payload_json,'$.value.bodyObjectKey')=? OR json_extract(payload_json,'$.value.objectKey')=?) UNION ALL SELECT 1 FROM workspace_job_intents WHERE user_id=? AND json_valid(payload_json) AND json_extract(payload_json,'$.pendingObject.key')=? LIMIT 1").bind(owner,key,key,owner,key).first(),principal.sourceId);};
   if(operation==='objects'){
    if(!services.bucket)return response({error:'Private object storage is unavailable.'},503);
    if(contentType!=='application/octet-stream')throw new TransportError(415,'object_content_type');
@@ -40,6 +41,9 @@ export async function handleHistoryTransport(operation:'ingest'|'objects',reques
    const uploadId=request.headers.get('X-History-Upload-Id');if(!uploadId||!/^upload_[a-f0-9]{64}$/.test(uploadId))throw new TransportError(400,'object_upload_identity');
    const namespaces=await getWorkspaceNamespaces(services.db,principal.ownerId);if(!namespaces)throw new TransportError(503,'owner_namespace_unavailable');
    const reservationKey=await historyUploadReservationKey(namespaces.cursorSecret,{ownerId:principal.ownerId,sourceId:principal.sourceId,epoch:principal.epoch,scopeRevision:principal.scopeRevision},uploadId);
+   // Expired, settled orphan capacity must be reclaimable before the upload
+   // that enables the next page. Pending/referenced/other-source bytes remain.
+   await cleanup();
    const bytes=await readHistoryTransportBytes(request.body,MAX_HISTORY_OBJECT_BYTES,request.signal),guard=await historyAuthorityGuard(services.db,principal,services.now());
    if(!guard)throw new TransportError(401,'history_authorization');
    const db=services.db;
@@ -55,12 +59,12 @@ export async function handleHistoryTransport(operation:'ingest'|'objects',reques
   const result=await ingestHistoryPage(services.db,principal.ownerId,parsed.data,{now:services.now(),authorityGuard:guard,prepareAdmission:historyRecoveryAdmission(services.db)});
   if(result.status==='conflict')throw new TransportError(409,'history_cursor_conflict');
   const discardedObjectKeys=(await services.db.prepare("SELECT key FROM history_object_ledger WHERE user_id=? AND source_id=? AND status='abandoned' AND key IN(SELECT json_extract(value,'$.key') FROM json_each(?))").bind(principal.ownerId,principal.sourceId,JSON.stringify(parsed.data.page.objectManifest)).all<{key:string}>()).results.map(row=>row.key);
-  if(services.bucket){const db=services.db;try{await purgeAbandonedHistoryObjects({db,bucket:services.bucket,now:services.now,authorize:async()=>!!await historyAuthorityGuard(db,principal,services.now())},principal.ownerId,5*60000,async(owner,key)=>!!await db.prepare("SELECT 1 FROM project_history WHERE user_id=? AND (json_extract(payload_json,'$.value.bodyObjectKey')=? OR json_extract(payload_json,'$.value.objectKey')=?) LIMIT 1").bind(owner,key,key).first(),principal.sourceId);}catch{/* Committed acknowledgement is independent of bounded cleanup success. */}}
+  try{await cleanup();}catch{/* Committed acknowledgement survives bounded cleanup failure. */}
   return response({receipt:result.receipt,discardedObjectKeys});
  }catch(error){
   if(error instanceof HistoryObjectAttemptError)return response({error:'History upload attempt requires unchanged retry or a new settled attempt.',diagnostic:error.code==='pending'?'object_upload_pending':'object_upload_attempt_failed'},error.code==='pending'?409:410);
   if(error instanceof TransportError)return response({error:'History request could not be accepted.',diagnostic:error.diagnostic},error.status);
-  if(error instanceof PrivateCapacityError||error instanceof RecoverabilityCapacityError)return response({error:'History capacity requires owner review. Retained content is preserved.',diagnostic:'history_capacity'},429);
+  if(error instanceof PrivateCapacityError||error instanceof RecoverabilityCapacityError||error instanceof HistoryObjectCapacityError)return response({error:'History capacity requires owner review. Retained content is preserved.',diagnostic:'history_capacity'},429);
   // No owner IDs, paths, tokens, source bodies or private provider errors escape.
   return response({error:'History was not acknowledged. Retry the unchanged page or reconcile its cursor.',diagnostic:'history_conflict'},409);
  }finally{if(!request.bodyUsed)await settleUploadBody(request.body);}

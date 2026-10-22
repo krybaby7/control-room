@@ -1,9 +1,10 @@
+import {recoverMessageObservation,recoverSegmentObservation,reopenHistoryGap,resolveMissingTranscriptGap,type ConversationTraversalProof} from './recovery-observations.ts';
 import {privateRowGrowth,type PrivateGrowth} from '../private-capacity.ts';
 import {canonical,contentHash} from '../canonical-json.ts';
 import type {ModuleRow} from '../workspace-modules.ts';
 import type {SqlDatabase,SqlStatement} from '../workspace-store.ts';
-import type {CollectionEnvelope,IngestReceipt} from './contracts.ts';
-import {CollectionEnvelopeSchema,canonicalEnvelopeDigest,validateCollectionEnvelope} from './validation.ts';
+import type {CollectionEnvelope,IngestReceipt,InventoryMembership} from './contracts.ts';
+import {CollectionEnvelopeSchema,InventoryMembershipSchema,canonicalEnvelopeDigest,validateCollectionEnvelope} from './validation.ts';
 import {finalizedHistoryObjectsGuard,type HistoryObjectSqlGuard} from './object-store.ts';
 import {historyRecordId,parseHistoryRecord,HistoryCursorValueSchema,HistoryReceiptValueSchema,HistoryRunValueSchema,type HistoryRecord,type HistoryRecordKind,type HistoryRecordValue} from './record.ts';
 export interface StoredHistoryRecord<K extends HistoryRecordKind=HistoryRecordKind>{record:HistoryRecord<K>;rowRevision:number;contentHash:string;streamSequence:number}
@@ -39,6 +40,10 @@ export interface HistoryAdmissionContext {
 }
 export interface HistoryIngestOptions {
  now:string;
+ /** Server-bound acquisition phase: content pages do not create another inventory generation. */
+ inventoryMemberships?:readonly InventoryMembership[];
+ /** Trusted server completed-traversal proofs; never accept these from upload JSON. */
+ completedTraversals?:readonly ConversationTraversalProof[];
  authorityGuard?:HistoryObjectSqlGuard;
  /** Required server dependency: quote all proposed rows/jobs against recoverability and
   * return PRE-DML assertions using this exact transient claim, or throw. */
@@ -112,7 +117,7 @@ export async function ingestHistoryPage(db:SqlDatabase,owner:string,input:unknow
  }
  const rows:HistoryProposedRow[]=[],unchanged:StoredHistoryRecord[]=[];
  async function propose<K extends HistoryRecordKind>(kind:K,logicalId:string,value:HistoryRecordValue<K>,mutable=false){
-  const id=await historyRecordId(kind,logicalId),record=parseHistoryRecord({id,kind,value}),previous=await readHistoryRecord(db,owner,kind,logicalId);
+  const id=await historyRecordId(kind,logicalId);let record=parseHistoryRecord({id,kind,value});const previous=await readHistoryRecord(db,owner,kind,logicalId);
   if(previous&&canonical(previous.record)===canonical(record)){unchanged.push(previous);return;}
   if(previous&&previous.record.kind===record.kind){
    // First-observed clocks and opaque physical keys are acquisition metadata,
@@ -126,7 +131,14 @@ export async function ingestHistoryPage(db:SqlDatabase,owner:string,input:unknow
    };
    if(canonical(comparable(previous.record))===canonical(comparable(record))){unchanged.push(previous);return;}
   }
-  if(previous&&!mutable)throw Error('Immutable history record identity differs.');
+  if(previous&&!mutable){
+   const conversationId=record.kind==='message'||record.kind==='segment'?record.value.conversationId:null;
+   const conversation=conversationId?(page.conversations.find(value=>value.id===conversationId)??retainedConversations.get(conversationId)?.record.value):null;
+   const context=conversation?{sourceId:page.sourceId,conversation,verifiedObjects:page.objectManifest}:null;
+   const promoted=record.kind==='message'&&previous.record.kind==='message'&&context?recoverMessageObservation(previous.record.value,record.value,context):record.kind==='segment'&&previous.record.kind==='segment'&&context?recoverSegmentObservation(previous.record.value,record.value,context):record.kind==='gap'&&previous.record.kind==='gap'?reopenHistoryGap(previous.record.value,record.value):null;
+   if(!promoted)throw Error('Immutable history record identity differs.');
+   record=parseHistoryRecord({id,kind,value:promoted});
+  }
   rows.push({id,value:record,rowRevision:(previous?.rowRevision??0)+1,previous,streamSequence:sequence});
  }
  for(const value of page.conversations){const prior=await readHistoryRecord(db,owner,'conversation',value.id);if(prior&&(prior.record.value.sourceId!==value.sourceId||prior.record.value.nativeThreadId!==value.nativeThreadId))throw Error('Immutable conversation identity differs.');await propose('conversation',value.id,value,true);}
@@ -134,7 +146,17 @@ export async function ingestHistoryPage(db:SqlDatabase,owner:string,input:unknow
  for(const value of page.segments)await propose('segment',value.id,value);
  for(const value of page.attachments)await propose('attachment',value.id,value);
  for(const value of page.gaps){if(value.resolvedAt!==null)throw Error('Gap resolution requires retained owner provenance.');await propose('gap',value.id,value);}
- for(const value of page.conversations){const membership={codecVersion:1 as const,sourceId:page.sourceId,epoch:envelope.epoch,scopeRevision:envelope.scopeRevision,generation:page.runId,conversationId:value.id,archived:value.archived,observedAt:options.now};await propose('inventory_membership',await contentHash(canonical([page.sourceId,envelope.epoch,envelope.scopeRevision,page.runId,value.id])),membership,true);}
+ if(options.completedTraversals){
+  if(options.completedTraversals.length>100)throw Error('Completed traversal proof count exceeds bound.');
+  for(const proof of options.completedTraversals){
+   const conversation=page.conversations.find(value=>value.id===proof.conversationId);if(!conversation)continue;
+   const gaps=(await db.prepare("SELECT id,row_revision,payload_json,content_hash,stream_sequence FROM project_history WHERE user_id=? AND json_extract(payload_json,'$.kind')='gap' AND json_extract(payload_json,'$.value.sourceId')=? AND json_extract(payload_json,'$.value.conversationId')=? AND json_extract(payload_json,'$.value.kind')='missing_transcript' AND json_extract(payload_json,'$.value.resolvedAt') IS NULL ORDER BY id LIMIT 100").bind(owner,page.sourceId,conversation.id).all<PhysicalHistoryRow>()).results;
+   for(const row of gaps){const original=await decode(row,'gap');const resolution=await resolveMissingTranscriptGap({originalGap:original.record.value,serverGenerated:true,sourceId:page.sourceId,conversation,segments:page.segments,messages:page.messages,attachments:page.attachments,currentGaps:page.gaps,verifiedObjects:page.objectManifest,receipt,now:options.now,runId:page.runId,traversalProof:proof});if(!resolution)continue;await propose('gap',resolution.gapUpdate.id,resolution.gapUpdate,true);await propose('gap',resolution.provenanceMarker.id,resolution.provenanceMarker);}
+  }
+ }
+ const memberships=options.inventoryMemberships??page.conversations.map(value=>({codecVersion:1 as const,sourceId:page.sourceId,epoch:envelope.epoch,scopeRevision:envelope.scopeRevision,generation:page.runId,conversationId:value.id,archived:value.archived,observedAt:options.now}));
+ if(memberships.length>1000||new Set(memberships.map(member=>member.conversationId)).size!==memberships.length)throw Error('Inventory membership exceeds page bounds or repeats.');
+ for(const input of memberships){const membership=InventoryMembershipSchema.parse(input);if(membership.sourceId!==page.sourceId||membership.epoch!==envelope.epoch||membership.scopeRevision!==envelope.scopeRevision||!page.conversations.some(value=>value.id===membership.conversationId&&value.archived===membership.archived))throw Error('Inventory membership differs from admitted page.');await propose('inventory_membership',await contentHash(canonical([page.sourceId,envelope.epoch,envelope.scopeRevision,membership.generation,membership.conversationId])),membership,true);}
  await propose('cursor',page.sourceId,HistoryCursorValueSchema.parse({sourceId:page.sourceId,epoch:envelope.epoch,scopeRevision:envelope.scopeRevision,executionEpoch:globalEpoch,cursor:page.nextCursor,watermark:sequence,lastPageId:page.pageId,runId:page.runId}),true);
  // Run logical ID is a digest; its value.id uses that same immutable identity.
  await propose('sync_run',runLogical,HistoryRunValueSchema.parse({id:runLogical,sourceId:page.sourceId,epoch:envelope.epoch,scopeRevision:envelope.scopeRevision,executionEpoch:globalEpoch,inventoryExhausted:page.inventoryExhausted,lastPageId:page.pageId,watermark:sequence,updatedAt:options.now}),true);

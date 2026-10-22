@@ -19,3 +19,5 @@ Run `windows/install-task.ps1` with explicit absolute `-ConfigPath`, `-PackageDi
 `import` makes one bounded acquisition/delivery attempt. Inspect `status`: a continuation cursor, paused acquisition or pending delivery means catch-up remains. `run` performs further bounded attempts and reconciliation. Preserve pending spool entries during full-disk, connectivity or credential failures; retry immutable pages unchanged.
 
 Windows ACL/DPAPI/Task Scheduler behavior, restart/power-loss recovery, native private ingress and live source receipt/readback require actual verification on the authorized machine. Package integrity tests do not establish those live capabilities.
+
+Single-instance exclusion uses a kernel-held Linux abstract socket or Windows named pipe keyed to the canonical private state directory. It does not bind a TCP port or retry a second lock identity. Linux exclusion, distinct-directory isolation and crash release have synthetic cross-process tests; the Windows branch still requires device acceptance. Other platforms currently fail closed with `ENOTSUP`.

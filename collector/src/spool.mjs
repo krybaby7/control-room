@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
-import { open, mkdir, rename, readdir, rm, lstat } from 'node:fs/promises';
+import { open, mkdir, rename, readdir, rm, lstat, realpath } from 'node:fs/promises';
 import { join, resolve, dirname } from 'node:path';
 import { constants } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
@@ -117,16 +117,24 @@ export function matchReceipt(envelope, pageDigest, receipt) {
         throw Error('Receipt does not match exact delivered envelope');
     return receipt;
 }
-/** Kernel-held loopback listener grants no actions and releases on process death.
- * Avoids stale PID-file races; port collisions fail closed. Scheduler also uses IgnoreNew. */
+/** Kernel-held local endpoint grants no actions and releases on process death.
+ * Abstract Unix sockets (Linux) and named pipes (Windows) have no stale lock file
+ * and share no namespace with unrelated TCP listeners. Other platforms fail closed. */
 const instanceDirectories = new Set();
 export async function acquireSingleInstance(directory) {
-    const port = 40000 + parseInt(digest(resolve(directory)).slice(0, 8), 16) % 20000, server = createServer(socket => socket.destroy());
+    await privateDirectory(directory);
+    const physical = await realpath(directory), identity = digest(process.platform === 'win32' ? physical.toLowerCase() : physical);
+    if (!['linux', 'win32'].includes(process.platform)) throw Object.assign(Error('Collector instance lock platform unsupported'), { code: 'ENOTSUP' });
+    const path = process.platform === 'linux' ? '\0control-room-history-' + identity : '\\\\pipe\\control-room-history-' + identity;
+    const server = createServer(socket => socket.destroy());
     await new Promise((ok, no) => {
-        server.once('error', () => no(Error('Collector already running or instance lock unavailable')));
-        server.listen({
-            host: '127.0.0.1', port, exclusive: true
-        }, ok);
+        server.once('error', error => {
+            const code = typeof error.code === 'string' && /^[A-Z0-9_]{1,40}$/.test(error.code) ? error.code : 'UNKNOWN';
+            // Preserve the native code without exposing a private endpoint/path.
+            const cause = Object.assign(Error('Native instance endpoint unavailable'), { code });
+            no(Object.assign(Error('Collector already running or instance lock unavailable (' + code + ')', { cause }), { code }));
+        });
+        server.listen({ path, exclusive: true }, ok);
     });
     instanceDirectories.add(resolve(directory));
     return () => new Promise((ok, no) => server.close(error => {

@@ -1,3 +1,8 @@
+import {nativeCompletedTaskIds} from './native-task-completion.ts';
+import type {PrivateHistoryBucket} from './object-store.ts';
+import {loadHistoryAnalysisInput} from './analysis-input.ts';
+import {readNativeHistoryClaims} from './native-claims.ts';
+import type {ValidatedHistoryClaim} from './claims.ts';
 import type {SqlDatabase} from '../workspace-store.ts';
 import {readCurrent} from '../workspace-store.ts';
 import {ownerReader} from '../workspace-modules.ts';
@@ -12,7 +17,7 @@ import {historyInputWatermark} from './input-watermark.ts';
 import {HistoryOverviewSchema,type HistoryOverview} from './overview-contract.ts';
 /** Bounded signed-in owner projection. Bracket both editor and operational heads;
  * a concurrent import/analysis never becomes an apparently coherent snapshot. */
-export async function readHistoryOverview(db:SqlDatabase,owner:string,now:string):Promise<HistoryOverview>{
+export async function readHistoryOverview(db:SqlDatabase,owner:string,now:string,bucket?:PrivateHistoryBucket):Promise<HistoryOverview>{
  if(!owner)throw Error('Authenticated history owner required.');
  for(let attempt=0;attempt<2;attempt++){
   const before=await readCurrent(db,owner,now),watermarks=await readOperationalWatermarks(db,owner),query=ownerReader(db,owner),records:HistoryRecord[]=[],physical=new Map<string,{revision:number;hash:string}>();let after='',bytes=0;
@@ -23,8 +28,12 @@ export async function readHistoryOverview(db:SqlDatabase,owner:string,now:string
   const trustedRuleIds=new Set(associationRules.filter(rule=>rule.trusted).map(rule=>rule.value.id));
   const unassignedConversations=conversations.filter(conversation=>{const result=resolveAssociation({workspace:before.workspace,context:{sourceId:conversation.sourceId,conversationId:conversation.id,messageRevisionId:'overview-no-message-context',repositoryIdentity:conversation.repositoryIdentity,branch:conversation.branch,commit:null,basis:'provider_metadata'},ownerRules:associationRules.map(rule=>rule.value).filter(rule=>rule.scope!=='messages'),trustRule:rule=>trustedRuleIds.has(rule.id)});return result.projectId===null;}).map(({id,sourceId,title,nativeThreadId})=>({id,sourceId,title,nativeThreadId}));
   const sourceWatermark=await historyInputWatermark(records),progress:HistoryOverview['progress']=[],scopes:HistoryOverview['scopes']=[];
+  let validatedClaims:ValidatedHistoryClaim[]=[];const semanticUnknowns:string[]=[];
+  if(claims.length){if(bucket){try{const sourceIds=sources.filter(source=>source.value.removedAt===null).map(source=>source.value.id);if(sourceIds.length){const loaded=await loadHistoryAnalysisInput(db,owner,{sourceIds,bucket,now});if(loaded.historyInputWatermark!==sourceWatermark)continue;validatedClaims=await readNativeHistoryClaims(db,owner,loaded);semanticUnknowns.push(...loaded.unknowns);}}catch{semanticUnknowns.push('Retained semantic evidence could not be validated at the current source boundary.');}}else semanticUnknowns.push('Private evidence storage is required to validate retained observations.');}
+  const acceptedTaskIds=await nativeCompletedTaskIds(db,owner,before.workspace);
+  const currentClaimIds=new Set(validatedClaims.map(row=>row.claim.id));
   const stories=records.filter(r=>r.kind==='story').map(r=>r.value).sort((a,b)=>b.planningRevision-a.planningRevision||b.generatedAt.localeCompare(a.generatedAt)||b.id.localeCompare(a.id)).filter((story,i,all)=>all.findIndex(row=>row.projectId===story.projectId&&row.areaId===story.areaId)===i);
-  for(const story of stories){const kept=[];for(const entry of story.finished){if(entry.basis!=='accepted'){kept.push(entry);continue;}const assessment=records.find(r=>r.kind==='checkpoint_assessment'&&r.value.id===entry.acceptanceRef);let current=false;
+  for(const story of stories){const kept=[];for(const entry of story.finished){if(entry.basis!=='accepted'){if(story.sourceWatermark===sourceWatermark&&entry.claimIds.length&&entry.claimIds.every(id=>currentClaimIds.has(id)))kept.push(entry);else story.unknowns=[...story.unknowns,'A retained observation awaits current native semantic evidence; its proposal remains in retained history.'];continue;}const assessment=records.find(r=>r.kind==='checkpoint_assessment'&&r.value.id===entry.acceptanceRef);let current=false;
    if(assessment?.kind==='checkpoint_assessment'&&assessment.value.verdict==='accepted'&&await trust(assessment.id,physical.get(assessment.id)!.hash)){
     const state=await getRoadmapState(query,assessment.value.scopeId,trust),latest=state.assessments.filter(row=>row.checkpointId===assessment.value.checkpointId).sort((a,b)=>a.id.localeCompare(b.id)).at(-1);
     current=!!state.agreed&&state.scope?.projectId===story.projectId&&state.scope?.areaId===story.areaId&&state.scope?.revision===assessment.value.scopeRevision&&latest?.id===assessment.value.id;
@@ -34,7 +43,7 @@ export async function readHistoryOverview(db:SqlDatabase,owner:string,now:string
    const state=await getRoadmapState(query,head.value.id,trust);if(!state.scope)continue;scopes.push({...state.scope,agreedAt:state.agreed?state.scope.agreedAt:null});
    // Stored claims are proposals. Semantic support is not fabricated during a
    // GET. Native owner acceptance still resolves independently through grants.
-   progress.push(await buildAreaProgress({ownerId:owner,projectId:head.value.projectId,areaId:head.value.areaId,planningRevision:before.revision,sourceWatermark,workspace:before.workspace,items:workItems,claims:[],scope:state.scope,assessments:state.assessments,coverageComplete:false,unknowns:['Source coverage and semantic claim validation require their own verified processing checkpoint.'],trustAgreement:async()=>state.agreed,trustAssessment:async assessment=>state.assessments.some(row=>row.id===assessment.id),trustTaskCompletion:async()=>false,checkpointEvidence:()=>({stage:'unknown',claimIds:[]})}));
+   progress.push(await buildAreaProgress({ownerId:owner,projectId:head.value.projectId,areaId:head.value.areaId,planningRevision:before.revision,sourceWatermark,workspace:before.workspace,items:workItems,claims:validatedClaims,scope:state.scope,assessments:state.assessments,coverageComplete:false,unknowns:[...semanticUnknowns,'Source coverage requires its own verified acquisition checkpoint.'],trustAgreement:async()=>state.agreed,trustAssessment:async assessment=>state.assessments.some(row=>row.id===assessment.id),trustTaskCompletion:async id=>acceptedTaskIds.has(id),checkpointEvidence:checkpointId=>{const assessment=state.assessments.filter(row=>row.checkpointId===checkpointId).sort((a,b)=>a.id.localeCompare(b.id)).at(-1);const related=validatedClaims.filter(row=>assessment?.claimIds.includes(row.claim.id)&&row.claim.projectId===head.value.projectId&&row.claim.areaId===head.value.areaId&&row.claim.basis==='observed');const released=related.filter(row=>row.claim.kind==='release'),verified=related.filter(row=>row.claim.kind==='verification'),implemented=related.filter(row=>row.completionSupported&&row.claim.kind==='implementation');const selected=released.length?released:verified.length?verified:implemented;return {stage:released.length?'released':verified.length?'verified':implemented.length?'implemented':'unknown',claimIds:selected.map(row=>row.claim.id)};}}));
   }
   const statuses=sources.map(source=>{
    const value=source.value,runs=records.filter((r):r is HistoryRecord<'sync_run'>=>r.kind==='sync_run'&&r.value.sourceId===value.id&&r.value.epoch===value.epoch&&r.value.scopeRevision===value.scopeRevision);

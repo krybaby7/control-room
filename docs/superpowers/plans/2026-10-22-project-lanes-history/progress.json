@@ -713,7 +713,20 @@
     "status": "not_configured"
   },
   "release": {
-    "checks": [],
+    "checks": [
+      {
+        "source": "ba6bc0d3c6572293cd5f27482542739d1fed2b50",
+        "command": "npm test",
+        "result": "failed",
+        "tests": 2221,
+        "passed": 2219,
+        "failed": 2,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 236945.792736,
+        "evidence": "Collector lock failure retained; scheduled archive terminal-epoch race passed in original run."
+      }
+    ],
     "review": null,
     "pullRequest": "https://github.com/krybaby7/control-room/pull/5",
     "deployment": null,
@@ -755,18 +768,18 @@
   },
   "updatedAt": "2026-10-22",
   "checkpoint": {
-    "currentSource": "21c5785",
-    "publicSource": "5a9368917b78ab6682efd75d005fca93f40d9323",
-    "sourceMeaning": "Accepted foundation remains public5a936891/localbc57d07. Committed collector, queue, semantic analysis, owner APIs and default lanes integration now follow; next public checkpoint has identical committed tree.",
-    "tests": "Foundation2037/2037+type/lint/build pass. Integrated collector47/47, Codex multi-root14/14, real collector HTTP SQLite2/2, A4queue17/17, Home10/10, package2/2, ownerAPI/storage24/24 and overview nativegrant3/3 focused checks pass. Final integrated canonical suite pending.",
-    "unfinished": "Analysis journal/publication/server dispatcher integration, recovery provenance, final browser/performance/package gates and live gates.",
+    "currentSource": "aeae8a6",
+    "publicSource": "f5266a101e7596ad1a2703fd1a0da1dfd0a8fb47",
+    "sourceMeaning": "Committed native loader/journal/claim/story publication, private pending objects, owner task provenance and metadata-only removal follow the published checkpoint. Incremental extraction and continuing-work dispatcher changes remain isolated until their focused gates pass.",
+    "tests": "Frozen ba6bc0d: Node2221 total,2219pass,2collector lock failures,0cancel/skip,236945.792736ms. Typecheck1 missing extractionDigest field (corrected next checkpoint), lint0errors15warnings. Lock fix aeae8a6 focused52/52 pass. Native evidence/sync/overview focused28pass; native task bounds4pass. Final exact-candidate canonical gates pending.",
+    "unfinished": "Finish incremental extraction + typed cross-chat operations/dispatcher, browser acceptance and exact final Node/bridge/D1/R2/HTTP/performance/archive gates. All nine live gates remain open.",
     "nextCommand": "git status --short",
     "deployed": false,
     "merged": false,
     "knownFailures": [
-      "Historical failed foundation candidates retained; corrected exact foundation passed2037/2037.",
-      "Current concurrent publication/journal files have temporary type errors; final integrated verification not run.",
-      "Full production runner/private ingress binding, real owner Windows/provider and publication remain unverified."
+      "Frozenba6 canonical2collector integration failures caused by deterministic TCP lock collisions with ephemeral ports. aeae8a6 replaces TCP lock with kernel local endpoint and52parallel regressions pass; finalcanonical rerun pending.",
+      "Frozenba6 typecheck missing extractionDigest return field during concurrent integration. Field correction included next checkpoint; current worker typecheck passes.",
+      "Uncommitted incremental dispatcher changes are not final verification. No live provider, unattended private ingress, actual owner Windows/device or publication verified."
     ]
   }
 }

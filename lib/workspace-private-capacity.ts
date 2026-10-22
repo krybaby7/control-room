@@ -75,6 +75,8 @@ export async function workspacePrivateCapacityGrowth(db:SqlDatabase,owner:string
   }
  }
  for(const entry of plan.historyImports??[])if(entry.sourceIdentity!==undefined&&entry.sourceHash!==undefined)await upsert('audit_import_identities',{source_identity:entry.sourceIdentity},{source_hash:entry.sourceHash,event_id:entry.id});
+ // Consent is non-recoverable authority: its compiler enforces a separate
+ // finite authority pool with funded revocation, never the recovery DATA quota.
  for(const grant of plan.reviewGrants??[])await insert('review_ack_grants',{ack_id:grant.id,ack_hash:grant.hash,snapshot_id:grant.snapshotId,snapshot_hash:grant.snapshotHash,created_at:now});
  for(const read of plan.notificationReads??[])if(read.read)await upsert('notification_read_state',{notification_id:read.id},{notification_hash:read.hash,read_at:now,request_id:input.mutationId});
  if(plan.baselineAdvance)await upsert('project_baseline_heads',{project_id:plan.baselineAdvance.projectId},{revision_id:plan.baselineAdvance.revisionId,content_hash:plan.baselineAdvance.hash,recorded_at:now});

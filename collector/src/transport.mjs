@@ -115,7 +115,9 @@ export function createTransport({ origin, allowedOrigins, fetchImpl = fetch, cre
                     if (!Number.isSafeInteger(attempt) || attempt < 0 || attempt >= Number.MAX_SAFE_INTEGER) throw Error('Invalid upload attempt counter');
                     uploaded.attempts[asset.key] = attempt;
                     await atomicPrivateJson(join(entry.path, 'uploads.json'), uploaded);
-                    const uploadId = 'upload_' + digest([entry.envelope.page.sourceId, entry.envelope.epoch, entry.envelope.scopeRevision, asset.key, asset.sha256, attempt]);
+                    // The acquired page identity/digest stay immutable across restart and unknown
+                    // responses. A later page must not reuse a discarded earlier reservation.
+                    const uploadId = 'upload_' + digest([entry.id, entry.draftDigest, entry.envelope.page.sourceId, entry.envelope.epoch, entry.envelope.scopeRevision, asset.key, asset.sha256, attempt]);
                     let manifest;
                     try { manifest = await request('/api/history/objects', entry.envelope, content, 'application/octet-stream', {
                         'X-History-Source': entry.envelope.page.sourceId, 'X-History-Epoch': entry.envelope.epoch, 'X-History-Scope-Revision': entry.envelope.scopeRevision, 'X-History-SHA256': asset.sha256, 'X-History-Upload-Id': uploadId

@@ -8,7 +8,7 @@ import {clockLabel,compactNumber,durationLabel,relativeTime} from '@/lib/dashboa
 import {isCurrentWeek} from '@/lib/calendar';
 import {weeklyCompletionCount} from '@/lib/weekly-summary';
 import {archivedEntity} from '@/lib/entity-links';
-import {dateLabel,ProjectIcon} from './ui';
+import {TaskContext,dateLabel,ProjectIcon} from './ui';
 
 export interface DashboardActions {
  onProject:(project:Project)=>void;onTask:(task:Task)=>void;onTaskId:(taskId:string)=>void;onPin:(task:Task)=>void;onProjects:()=>void;onAgents:()=>void;onRuntime:()=>void;
@@ -113,7 +113,7 @@ export function BriefingCard({tile,now,actions}:{tile:ProjectTileModel;now:strin
   <BriefingControls tile={tile} actions={actions}/>
  </section>;
 }
-export function ProjectTile({tile,now,actions}:{tile:ProjectTileModel;now:string;actions:DashboardActions}){
+export function ProjectTile({tile,now,actions,workspace}:{tile:ProjectTileModel;now:string;actions:DashboardActions;workspace:Workspace}){
  const {project,progress,agent}=tile;
  return <article className={`mc-project ${project.color}`} aria-label={`Project ${project.name}`}>
   <header className="mc-project-head"><ProjectIcon project={project}/><div className="mc-project-title"><h2>{project.name}</h2><p>{project.goal||'Define the outcome you want to work toward.'}</p></div><span className="mc-level" title="Progress level: achieved milestones plus one per five completed tasks">LVL {tile.level}</span></header>
@@ -128,7 +128,7 @@ export function ProjectTile({tile,now,actions}:{tile:ProjectTileModel;now:string
   <AnalysisBlock tile={tile} now={now} actions={actions}/>
   <div className="mc-project-columns">
    <div className="mc-activity"><strong><Activity size={13}/>Recent activity</strong>{tile.activity.length?<ul>{tile.activity.map(entry=><li key={entry.id}><time dateTime={entry.at}>{relativeTime(entry.at,now)}</time><span>{entry.text}</span></li>)}</ul>:<p>No saved activity for this project yet.</p>}</div>
-   <div className="mc-next"><strong><Sparkles size={13}/>Next action</strong>{tile.nextAction?<button type="button" className="mc-next-task" onClick={()=>actions.onTask(tile.nextAction!.task)}><span>{tile.nextAction.task.title}</span><small>{tile.nextAction.reason}</small></button>:<p>No ready step. Accept a proposal or add a task.</p>}</div>
+   <div className="mc-next"><strong><Sparkles size={13}/>Next action</strong>{tile.nextAction?<button type="button" className="mc-next-task" onClick={()=>actions.onTask(tile.nextAction!.task)}><span>{tile.nextAction.task.title}<TaskContext task={tile.nextAction.task} workspace={workspace}/></span><small>{tile.nextAction.reason}</small></button>:<p>No ready step. Accept a proposal or add a task.</p>}</div>
   </div>
   <footer className="mc-project-foot"><span title="Summed from recorded run results">{tile.tokens.runs?`${compactNumber(tile.tokens.input)} in · ${compactNumber(tile.tokens.output)} out · ${tile.tokens.runs} run${tile.tokens.runs===1?'':'s'}${tile.tokens.reported<tile.tokens.runs?` (${tile.tokens.runs-tile.tokens.reported} without usage)`:''}`:'No agent run recorded'}</span><span className="mc-project-actions"><button type="button" className="button secondary" onClick={()=>actions.onRepositories(project.id)}>Analyze</button><button type="button" className="button primary" onClick={()=>actions.onProject(project)}>Open project<ArrowRight size={14}/></button></span></footer>
  </article>;
@@ -146,7 +146,7 @@ export function WeekPanel({workspace,now,actions}:{workspace:Workspace;now:strin
  const weekly=workspace.tasks.filter(task=>isCurrentWeek(task,now)&&!['done','archived'].includes(task.status)&&!archivedEntity(workspace,{kind:'task',id:task.id}));
  const completed=weeklyCompletionCount(workspace.tasks,now);
  return <section className="panel weekly-panel mc-week" aria-labelledby="weekly-heading"><div className="panel-heading"><div><p className="eyebrow">MAKE IT INTENTIONAL</p><h2 id="weekly-heading">This week <span className="count">{weekly.length}</span></h2></div><Pin size={18} className="muted-icon"/></div>
-  {weekly.length?<div className="weekly-list">{weekly.slice(0,6).map(task=>{const project=workspace.projects.find(row=>row.id===task.projectId);return <button className="weekly-item" key={task.id} onClick={()=>actions.onTask(task)}><span className={`weekly-marker ${project?.color??''}`}/><span>{task.title}<small>{project?.name}</small></span><ChevronRight size={15}/></button>;})}</div>:<div className="mc-empty small"><h3>Leave a little room. Then choose.</h3><p>Pin a few tasks to give your week a clear focus.</p></div>}
+  {weekly.length?<div className="weekly-list">{weekly.slice(0,6).map(task=>{const project=workspace.projects.find(row=>row.id===task.projectId);return <button className="weekly-item" key={task.id} onClick={()=>actions.onTask(task)}><span className={`weekly-marker ${project?.color??''}`}/><span>{task.title}<TaskContext task={task} workspace={workspace}/></span><ChevronRight size={15}/></button>;})}</div>:<div className="mc-empty small"><h3>Leave a little room. Then choose.</h3><p>Pin a few tasks to give your week a clear focus.</p></div>}
   <div className="mc-attention-foot">{completed>0&&<span className="weekly-done"><CheckCheck size={15}/>{completed} completed this week</span>}<button type="button" className="text-button" onClick={actions.onWeekly}>Plan the week<ArrowRight size={13}/></button></div>
  </section>;
 }

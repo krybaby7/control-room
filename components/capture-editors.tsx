@@ -1,5 +1,6 @@
 'use client';
 
+import {TaskContext} from './ui';
 import {TaskClassificationFields} from './planning-editors';
 import {SubjectReviewLink} from './subject-review-link';
 
@@ -42,6 +43,7 @@ export function ConvertEditor({ capture, workspace, onSave, onClose }: { capture
     {capture&&<p><SubjectReviewLink subject={{type:'capture',id:capture.id}}/></p>}
     <div className="capture-preview"><span className="eyebrow">FROM YOUR INBOX</span><h3>{capture.title}</h3>{capture.body && <p>{capture.body}</p>}</div>
     <Field label="Project"><select autoFocus required value={projectId} onChange={e => { setDraft(d => ({ ...d, projectId: e.target.value, areaId:null, milestoneId: '' })); }}><option value="">Choose a project</option>{workspace.projects.map(p => <option value={p.id} key={p.id}>{p.name}</option>)}</select></Field>
+    <TaskContext task={{projectId,areaId:draft.areaId??null,workType:draft.workType??'other'}} workspace={workspace}/>
     <TaskClassificationFields workspace={workspace} projectId={projectId} areaId={draft.areaId} workType={draft.workType} onChange={value=>setDraft(d=>({...d,...value}))} />
     <div className="form-grid"><Field label="Milestone"><select value={milestoneId} onChange={e => setDraft(d => ({ ...d, milestoneId: e.target.value }))}><option value="">No milestone</option>{workspace.milestones.filter(m => m.projectId === projectId).map(m => <option key={m.id} value={m.id}>{m.title}</option>)}</select></Field><Field label="Horizon"><select value={horizon} onChange={e => setDraft(d => ({ ...d, horizon: e.target.value as Horizon }))}><option value="now">Now</option><option value="next">Next</option><option value="later">Later</option></select></Field></div>
   </FormDialog>;
