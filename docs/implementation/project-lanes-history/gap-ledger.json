@@ -18,21 +18,21 @@
   "gaps": [
     {
       "id": "integration-collection",
-      "status": "in_progress",
+      "status": "implemented_pending_final_verification",
       "requirement": "Durable hosted continuation, leases and scheduling on existing workspace_job_intents; exact phase/run/receipt/source fencing.",
-      "evidence": "Existing queue, owner HTTP admission, native private pending envelope objects and receipt-only source-removal job projections implemented. Real synthetic HTTP/SQLite tests pass; deployment reader/principal registration remains default closed. Bounded owner queue activity reader committed; overview freshness wiring in progress."
+      "evidence": "Native durable queue/leases/continuations, object reservations/cleanup, authenticated sync HTTP and batch activity-backed overview freshness integrated. Owner/device/private-ingress live operation remains unconfigured."
     },
     {
       "id": "integration-analysis",
-      "status": "in_progress",
+      "status": "implemented_pending_final_verification",
       "requirement": "Atomic exact-model budget reservation and validated proposal/story publication at pinned source/editor heads; paid inference remains off.",
-      "evidence": "Native actual dispatcher and default-closed HTTP service implemented, dual extraction/provider identities and cited cross-chat operations pass focused tests. Native D1 owner acceptance/export/selected-byte reviewed restore macro passes. R3 expiry/final-job-CAS fixes and exact final canonical checks pending; paid inference off."
+      "evidence": "Actual incremental native dispatcher, dual extraction/provider identities, cited continuing-work operations, exact-model budget/consent and native publication integrated. Full synthetic D1 acceptance/selected-byte export/reviewed restore passes; paid runtime remains default closed."
     },
     {
       "id": "integration-ui",
       "status": "in_progress",
       "requirement": "Default Project lanes central wiring, source mapping, full retained context, search context and responsive/browser acceptance.",
-      "evidence": "Default lanes/native semantic GET, owner mapping/roadmap/source controls, native owner task completion provenance, full retained Unicode citation windows and task-context surfaces implemented. Exact browser acceptance remains in progress."
+      "evidence": "Default lanes and guarded owner forms/context/citations integrated. Initial real browser axe found contrast; default/secondary-nav tests and contrast correcteddd9c069, final browser verification pending."
     },
     {
       "id": "reobservation",
@@ -69,14 +69,26 @@
       "id": "final-verification",
       "status": "in_progress",
       "requirement": "Exact integrated source Node/collector/bridge/D1/R2/HTTP/browser/performance and archive-integrity gates; no deployment claim.",
-      "evidence": "Frozenba6:2219/2221Node;2TCP lock failures fixed narrowly ataeae8a6 with52parallel tests. One type field integration error fixed. No final green claim; all unchanged canonical/performance thresholds remain. Integrated review additionally reproduced unsettled-history-PUT freeze and identified frozen analysis clocks/final CAS response; fixes in progress, no final green claim."
+      "evidence": "Frozen640/publicce9:2265/2265Node;typecheck/lint/buildpass;collector52;bridge210+9Windows skips;companion105+2Windows skips;GitHub20. Public controlled benchmark fails D1 savep952032.553716ms vs2000; browser assumptions/actual contrast and Windows model-settings path tests fail. Corrections and isolated performance experiment underway; exact final rerun required."
     },
     {
       "id": "review-recovery-authority",
-      "status": "in_progress",
+      "status": "verified_focused",
       "requirement": "Recovery cannot freeze with a pending history physical PUT; async analysis must revalidate live authority and never report completion after failed job CAS.",
-      "evidence": "Independent Sol review found all three; deferred real SQLite PUT reproduces recovery bug. Focused fixes underway."
+      "evidence": "Four R3 findings corrected through64036d1;41 independent focused regressions pass, original deferred-PUT repro now refuses freeze and settles ready with token cleared. Cross-epoch restored source removal now uses current global authority and is atomically fenced."
+    },
+    {
+      "id": "native-capability-promotion",
+      "status": "implemented_focused",
+      "requirement": "Verified private read proof must promote stored source capability and unlock the existing scheduler without custom SQL.",
+      "evidence": "b925af8 provides branded native verifier\u2192guarded publication\u2192schedule seam; actualSQLite5/5 plus job admission5/5 pass. Live verifier/principal/reader registration remains external. Capability-only semantic refresh compatibility is being integrated."
+    },
+    {
+      "id": "native-sweep-retention",
+      "status": "in_progress",
+      "requirement": "Retain exact membership, EOF, row/object/parser proof and terminal receipt atomically; verify before reporting content complete.",
+      "evidence": "dacbd5d initial native private proof codec/factory/reader passes6 focused tests. Private job payload/receipt, projected-row same-batch binding and overview integration remain feasible unfinished code. No cursor-only content proof claimed."
     }
   ],
-  "currentCheckpoint": "c82f310"
+  "currentCheckpoint": "dacbd5d"
 }

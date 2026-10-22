@@ -18,10 +18,10 @@ export function historyRecoveryAdmission(db:SqlDatabase,options:{additionalPriva
   const quote=await measureProspectiveRecoverability(db,owner,{now,operationalWrites,operationalWatermarksAfter:{...watermarks,history:watermark}});
   if(quote.boundaryRevision!==context.planningRevision)throw Error('History admission planning boundary differs.');
   if(!quote.measurement.allowed)throw new RecoverabilityCapacityError();
-  const jobGrowth=await privateInsertGrowth(db,'workspace_job_intents',{user_id:owner,id:job.id,kind:job.kind,dedupe_key:job.dedupeKey,payload_json:canonical(job.payload),not_before:now,status:'pending',execution_epoch:job.executionEpoch,cancel_requested:0});
+  const jobGrowth=job?await privateInsertGrowth(db,'workspace_job_intents',{user_id:owner,id:job.id,kind:job.kind,dedupe_key:job.dedupeKey,payload_json:canonical(job.payload),not_before:now,status:'pending',execution_epoch:job.executionEpoch,cancel_requested:0}):null;
   const head=await db.prepare("SELECT revision FROM operational_stream_heads WHERE user_id=? AND stream_id='history'").bind(owner).first<{revision:number}>();
   const headGrowth=head?await privateUpdateGrowth(db,owner,'operational_stream_heads',"stream_id='history'",[],{revision:head.revision+1,last_sequence:watermark}):await privateInsertGrowth(db,'operational_stream_heads',{user_id:owner,stream_id:'history',revision:1,last_sequence:watermark});
-  const capacity=await requirePrivateCapacity(db,owner,{growth:combinePrivateGrowth(jobGrowth,headGrowth,...(options.additionalPrivateGrowth??[]),...(context.additionalPrivateGrowth??[]))});
+  const capacity=await requirePrivateCapacity(db,owner,{growth:combinePrivateGrowth(...(jobGrowth?[jobGrowth]:[]),headGrowth,...(options.additionalPrivateGrowth??[]),...(context.additionalPrivateGrowth??[]))});
   return [...recoverabilityAssertions(db,owner,mutationId,quote,guard,guardBindings),db.prepare(`INSERT INTO workspace_assertions(user_id,mutation_id,valid) SELECT ?,?,CASE WHEN ${capacity.sql} THEN 1 ELSE 0 END WHERE ${guard}`).bind(owner,mutationId,...capacity.bindings,...guardBindings)];
  };
 }

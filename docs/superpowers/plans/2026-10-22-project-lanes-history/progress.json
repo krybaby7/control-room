@@ -68,7 +68,7 @@
     "ownerAcceptance": "explicit"
   },
   "currentStage": "S6",
-  "nextAction": "Resolve integrated review findings (unsettled history PUT recovery fencing, live authority clocks, final job CAS), finish queue freshness projection, then freeze and run all exact-candidate canonical/browser/performance/package gates.",
+  "nextAction": "Finish native sweep same-batch job proof and projection, capability-only semantic compatibility; establish unchanged canonical save performance with measured corrections; freeze and rerun all exact-candidate gates.",
   "stages": [
     {
       "id": "S0",
@@ -112,9 +112,13 @@
       "dependsOn": [
         "S1"
       ],
-      "status": "in_progress",
-      "evidence": [],
-      "blockers": []
+      "status": "externally_blocked",
+      "evidence": [
+        "Cloud-capable source, adapters, package and synthetic integration implemented; source-specific verification ledger distinguishes real unavailable access."
+      ],
+      "blockers": [
+        "No connected supported account inventory/content adapter or renewable unattended provider principal is available in this cloud session. Manual imports and capability fixtures do not close the gate."
+      ]
     },
     {
       "id": "S3",
@@ -132,9 +136,13 @@
       "integrationDependencies": [
         "S2:first working adapter"
       ],
-      "status": "in_progress",
-      "evidence": [],
-      "blockers": []
+      "status": "externally_blocked",
+      "evidence": [
+        "Cloud-capable source, adapters, package and synthetic integration implemented; source-specific verification ledger distinguishes real unavailable access."
+      ],
+      "blockers": [
+        "Actual owner Windows enrollment, protected credential, Task Scheduler restart/offline/revocation and terminal/browser-closed operation require the enrolled machine."
+      ]
     },
     {
       "id": "S4",
@@ -152,8 +160,10 @@
       "integrationDependencies": [
         "S2:normalized fixtures and retained inputs"
       ],
-      "status": "in_progress",
-      "evidence": [],
+      "status": "implemented",
+      "evidence": [
+        "Native contracts, actual SQLite/D1 composition and guarded UI implemented; complete exact-candidate release checks in progress."
+      ],
       "blockers": []
     },
     {
@@ -170,8 +180,10 @@
       "integrationDependencies": [
         "S4:area progress/story contracts"
       ],
-      "status": "in_progress",
-      "evidence": [],
+      "status": "implemented",
+      "evidence": [
+        "Native contracts, actual SQLite/D1 composition and guarded UI implemented; complete exact-candidate release checks in progress."
+      ],
       "blockers": []
     },
     {
@@ -371,82 +383,84 @@
     {
       "id": "C2",
       "chapter": "02-history-collection.md",
-      "status": "in_progress",
+      "status": "implemented",
       "changedFiles": [],
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": "Complete actual shared storage/runtime/UI integration and regression evidence; fixtures do not prove live source/device coverage."
+      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
     },
     {
       "id": "C3",
       "chapter": "02-history-collection.md",
-      "status": "in_progress",
+      "status": "implemented",
       "changedFiles": [],
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": "Complete actual shared storage/runtime/UI integration and regression evidence; fixtures do not prove live source/device coverage."
+      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
     },
     {
       "id": "C4",
       "chapter": "02-history-collection.md",
-      "status": "in_progress",
+      "status": "externally_blocked",
       "changedFiles": [],
       "commit": null,
       "verification": [],
-      "blockers": [],
-      "nextAction": "Complete actual shared storage/runtime/UI integration and regression evidence; fixtures do not prove live source/device coverage."
+      "blockers": [
+        "No connected supported account inventory/content adapter or renewable unattended provider principal is available in this cloud session. Manual imports and capability fixtures do not close the gate."
+      ],
+      "nextAction": "No connected supported account inventory/content adapter or renewable unattended provider principal is available in this cloud session. Manual imports and capability fixtures do not close the gate."
     },
     {
       "id": "C5",
       "chapter": "02-history-collection.md",
-      "status": "in_progress",
+      "status": "implemented",
       "changedFiles": [],
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": "Complete actual shared storage/runtime/UI integration and regression evidence; fixtures do not prove live source/device coverage."
+      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
     },
     {
       "id": "A1",
       "chapter": "03-automatic-sync.md",
-      "status": "in_progress",
+      "status": "implemented",
       "changedFiles": [],
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": "Complete actual shared storage/runtime/UI integration and regression evidence; fixtures do not prove live source/device coverage."
+      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
     },
     {
       "id": "A2",
       "chapter": "03-automatic-sync.md",
-      "status": "in_progress",
+      "status": "implemented",
       "changedFiles": [],
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": "Complete actual shared storage/runtime/UI integration and regression evidence; fixtures do not prove live source/device coverage."
+      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
     },
     {
       "id": "A3",
       "chapter": "03-automatic-sync.md",
-      "status": "in_progress",
+      "status": "implemented",
       "changedFiles": [],
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": "Complete actual shared storage/runtime/UI integration and regression evidence; fixtures do not prove live source/device coverage."
+      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
     },
     {
       "id": "A4",
       "chapter": "03-automatic-sync.md",
-      "status": "in_progress",
+      "status": "implemented",
       "changedFiles": [],
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": "Finish exact-candidate integration and record source-specific evidence; live activation gates remain unverified."
+      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
     },
     {
       "id": "A5",
@@ -456,117 +470,119 @@
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": "Finish exact-candidate integration and record source-specific evidence; live activation gates remain unverified."
+      "nextAction": "Wire native sweep proof, private job terminal receipt and bounded overview proof projection; a finished cursor alone never proves content coverage."
     },
     {
       "id": "A6",
       "chapter": "03-automatic-sync.md",
-      "status": "in_progress",
+      "status": "externally_blocked",
       "changedFiles": [],
       "commit": null,
       "verification": [],
-      "blockers": [],
-      "nextAction": "Complete actual shared storage/runtime/UI integration and regression evidence; fixtures do not prove live source/device coverage."
+      "blockers": [
+        "Actual owner Windows enrollment, protected credential, Task Scheduler restart/offline/revocation and terminal/browser-closed operation require the enrolled machine."
+      ],
+      "nextAction": "Actual owner Windows enrollment, protected credential, Task Scheduler restart/offline/revocation and terminal/browser-closed operation require the enrolled machine."
     },
     {
       "id": "U1",
       "chapter": "04-project-understanding.md",
-      "status": "in_progress",
+      "status": "implemented",
       "changedFiles": [],
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": "Complete actual shared storage/runtime/UI integration and regression evidence; fixtures do not prove live source/device coverage."
+      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
     },
     {
       "id": "U2",
       "chapter": "04-project-understanding.md",
-      "status": "in_progress",
+      "status": "implemented",
       "changedFiles": [],
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": "Complete actual shared storage/runtime/UI integration and regression evidence; fixtures do not prove live source/device coverage."
+      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
     },
     {
       "id": "U3",
       "chapter": "04-project-understanding.md",
-      "status": "in_progress",
+      "status": "implemented",
       "changedFiles": [],
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": "Complete actual shared storage/runtime/UI integration and regression evidence; fixtures do not prove live source/device coverage."
+      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
     },
     {
       "id": "U4",
       "chapter": "04-project-understanding.md",
-      "status": "in_progress",
+      "status": "implemented",
       "changedFiles": [],
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": "Complete actual shared storage/runtime/UI integration and regression evidence; fixtures do not prove live source/device coverage."
+      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
     },
     {
       "id": "U5",
       "chapter": "04-project-understanding.md",
-      "status": "in_progress",
+      "status": "implemented",
       "changedFiles": [],
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": "Complete actual shared storage/runtime/UI integration and regression evidence; fixtures do not prove live source/device coverage."
+      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
     },
     {
       "id": "U6",
       "chapter": "04-project-understanding.md",
-      "status": "in_progress",
+      "status": "implemented",
       "changedFiles": [],
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": "Complete actual shared storage/runtime/UI integration and regression evidence; fixtures do not prove live source/device coverage."
+      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
     },
     {
       "id": "L1",
       "chapter": "05-project-lanes-and-release.md",
-      "status": "in_progress",
+      "status": "implemented",
       "changedFiles": [],
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": "Complete actual shared storage/runtime/UI integration and regression evidence; fixtures do not prove live source/device coverage."
+      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
     },
     {
       "id": "L2",
       "chapter": "05-project-lanes-and-release.md",
-      "status": "in_progress",
+      "status": "implemented",
       "changedFiles": [],
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": "Complete actual shared storage/runtime/UI integration and regression evidence; fixtures do not prove live source/device coverage."
+      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
     },
     {
       "id": "L3",
       "chapter": "05-project-lanes-and-release.md",
-      "status": "in_progress",
+      "status": "implemented",
       "changedFiles": [],
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": "Complete actual shared storage/runtime/UI integration and regression evidence; fixtures do not prove live source/device coverage."
+      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
     },
     {
       "id": "L4",
       "chapter": "05-project-lanes-and-release.md",
-      "status": "in_progress",
+      "status": "implemented",
       "changedFiles": [],
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": "Complete actual shared storage/runtime/UI integration and regression evidence; fixtures do not prove live source/device coverage."
+      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
     },
     {
       "id": "R1",
@@ -581,12 +597,14 @@
     {
       "id": "R2",
       "chapter": "05-project-lanes-and-release.md",
-      "status": "in_progress",
+      "status": "externally_blocked",
       "changedFiles": [],
       "commit": null,
       "verification": [],
-      "blockers": [],
-      "nextAction": "Finish exact-candidate integration and record source-specific evidence; live activation gates remain unverified."
+      "blockers": [
+        "All nine real source/runtime/owner/hosted/device gates remain unverified; exact actions are in acceptance.md."
+      ],
+      "nextAction": "All nine real source/runtime/owner/hosted/device gates remain unverified; exact actions are in acceptance.md."
     },
     {
       "id": "R3",
@@ -603,12 +621,14 @@
     {
       "kind": "codex_local",
       "capability": "unverified",
-      "implemented": false,
+      "implemented": true,
       "verifiedLocal": false,
       "verifiedUnattended": false,
       "verifiedHosted": false,
       "proofRefs": [],
-      "limitations": []
+      "limitations": [
+        "Read-only retained-scope adapter and installable collector implemented; fixtures pass, actual owner roots and unattended machine proof unavailable."
+      ]
     },
     {
       "kind": "codex_cloud",
@@ -618,17 +638,21 @@
       "verifiedUnattended": false,
       "verifiedHosted": false,
       "proofRefs": [],
-      "limitations": []
+      "limitations": [
+        "Capability/error/manual-import adapter boundary implemented; no supported connected live inventory/content/renewable unattended read is configured."
+      ]
     },
     {
       "kind": "claude_code_local",
       "capability": "unverified",
-      "implemented": false,
+      "implemented": true,
       "verifiedLocal": false,
       "verifiedUnattended": false,
       "verifiedHosted": false,
       "proofRefs": [],
-      "limitations": []
+      "limitations": [
+        "Read-only retained-scope adapter and installable collector implemented; fixtures pass, actual owner roots and unattended machine proof unavailable."
+      ]
     },
     {
       "kind": "claude_code_cloud",
@@ -638,7 +662,9 @@
       "verifiedUnattended": false,
       "verifiedHosted": false,
       "proofRefs": [],
-      "limitations": []
+      "limitations": [
+        "Capability/error/manual-import adapter boundary implemented; no supported connected live inventory/content/renewable unattended read is configured."
+      ]
     }
   ],
   "liveGates": [
@@ -647,63 +673,81 @@
       "status": "not_verified",
       "requiredForFullRequestedCompletion": true,
       "evidence": [],
-      "blockers": []
+      "blockers": [
+        "See docs/implementation/project-lanes-history/acceptance.md for the exact source/runtime/owner action. Synthetic checks are insufficient."
+      ]
     },
     {
       "id": "G-local-claude",
       "status": "not_verified",
       "requiredForFullRequestedCompletion": true,
       "evidence": [],
-      "blockers": []
+      "blockers": [
+        "See docs/implementation/project-lanes-history/acceptance.md for the exact source/runtime/owner action. Synthetic checks are insufficient."
+      ]
     },
     {
       "id": "G-cloud-codex",
       "status": "not_verified",
       "requiredForFullRequestedCompletion": true,
       "evidence": [],
-      "blockers": []
+      "blockers": [
+        "See docs/implementation/project-lanes-history/acceptance.md for the exact source/runtime/owner action. Synthetic checks are insufficient."
+      ]
     },
     {
       "id": "G-cloud-claude",
       "status": "not_verified",
       "requiredForFullRequestedCompletion": true,
       "evidence": [],
-      "blockers": []
+      "blockers": [
+        "See docs/implementation/project-lanes-history/acceptance.md for the exact source/runtime/owner action. Synthetic checks are insufficient."
+      ]
     },
     {
       "id": "G-unattended",
       "status": "not_verified",
       "requiredForFullRequestedCompletion": true,
       "evidence": [],
-      "blockers": []
+      "blockers": [
+        "See docs/implementation/project-lanes-history/acceptance.md for the exact source/runtime/owner action. Synthetic checks are insufficient."
+      ]
     },
     {
       "id": "G-story-runtime",
       "status": "not_verified",
       "requiredForFullRequestedCompletion": true,
       "evidence": [],
-      "blockers": []
+      "blockers": [
+        "See docs/implementation/project-lanes-history/acceptance.md for the exact source/runtime/owner action. Synthetic checks are insufficient."
+      ]
     },
     {
       "id": "G-private-hosted",
       "status": "not_verified",
       "requiredForFullRequestedCompletion": true,
       "evidence": [],
-      "blockers": []
+      "blockers": [
+        "See docs/implementation/project-lanes-history/acceptance.md for the exact source/runtime/owner action. Synthetic checks are insufficient."
+      ]
     },
     {
       "id": "G-owner-workflow",
       "status": "not_verified",
       "requiredForFullRequestedCompletion": true,
       "evidence": [],
-      "blockers": []
+      "blockers": [
+        "See docs/implementation/project-lanes-history/acceptance.md for the exact source/runtime/owner action. Synthetic checks are insufficient."
+      ]
     },
     {
       "id": "G-physical-acceptance",
       "status": "not_verified",
       "requiredForFullRequestedCompletion": false,
       "evidence": [],
-      "blockers": []
+      "blockers": [
+        "See docs/implementation/project-lanes-history/acceptance.md for the exact source/runtime/owner action. Synthetic checks are insufficient."
+      ]
     }
   ],
   "inference": {
@@ -727,9 +771,78 @@
         "skipped": 0,
         "durationMs": 236945.792736,
         "evidence": "Collector lock failure retained; scheduled archive terminal-epoch race passed in original run."
+      },
+      {
+        "source": "ce9f3233002a357acb3fe4165a82e0bd8547798c",
+        "localEquivalent": "64036d111b8b9c5af63229755a0eebb3ffb7ade4",
+        "tree": "c641bbb0f0b9b6110eebab1757906c4f3ec56dfe",
+        "command": "npm test",
+        "result": "passed",
+        "tests": 2265,
+        "passed": 2265,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 232278.372093
+      },
+      {
+        "source": "ce9f3233002a357acb3fe4165a82e0bd8547798c",
+        "command": "npm run typecheck; npm run lint; npm run build",
+        "result": "passed",
+        "lintWarnings": 15
+      },
+      {
+        "source": "ce9f3233002a357acb3fe4165a82e0bd8547798c",
+        "command": "collector + collector package tests; bridge; companion; GitHub",
+        "result": "passed",
+        "collector": {
+          "passed": 52,
+          "skipped": 0
+        },
+        "bridge": {
+          "passed": 210,
+          "skippedWindows": 9
+        },
+        "companion": {
+          "passed": 105,
+          "skippedWindows": 2
+        },
+        "github": {
+          "passed": 20,
+          "skipped": 0
+        }
+      },
+      {
+        "source": "ce9f3233002a357acb3fe4165a82e0bd8547798c",
+        "command": "Controlled workspace benchmark GitHub run39859390790/job120105857996",
+        "result": "failed",
+        "operation": "miniflareD1:concurrentSessionSave",
+        "samples": 100,
+        "p95Milliseconds": 2032.553715999995,
+        "unchangedBudgetMilliseconds": 2000
+      },
+      {
+        "source": "ce9f3233002a357acb3fe4165a82e0bd8547798c",
+        "command": "Controlled browser performance run39859390671 and cross-browser acceptance run39859390626",
+        "result": "failed",
+        "evidence": "Old Capture/secondary-nav assumptions incompatible with default lanes; serious lanes small-text contrast failure. Corrected at dd9c069; final browser rerun pending."
+      },
+      {
+        "source": "ce9f3233002a357acb3fe4165a82e0bd8547798c",
+        "command": "Windows companion run39859390684/job120105852971",
+        "result": "failed",
+        "passed": 105,
+        "failed": 2,
+        "evidence": "Settings home lexical-vs-real path identity rejects synthetic Windows fixture. Corrected at 4b3d67d retaining redirect/hardlink checks; actual Windows rerun pending."
       }
     ],
-    "review": null,
+    "review": {
+      "workerId": "/root/lanes_objects",
+      "modelParameter": "gpt-6.1-sol",
+      "accepted": true,
+      "head": "64036d1",
+      "result": "Four substantive findings corrected;41 focused delta regressions pass; original deferred-PUT reproduction now safely rejects freeze and permits settlement. Later performance/Windows/browser fixes require final delta review."
+    },
     "pullRequest": "https://github.com/krybaby7/control-room/pull/5",
     "deployment": null,
     "fullRequestedCoverage": false
@@ -770,20 +883,21 @@
   },
   "updatedAt": "2026-10-22",
   "checkpoint": {
-    "currentSource": "c82f310",
-    "publicSource": "d244673798a33e289638b3916410ac7e2e83593c",
-    "sourceMeaning": "Native incremental dispatcher, dual extraction/provider identities, cited work proposals, default-closed service route, bounded activity reader and selected-byte restore macro are committed. Shared review fixes and freshness wiring remain uncommitted until focused verification.",
-    "tests": "Frozen ba6:2219/2221 Node,2 TCP collector lock failures; lock corrected with52 parallel focused regressions. S1 exact2037/2037 plus typecheck/lint/build passed. New native D1 full flow focused passes with original citation/record IDs retained after isolated same-owner restore; max57bindings/51517argumentbytes. This is synthetic selected-body evidence, not full private backup or live provider acceptance. Final canonical checks pending.",
-    "unfinished": "Resolve recovery PUT freeze, live-clock expiry and final job CAS findings; finish activity projection; run frozen final Node/typecheck/lint/build/collector/bridge/companion/GitHub/D1/R2/HTTP/browser/performance/archive gates. All nine live gates open.",
+    "currentSource": "dacbd5d",
+    "publicSource": "ce9f3233002a357acb3fe4165a82e0bd8547798c",
+    "sourceMeaning": "Windows/default-lanes corrections and native capability verification/publication/scheduling plus initial native sweep proof layer are committed. Optional no-job recovery admission and capability-semantic compatibility edits remain under integration. Performance changes remain isolated until canonical acceptance.",
+    "tests": "Frozen640:2265/2265Node;typecheck/lint/buildpass;collector52;bridge210+9Windows-skipped;companion105+2Windows-skipped;GitHub20. Exact public benchmark fails D1 savep952032.553716ms vs2000 unchanged; browser/Windows failures retained with corrective commits and reruns pending.",
+    "unfinished": "Finish native sweep same-batch job proof and projection, capability-only semantic compatibility; establish unchanged canonical save performance with measured corrections; freeze and rerun all exact-candidate gates.",
     "nextCommand": "git status --short",
     "deployed": false,
     "merged": false,
     "knownFailures": [
-      "Historical ba6 Node2 collector TCP-lock collisions fixed at aeae8a6; final full rerun pending.",
-      "Historical ba6 missing extractionDigest return field corrected at b31d964; final typecheck pending.",
-      "Review reproduced freeze accepting unsettled history PUT; fix underway.",
-      "Review found frozen provider authority clocks and ignored final job CAS; fixes underway.",
-      "No owner Windows, real provider, renewable unattended private ingress, complete verified private backup or Site publication proven."
+      "Publicce9 D1 savep952032.553716ms exceeds2000 budget. Same-host frozen640 controlledprofile2176.904913ms alsofails; no unchanged rerun claimed asfix.",
+      "Publicce9 browser performance/acceptance fail obsolete navigation assumptions plus real lanes contrast; correcteddd9c069 but unverified in browsers.",
+      "Publicce9 Windows companion105pass2fail; corrected4b3d67d; Windowsrerunpending.",
+      "No owner Windows collector/provider/unattended private ingress/complete verified private backup/private Site publication acceptance.",
+      "Isolated overlap-only072c82e profiling benchmark2097.474214ms and grouped3317b97 profiling benchmark2086.713317ms fail2000 target. Active-owner4 e01f09f profiling benchmark2149.067782ms also fails and is not integrated. Canonical no-profiling3317 run pending.",
+      "Native capability promotion seam now exists; semantic capability-only refresh compatibility and retained sweep terminal-job/overview plumbing are feasible code work still in progress."
     ]
   }
 }

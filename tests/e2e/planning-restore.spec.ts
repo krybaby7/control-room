@@ -1,5 +1,5 @@
 import {test,expect,type Page} from '@playwright/test';
-import {fixtureOrigin,openFixture,workspace} from './helpers';
+import {fixtureOrigin,openFixture,workspace,clickFixtureNavigation} from './helpers';
 import {capturePostResponse} from './server-response';
 import {currentWeek} from '../../lib/calendar';
 import type {Workspace,WorkspaceEnvelope} from '../../lib/types';
@@ -13,7 +13,7 @@ function normalized(bundle:Pick<WorkspaceBundle,'modules'>){return Object.fromEn
 async function backups(page:Page){const response=await page.request.get('/api/workspace/backups');expect(response.ok()).toBeTruthy();return (await response.json()).backups as Array<{id:string;sha256:string;sourceRevision:number;createdAt:string}>;}
 /** Explicit synthetic-owner cleanup only, using the production guarded removal command. */
 async function reserveBackupSlots(page:Page,needed:number){let list=await backups(page);while(list.length+needed>10){const ordered=list.toSorted((a,b)=>a.sourceRevision-b.sourceRevision||Date.parse(a.createdAt)-Date.parse(b.createdAt));const selected=ordered.find(point=>ordered.some(newer=>newer.sourceRevision>point.sourceRevision||newer.sourceRevision===point.sourceRevision&&Date.parse(newer.createdAt)>Date.parse(point.createdAt)));expect(selected,'Synthetic fixture must retain a newer recovery point').toBeTruthy();await command(page,{type:'workspace.backup.remove',id:selected!.id,sha256:selected!.sha256,targetRevision:(await workspace(page)).revision});list=await backups(page);}}
-async function sources(page:Page){await page.goto('/');await expect(page.getByRole('button',{name:'Sources',exact:true})).toBeEnabled();await page.getByRole('button',{name:'Sources',exact:true}).click();return page.getByRole('region',{name:'Review an import'});}
+async function sources(page:Page){await page.goto('/');await expect(page.getByRole('button',{name:'Sources',exact:true})).toBeEnabled();await clickFixtureNavigation(page,'Sources');return page.getByRole('region',{name:'Review an import'});}
 async function stageFile(page:Page,bytes:Buffer,name:string){const panel=page.getByRole('region',{name:'Review an import'});const response=await capturePostResponse(page,'/api/workspace/imports',()=>panel.getByLabel('Choose file for import review').setInputFiles({name,mimeType:'application/json',buffer:bytes}));expect(response.ok,response.body.toString()).toBeTruthy();const staged=JSON.parse(response.body.toString());expect(staged.diagnostics).toHaveLength(0);await expect(panel.getByLabel('Import mode',{exact:true})).toBeEnabled();return {panel,staged};}
 
 test('actual normalized bundle download and explicitly reviewed restore preserve frozen history and removed occurrence identity',async({page})=>{

@@ -1,6 +1,6 @@
 import {createHash} from 'node:crypto';
 import {expect,test,type Page,type APIResponse} from '@playwright/test';
-import {fixtureOrigin,openFixture,setFixtureSession,workspace} from './helpers';
+import {fixtureOrigin,openFixture,setFixtureSession,workspace,clickFixtureNavigation} from './helpers';
 import {capturePostResponse} from './server-response';
 import {canonical} from '../../lib/canonical-json';
 import {reviewHref} from '../../lib/review-links';
@@ -13,7 +13,7 @@ interface Reviews {revision:number;snapshots:Array<{id:string;hash:string;genera
 async function readReviews(page:Page):Promise<Reviews>{const response=await page.request.get('/api/reviews');expect(response.ok(),await response.text()).toBeTruthy();return response.json();}
 async function ownerCommand(page:Page,command:unknown):Promise<WorkspaceEnvelope>{const before=await workspace(page),ticket=await page.request.post('/api/workspace/mutation-ids',{headers:{Origin:fixtureOrigin},data:{}});expect(ticket.ok()).toBeTruthy();const {mutationId}=await ticket.json(),response=await page.request.post('/api/workspace',{headers:{Origin:fixtureOrigin},data:{revision:before.revision,mutationId,command}});expect(response.ok(),await response.text()).toBeTruthy();return response.json();}
 async function createProject(page:Page,name:string){const result=await ownerCommand(page,{type:'project.create',project:{name,description:'Synthetic native review fixture only',goal:'Inspect exact contextual facts',color:'teal',repositories:[]}});return result.workspace.projects.find(row=>row.name===name)!;}
-async function openReviews(page:Page){await page.getByRole('button',{name:'Briefs & automations',exact:true}).click();await expect(page.getByRole('heading',{name:'Review center',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'New schedule configuration',exact:true})).toBeEnabled();}
+async function openReviews(page:Page){await clickFixtureNavigation(page,'Briefs & automations');await expect(page.getByRole('heading',{name:'Review center',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'New schedule configuration',exact:true})).toBeEnabled();}
 async function openSavedSnapshot(page:Page,id:string){
  const list=await readReviews(page),expected=list.snapshots.find(row=>row.id===id);expect(expected).toBeTruthy();
  // Generation may update the API before the list render. Match record identity,

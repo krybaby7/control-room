@@ -17,3 +17,7 @@ export async function loseNextWorkspaceResponse(page:Page){
  return {mutationId:()=>mutationId,lost:()=>lost};
 }
 export async function workspace(page:Page){const response=await page.request.get('/api/workspace');expect(response.ok()).toBeTruthy();return response.json();}
+
+/** Open the actual secondary navigation disclosure; preserve native click/scroll behavior. */
+export async function openFixtureDetails(page:Page){const details=page.getByRole('navigation',{name:'Main navigation',exact:true}).locator('details');if(!await details.evaluate(node=>(node as HTMLDetailsElement).open))await details.locator('summary').click();}
+export async function clickFixtureNavigation(page:Page,name:'Agents'|'Runtime'|'Sources'|'Attention'|'History'|'Evidence & decisions'|'Briefs & automations'){await openFixtureDetails(page);await page.getByRole('navigation',{name:'Main navigation',exact:true}).getByRole('button',{name,exact:true}).click();}

@@ -36,7 +36,7 @@ export interface HistoryAdmissionContext {
  owner:string;now:string;mutationId:string;planningRevision:number;watermark:number;
  rows:HistoryProposedRow[];
  guard:string;guardBindings:(string|number|null)[];
- job:{id:string;kind:'area_analysis';dedupeKey:string;payload:Record<string,unknown>;executionEpoch:number};
+ job?:{id:string;kind:'area_analysis';dedupeKey:string;payload:Record<string,unknown>;executionEpoch:number};
 }
 export interface HistoryIngestOptions {
  now:string;

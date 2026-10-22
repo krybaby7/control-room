@@ -11,9 +11,12 @@ This ledger concerns the new lanes/history program. The older program's phase st
 | Same intermediate | Typecheck; lint | Typecheck failed missing extractionDigest return field; corrected at `b31d964`. Lint passed0errors15warnings |
 | Collector lock `aeae8a6` | Parallel collector transport/local reader/real CLI→HTTP→SQLite regressions | 52/52 pass. Kernel local endpoint replaces collision-prone TCP lock; no assertion/timeout changes. Windows endpoint remains device-unverified |
 | Full native flow `ef1db43` | Isolated D1 and same-owner SQLite restore macro | Native ingestion/duplicate retry→analysis→explicit owner scope/agreement/assessment→metadata export plus verified selected-body package→reviewed restore→exact retained Unicode citation. All30 migrations, max57bindings/51517argument bytes; original IDs retained; restored source paused/new epoch; native grants and consent absent |
+| Public `ce9f3233002a357acb3fe4165a82e0bd8547798c` / local `64036d1`, tree `c641bbb0f0b9b6110eebab1757906c4f3ec56dfe` | Full Node24, typecheck/lint/build, collector/bridge/companion/GitHub | 2265/2265 Node; typecheck/lint/build pass, lint15warnings; collector52/52; bridge210pass9Windows skips; companion105pass2Windows skips; GitHub20/20 |
+| Same public candidate | GitHub controlled save benchmark | **Failed** D1 savep952032.553716ms/100samples vs unchanged2000ms; SQLite passes. Run39859390790/job120105857996 |
+| Same public candidate | Browser performance,3-engine acceptance, Windows companion | **Failed** obsolete default/secondary navigation assumptions plus serious lanes contrast;105/107 Windows companion. Corrections committed `dd9c069` and `4b3d67d`; exact reruns pending |
 | Integrated final candidate | Node/typecheck/lint/build/collector/bridge/companion/GitHub/D1/R2/HTTP/browser/performance/archive integrity | Pending freeze after substantive review corrections; no final-green claim |
 
-Browser specs cover default lanes, finished/open/next, task area/work-type labels, observed versus accepted evidence, preserved pending requests, explicit partial source coverage, citation pagination, dirty draft/back navigation and synthetic responsive screenshots. These specs currently parse; execution and visual inspection remain pending. Display fixtures do not prove actual provider execution or retained owner history.
+Browser specs cover default lanes, finished/open/next, task area/work-type labels, observed versus accepted evidence, preserved pending requests, explicit partial source coverage, citation pagination, dirty draft/back navigation and synthetic responsive screenshots. Initial browser execution found obsolete navigation assumptions and a real small-text contrast failure; `dd9c069` corrects both while retaining the initial lanes axe scan and all timing budgets. Final execution and screenshot inspection remain pending. Display fixtures do not prove actual provider execution or retained owner history.
 
 The standalone history package in the full-flow macro contains one selected available synthetic body. Standard workspace export is metadata-only. Neither result proves a complete private backup or full provider inventory. Actual Windows execution, connected-account inventory/content, renewable unattended access and paid inference are separate live gates.
 
@@ -28,7 +31,7 @@ Findings retained for correction and regression:
 - The no-chunk path reported completion after a failed final job CAS.
 - A source removed immediately after cross-epoch restore retained its old execution epoch, preventing current-epoch metadata cleanup.
 
-Final disposition and exact regression results will be added after fixes are committed and the frozen candidate is checked.
+All four findings are corrected through `64036d1`;41 focused review regressions pass. The original deferred physical PUT reproduction now rejects freeze, lets the PUT settle, and leaves a ready ledger with no pending token. Independent review found no further blocker in this bounded delta. Later browser/Windows/performance changes require their own exact candidate checks.
 
 ## Live gates and precise handoff
 

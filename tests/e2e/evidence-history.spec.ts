@@ -1,10 +1,10 @@
 import {test,expect,type Page} from '@playwright/test';
-import {fixtureOrigin,openFixture,workspace} from './helpers';
+import {fixtureOrigin,openFixture,workspace,clickFixtureNavigation} from './helpers';
 import type {EvidenceSnapshot} from '../../lib/evidence-store';
 import type {HistoryEntry} from '../../lib/history';
 import type {WorkspaceCommand} from '../../lib/workspace-protocol';
 async function snapshot(page:Page):Promise<EvidenceSnapshot>{const response=await page.request.get('/api/evidence');expect(response.ok()).toBeTruthy();return response.json();}
-async function openEvidence(page:Page){await page.getByRole('button',{name:'Evidence & decisions',exact:true}).click();await expect(page.getByRole('button',{name:'Record evidence',exact:true})).toBeEnabled();}
+async function openEvidence(page:Page){await clickFixtureNavigation(page,'Evidence & decisions');await expect(page.getByRole('button',{name:'Record evidence',exact:true})).toBeEnabled();}
 async function issue(page:Page){const response=await page.request.post('/api/workspace/mutation-ids',{headers:{Origin:fixtureOrigin},data:{}});expect(response.ok()).toBeTruthy();return (await response.json()).mutationId as string;}
 async function ownerCommand(page:Page,command:WorkspaceCommand){const before=await workspace(page);const mutationId=await issue(page);const response=await page.request.post('/api/workspace',{headers:{Origin:fixtureOrigin},data:{revision:before.revision,mutationId,command}});expect(response.ok(),await response.text()).toBeTruthy();return response.json();}
 

@@ -1,5 +1,5 @@
 import {test,expect,type Page} from '@playwright/test';
-import {openFixture,workspace,fixtureOrigin} from './helpers';
+import {openFixture,workspace,fixtureOrigin,clickFixtureNavigation} from './helpers';
 import {capturePostResponse} from './server-response';
 import {canonical,contentHash} from '../../lib/canonical-json';
 import {portableHeadId,versionRowId} from '../../lib/version-identity';
@@ -15,7 +15,7 @@ test('native normalized-only merge requires review, preserves owner rows, and ex
  const before=await workspace(page),original=await bundle(page),incoming=structuredClone(original),id='native-merge-'+crypto.randomUUID(),now=new Date().toISOString(),statement='Synthetic immutable imported evidence '+id;
  const head={id,currentVersion:1,archivedAt:null},version={id,version:1,basis:'owner-statement',scope:'implementation',title:'Native reviewed merge',statement,observedAt:null,recordedAt:now,candidate:null,environment:null,sourceUrl:null,sourceRevision:null,sourceRecordId:null,attachmentIds:[],supersedesVersion:null};
  for(const [portableId,kind,physicalId,record] of [[await portableHeadId(id),'head',id,head],[await versionRowId(id,1),'version',await versionRowId(id,1),version]] as const){const value={kind,physicalId,record};incoming.modules.evidence.records.push({id:portableId,rowRevision:1,contentHash:await contentHash(canonical(value)),value});}
- await page.getByRole('button',{name:'Sources',exact:true}).click();const panel=page.getByRole('region',{name:'Review an import'});
+ await clickFixtureNavigation(page,'Sources');const panel=page.getByRole('region',{name:'Review an import'});
  async function stage(value:WorkspaceBundle){const result=await capturePostResponse(page,'/api/workspace/imports',()=>panel.getByLabel('Choose file for import review').setInputFiles({name:'synthetic-normalized-merge.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(value))}));expect(result.ok,result.body.toString()).toBeTruthy();return JSON.parse(result.body.toString());}
  await seal(incoming);const staged=await stage(incoming);await panel.getByRole('button',{name:'Preview selected merge',exact:true}).click();const normalized=panel.getByRole('region',{name:'Normalized merge review'});await expect(normalized).toBeVisible();await expect(normalized).toContainText('2');expect((await workspace(page)).revision).toBe(before.revision);
  await panel.getByRole('checkbox',{name:'I reviewed this selected merge and its existing record changes.',exact:true}).check();const saved=page.waitForResponse(response=>response.request().method()==='POST'&&new URL(response.url()).pathname===`/api/workspace/imports/${staged.id}/commit`);await panel.getByRole('button',{name:'Import reviewed selection',exact:true}).click();expect((await saved).ok()).toBeTruthy();await expect(panel.getByText('The reviewed import was saved.',{exact:true})).toBeVisible();
