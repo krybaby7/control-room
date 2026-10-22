@@ -31,23 +31,24 @@ test('compact defaults hydrate and repeated exports are stable without losing ow
   assert.throws(()=>decodePlanning('{',at),/JSON/);
   assert.throws(()=>parsePlanningImport({...workspace,schemaVersion:999}),/version/);
 });
-test('UTF-8 content boundary counts Arabic bytes and only excludes generated fields', () => {
+for(const [version,limit] of [[4,1_000_000],[5,1_500_000]] as const)test(`v${version} UTF-8 content boundary counts Arabic bytes at its original bound`, () => {
   const workspace=parsePlanningImport(createSeedWorkspace(at));
   const template=workspace.tasks[0];
-  workspace.tasks=Array.from({length:100},(_,i)=>({...template,id:`utf8-${i}`,notes:''}));
+  workspace.tasks=Array.from({length:160},(_,i)=>({...template,id:`utf8-${i}`,notes:''}));
+  if(version===4){workspace.schemaVersion=4;delete workspace.areas;for(const task of workspace.tasks){delete task.areaId;delete task.workType;}}
   const before=measurePlanning(workspace);
   workspace.tasks[0].notes='ع';
   assert.equal(measurePlanning(workspace).contentBytes,before.contentBytes+2);
   workspace.tasks[0].notes='';
-  let remaining=1_000_000-measurePlanning(workspace).contentBytes;
+  let remaining=limit-measurePlanning(workspace).contentBytes;
   for(const task of workspace.tasks) {
     const amount=Math.min(10000,remaining); task.notes='x'.repeat(amount); remaining-=amount;
   }
   assert.equal(remaining,0);
-  assert.equal(measurePlanning(workspace).contentBytes,1_000_000);
-  assert.deepEqual(decodePlanning(encodePlanning(workspace)),workspace);
+  assert.equal(measurePlanning(workspace).contentBytes,limit);
+  assert.deepEqual(decodePlanning(encodePlanning(workspace)),parsePlanningImport(workspace));
   workspace.tasks[0].notes='ع'+workspace.tasks[0].notes.slice(1);
-  assert.equal(measurePlanning(workspace).contentBytes,1_000_001);
+  assert.equal(measurePlanning(workspace).contentBytes,limit+1);
   assert.throws(()=>encodePlanning(workspace),/user-content/);
 });
 test('maximum task weekly metadata has a separate bounded serialized allowance', () => {

@@ -8,7 +8,7 @@ import type {JsonValue} from './workspace-protocol.ts';
 import {previewPlanningMerge} from './workspace-merge.ts';
 import {prepareNormalizedMerge} from './normalized-merge.ts';
 const ids=z.array(z.string().min(1).max(160)).max(10000);
-const commandSchema=z.object({type:z.literal('workspace.import.commit'),importId:z.string().min(1).max(160),hash:z.string().regex(/^[a-f0-9]{64}$/),targetRevision:z.number().int().positive(),mode:z.enum(['replace','merge']),normalizedReviewHash:z.string().regex(/^[a-f0-9]{64}$/).optional(),selection:z.object({projects:ids,milestones:ids,tasks:ids,captures:ids,activity:ids}).strict().optional()}).strict();
+const commandSchema=z.object({type:z.literal('workspace.import.commit'),importId:z.string().min(1).max(160),hash:z.string().regex(/^[a-f0-9]{64}$/),targetRevision:z.number().int().positive(),mode:z.enum(['replace','merge']),normalizedReviewHash:z.string().regex(/^[a-f0-9]{64}$/).optional(),selection:z.object({areas:ids.optional(),projects:ids,milestones:ids,tasks:ids,captures:ids,activity:ids}).strict().optional()}).strict();
 const physicalRecordSchema=z.object({id:z.string().min(1).max(128).refine(value=>value.trim()===value),value:z.unknown()}).strict();
 const recordSchema=z.object({id:z.string().min(1).max(128).refine(value=>value.trim()===value),rowRevision:z.number().int().positive().safe(),contentHash:z.string().regex(/^[a-f0-9]{64}$/),value:z.unknown()}).strict();
 /** Preparation is read-only. The central compiler alone writes the reviewed transaction. */

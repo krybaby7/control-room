@@ -1,3 +1,4 @@
+import {parseHistoryRecord} from './history/record.ts';
 import {validatePersonalState} from '../shared/personal-repository.mjs';
 import {agentJobRecordSchema,agentResultRecordSchema} from './agents/contracts.ts';
 import {evaluationRunObservationSchema} from './agents/evaluation-import.ts';
@@ -32,7 +33,7 @@ const columns={
  project_baseline_revisions:['project_id','parent_revision_id','parent_hash','recorded_at','source_watermark'],
  agent_jobs:['intent_id','project_id','task_id','spec_hash','created_at'],agent_results:['job_id','attempt_id','recorded_at','stream_sequence'],evaluation_runs:['device_id','run_id','observed_at','cohort_hash','stream_sequence'],
  devices:['created_at','archived_at'],runtime_adapter_configurations:['device_id','project_id','source','instance_id'],runtime_evidence:['device_id','source','received_at','payload_hash'],
- personal_repository_state:[],
+ personal_repository_state:[],project_history:['stream_sequence'],
 } satisfies Record<RegisteredOwnerTable,string[]>;
 for(const names of Object.values(columns))Object.freeze(names);
 Object.freeze(columns);
@@ -52,6 +53,7 @@ export async function moduleProjection(table:RegisteredOwnerTable,id:string,valu
  const names=moduleColumnNames(table);evidenceIdSchema.parse(id);
  const empty=()=>Object.fromEntries(names.map(name=>[name,null]));
  switch(table){
+ case 'project_history':{const row=parseHistoryRecord(value);if(row.id!==id)throw new Error('History physical identity differs.');return {stream_sequence:0};}
  case 'personal_repository_state':{const state=validatePersonalState(value);matchingId(id,state.deviceId);return empty();}
  case 'agent_jobs':{const r=agentJobRecordSchema.parse(value);matchingId(id,r.id);return {intent_id:r.historical?null:r.intentId,project_id:r.spec.projectId,task_id:r.spec.taskId,spec_hash:r.specSha256,created_at:r.createdAt};}
  case 'agent_results':{const r=agentResultRecordSchema.parse(value);matchingId(id,r.id);return {job_id:r.jobId,attempt_id:r.attemptId,recorded_at:r.recordedAt,stream_sequence:0};}

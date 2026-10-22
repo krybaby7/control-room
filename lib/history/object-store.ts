@@ -1,4 +1,6 @@
 import type {SqlDatabase} from '../workspace-store.ts';
+import {privateInsertGrowth} from '../private-growth.ts';
+import {requirePrivateCapacity} from '../private-capacity.ts';
 
 export interface HistoryObjectManifest {key:string;sha256:string;bytes:number}
 export interface HistoryObjectScope {ownerId:string;sourceId:string;epoch:string;scopeRevision:number}
@@ -19,9 +21,10 @@ export interface HistoryObjectDeps {
   now?:()=>string;
 }
 export const MAX_HISTORY_OBJECT_BYTES=16*1024*1024;
+export const MAX_HISTORY_OWNER_OBJECT_BYTES=256*1024*1024;
 const now=(deps:HistoryObjectDeps)=>deps.now?.()??new Date().toISOString();
 function scopeValues(scope:HistoryObjectScope){
-  if(!scope.ownerId||!scope.sourceId||!scope.epoch||!Number.isSafeInteger(scope.scopeRevision)||scope.scopeRevision<0)throw Error('Invalid history object scope.');
+  if(!scope.ownerId||!scope.sourceId||!scope.epoch||!Number.isSafeInteger(scope.scopeRevision)||scope.scopeRevision<1)throw Error('Invalid history object scope.');
   return [scope.ownerId,scope.sourceId,scope.epoch,scope.scopeRevision];
 }
 function validateManifest(manifest:HistoryObjectManifest){
@@ -44,7 +47,10 @@ export async function stageHistoryObject(deps:HistoryObjectDeps,input:HistoryObj
   if(await digest(value)!==manifest.sha256)throw Error('History object digest mismatch.');
   await authorized(deps);
   const token=crypto.randomUUID();
-  await deps.db.prepare("INSERT INTO history_object_ledger(owner_id,key,source_id,epoch,scope_revision,sha256,bytes,status,pending_token,created_at) VALUES(?,?,?,?,?,?,?,'staging',?,?)").bind(...scopeValues(input).slice(0,1),manifest.key,input.sourceId,input.epoch,input.scopeRevision,manifest.sha256,manifest.bytes,token,now(deps)).run();
+  const createdAt=now(deps),row={user_id:input.ownerId,key:manifest.key,source_id:input.sourceId,epoch:input.epoch,scope_revision:input.scopeRevision,sha256:manifest.sha256,bytes:manifest.bytes,status:'staging',pending_token:token,created_at:createdAt};
+  const capacity=await requirePrivateCapacity(deps.db,input.ownerId,{growth:[await privateInsertGrowth(deps.db,'history_object_ledger',row)]});
+  const admitted=await deps.db.prepare(`INSERT INTO history_object_ledger(user_id,key,source_id,epoch,scope_revision,sha256,bytes,status,pending_token,created_at) SELECT ?,?,?,?,?,?,?,'staging',?,? WHERE ${capacity.sql} AND (SELECT COUNT(*) FROM history_object_ledger WHERE user_id=? AND purged_at IS NULL)<10000 AND (SELECT COALESCE(SUM(bytes),0) FROM history_object_ledger WHERE user_id=? AND purged_at IS NULL)<=?${deps.guardSql?` AND (${deps.guardSql.sql})`:''}`).bind(input.ownerId,manifest.key,input.sourceId,input.epoch,input.scopeRevision,manifest.sha256,manifest.bytes,token,createdAt,...capacity.bindings,input.ownerId,input.ownerId,MAX_HISTORY_OWNER_OBJECT_BYTES-manifest.bytes,...(deps.guardSql?.params??[])).run();
+  if(admitted.meta.changes!==1)throw Error('History object capacity or authority changed before staging.');
   // The pending token stays persisted until the actual physical attempt settles. A timed-out
   // caller must not detach the PUT and clear it, or later cleanup could race a late write.
   try{
@@ -54,24 +60,24 @@ export async function stageHistoryObject(deps:HistoryObjectDeps,input:HistoryObj
     await verify(deps,manifest);
     await authorized(deps);
     const guard=deps.guardSql;
-    const result=await deps.db.prepare(`UPDATE history_object_ledger SET status='ready',pending_token=NULL,verified_at=? WHERE owner_id=? AND key=? AND status='staging' AND pending_token=?${guard?` AND (${guard.sql})`:''}`).bind(now(deps),input.ownerId,manifest.key,token,...(guard?.params??[])).run();
+    const result=await deps.db.prepare(`UPDATE history_object_ledger SET status='ready',pending_token=NULL,verified_at=? WHERE user_id=? AND key=? AND status='staging' AND pending_token=?${guard?` AND (${guard.sql})`:''}`).bind(now(deps),input.ownerId,manifest.key,token,...(guard?.params??[])).run();
     if(result.meta.changes!==1)throw Error('History object authority changed before finalization.');
     return manifest;
   }catch(error){
-    await deps.db.prepare("UPDATE history_object_ledger SET status='abandoned',pending_token=NULL WHERE owner_id=? AND key=? AND status='staging' AND pending_token=?").bind(input.ownerId,manifest.key,token).run();
+    await deps.db.prepare("UPDATE history_object_ledger SET status='abandoned',pending_token=NULL WHERE user_id=? AND key=? AND status='staging' AND pending_token=?").bind(input.ownerId,manifest.key,token).run();
     throw error;
   }
 }
 /** Embed this predicate in every ingestion write's successful transaction guard. */
 export function finalizedHistoryObjectsGuard(scope:HistoryObjectScope,manifests:readonly HistoryObjectManifest[]):HistoryObjectSqlGuard{
   scopeValues(scope);
-  const params:(string|number|null)[]=[];
-  const predicates=manifests.map(manifest=>{
-    validateManifest(manifest);
-    params.push(scope.ownerId,scope.sourceId,scope.epoch,scope.scopeRevision,manifest.key,manifest.sha256,manifest.bytes);
-    return "EXISTS(SELECT 1 FROM history_object_ledger WHERE owner_id=? AND source_id=? AND epoch=? AND scope_revision=? AND key=? AND sha256=? AND bytes=? AND status='ready' AND pending_token IS NULL AND purged_at IS NULL)";
-  });
-  return {sql:predicates.length?predicates.join(' AND '):'1',params};
+  for(const manifest of manifests)validateManifest(manifest);
+  if(new Set(manifests.map(item=>item.key)).size!==manifests.length||manifests.length>1000)throw Error('Invalid history object manifest set.');
+  // Bind the entire closed vector once: a legitimate 250-message page must
+  // retain every object predicate without exceeding D1's 100-variable limit.
+  const vector=JSON.stringify(manifests);
+  if(new TextEncoder().encode(vector).length>2*1024*1024)throw Error('History manifest exceeds bound.');
+  return {sql:"NOT EXISTS(SELECT 1 FROM json_each(?) manifest WHERE NOT EXISTS(SELECT 1 FROM history_object_ledger object WHERE object.user_id=? AND object.source_id=? AND object.epoch=? AND object.scope_revision=? AND object.key=json_extract(manifest.value,'$.key') AND object.sha256=json_extract(manifest.value,'$.sha256') AND object.bytes=json_extract(manifest.value,'$.bytes') AND object.status='ready' AND object.pending_token IS NULL AND object.purged_at IS NULL))",params:[vector,scope.ownerId,scope.sourceId,scope.epoch,scope.scopeRevision]};
 }
 export async function requireFinalizedHistoryObjects(deps:HistoryObjectDeps,scope:HistoryObjectScope,manifests:readonly HistoryObjectManifest[]):Promise<void>{
   await authorized(deps);
@@ -89,15 +95,17 @@ export async function readHistoryObject(deps:HistoryObjectDeps,scope:HistoryObje
  * referenced by ingestion, and can never return to ready or start another physical PUT. */
 export async function purgeAbandonedHistoryObjects(deps:HistoryObjectDeps,ownerId:string,graceMs:number,isReferenced:(ownerId:string,key:string)=>Promise<boolean>):Promise<number>{
   if(!ownerId||!Number.isSafeInteger(graceMs)||graceMs<0)throw Error('Invalid history object cleanup policy.');
+  await authorized(deps);
   const cutoff=new Date(Date.parse(now(deps))-graceMs).toISOString();
-  const rows=(await deps.db.prepare("SELECT key FROM history_object_ledger WHERE owner_id=? AND status='abandoned' AND pending_token IS NULL AND purged_at IS NULL AND created_at<=? ORDER BY key LIMIT 100").bind(ownerId,cutoff).all<{key:string}>()).results;
+  const rows=(await deps.db.prepare("SELECT key FROM history_object_ledger WHERE user_id=? AND status='abandoned' AND pending_token IS NULL AND purged_at IS NULL AND created_at<=? ORDER BY key LIMIT 100").bind(ownerId,cutoff).all<{key:string}>()).results;
   let purged=0;
   for(const {key} of rows){
     if(await isReferenced(ownerId,key))continue;
-    const eligible=await deps.db.prepare("SELECT 1 FROM history_object_ledger WHERE owner_id=? AND key=? AND status='abandoned' AND pending_token IS NULL AND purged_at IS NULL AND created_at<=?").bind(ownerId,key,cutoff).first();
+    const eligible=await deps.db.prepare("SELECT 1 FROM history_object_ledger WHERE user_id=? AND key=? AND status='abandoned' AND pending_token IS NULL AND purged_at IS NULL AND created_at<=?").bind(ownerId,key,cutoff).first();
     if(!eligible||await isReferenced(ownerId,key))continue;
+    await authorized(deps);
     await deps.bucket.delete(key);
-    const result=await deps.db.prepare("UPDATE history_object_ledger SET purged_at=? WHERE owner_id=? AND key=? AND status='abandoned' AND pending_token IS NULL AND purged_at IS NULL").bind(now(deps),ownerId,key).run();
+    const result=await deps.db.prepare("UPDATE history_object_ledger SET purged_at=? WHERE user_id=? AND key=? AND status='abandoned' AND pending_token IS NULL AND purged_at IS NULL").bind(now(deps),ownerId,key).run();
     purged+=result.meta.changes??0;
   }
   return purged;

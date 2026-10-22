@@ -1,8 +1,9 @@
 'use client';
 
+import {WORK_TYPES,WORK_TYPE_LABELS} from '@/lib/areas';
 import {SubjectReviewLink} from './subject-review-link';
 
-import type { Command, Milestone, MilestoneInput, Project } from '@/lib/types';
+import type { Command, Milestone, MilestoneInput, Project, Workspace, WorkType } from '@/lib/types';
 import { useDurableDraft } from './durable-draft';
 import { changedFields } from '@/lib/draft';
 import { Field, FormDialog } from './form-dialog';
@@ -30,4 +31,10 @@ export function MilestoneEditor({ milestone, project, onSave, onClose }: { miles
     <div className="form-grid"><Field label="Status"><select value={draft.status} onChange={e => set('status', e.target.value as MilestoneInput['status'])}><option value="planned">Planned</option><option value="active">Active</option><option value="achieved">Achieved</option></select></Field><Field label="Target date"><input type="date" value={draft.targetDate ?? ''} onChange={e => set('targetDate', e.target.value || null)} /></Field></div>
     <Field label="Acceptance evidence" hint={draft.status === 'achieved' ? 'Required to record this milestone as achieved.' : 'Add verification notes or links when the outcome is ready.'}><textarea required={draft.status === 'achieved'} rows={4} maxLength={5000} value={draft.evidence} onChange={e => set('evidence', e.target.value)} /></Field>
   </FormDialog>;
+}
+
+/** Existing archived links stay selectable; new assignments use active project areas. */
+export function TaskClassificationFields({workspace,projectId,areaId,workType,onChange}:{workspace:Workspace;projectId:string;areaId?:string|null;workType?:WorkType;onChange:(value:{areaId:string|null;workType:WorkType})=>void}){
+ const areas=(workspace.areas??[]).filter(area=>area.projectId===projectId&&(!area.archivedAt||area.id===areaId)).toSorted((a,b)=>a.order-b.order||a.id.localeCompare(b.id));
+ return <div className="form-grid"><Field label="Area"><select value={areaId??''} onChange={event=>onChange({areaId:event.target.value||null,workType:workType??'other'})}><option value="">Unclassified</option>{areas.map(area=><option key={area.id} value={area.id}>{area.name}{area.archivedAt?' (archived)':''}</option>)}</select></Field><Field label="Work type"><select value={workType??'other'} onChange={event=>onChange({areaId:areaId??null,workType:event.target.value as WorkType})}>{WORK_TYPES.map(type=><option key={type} value={type}>{WORK_TYPE_LABELS[type]}</option>)}</select></Field></div>;
 }

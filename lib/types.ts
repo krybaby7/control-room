@@ -1,4 +1,4 @@
-export type WorkType = 'planning'|'implementation'|'testing'|'review'|'research'|'decision'|'operations'|'other';
+export type WorkType = import('./history/contracts.ts').WorkType;
 export interface ProjectArea {id:string;projectId:string;name:string;aliases:string[];order:number;archivedAt:string|null;}
 export interface TaskClassification {areaId:string|null;workType:WorkType;}
 export type ProjectId = string;
@@ -18,6 +18,8 @@ export interface Activity { id: string; text: string; at: string; projectId: str
 export interface Workspace { schemaVersion: 1 | 2 | 3 | 4 | 5; areas?:ProjectArea[]; projects: Project[]; milestones: Milestone[]; tasks: Task[]; captures: Capture[]; activity: Activity[]; }
 export interface WorkspaceEnvelope { workspace: Workspace; revision: number; updatedAt: string; previousBackupAvailable?: boolean; baselineRemovedIds?:string[]; }
 export type Command =
+  | import('./history/commands.ts').HistorySourceCommand
+  | import('./history/contracts.ts').RoadmapCommand
   | import('zod').infer<typeof import('./runtime/commands.ts').enrollmentCommandSchema>
   | import('zod').infer<typeof import('./runtime/commands.ts').revokeDeviceCommandSchema>
   | import('zod').infer<typeof import('./runtime/commands.ts').configureAdapterCommandSchema>
@@ -40,7 +42,7 @@ export type Command =
   | { type: 'workspace.backup' }
   | {type:'workspace.backup.remove';id:string;sha256:string;targetRevision:number}
   | { type:'entity.delete';entityType:'task'|'capture'|'project'|'milestone';id:string;previewHash:string;targetRevision:number }
-  | { type: 'workspace.import.commit'; importId:string;hash:string;targetRevision:number;mode:'replace'|'merge';selection?:{projects:string[];milestones:string[];tasks:string[];captures:string[];activity:string[]} }
+  | { type: 'workspace.import.commit'; importId:string;hash:string;targetRevision:number;mode:'replace'|'merge';selection?:{areas?:string[];projects:string[];milestones:string[];tasks:string[];captures:string[];activity:string[]} }
   | { type: 'baseline.apply'; projectId: string; baselineId: '2026-10-17' }
   | { type: 'workspace.restore'; workspace: Workspace }
   | { type: 'task.restore'; id: string }

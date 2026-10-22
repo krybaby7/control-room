@@ -1,6 +1,6 @@
 import {canonical} from './canonical-json.ts';
 import type {AuditEventDraft} from './workspace-protocol.ts';
-const collections={project:'projects',milestone:'milestones',task:'tasks',capture:'captures'} as const;
+const collections={area:'areas',project:'projects',milestone:'milestones',task:'tasks',capture:'captures'} as const;
 export function planningCreationCollection(entityType:string):string|null{return Object.hasOwn(collections,entityType)?collections[entityType as keyof typeof collections]:null;}
 /** Exact contextual identity from a unique typed insertion; never rewrites history. */
 export function createdPlanningEntityId(kind:string,entityType:string,changes:AuditEventDraft['changes']):string|null{
@@ -12,7 +12,7 @@ export function createdPlanningEntityId(kind:string,entityType:string,changes:Au
  return identity;
 }
 
-const scopedKinds:Record<string,readonly string[]>={project:['create','edit','update','archive','restore'],milestone:['create','update','archive','restore','reorder'],task:['create','update','restore','move','bulk'],capture:['create','update','convert','bulk','bulkConvert']};
+const scopedKinds:Record<string,readonly string[]>={area:['create','update','archive','restore'],project:['create','edit','update','archive','restore'],milestone:['create','update','archive','restore','reorder'],task:['create','update','restore','move','bulk'],capture:['create','update','convert','bulk','bulkConvert']};
 export function knownPlanningHistoryKind(entityType:string,kind:string):boolean{return Object.hasOwn(scopedKinds,entityType)&&scopedKinds[entityType].some(action=>kind===entityType+'.'+action);}
 /** Bulk actions may match several subjects; a given subject must have one exact
  * full-row change. Duplicate paths, field-only/unknown shapes are not inferred. */

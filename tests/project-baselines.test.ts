@@ -112,8 +112,9 @@ test('capacity rejection is atomic for task, capture and byte limits', () => {
       seed.captures = Array.from({ length: 1000 }, (_, i) => ({ ...capture, id: 'capture-' + i }));
     } else {
       const capture = seed.captures[0];
-      seed.captures = Array.from({ length: 97 }, (_, i) => ({ ...capture, id: 'large-' + i, body: 'x'.repeat(9900) }));
-      // The existing document fits; adding the dated evidence and task notes must not.
+      seed.captures = Array.from({ length: 147 }, (_, i) => ({ ...capture, id: 'large-' + i, body: 'x'.repeat(9900) }));
+      // 147 bounded captures leave less than one capture of v5 content headroom.
+      // The existing document fits 1.5 MB; baseline evidence and task notes must not.
       assert.doesNotThrow(() => parseWorkspaceExport(seed));
     }
     const before = structuredClone(seed);
@@ -262,4 +263,14 @@ test('new baseline proposals skip archived milestone assignments but keep origin
   assert.equal(added[0].title,PROJECT_BASELINES[0].actions[0].title);
   const existing=apply(createSeedWorkspace(AT));existing.milestones[0].archivedAt=AT;const original=structuredClone(existing.tasks);
   assert.deepEqual(apply(existing).tasks,original);
+});
+
+test('legacy baseline capacity fixture retains its original 1 MB input boundary before normalization',()=>{
+ const legacy=createSeedWorkspace(AT);legacy.schemaVersion=4;delete legacy.areas;
+ for(const task of legacy.tasks){delete task.areaId;delete task.workType;}
+ const capture=legacy.captures[0];legacy.captures=Array.from({length:97},(_,i)=>({...capture,id:'legacy-large-'+i,body:'x'.repeat(9900)}));
+ const before=structuredClone(legacy),migrated=parseWorkspaceExport(legacy);assert.equal(migrated.schemaVersion,5);assert.deepEqual(legacy,before);
+ // One more capture crosses the historical bound even though v5 has headroom.
+ const overflow=structuredClone(legacy);overflow.captures.push({...capture,id:'legacy-overflow',body:'x'.repeat(9900)});
+ assert.throws(()=>parseWorkspaceExport(overflow),/1 MB legacy user-content/);assert.deepEqual(legacy,before);
 });

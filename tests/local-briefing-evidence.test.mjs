@@ -72,3 +72,24 @@ test('session sanitizer bounds sessions, drops credential messages and reports c
  assert.deepEqual(sanitizeSessions({status:'not-found',messages:[]},'claude').summary,{provider:'claude',status:'not-found',sessions:0,messages:0,latestAt:null});
  assert.equal(remoteIdentity('git@github.com:Example/Trade-Graph.git'),'github.com/Example/Trade-Graph');assert.equal(remoteIdentity('https://user:pw@github.com/a/b?x=1'),'local-remote');assert.equal(remoteIdentity('C:\\repos\\origin'),'local-remote');assert.equal(remoteIdentity(''),null);
 });
+test('repeated edits to the same dirty path change fingerprints while identical bytes remain stable',async()=>{
+ const f=await fixture();try{
+  const options={fetchRemote:false,codexHome:f.codexHome,claudeHome:f.claudeHome};
+  // Same-length writes keep the path list and diff shortstat unchanged.
+  await writeFile(join(f.root,'main.js'),'export const x=2;');
+  const first=await computeWorkFingerprint(f.root,options);
+  await writeFile(join(f.root,'main.js'),'export const x=3;');
+  const second=await computeWorkFingerprint(f.root,options);
+  assert.notEqual(second,first);
+  await writeFile(join(f.root,'main.js'),'export const x=3;');
+  assert.equal(await computeWorkFingerprint(f.root,options),second);
+  const evidence=await collectBriefingEvidence(f.root,options);
+  assert.equal(evidence.fingerprint,second);
+  assert.equal(JSON.stringify(evidence.bundle).includes('export const x=3;'),false);
+  assert.equal(Object.hasOwn(JSON.parse(JSON.stringify(evidence.bundle.uncommitted)),'contentFingerprint'),false);
+  await writeFile(join(f.root,'notes.md'),'other');
+  assert.notEqual(await computeWorkFingerprint(f.root,options),second);
+  const controller=new AbortController();controller.abort();
+  await assert.rejects(computeWorkFingerprint(f.root,{...options,signal:controller.signal}),{name:'AbortError'});
+ }finally{await f.close();}
+});

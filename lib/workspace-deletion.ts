@@ -11,7 +11,7 @@ const commandSchema=z.object({type:z.literal('entity.delete'),entityType:z.enum(
 export interface EntityDeletionPreview {
   entityType:DeletableEntity;id:string;targetRevision:number;
   record:Workspace['projects'][number]|Workspace['milestones'][number]|Workspace['tasks'][number]|Workspace['captures'][number];
-  references:{collection:'milestones'|'tasks'|'captures';id:string;field:'projectId'|'milestoneId'|'dependsOn'|'convertedTaskId';label?:string}[];
+  references:{collection:'areas'|'milestones'|'tasks'|'captures';id:string;field:'projectId'|'milestoneId'|'dependsOn'|'convertedTaskId';label?:string}[];
   historicalActivity:{id:string;text:string;projectId:string|null}[];
   normalizedReferences:ReferenceImpact['references'];referenceDigest?:string;
   blockers:string[];canDelete:boolean;previewHash:string;
@@ -29,7 +29,7 @@ export async function previewEntityDeletion(workspace:Workspace,kind:DeletableEn
     for(const capture of parsed.captures)if(capture.convertedTaskId===id)references.push({collection:'captures',id:capture.id,field:'convertedTaskId'});
   }
   if(kind==='project'){
-    for(const name of ['milestones','tasks','captures'] as const)for(const linked of parsed[name])if(linked.projectId===id)references.push({collection:name,id:linked.id,field:'projectId',label:linked.title});
+    for(const name of ['areas','milestones','tasks','captures'] as const)for(const linked of parsed[name]??[])if(linked.projectId===id)references.push({collection:name,id:linked.id,field:'projectId',label:'title' in linked?linked.title:linked.name});
   }
   if(kind==='milestone')for(const task of parsed.tasks)if(task.milestoneId===id)references.push({collection:'tasks',id:task.id,field:'milestoneId',label:task.title});
   const historicalActivity=kind==='project'?parsed.activity.filter(row=>row.projectId===id).map(({id,text,projectId})=>({id,text,projectId})):[];

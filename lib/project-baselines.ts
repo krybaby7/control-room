@@ -1,4 +1,4 @@
-import type { Capture, Project, Task, Workspace } from './types.ts';
+import type { Capture, Project, Task, Workspace, TaskClassification } from './types.ts';
 import { parseWorkspaceExport, WORKSPACE_LIMITS } from './workspace-validation.ts';
 
 export const BASELINE_ID = '2026-10-17' as const;
@@ -17,7 +17,7 @@ export interface ProjectBaselineData {
   checkedAt: string; status: string; accomplishments: string[]; blockers: string[];
   provenance: string; sources: BaselineSource[]; actions: BaselineAction[];
 }
-export interface BaselineProposal extends BaselineAction { id: string; milestoneId: string | null; milestoneNote: string; exists: boolean; removed:boolean; currentProjectId?:string; }
+export interface BaselineProposal extends BaselineAction,TaskClassification { id: string; milestoneId: string | null; milestoneNote: string; exists: boolean; removed:boolean; currentProjectId?:string; }
 export interface BaselineApplicationState {
   status: 'available' | 'applied' | 'incomplete' | 'conflict' | 'unsupported';
   markerId: string | null; existingCount: number; missingCount: number; message: string;
@@ -162,7 +162,7 @@ export function previewProjectBaseline(workspace: Workspace, projectId: string, 
       : 'Unlinked: broader release scope; choose a milestone when appropriate.';
     const id = baselineRecordId(projectId, action.key);
     const existing=workspace.tasks.find(task=>task.id===id);
-    return { ...action, id, milestoneId, milestoneNote, exists:Boolean(existing), removed:!existing&&removedIds.includes(id), ...(existing?{currentProjectId:existing.projectId}:{}) };
+    return { ...action, areaId:existing?.areaId??null,workType:existing?.workType??'other',id, milestoneId, milestoneNote, exists:Boolean(existing), removed:!existing&&removedIds.includes(id), ...(existing?{currentProjectId:existing.projectId}:{}) };
   });
 }
 
@@ -172,7 +172,7 @@ export function baselineApplicationState(workspace: Workspace, projectId: string
   const proposals = previewProjectBaseline(workspace, projectId, removedIds);
   const markerId = baselineRecordId(projectId, 'context');
   const expected = new Map([...proposals.map(p => [p.id, 'task'] as const), [markerId, 'capture'] as const]);
-  for (const [kind, records] of [['project', workspace.projects], ['milestone', workspace.milestones], ['task', workspace.tasks], ['capture', workspace.captures], ['activity', workspace.activity]] as const) {
+  for (const [kind, records] of [['area', workspace.areas??[]],['project', workspace.projects], ['milestone', workspace.milestones], ['task', workspace.tasks], ['capture', workspace.captures], ['activity', workspace.activity]] as const) {
     for (const entry of records) {
       const expectedKind = expected.get(entry.id);
       if (expectedKind && kind !== expectedKind) {
@@ -228,7 +228,7 @@ export function applyProjectBaseline(workspace: Workspace, projectId: string, ba
   const tasks: Task[] = proposals.map(proposal => {
     const sources = baseline.sources.filter(source => proposal.sourceIds.includes(source.id));
     return {
-      id: proposal.id, estimateMinutes:null, projectId, milestoneId: proposal.milestoneId, title: proposal.title,
+      id: proposal.id, areaId:proposal.areaId,workType:proposal.workType,estimateMinutes:null, projectId, milestoneId: proposal.milestoneId, title: proposal.title,
       notes: `Proposed from baseline ${BASELINE_ID}. Existing work: ${proposal.existingWork}.\n\nAcceptance: ${proposal.acceptance}\n\nMilestone: ${proposal.milestoneNote}\n\nSource evidence (dated; not a new verification):\n${sources.map(sourceText).join('\n\n')}`,
       status: 'proposed', horizon: proposal.horizon, priority: 'normal', dueDate: null,
       weekly: false, weeklyWeek: null, dependsOn: [], blocker: '', sourceUrl: sources.find(source => source.url)?.url ?? null,

@@ -1,3 +1,5 @@
+import {historySourceCommandHandlers} from './history/commands.ts';
+import {roadmapCommandHandlers} from './history/roadmap-store.ts';
 import {createdPlanningEntityId} from './history-planning-identity.ts';
 import {agentCommandHandlers} from './agents/commands.ts';
 import {deviceRuntimeHandlers} from './runtime/commands.ts';
@@ -82,3 +84,7 @@ for(const type of reviewCommandTypes)(workspaceHandlers as Map<string,import('./
 for(const [type,handler] of deviceRuntimeHandlers)(workspaceHandlers as Map<string,import('./workspace-transaction.ts').CommandHandler>).set(type,handler);
 
 for(const [type,handler] of agentCommandHandlers)(workspaceHandlers as Map<string,import('./workspace-transaction.ts').CommandHandler>).set(type,handler);
+
+for(const [type,handler]of roadmapCommandHandlers)(workspaceHandlers as Map<string,import('./workspace-transaction.ts').CommandHandler>).set(type,handler);
+
+for(const [type,handler]of historySourceCommandHandlers)(workspaceHandlers as Map<string,import('./workspace-transaction.ts').CommandHandler>).set(type,handler);

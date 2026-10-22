@@ -21,7 +21,7 @@ import {validateOperationalWatermarks} from './operational-watermarks.ts';
 import {canonicalJsonValue} from './audit-events.ts';
 import {getWorkspaceNamespaces} from './workspace-namespaces.ts';
 import {parseWorkspaceExport} from './workspace-validation.ts';
-const streams:Partial<Record<RegisteredOwnerTable,string>>={agent_results:'agents',evaluation_runs:'agents',source_observations:'sources',source_sync_runs:'sources',integration_history:'sources',review_snapshots:'reviews',review_analysis_runs:'reviews',notification_events:'notifications',automation_occurrences:'automations'};
+const streams:Partial<Record<RegisteredOwnerTable,string>>={project_history:'history',agent_results:'agents',evaluation_runs:'agents',source_observations:'sources',source_sync_runs:'sources',integration_history:'sources',review_snapshots:'reviews',review_analysis_runs:'reviews',notification_events:'notifications',automation_occurrences:'automations'};
 
 type CapturedPhysicalRow=ModuleRow&{stream_sequence?:number};
 /** Closed read-only batches retain independent key cursors, exact row shapes,
@@ -29,7 +29,7 @@ type CapturedPhysicalRow=ModuleRow&{stream_sequence?:number};
 async function readPhysicalImage(db:SqlDatabase,owner:string,auditWatermarks:Record<string,number>):Promise<{physical:Map<RegisteredOwnerTable,CapturedPhysicalRow[]>;auditPage:Record<string,unknown>[]} >{
  // The closed inventory includes the personal PC state. Each statement still
  // reads at most 36 physical pages plus audit; the final boundary guards both batches.
- if(OWNER_TABLES.length>37)throw new Error('Physical snapshot table batch bound exceeded.');
+ if(OWNER_TABLES.length>38)throw new Error('Physical snapshot table batch bound exceeded.');
  const image=new Map<RegisteredOwnerTable,CapturedPhysicalRow[]>(),after=new Map<RegisteredOwnerTable,string>();
  let pending=[...OWNER_TABLES],retainedBytes=0,auditPage:Record<string,unknown>[]|undefined;
  for(const table of pending){image.set(table,[]);after.set(table,'');}
@@ -64,7 +64,7 @@ export interface ProspectiveRecoverabilityInput {
  agentTerminalReserveDelta?:number;
  now:string;planningAfter?:Workspace;writes?:GuardedWrite[];replacements?:ModuleReplacement[];
  events?:AuditEventDraft[];historyImports?:MutationPlan['historyImports'];
- operationalWrites?:Array<{table:RegisteredOwnerTable;value:JsonValue;streamSequence:number}>;
+ operationalWrites?:Array<{table:RegisteredOwnerTable;value:JsonValue;streamSequence:number;operation?:'insert'|'update';expectedRowRevision?:number}>;
  operationalEvents?:Array<{event:AuditEventDraft;streamId:string;sequence:number}>;
  operationalWatermarksAfter?:Record<string,number>;
 }
@@ -134,7 +134,19 @@ export async function measureProspectiveRecoverability(db:SqlDatabase,owner:stri
   if(write.operation!=='insert'&&write.operation!=='update'||write.value===undefined)throw new Error('Invalid prospective row operation.');await moduleProjection(table,write.id,write.value);
   rows.set(write.id,{id:write.id,row_revision:(before?.row_revision??0)+1,payload_json:canonical(write.value),content_hash:await contentHash(canonical(write.value))});if(!before)sequences.set(key,0);
  }
- for(const write of input.operationalWrites??[]){const table=ownerTable(write.table),stream=streams[table]??(table==='source_proposals'?'sources':undefined),id=(write.value as {id?:unknown})?.id;if(!stream||typeof id!=='string'||!Number.isSafeInteger(write.streamSequence)||write.streamSequence<1||write.streamSequence<=(boundaryWatermarks[stream]??0)||write.streamSequence>(watermarks[stream]??0))throw new Error('Operational insert is outside its prospective watermark.');const key=`${table}:${id}`;if(replaced.has(table)||changed.has(key)||physical.get(table)!.has(id))throw new Error('Duplicate operational physical identity.');changed.add(key);await moduleProjection(table,id,write.value);physical.get(table)!.set(id,{id,row_revision:1,payload_json:canonical(write.value),content_hash:await contentHash(canonical(write.value))});sequences.set(key,write.streamSequence);}
+ for(const write of input.operationalWrites??[]){
+  const table=ownerTable(write.table),stream=streams[table]??(table==='source_proposals'?'sources':undefined),id=(write.value as {id?:unknown})?.id;
+  if(!stream||typeof id!=='string'||!Number.isSafeInteger(write.streamSequence)||write.streamSequence<1||write.streamSequence<=(boundaryWatermarks[stream]??0)||write.streamSequence>(watermarks[stream]??0))throw new Error('Operational write is outside its prospective watermark.');
+  const key=`${table}:${id}`,prior=physical.get(table)!.get(id),updating=write.operation==='update';
+  if(replaced.has(table)||changed.has(key))throw new Error('Duplicate operational physical identity.');
+  if(updating){
+   if(table!=='project_history'||!prior||!Number.isSafeInteger(write.expectedRowRevision)||prior.row_revision!==write.expectedRowRevision)throw new Error('Operational row revision differs.');
+  }else if(prior!==undefined||write.expectedRowRevision!==undefined||write.operation!==undefined&&write.operation!=='insert')throw new Error('Duplicate operational physical identity.');
+  changed.add(key);await moduleProjection(table,id,write.value);
+  physical.get(table)!.set(id,{id,row_revision:updating?prior!.row_revision+1:1,payload_json:canonical(write.value),content_hash:await contentHash(canonical(write.value))});
+  sequences.set(key,write.streamSequence);
+ }
+
  for(const table of OWNER_TABLES)if(physical.get(table)!.size&&!exportRegistry.entries().some(adapter=>moduleTables(adapter).includes(table)))throw new Error('Prospective populated module has no export adapter.');
  finishProjectPlan();
  const finishAfterSerializer=startRecoverabilityPhase(db,'afterserializer');

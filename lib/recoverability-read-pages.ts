@@ -7,7 +7,7 @@ import {validateOperationalWatermarks} from './operational-watermarks.ts';
 export const RECOVERY_READ_GROUP_PAGES=37;
 export const RECOVERY_READ_COMPOUND_TERMS=5;
 const auditTag='__audit__';
-const streamTables=new Set<RegisteredOwnerTable>(['agent_results','evaluation_runs','source_observations','source_sync_runs','integration_history','review_snapshots','review_analysis_runs','notification_events','automation_occurrences']);
+const streamTables=new Set<RegisteredOwnerTable>(['project_history','agent_results','evaluation_runs','source_observations','source_sync_runs','integration_history','review_snapshots','review_analysis_runs','notification_events','automation_occurrences']);
 const columns=['snapshot_tag','snapshot_empty','id','row_revision','payload_json','content_hash','stream_sequence','workspace_revision','ordinal','stream_id','kind','entity_type','entity_id','occurred_at'] as const;
 const orderedColumns=[...columns].sort(),nullAudit='NULL AS workspace_revision,NULL AS ordinal,NULL AS stream_id,NULL AS kind,NULL AS entity_type,NULL AS entity_id,NULL AS occurred_at';
 type AuditPage={after:string;watermarks:Record<string,number>};
@@ -16,7 +16,7 @@ export type RecoveryPhysicalRow=ModuleRow&{stream_sequence?:number};
 export interface RecoveryReadPages {physical:Map<RegisteredOwnerTable,RecoveryPhysicalRow[]>;auditPage?:Record<string,unknown>[]}
 function fail():never{throw new Error('Invalid closed recovery page response.');}
 function validateInput(input:RecoveryReadPageInput):void{
- if(!input||OWNER_TABLES.length>37||BUNDLE_LIMITS.pageSize!==200||!Array.isArray(input.tables)||!input.tables.length||input.tables.length>36||new Set(input.tables.map(value=>value?.table)).size!==input.tables.length)fail();
+ if(!input||OWNER_TABLES.length>38||BUNDLE_LIMITS.pageSize!==200||!Array.isArray(input.tables)||!input.tables.length||input.tables.length>36||new Set(input.tables.map(value=>value?.table)).size!==input.tables.length)fail();
  for(const value of input.tables)if(!value||!OWNER_TABLES.includes(value.table)||typeof value.after!=='string')fail();
  if(input.audit){if(typeof input.audit.after!=='string')fail();validateOperationalWatermarks(input.audit.watermarks);}
 }
