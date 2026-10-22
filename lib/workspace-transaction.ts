@@ -1,3 +1,4 @@
+import {createsHistoryOwnerGrant} from './history/owner-grants.ts';
 import {parseHistoryRecord} from './history/record.ts';
 import {generationAssertionStatements} from './generation-assertions.ts';
 import {readFinalMutation} from './final-mutation-read.ts';
@@ -296,10 +297,10 @@ async function executeWorkspaceCommandAdmitted(userId:string,input:{protocolVers
     assertion("NOT EXISTS (SELECT 1 FROM attachment_archive_stages WHERE user_id=? AND import_id=? AND (import_hash<>? OR status<>'verified' OR target_revision<>? OR expires_at<=?))",[userId,plan.importSource.id,plan.importSource.hash,revision,now]);
     statements.push(db.prepare(`UPDATE attachment_archive_stages SET status='committed' WHERE user_id=? AND import_id=? AND import_hash=? AND status='verified' AND target_revision=? AND expires_at>? AND ${claim}`).bind(userId,plan.importSource.id,plan.importSource.hash,revision,now,...guard));
   }
-  if(command.type==='roadmap.agree'||command.type==='checkpoint.assess')for(const write of plan.writes)if(write.table==='project_history'){
+  if(['roadmap.agree','checkpoint.assess','history.association.set'].includes(command.type))for(const write of plan.writes)if(write.table==='project_history'){
     const value=parseHistoryRecord(write.value);
     if(value.id!==write.id)throw new CommandValidationError('History grant identity differs.');
-    if(command.type==='roadmap.agree'&&value.kind==='roadmap_head'&&write.operation==='update'&&value.value.agreedAt===now||command.type==='checkpoint.assess'&&value.kind==='checkpoint_assessment'&&write.operation==='insert'&&value.value.recordedAt===now)
+    if(createsHistoryOwnerGrant(command.type,value,write.operation,now,id))
       statements.push(db.prepare(`INSERT OR IGNORE INTO acceptance_owner_grants(user_id,record_id,content_hash) SELECT ?,?,? WHERE ${claim}`).bind(userId,write.id,await hashJson(value),...guard));
   }
   if(command.type==='acceptance.record')for(const write of plan.writes)if(write.table==='acceptance_records'&&write.operation==='insert'){

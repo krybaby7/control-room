@@ -1,3 +1,4 @@
+import {privateRowGrowth,type PrivateGrowth} from '../private-capacity.ts';
 import {canonical,contentHash} from '../canonical-json.ts';
 import type {ModuleRow} from '../workspace-modules.ts';
 import type {SqlDatabase,SqlStatement} from '../workspace-store.ts';
@@ -30,6 +31,7 @@ export async function listHistoryRecords<K extends HistoryRecordKind>(db:SqlData
 }
 export interface HistoryProposedRow {id:string;value:HistoryRecord;rowRevision:number;previous:StoredHistoryRecord|null;streamSequence:number}
 export interface HistoryAdmissionContext {
+ additionalPrivateGrowth?:readonly PrivateGrowth[];
  owner:string;now:string;mutationId:string;planningRevision:number;watermark:number;
  rows:HistoryProposedRow[];
  guard:string;guardBindings:(string|number|null)[];
@@ -77,7 +79,18 @@ export async function ingestHistoryPage(db:SqlDatabase,owner:string,input:unknow
  validateCollectionEnvelope(envelope,page.objectManifest,{authenticatedOwnerId:owner,conversations:[...retainedConversations].map(([id])=>({id,ownerId:owner,sourceId:page.sourceId})),messages:[...retainedMessages].map(([id])=>({id,ownerId:owner,sourceId:page.sourceId}))});
  for(const conversation of page.conversations)if(conversation.parentConversationId&&!page.conversations.some(c=>c.id===conversation.parentConversationId)&&!retainedConversations.has(conversation.parentConversationId))throw Error('Foreign parent conversation.');
  const retainedSegments:StoredHistoryRecord<'segment'>[]=[];
- for(const segment of page.segments)if(segment.inheritedFromSegmentId){const within=page.segments.find(row=>row.id===segment.inheritedFromSegmentId);const retained=within?null:await readHistoryRecord(db,owner,'segment',segment.inheritedFromSegmentId);const parent=within??retained?.record.value;if(!parent||parent.sourceId!==page.sourceId||parent.conversationId!==segment.conversationId)throw Error('Foreign inherited segment.');if(segment.inheritedRange?.unit==='bytes'&&(parent.bytes===null||segment.inheritedRange.end>parent.bytes))throw Error('Inherited segment range exceeds retained bytes.');if(retained)retainedSegments.push(retained);}
+ for(const segment of page.segments)if(segment.inheritedFromSegmentId){
+  const within=page.segments.find(row=>row.id===segment.inheritedFromSegmentId),retained=within?null:await readHistoryRecord(db,owner,'segment',segment.inheritedFromSegmentId),parent=within??retained?.record.value;
+  const missingProof=page.gaps.some(gap=>gap.sourceId===page.sourceId&&gap.conversationId===segment.conversationId&&gap.kind==='missing_segment'&&gap.resolvedAt===null);
+  // A fork may inherit the original segment from a different conversation in
+  // this source. Missing lineage is retained as an explicit gap, never complete.
+  if(parent&&parent.sourceId!==page.sourceId||!parent&&!missingProof)throw Error('Foreign or unexplained missing inherited segment.');
+  if(segment.inheritedRange?.unit==='bytes'){
+   if(parent?.bytes!==null&&parent?.bytes!==undefined&&segment.inheritedRange.end>parent.bytes)throw Error('Inherited segment range exceeds retained bytes.');
+   if((!parent||parent.bytes===null)&&!missingProof)throw Error('Unknown inherited byte range requires an explicit missing segment gap.');
+  }
+  if(retained)retainedSegments.push(retained);
+ }
  const planning=(await db.prepare('SELECT revision FROM workspaces WHERE user_id=?').bind(owner).first<{revision:number}>());if(!planning)throw Error('History owner workspace is unavailable.');
  const head=await db.prepare("SELECT revision,last_sequence FROM operational_stream_heads WHERE user_id=? AND stream_id='history'").bind(owner).first<{revision:number;last_sequence:number}>();
  const sequence=(head?.last_sequence??0)+1;if(!Number.isSafeInteger(sequence)||sequence<1)throw Error('History operational watermark exceeded.');
@@ -101,6 +114,18 @@ export async function ingestHistoryPage(db:SqlDatabase,owner:string,input:unknow
  async function propose<K extends HistoryRecordKind>(kind:K,logicalId:string,value:HistoryRecordValue<K>,mutable=false){
   const id=await historyRecordId(kind,logicalId),record=parseHistoryRecord({id,kind,value}),previous=await readHistoryRecord(db,owner,kind,logicalId);
   if(previous&&canonical(previous.record)===canonical(record)){unchanged.push(previous);return;}
+  if(previous&&previous.record.kind===record.kind){
+   // First-observed clocks and opaque physical keys are acquisition metadata,
+   // not a different immutable provider revision. Fresh bytes still passed the
+   // current source/object guards above; keep the original retained record.
+   const comparable=(candidate:HistoryRecord)=>{
+    if(candidate.kind==='message'){const {observedAt,bodyObjectKey,...value}=candidate.value;void observedAt;void bodyObjectKey;return {kind:candidate.kind,value};}
+    if(candidate.kind==='segment'||candidate.kind==='attachment'){const {objectKey,...value}=candidate.value;void objectKey;return {kind:candidate.kind,value};}
+    if(candidate.kind==='gap'){const {detectedAt,...value}=candidate.value;void detectedAt;return {kind:candidate.kind,value};}
+    return candidate;
+   };
+   if(canonical(comparable(previous.record))===canonical(comparable(record))){unchanged.push(previous);return;}
+  }
   if(previous&&!mutable)throw Error('Immutable history record identity differs.');
   rows.push({id,value:record,rowRevision:(previous?.rowRevision??0)+1,previous,streamSequence:sequence});
  }
@@ -132,9 +157,17 @@ export async function ingestHistoryPage(db:SqlDatabase,owner:string,input:unknow
  if(!cursor)statements.push(assertion('NOT EXISTS(SELECT 1 FROM project_history WHERE user_id=? AND id=?)',[owner,await historyRecordId('cursor',page.sourceId)]));
  if(run)statements.push(assertion('EXISTS(SELECT 1 FROM project_history WHERE user_id=? AND id=? AND row_revision=? AND content_hash=?)',[owner,run.record.id,run.rowRevision,run.contentHash]));else statements.push(assertion('NOT EXISTS(SELECT 1 FROM project_history WHERE user_id=? AND id=?)',[owner,await historyRecordId('sync_run',runLogical)]));
  for(const row of rows)if(!row.previous)statements.push(assertion('NOT EXISTS(SELECT 1 FROM project_history WHERE user_id=? AND id=?)',[owner,row.id]));
+ // A re-enrolled source may upload equivalent bytes that correctly retain an
+ // earlier immutable key. After this exact page commits, unreferenced settled
+ // new objects become abandoned (never physical deletion in this transaction).
+ const retainedKeys=new Set<string>();for(const proposed of [...rows.map(row=>row.value),...unchanged.map(row=>row.record)]){const value=proposed.value as unknown as Record<string,unknown>;for(const field of ['bodyObjectKey','objectKey'])if(typeof value[field]==='string')retainedKeys.add(value[field] as string);}
+ const candidates=page.objectManifest.filter(manifest=>!retainedKeys.has(manifest.key)).map(manifest=>manifest.key);
+ const unused:string[]=[];if(candidates.length){const referenced=(await db.prepare("SELECT DISTINCT candidate.value key FROM json_each(?) candidate JOIN project_history record ON record.user_id=? AND (json_extract(record.payload_json,'$.value.bodyObjectKey')=candidate.value OR json_extract(record.payload_json,'$.value.objectKey')=candidate.value)").bind(canonical(candidates),owner).all<{key:string}>()).results;const used=new Set(referenced.map(row=>row.key));unused.push(...candidates.filter(key=>!used.has(key)));}
+ const unitGrowth=privateRowGrowth('history_object_ledger',{status:'ready'},{status:'abandoned'}),additionalPrivateGrowth=unused.length?[{...unitGrowth,bytes:unitGrowth.bytes*unused.length}]:[];
  const jobId='history_analysis_'+receiptLogical,job={id:jobId,kind:'area_analysis' as const,dedupeKey:receiptLogical,payload:{sourceId:page.sourceId,epoch:envelope.epoch,scopeRevision:envelope.scopeRevision,watermark:sequence,pageId:page.pageId},executionEpoch:globalEpoch};
- statements.push(...await options.prepareAdmission({owner,now:options.now,mutationId,planningRevision:planning.revision,watermark:sequence,rows,guard,guardBindings,job}));
+ statements.push(...await options.prepareAdmission({owner,now:options.now,mutationId,planningRevision:planning.revision,watermark:sequence,rows,guard,guardBindings,job,additionalPrivateGrowth}));
  for(const row of rows){const payload=canonical(row.value),hash=await contentHash(payload);if(row.previous)statements.push(db.prepare(`UPDATE project_history SET row_revision=?,payload_json=?,content_hash=?,stream_sequence=? WHERE user_id=? AND id=? AND row_revision=? AND ${guard}`).bind(row.rowRevision,payload,hash,sequence,owner,row.id,row.previous.rowRevision,...guardBindings));else statements.push(db.prepare(`INSERT INTO project_history(user_id,id,row_revision,payload_json,content_hash,stream_sequence) SELECT ?,?,?,?,?,? WHERE ${guard}`).bind(owner,row.id,row.rowRevision,payload,hash,sequence,...guardBindings));}
+ if(unused.length)statements.push(db.prepare(`UPDATE history_object_ledger SET status='abandoned' WHERE user_id=? AND source_id=? AND epoch=? AND scope_revision=? AND status='ready' AND pending_token IS NULL AND purged_at IS NULL AND key IN(SELECT value FROM json_each(?)) AND NOT EXISTS(SELECT 1 FROM project_history record WHERE record.user_id=history_object_ledger.user_id AND (json_extract(record.payload_json,'$.value.bodyObjectKey')=history_object_ledger.key OR json_extract(record.payload_json,'$.value.objectKey')=history_object_ledger.key)) AND ${guard}`).bind(owner,page.sourceId,envelope.epoch,envelope.scopeRevision,canonical(unused),...guardBindings));
  statements.push(db.prepare(`INSERT INTO operational_stream_heads(user_id,stream_id,revision,last_sequence) SELECT ?,'history',?,? WHERE ${guard} ON CONFLICT(user_id,stream_id) DO UPDATE SET revision=excluded.revision,last_sequence=excluded.last_sequence`).bind(owner,(head?.revision??0)+1,sequence,...guardBindings));
  statements.push(db.prepare(`INSERT INTO workspace_job_intents(user_id,id,kind,dedupe_key,payload_json,not_before,status,execution_epoch,cancel_requested) SELECT ?,?,'area_analysis',?,?,?,'pending',?,0 WHERE ${guard}`).bind(owner,jobId,receiptLogical,canonical(job.payload),options.now,globalEpoch,...guardBindings));
  statements.push(assertion("EXISTS(SELECT 1 FROM project_history WHERE user_id=? AND id=? AND stream_sequence=?) AND EXISTS(SELECT 1 FROM operational_stream_heads WHERE user_id=? AND stream_id='history' AND last_sequence=?) AND EXISTS(SELECT 1 FROM workspaces WHERE user_id=? AND revision=?)",[owner,await historyRecordId('ingest_page',receiptLogical),sequence,owner,sequence,owner,planning.revision]));

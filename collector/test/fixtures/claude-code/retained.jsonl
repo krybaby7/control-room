@@ -1,0 +1,6 @@
+{"type":"user","uuid":"user-original","parentUuid":null,"sessionId":"retained-session","timestamp":"2026-10-01T10:00:00.000Z","message":{"role":"user","content":"Café\r\n😀"}}
+{"type":"assistant","uuid":"assistant-original","parentUuid":"user-original","sessionId":"retained-session","message":{"role":"assistant","content":[{"type":"text","text":"Same retained prose"}]}}
+{"type":"assistant","uuid":"assistant-original","parentUuid":"user-original","sessionId":"retained-session","message":{"role":"assistant","content":[{"type":"text","text":"Same retained prose"}]}}
+{"type":"assistant","uuid":"assistant-distinct","parentUuid":"assistant-original","sessionId":"retained-session","message":{"role":"assistant","content":[{"type":"text","text":"Same retained prose"}]}}
+{"type":"system","uuid":"compact-boundary","parentUuid":"assistant-distinct","sessionId":"retained-session","subtype":"compact_boundary","compactMetadata":{"trigger":"manual","preTokens":42}}
+{"type":"summary","uuid":"compact-summary","parentUuid":"compact-boundary","sessionId":"retained-session","summary":"Synthetic summary does not replace retained originals","leafUuid":"assistant-distinct"}

@@ -20,6 +20,7 @@ export interface HistoryObjectDeps {
   guardSql?:HistoryObjectSqlGuard;
   now?:()=>string;
 }
+export class HistoryObjectAttemptError extends Error{readonly code:'pending'|'failed';constructor(code:'pending'|'failed'){super('History object attempt '+code);this.code=code;}}
 export const MAX_HISTORY_OBJECT_BYTES=16*1024*1024;
 export const MAX_HISTORY_OWNER_OBJECT_BYTES=256*1024*1024;
 const now=(deps:HistoryObjectDeps)=>deps.now?.()??new Date().toISOString();
@@ -38,18 +39,31 @@ async function verify(deps:HistoryObjectDeps,manifest:HistoryObjectManifest){
   return bytes;
 }
 /** Each call issues a new opaque key. Caller-supplied keys and overwrites are never accepted. */
-export async function stageHistoryObject(deps:HistoryObjectDeps,input:HistoryObjectScope&{bytes:Uint8Array;sha256:string}):Promise<HistoryObjectManifest>{
+export async function stageHistoryObject(deps:HistoryObjectDeps,input:HistoryObjectScope&{bytes:Uint8Array;sha256:string;reservationKey?:string}):Promise<HistoryObjectManifest>{
   scopeValues(input);
   if(!(input.bytes instanceof Uint8Array)||input.bytes.byteLength>MAX_HISTORY_OBJECT_BYTES)throw Error('History object exceeds bounded byte limit.');
   const value=input.bytes.slice();
-  const manifest={key:`history/${crypto.randomUUID()}/${crypto.randomUUID()}`,sha256:input.sha256,bytes:value.byteLength};
+  const manifest={key:input.reservationKey??`history/${crypto.randomUUID()}/${crypto.randomUUID()}`,sha256:input.sha256,bytes:value.byteLength};
   validateManifest(manifest);
   if(await digest(value)!==manifest.sha256)throw Error('History object digest mismatch.');
   await authorized(deps);
+  if(input.reservationKey){
+    const existing=await deps.db.prepare('SELECT source_id,epoch,scope_revision,sha256,bytes,status,pending_token,purged_at FROM history_object_ledger WHERE user_id=? AND key=?').bind(input.ownerId,manifest.key).first<{source_id:string;epoch:string;scope_revision:number;sha256:string;bytes:number;status:string;pending_token:string|null;purged_at:string|null}>();
+    if(existing){
+      if(existing.source_id!==input.sourceId||existing.epoch!==input.epoch||existing.scope_revision!==input.scopeRevision||existing.sha256!==manifest.sha256||existing.bytes!==manifest.bytes)throw Error('History upload identity was reused with different bytes or scope.');
+      if(existing.status==='staging'||existing.pending_token!==null)throw new HistoryObjectAttemptError('pending');
+      if(existing.status!=='ready'||existing.purged_at!==null)throw new HistoryObjectAttemptError('failed');
+      if(deps.guardSql&&!await deps.db.prepare('SELECT 1 WHERE '+deps.guardSql.sql).bind(...deps.guardSql.params).first())throw Error('History upload authority changed.');
+      await verify(deps,manifest);await authorized(deps);return manifest;
+    }
+  }
   const token=crypto.randomUUID();
   const createdAt=now(deps),row={user_id:input.ownerId,key:manifest.key,source_id:input.sourceId,epoch:input.epoch,scope_revision:input.scopeRevision,sha256:manifest.sha256,bytes:manifest.bytes,status:'staging',pending_token:token,created_at:createdAt};
   const capacity=await requirePrivateCapacity(deps.db,input.ownerId,{growth:[await privateInsertGrowth(deps.db,'history_object_ledger',row)]});
-  const admitted=await deps.db.prepare(`INSERT INTO history_object_ledger(user_id,key,source_id,epoch,scope_revision,sha256,bytes,status,pending_token,created_at) SELECT ?,?,?,?,?,?,?,'staging',?,? WHERE ${capacity.sql} AND (SELECT COUNT(*) FROM history_object_ledger WHERE user_id=? AND purged_at IS NULL)<10000 AND (SELECT COALESCE(SUM(bytes),0) FROM history_object_ledger WHERE user_id=? AND purged_at IS NULL)<=?${deps.guardSql?` AND (${deps.guardSql.sql})`:''}`).bind(input.ownerId,manifest.key,input.sourceId,input.epoch,input.scopeRevision,manifest.sha256,manifest.bytes,token,createdAt,...capacity.bindings,input.ownerId,input.ownerId,MAX_HISTORY_OWNER_OBJECT_BYTES-manifest.bytes,...(deps.guardSql?.params??[])).run();
+  let admitted;try{admitted=await deps.db.prepare(`INSERT INTO history_object_ledger(user_id,key,source_id,epoch,scope_revision,sha256,bytes,status,pending_token,created_at) SELECT ?,?,?,?,?,?,?,'staging',?,? WHERE ${capacity.sql} AND (SELECT COUNT(*) FROM history_object_ledger WHERE user_id=? AND purged_at IS NULL)<10000 AND (SELECT COALESCE(SUM(bytes),0) FROM history_object_ledger WHERE user_id=? AND purged_at IS NULL)<=?${deps.guardSql?` AND (${deps.guardSql.sql})`:''}`).bind(input.ownerId,manifest.key,input.sourceId,input.epoch,input.scopeRevision,manifest.sha256,manifest.bytes,token,createdAt,...capacity.bindings,input.ownerId,input.ownerId,MAX_HISTORY_OWNER_OBJECT_BYTES-manifest.bytes,...(deps.guardSql?.params??[])).run();}catch(error){
+    if(input.reservationKey&&await deps.db.prepare('SELECT 1 FROM history_object_ledger WHERE user_id=? AND key=?').bind(input.ownerId,manifest.key).first())return stageHistoryObject(deps,input);
+    throw error;
+  }
   if(admitted.meta.changes!==1)throw Error('History object capacity or authority changed before staging.');
   // The pending token stays persisted until the actual physical attempt settles. A timed-out
   // caller must not detach the PUT and clear it, or later cleanup could race a late write.
@@ -93,11 +107,11 @@ export async function readHistoryObject(deps:HistoryObjectDeps,scope:HistoryObje
 }
 /** Maintenance-only: ready objects are never candidates. Abandoned objects cannot be
  * referenced by ingestion, and can never return to ready or start another physical PUT. */
-export async function purgeAbandonedHistoryObjects(deps:HistoryObjectDeps,ownerId:string,graceMs:number,isReferenced:(ownerId:string,key:string)=>Promise<boolean>):Promise<number>{
+export async function purgeAbandonedHistoryObjects(deps:HistoryObjectDeps,ownerId:string,graceMs:number,isReferenced:(ownerId:string,key:string)=>Promise<boolean>,sourceId?:string):Promise<number>{
   if(!ownerId||!Number.isSafeInteger(graceMs)||graceMs<0)throw Error('Invalid history object cleanup policy.');
   await authorized(deps);
   const cutoff=new Date(Date.parse(now(deps))-graceMs).toISOString();
-  const rows=(await deps.db.prepare("SELECT key FROM history_object_ledger WHERE user_id=? AND status='abandoned' AND pending_token IS NULL AND purged_at IS NULL AND created_at<=? ORDER BY key LIMIT 100").bind(ownerId,cutoff).all<{key:string}>()).results;
+  const rows=(await deps.db.prepare(`SELECT key FROM history_object_ledger WHERE user_id=? AND status='abandoned' AND pending_token IS NULL AND purged_at IS NULL AND created_at<=?${sourceId?' AND source_id=?':''} ORDER BY key LIMIT 100`).bind(ownerId,cutoff,...(sourceId?[sourceId]:[])).all<{key:string}>()).results;
   let purged=0;
   for(const {key} of rows){
     if(await isReferenced(ownerId,key))continue;

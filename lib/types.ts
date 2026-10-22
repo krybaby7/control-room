@@ -18,6 +18,7 @@ export interface Activity { id: string; text: string; at: string; projectId: str
 export interface Workspace { schemaVersion: 1 | 2 | 3 | 4 | 5; areas?:ProjectArea[]; projects: Project[]; milestones: Milestone[]; tasks: Task[]; captures: Capture[]; activity: Activity[]; }
 export interface WorkspaceEnvelope { workspace: Workspace; revision: number; updatedAt: string; previousBackupAvailable?: boolean; baselineRemovedIds?:string[]; }
 export type Command =
+  | import('./history/association-commands.ts').HistoryAssociationCommand
   | import('./history/commands.ts').HistorySourceCommand
   | import('./history/contracts.ts').RoadmapCommand
   | import('zod').infer<typeof import('./runtime/commands.ts').enrollmentCommandSchema>

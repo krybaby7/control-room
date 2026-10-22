@@ -48,6 +48,13 @@
       "forkTurns": "none",
       "accepted": true,
       "selectionEvidence": "Supported spawn_agent parameter accepted and canonical worker ID returned."
+    },
+    {
+      "workerId": "/root/lanes_ui",
+      "modelParameter": "gpt-6.1-sol",
+      "forkTurns": "none",
+      "accepted": true,
+      "selectionEvidence": "Supported spawn_agent accepted explicit model and returned canonical worker ID."
     }
   ],
   "approvedDirection": {
@@ -60,8 +67,8 @@
     ],
     "ownerAcceptance": "explicit"
   },
-  "currentStage": "S1",
-  "nextAction": "Run the complete corrected S1 exact-candidate Node24 suite, typecheck/lint/build and preserve any remaining failures. Freeze S1 only after acceptance, then implement S2-S6 against the fixed contracts.",
+  "currentStage": "S2",
+  "nextAction": "Integrate bounded readers, durable collector transport, SQL-backed continuation/job leases and validated story publication; wire Project lanes as the default home, then run exact integrated candidate regressions and packaging/browser/performance gates.",
   "stages": [
     {
       "id": "S0",
@@ -88,8 +95,10 @@
       "dependsOn": [
         "S0"
       ],
-      "status": "in_progress",
-      "evidence": [],
+      "status": "implemented",
+      "evidence": [
+        "Exact localbc57d07/public5a936891 tree474329ec:2037/2037Node24;typecheck/lint/buildpass. Prior57fail and4fail candidates retained; no thresholds/assertions weakened."
+      ],
       "blockers": []
     },
     {
@@ -103,7 +112,7 @@
       "dependsOn": [
         "S1"
       ],
-      "status": "not_started",
+      "status": "in_progress",
       "evidence": [],
       "blockers": []
     },
@@ -123,7 +132,7 @@
       "integrationDependencies": [
         "S2:first working adapter"
       ],
-      "status": "not_started",
+      "status": "in_progress",
       "evidence": [],
       "blockers": []
     },
@@ -143,7 +152,7 @@
       "integrationDependencies": [
         "S2:normalized fixtures and retained inputs"
       ],
-      "status": "not_started",
+      "status": "in_progress",
       "evidence": [],
       "blockers": []
     },
@@ -161,7 +170,7 @@
       "integrationDependencies": [
         "S4:area progress/story contracts"
       ],
-      "status": "not_started",
+      "status": "in_progress",
       "evidence": [],
       "blockers": []
     },
@@ -219,10 +228,18 @@
           "outcome": "Passing focused checks; complete corrected candidate rerun pending. See s1-verification.json for source-specific results.",
           "date": "2026-10-22",
           "evidenceRef": "docs/implementation/project-lanes-history/s1-verification.json"
+        },
+        {
+          "command": "npm test; npm run typecheck; npm run lint; npm run build",
+          "outcome": "2037/2037Node;0fail/cancel/skip;typecheck/lint/buildpass",
+          "date": "2026-10-22",
+          "sourceCommit": "5a9368917b78ab6682efd75d005fca93f40d9323",
+          "localEquivalentCommit": "bc57d07",
+          "tree": "474329ec7580f8a2a8e0f2647dd6e05e2670b4da"
         }
       ],
       "blockers": [],
-      "nextAction": "Accept full corrected S1 candidate before dependent features."
+      "nextAction": null
     },
     {
       "id": "F3",
@@ -236,10 +253,18 @@
           "outcome": "Passing focused checks; complete corrected candidate rerun pending. See s1-verification.json for source-specific results.",
           "date": "2026-10-22",
           "evidenceRef": "docs/implementation/project-lanes-history/s1-verification.json"
+        },
+        {
+          "command": "npm test; npm run typecheck; npm run lint; npm run build",
+          "outcome": "2037/2037Node;0fail/cancel/skip;typecheck/lint/buildpass",
+          "date": "2026-10-22",
+          "sourceCommit": "5a9368917b78ab6682efd75d005fca93f40d9323",
+          "localEquivalentCommit": "bc57d07",
+          "tree": "474329ec7580f8a2a8e0f2647dd6e05e2670b4da"
         }
       ],
       "blockers": [],
-      "nextAction": "Accept full corrected S1 candidate before dependent features."
+      "nextAction": null
     },
     {
       "id": "F4",
@@ -253,10 +278,18 @@
           "outcome": "Passing focused checks; complete corrected candidate rerun pending. See s1-verification.json for source-specific results.",
           "date": "2026-10-22",
           "evidenceRef": "docs/implementation/project-lanes-history/s1-verification.json"
+        },
+        {
+          "command": "npm test; npm run typecheck; npm run lint; npm run build",
+          "outcome": "2037/2037Node;0fail/cancel/skip;typecheck/lint/buildpass",
+          "date": "2026-10-22",
+          "sourceCommit": "5a9368917b78ab6682efd75d005fca93f40d9323",
+          "localEquivalentCommit": "bc57d07",
+          "tree": "474329ec7580f8a2a8e0f2647dd6e05e2670b4da"
         }
       ],
       "blockers": [],
-      "nextAction": "Accept full corrected S1 candidate before dependent features."
+      "nextAction": null
     },
     {
       "id": "F5",
@@ -270,10 +303,18 @@
           "outcome": "Passing focused checks; complete corrected candidate rerun pending. See s1-verification.json for source-specific results.",
           "date": "2026-10-22",
           "evidenceRef": "docs/implementation/project-lanes-history/s1-verification.json"
+        },
+        {
+          "command": "npm test; npm run typecheck; npm run lint; npm run build",
+          "outcome": "2037/2037Node;0fail/cancel/skip;typecheck/lint/buildpass",
+          "date": "2026-10-22",
+          "sourceCommit": "5a9368917b78ab6682efd75d005fca93f40d9323",
+          "localEquivalentCommit": "bc57d07",
+          "tree": "474329ec7580f8a2a8e0f2647dd6e05e2670b4da"
         }
       ],
       "blockers": [],
-      "nextAction": "Accept full corrected S1 candidate before dependent features."
+      "nextAction": null
     },
     {
       "id": "F6",
@@ -287,10 +328,18 @@
           "outcome": "Passing focused checks; complete corrected candidate rerun pending. See s1-verification.json for source-specific results.",
           "date": "2026-10-22",
           "evidenceRef": "docs/implementation/project-lanes-history/s1-verification.json"
+        },
+        {
+          "command": "npm test; npm run typecheck; npm run lint; npm run build",
+          "outcome": "2037/2037Node;0fail/cancel/skip;typecheck/lint/buildpass",
+          "date": "2026-10-22",
+          "sourceCommit": "5a9368917b78ab6682efd75d005fca93f40d9323",
+          "localEquivalentCommit": "bc57d07",
+          "tree": "474329ec7580f8a2a8e0f2647dd6e05e2670b4da"
         }
       ],
       "blockers": [],
-      "nextAction": "Accept full corrected S1 candidate before dependent features."
+      "nextAction": null
     },
     {
       "id": "C1",
@@ -304,80 +353,88 @@
           "outcome": "Passing focused checks; complete corrected candidate rerun pending. See s1-verification.json for source-specific results.",
           "date": "2026-10-22",
           "evidenceRef": "docs/implementation/project-lanes-history/s1-verification.json"
+        },
+        {
+          "command": "npm test; npm run typecheck; npm run lint; npm run build",
+          "outcome": "2037/2037Node;0fail/cancel/skip;typecheck/lint/buildpass",
+          "date": "2026-10-22",
+          "sourceCommit": "5a9368917b78ab6682efd75d005fca93f40d9323",
+          "localEquivalentCommit": "bc57d07",
+          "tree": "474329ec7580f8a2a8e0f2647dd6e05e2670b4da"
         }
       ],
       "blockers": [],
-      "nextAction": "Accept full corrected S1 candidate before dependent features."
+      "nextAction": null
     },
     {
       "id": "C2",
       "chapter": "02-history-collection.md",
-      "status": "not_started",
+      "status": "in_progress",
       "changedFiles": [],
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": null
+      "nextAction": "Complete actual shared storage/runtime/UI integration and regression evidence; fixtures do not prove live source/device coverage."
     },
     {
       "id": "C3",
       "chapter": "02-history-collection.md",
-      "status": "not_started",
+      "status": "in_progress",
       "changedFiles": [],
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": null
+      "nextAction": "Complete actual shared storage/runtime/UI integration and regression evidence; fixtures do not prove live source/device coverage."
     },
     {
       "id": "C4",
       "chapter": "02-history-collection.md",
-      "status": "not_started",
+      "status": "in_progress",
       "changedFiles": [],
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": null
+      "nextAction": "Complete actual shared storage/runtime/UI integration and regression evidence; fixtures do not prove live source/device coverage."
     },
     {
       "id": "C5",
       "chapter": "02-history-collection.md",
-      "status": "not_started",
+      "status": "in_progress",
       "changedFiles": [],
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": null
+      "nextAction": "Complete actual shared storage/runtime/UI integration and regression evidence; fixtures do not prove live source/device coverage."
     },
     {
       "id": "A1",
       "chapter": "03-automatic-sync.md",
-      "status": "not_started",
+      "status": "in_progress",
       "changedFiles": [],
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": null
+      "nextAction": "Complete actual shared storage/runtime/UI integration and regression evidence; fixtures do not prove live source/device coverage."
     },
     {
       "id": "A2",
       "chapter": "03-automatic-sync.md",
-      "status": "not_started",
+      "status": "in_progress",
       "changedFiles": [],
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": null
+      "nextAction": "Complete actual shared storage/runtime/UI integration and regression evidence; fixtures do not prove live source/device coverage."
     },
     {
       "id": "A3",
       "chapter": "03-automatic-sync.md",
-      "status": "not_started",
+      "status": "in_progress",
       "changedFiles": [],
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": null
+      "nextAction": "Complete actual shared storage/runtime/UI integration and regression evidence; fixtures do not prove live source/device coverage."
     },
     {
       "id": "A4",
@@ -402,112 +459,112 @@
     {
       "id": "A6",
       "chapter": "03-automatic-sync.md",
-      "status": "not_started",
+      "status": "in_progress",
       "changedFiles": [],
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": null
+      "nextAction": "Complete actual shared storage/runtime/UI integration and regression evidence; fixtures do not prove live source/device coverage."
     },
     {
       "id": "U1",
       "chapter": "04-project-understanding.md",
-      "status": "not_started",
+      "status": "in_progress",
       "changedFiles": [],
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": null
+      "nextAction": "Complete actual shared storage/runtime/UI integration and regression evidence; fixtures do not prove live source/device coverage."
     },
     {
       "id": "U2",
       "chapter": "04-project-understanding.md",
-      "status": "not_started",
+      "status": "in_progress",
       "changedFiles": [],
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": null
+      "nextAction": "Complete actual shared storage/runtime/UI integration and regression evidence; fixtures do not prove live source/device coverage."
     },
     {
       "id": "U3",
       "chapter": "04-project-understanding.md",
-      "status": "not_started",
+      "status": "in_progress",
       "changedFiles": [],
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": null
+      "nextAction": "Complete actual shared storage/runtime/UI integration and regression evidence; fixtures do not prove live source/device coverage."
     },
     {
       "id": "U4",
       "chapter": "04-project-understanding.md",
-      "status": "not_started",
+      "status": "in_progress",
       "changedFiles": [],
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": null
+      "nextAction": "Complete actual shared storage/runtime/UI integration and regression evidence; fixtures do not prove live source/device coverage."
     },
     {
       "id": "U5",
       "chapter": "04-project-understanding.md",
-      "status": "not_started",
+      "status": "in_progress",
       "changedFiles": [],
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": null
+      "nextAction": "Complete actual shared storage/runtime/UI integration and regression evidence; fixtures do not prove live source/device coverage."
     },
     {
       "id": "U6",
       "chapter": "04-project-understanding.md",
-      "status": "not_started",
+      "status": "in_progress",
       "changedFiles": [],
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": null
+      "nextAction": "Complete actual shared storage/runtime/UI integration and regression evidence; fixtures do not prove live source/device coverage."
     },
     {
       "id": "L1",
       "chapter": "05-project-lanes-and-release.md",
-      "status": "not_started",
+      "status": "in_progress",
       "changedFiles": [],
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": null
+      "nextAction": "Complete actual shared storage/runtime/UI integration and regression evidence; fixtures do not prove live source/device coverage."
     },
     {
       "id": "L2",
       "chapter": "05-project-lanes-and-release.md",
-      "status": "not_started",
+      "status": "in_progress",
       "changedFiles": [],
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": null
+      "nextAction": "Complete actual shared storage/runtime/UI integration and regression evidence; fixtures do not prove live source/device coverage."
     },
     {
       "id": "L3",
       "chapter": "05-project-lanes-and-release.md",
-      "status": "not_started",
+      "status": "in_progress",
       "changedFiles": [],
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": null
+      "nextAction": "Complete actual shared storage/runtime/UI integration and regression evidence; fixtures do not prove live source/device coverage."
     },
     {
       "id": "L4",
       "chapter": "05-project-lanes-and-release.md",
-      "status": "not_started",
+      "status": "in_progress",
       "changedFiles": [],
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": null
+      "nextAction": "Complete actual shared storage/runtime/UI integration and regression evidence; fixtures do not prove live source/device coverage."
     },
     {
       "id": "R1",
@@ -658,7 +715,7 @@
   "release": {
     "checks": [],
     "review": null,
-    "pullRequest": null,
+    "pullRequest": "https://github.com/krybaby7/control-room/pull/5",
     "deployment": null,
     "fullRequestedCoverage": false
   },
@@ -698,18 +755,18 @@
   },
   "updatedAt": "2026-10-22",
   "checkpoint": {
-    "currentSource": "1fbc05a98ce5661b352bf329db9e17238e6424a5",
-    "publicSource": "bfa16bf01a1190596ac2240307edaec07535c4c5",
-    "sourceMeaning": "Public source equals local58227cf tree e4d7ddeb; newer narrowly reviewed S1 fixes retained locally for next publication. No private rejected diagnostic history included.",
-    "tests": "Initial exact b6f5cce:2019tests1962pass57fail0cancel; typecheck/lint/buildpass. Failures retained; focused corrections pass, complete corrected candidate pending. Companion105pass2Windows-onlyskips. Native historyD1 250messages53maxbindings pass.",
-    "unfinished": "S1 corrected full acceptance; S2-S6 implementation; all nine live gates. Physical history removal stays retained pending verified private backup.",
-    "nextCommand": "npm test",
+    "currentSource": "21c5785",
+    "publicSource": "5a9368917b78ab6682efd75d005fca93f40d9323",
+    "sourceMeaning": "Accepted foundation remains public5a936891/localbc57d07. Committed collector, queue, semantic analysis, owner APIs and default lanes integration now follow; next public checkpoint has identical committed tree.",
+    "tests": "Foundation2037/2037+type/lint/build pass. Integrated collector47/47, Codex multi-root14/14, real collector HTTP SQLite2/2, A4queue17/17, Home10/10, package2/2, ownerAPI/storage24/24 and overview nativegrant3/3 focused checks pass. Final integrated canonical suite pending.",
+    "unfinished": "Analysis journal/publication/server dispatcher integration, recovery provenance, final browser/performance/package gates and live gates.",
+    "nextCommand": "git status --short",
     "deployed": false,
     "merged": false,
     "knownFailures": [
-      "Initial b6f5cce full Node57fail: missing history inert merge/compiler/recovery authority classification, recurrence fields, old closed inventory/schema/size expectations; focused corrections passed, final full confirmation pending.",
-      "Baseline imported companion sanitized-origin fixture mismatch corrected with fixed injected synthetic transport policy; production exact-origin validation unchanged.",
-      "Two real Windows owned-process companion tests skipped on Linux; actual owner/provider/private ingress and publication unverified."
+      "Historical failed foundation candidates retained; corrected exact foundation passed2037/2037.",
+      "Current concurrent publication/journal files have temporary type errors; final integrated verification not run.",
+      "Full production runner/private ingress binding, real owner Windows/provider and publication remain unverified."
     ]
   }
 }

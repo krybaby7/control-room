@@ -1,3 +1,4 @@
+import {historyAssociationCommandHandlers} from './history/association-commands.ts';
 import {historySourceCommandHandlers} from './history/commands.ts';
 import {roadmapCommandHandlers} from './history/roadmap-store.ts';
 import {createdPlanningEntityId} from './history-planning-identity.ts';
@@ -88,3 +89,5 @@ for(const [type,handler] of agentCommandHandlers)(workspaceHandlers as Map<strin
 for(const [type,handler]of roadmapCommandHandlers)(workspaceHandlers as Map<string,import('./workspace-transaction.ts').CommandHandler>).set(type,handler);
 
 for(const [type,handler]of historySourceCommandHandlers)(workspaceHandlers as Map<string,import('./workspace-transaction.ts').CommandHandler>).set(type,handler);
+
+for(const [type,handler]of historyAssociationCommandHandlers)(workspaceHandlers as Map<string,import('./workspace-transaction.ts').CommandHandler>).set(type,handler);
