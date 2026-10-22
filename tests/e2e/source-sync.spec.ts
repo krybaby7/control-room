@@ -93,7 +93,7 @@ test('manual selected source retains exact history and requires explicit context
  expect((await workspace(page)).workspace.tasks).toEqual(initial.workspace.tasks);
  // Playwright's native default dismisses unexpected confirms. A dirty guard would
  // therefore keep this source panel open and fail the navigation assertions.
- await page.getByRole('button',{name:'Weekly planning',exact:true}).click();
+ await page.getByRole('navigation',{name:'Main navigation',exact:true}).getByRole('button',{name:'Weekly',exact:true}).click();
  await expect(page.getByRole('region',{name:'Weekly commitments',exact:true})).toBeVisible();
  await expect(retained).toHaveCount(0);
  await setFixtureSession(page,'b');

@@ -68,7 +68,7 @@
     "ownerAcceptance": "explicit"
   },
   "currentStage": "S6",
-  "nextAction": "PublishreviewedTodaydeferral,ephemeralFirefoxhomeownershipfixandR1layoutfixtures; rerun75main+3R2 andallrequiredexact-sourcecanonical/performance/packagegates.",
+  "nextAction": "Publishfrozencandidateandrunallsource-specificActionsgates;retainhistoricalfailuresandactualartifactdigests.",
   "stages": [
     {
       "id": "S0",
@@ -891,12 +891,12 @@
   },
   "updatedAt": "2026-10-22",
   "checkpoint": {
-    "currentSource": "a202603",
+    "currentSource": "45f68d3",
     "publicSource": "1639b0c7c4437d7bb8c618809bab44b01702437f",
-    "sourceMeaning": "Public29 main40passed5failed27notrun;R2threepass. Actual trace-based legacy fixture,stable expansion,Today preview and accessible dependency-label corrections underway; exact source rerun required.",
-    "tests": "Exact62 CI2310/2310Node0fail/cancel/skip280473.675ms; local2310/2310in207522.765ms;typecheck/lint/buildpass15warnings;collector52;bridge210+9Win-skipped;companion108+2Win-skipped;GitHub20. D1savep951292.436711ms/100samples vs2000;12restores;controlledbrowserfirstusep952972.8ms/3000,maxnavigation164ms/200. Chrome/Firefox acceptance pass;WebKitinstallpending. Canonical39865844323 main5failed32passed34notrun,R2threefailed; actualfailurecorrection4f9ed78parse/lint/typepass;72main+3R2 rerunpending.",
-    "unfinished": "Exact corrected-candidate canonical72main/3R2/browser/Windows/performance and source-bound package integrity; final synthetic screenshot review; nine live owner/provider/device/backup/hosted gates remain external.",
-    "nextCommand": "Run exact corrected-candidate GitHub Actions; inspect canonical72main and3R2 outcomes.",
+    "sourceMeaning": "Finaltrace-baseddelta:TodayinitialJS-31080gzipbytes;ephemeralFirefoxhomeownership;actual200%cardoverflow;fourobsoleteWeeklynavlabels;75mainbrowsercaseswithR1layoutfixtures. Actual1639fullNode2311passandallpre-browserD1/R2/HTTPpass;canonical66pass5fail1notrun. Allcurrentcandidategatesrequirerun.",
+    "tests": "Source1639Node2311/2311zero fail/cancel/skip380372.928062ms;bridge210+9Windowsskips;companion108+2Windowsskips;GitHub20;type/lint/build/allD1/fixture/R2/HTTPpass;R2browser3/3. Main66pass5fail1notrun;CSSzoomandWeeklylabels corrected. SaveD1p951441.181662/2000passes100samples;12restores. Browserfirstusable3105.2/3000fails;reviewedTodaydeferralmeasures31080gzipbytereduction;finalperfneeded.",
+    "unfinished": "Exactfinalcandidate75main/3R2/3engine/performance/Windows andarchiveintegritygates;responsive screenshotreview;sanitizedfinalcheckpoint/PR;ninelivegatesexternal.",
+    "nextCommand": "Publishfrozencandidateandrunallsource-specificActionsgates;retainhistoricalfailuresandactualartifactdigests.",
     "deployed": false,
     "merged": false,
     "knownFailures": [
@@ -910,7 +910,8 @@
       "Public111/local6eef fullNode2309failed8 at strict consent source schema rejecting semanticDigest; explicit live-row allowlist correctioncde6f0b passes9focused including actual D1. Final full rerun pending; no schema loosening.",
       "Exact62 canonical39865844323/job120128099800 main5failed32passed34notrun;R2all3failed. Traces show reload URL-restoration/disclosure race and four direct hidden R2 navigation clicks. Corrected4f9ed78 with stable selected-view readiness and real reload regression; assertions/timeouts unchanged; rerunpending.",
       "Public29 canonical39868523205/job120137313011 main5failed40passed27notrun;R2threepass; actual archived trace diagnoses and narrow corrections recorded in acceptance.md. D1save1917.061107/2000 andbrowser2786.2/3000,124/200pass independently;not finalcanonicalgreen.",
-      "Public1639 browserfirstusablep953105.2ms/3000failed; actualassetsdelayGETuntil2581ms. ReviewedToday-onlymoduledeferral33059b9 removes31080gzipinitialbytes; no perfpassclaimedbeforeexactrerun. Firefoxcontainerlaunchhomeownershipfailurebeforeassertionscorrectedwithoutenvreassignment/sandboxflags;Chrome/WebKitpass."
+      "Public1639 browserfirstusablep953105.2ms/3000failed; actualassetsdelayGETuntil2581ms. ReviewedToday-onlymoduledeferral33059b9 removes31080gzipinitialbytes; no perfpassclaimedbeforeexactrerun. Firefoxcontainerlaunchhomeownershipfailurebeforeassertionscorrectedwithoutenvreassignment/sandboxflags;Chrome/WebKitpass.",
+      "Public1639canonical39870936056/job120145456503 main66pass5fail1notrun7.7min(max5,notglobaltimeout);R2three/HTTPpass. FourobsoleteWeeklyplanningnavlabels corrected daf412f. Actual200%zoomlanegrid490CSSpxminimumin~358pxcard corrected45f68d3 withcardinline-sizequery, nohiddenoverfloworassertionchange. IndependentSolreviewnoblocker;75main+3R2rerunrequired."
     ]
   }
 }
