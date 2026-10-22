@@ -58,3 +58,10 @@ test('search renders actual task classifications and matches all saved context t
 test('frozen weekly context never borrows a current task classification and marks its missing historical fields',()=>{
  const html=renderToStaticMarkup(createElement(weekly.FrozenWeeklyTaskContext,{projectId:android.projectId,workspace}));context(html,'TAMENNI / Unclassified / Other');assert.ok(html.includes('Historical classification was not recorded.'));assert.ok(!html.includes('Android testing'));assert.ok(!html.includes(' / Testing'));
 });
+
+
+test('prerequisite checkbox names separate task titles from their visible classification',()=>{
+ const html=renderToStaticMarkup(createElement(editor.TaskEditor,{workspace,revision:1,task:android,projectId:'p1',onSave:save,onClose:noop}));
+ const labels=Array.from(html.matchAll(/<label class="dependency-option">([\s\S]*?)<\/label>/g),match=>match[1].replace(/<[^>]+>/g,''));
+ for(const task of [planning,map,legacy])assert.ok(labels.some(label=>label.startsWith(task.title+' TAMENNI / ')),`prerequisite title must remain a separate readable phrase: ${task.title}`);
+});
