@@ -55,6 +55,13 @@ jobs:
       - if: ${{ !cancelled() && steps.build.conclusion == 'success' && steps.runtime_d1.conclusion == 'success' }}
         run: npm run test:attachments-http
       - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() && steps.build.conclusion == 'success' }}
+        with:
+          name: synthetic-project-lanes-screenshots-${{ github.event.pull_request.head.sha || github.sha }}
+          path: test-results/**/project-lanes-*-synthetic.png
+          if-no-files-found: ignore
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
         if: failure() || cancelled()
         with:
           name: browser-failure-evidence
