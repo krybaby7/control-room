@@ -7,7 +7,7 @@ Open **Repositories → This PC**. The background PC app uses the existing Codex
 3. Select **Analyze**. The completed report saves to that project automatically.
 4. Use **Analyze latest changes** to refresh a saved repository. It includes current tracked changes and safe untracked files within the bounded snapshot.
 
-The app starts when the Windows user signs in. The PC must remain on and signed in during folder selection and analysis. **Open Control Room on this PC** starts the app if it is offline. Routine use requires no port, pairing code, connection test or report import.
+The app starts when the Windows user signs in. The PC must remain on and signed in during folder selection and analysis. Keep the owner dashboard open to save completed reports immediately; if it is closed, the report waits securely and saves when the dashboard is reopened. **Open Control Room on this PC** starts the app if it is offline. Routine use requires no port, pairing code, connection test or report import.
 
 Each explicit analysis starts one finite provider CLI run. Codex requests `gpt-6.1-sol`; Claude preserves only the validated personal model selection or its subscription default. There is no automatic provider fallback, API-key fallback or whole-run AI retry. Both use a bounded source pack, tools disabled, and a small selection of recent matching local chat context. Cloud conversation histories are not connected. Reading chat text inside the model input consumes tokens; the local selection step does not call another model.
 

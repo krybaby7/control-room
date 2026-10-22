@@ -20,8 +20,10 @@
 
 ## Verification and release
 
-- [ ] Run targeted provider/connector/picker/contract/store/export/client tests, typecheck, lint and supported Sites build/package. Independent review checks approved scope and code/data boundaries.
-- [ ] Provision only the selected owner's personal endpoint and this PC using existing supported Sites service access plus a separate scoped key; retain secrets in private runtime configuration and DPAPI only.
-- [ ] Install and start the reviewed background app and per-user startup entry, preserving current registered repositories and saved reports.
-- [ ] Publish the existing private Site, verify readiness and automatic report saving/refresh in the owner UI, and compare source/planning/old immutable records before and after.
-- [ ] Push reviewable public source to a draft PR without merging; save exact release/verification limitations and a useful screenshot privately.
+- [x] Run targeted provider/connector/picker/contract/store/export/client tests, typecheck, lint and supported Sites build/package. Independent review checks approved scope and code/data boundaries.
+- [x] Provision only the selected owner's personal endpoint and this PC using existing supported Sites service access plus a separate scoped key; retain secrets in private runtime configuration and DPAPI only.
+- [x] Install and start the reviewed background app and per-user startup entry, preserving current registered repositories and saved reports.
+- [x] Publish the existing private Site, verify readiness and automatic report saving/refresh in the owner UI, and compare source/planning/old immutable records before and after.
+- [x] Push reviewable public source to a draft PR without merging; save exact release/verification limitations and a useful screenshot privately.
+
+Release evidence and remaining physical-device/full-suite limits are recorded in [the verification note](../verification/2026-10-21-personal-repository-connection.md). These completed incremental checks do not waive the separate whole-product release gates.

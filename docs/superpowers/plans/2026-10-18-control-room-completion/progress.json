@@ -5,6 +5,18 @@
   "baselineCommit": "b50aa5c34783ffc0109c46d91c599923df9cc305",
   "implementationBranch": "feat/control-room-completion-cloud",
   "status": "in_progress",
+  "personalRepositoryConnection": {
+    "date": "2026-10-21",
+    "status": "live_private_increment_verified",
+    "sourceCommit": "b648048a83747bac950e4faa302e4f77543b1729",
+    "sourceTree": "2dc59ffc8f27f712422859bd4bf1ca42a81f52f8",
+    "privateSiteVersion": 14,
+    "draftPullRequest": "https://github.com/krybaby7/control-room/pull/4",
+    "verification": "docs/superpowers/verification/2026-10-21-personal-repository-connection.md",
+    "evidence": "96 companion, 37 personal backend, 21 save recovery and 32 serialized native/recovery cases passed; typecheck, lint and supported build/package passed; actual Claude analysis automatically saved and acknowledged in owner UI",
+    "preservation": "All existing planning records, immutable report versions, links and audit entries compared equal; only the new report and its associated records were added; private audience remains one owner",
+    "limits": "Native folder-dialog selection and Windows sign-in cycle not physically driven; new live provider run was Claude; broad Windows suite is not fully green; whole-product performance/release gates remain separate"
+  },
   "githubCloudOnboarding": {
     "date": "2026-10-21",
     "status": "verified_source_for_private_publication",
@@ -28,6 +40,15 @@
     "sourceEvidence": "Synthetic collector, prompt, contract, native helper, immutable storage and client checks; one installed single-call refresh saved as immutable evidence version 2 and verified after reload. Original version, planning, all old module records and repository fingerprints preserved. Private acceptance and deployment evidence retained by owner",
     "cloudBoundary": "Cloud-only histories are not connected; no browser-cookie reuse or unrelated history selection",
     "design": "docs/superpowers/specs/2026-10-21-onboarding-chat-context-design.md"
+  },
+  "missionControlDashboard": {
+    "date": "2026-10-21",
+    "status": "implemented_browser_verified_in_fixture",
+    "scope": "Today view replaced by a mission-control dashboard: status strip (enrolled PC heartbeat and load, personal PC app and Codex/Claude readiness, agent counts, execution window and Codex Cloud report recency, attention count), project tiles (milestone/task meters, live agent job stage/progress/elapsed budget, latest saved analysis with recent-chat coverage, recent activity, next action, recorded token totals), live operations with recent runs, needs-you list, weekly focus, mission log; existing Next up and saved brief panels retained",
+    "feeds": "Read-only owner feeds: /api/jobs plus /api/jobs/{id} event tails for active attempts, /api/runtime, /api/personal-repositories, /api/local-analysis, /api/github-analysis. Fast pace 10 s while an agent works, 45 s otherwise, saved reports at most every 90 s or on workspace change; bounded deadlines/bytes, digest checks on job specs/results/events, last good value retained with per-feed check time; no command is issued from the dashboard",
+    "boundary": "Tokens and runtime come only from recorded job results; cloud (Codex Cloud) work shows imported report recency, not live task status; local chat transcripts are never displayed, only companion-reported coverage; lights describe heartbeats and saved records, never inferred execution",
+    "evidence": "tests/dashboard-format, dashboard-model, dashboard-feed and mission-control-render (18 cases) pass; typecheck, lint (0 errors, 8 pre-existing warnings) and production build pass; Playwright mission-control, ready-work and workspace-stream specs pass against the built Worker fixture in Chromium; see docs/superpowers/verification/2026-10-21-mission-control-dashboard.md",
+    "workers": "Implemented directly in the Claude Code session (no gpt-6.1-sol subagent workers were available to select in this runtime); no provider was called"
   },
   "phases": [
     {
