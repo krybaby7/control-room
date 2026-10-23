@@ -1,0 +1,45 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {resolveCitation} from '../lib/history/citations.ts';
+import {validateClaim,requireValidatedClaim} from '../lib/history/claims.ts';
+import {verifyRepositoryEvidence,type ImmutableRepositoryEvidence} from '../lib/history/repository-evidence.ts';
+import {contentHash} from '../lib/canonical-json.ts';
+import {owner,watermark,now,body,claim,snapshot} from './fixtures/history-understanding.ts';
+test('citations use immutable UTF8 digests and Unicode code points, never UTF16 offsets',async()=>{
+ const source=await body('unicode','طلب 😀 فحص');const citation={messageRevisionId:'unicode',revisionDigest:source.message.revisionDigest,start:4,end:5};
+ assert.equal((await resolveCitation(owner,citation,source)).text,'😀');
+ await assert.rejects(resolveCitation('foreign-owner',citation,source),/foreign/);
+ await assert.rejects(resolveCitation(owner,{...citation,end:100},source),/Unicode/);
+ await assert.rejects(resolveCitation(owner,citation,{...source,text:'modified'}),/digest|length/);
+ await assert.rejects(resolveCitation(owner,citation,{...source,requiredContentAvailable:false}),/unavailable/);
+ await assert.rejects(resolveCitation(owner,{...citation,revisionDigest:'0'.repeat(64)},source),/foreign/);
+});
+test('offset validity cannot promote contradicted assertions, invented citations or mutable validation results',async()=>{
+ const message=await body('failed','Physical check failed.','tool'),raw=claim(message,'verification',{text:'All physical tests passed.',basis:'observed'});
+ await assert.rejects(validateClaim(raw,snapshot([message]),async()=>({supported:false,contradictions:['Tool result says failed.']})),/contradicted/);
+ await assert.rejects(validateClaim({...raw,citations:[{...raw.citations[0],messageRevisionId:'invented'}]},snapshot([message]),async()=>({supported:true,contradictions:[]})),/outside/);
+ await assert.rejects(validateClaim({...raw,projectId:'invented-project'},snapshot([message]),async()=>({supported:true,contradictions:[]})),/association/);
+ await assert.rejects(validateClaim({...raw,context:{...raw.context,commit:'invented-candidate'}},snapshot([message]),async()=>({supported:true,contradictions:[]})),/context was not retained/);
+ const assistant=await body('assistant','Tests passed.','assistant');
+ await assert.rejects(validateClaim(claim(assistant,'verification',{basis:'observed'}),snapshot([assistant]),async()=>({supported:true,contradictions:[]})),/Assistant/);
+ const result=await validateClaim(claim(assistant,'implementation'),snapshot([assistant]),async()=>({supported:true,contradictions:[]}));
+ const overridden=claim(assistant,'implementation');overridden.context={...overridden.context,basis:'owner_override'};const imported=snapshot([assistant]);imported.contexts=[overridden.context];
+ await assert.rejects(validateClaim(overridden,imported,async()=>({supported:true,contradictions:[]})),/native owner authority/);
+ await validateClaim(overridden,imported,async()=>({supported:true,contradictions:[]}),async()=>true);
+ const pinned=snapshot([assistant]);pinned.contexts=[...pinned.contexts,{...pinned.contexts[0],branch:'other',basis:'provider_metadata'}];
+ const conflict=await validateClaim(claim(assistant,'implementation'),pinned,async()=>({supported:true,contradictions:[],completesScope:true}));assert.equal(conflict.completionSupported,false);assert.match(conflict.unknowns[0],/conflict/);
+ requireValidatedClaim(result,owner,watermark);result.claim.kind='release';assert.throws(()=>requireValidatedClaim(result,owner,watermark),/not validated/);
+});
+test('repository proofs remain exact to candidate, evidence kind, dated availability and environment',async()=>{
+ const message=await body('repo','Retained repository claim.');const context=claim(message).context,bytes=new TextEncoder().encode('Synthetic immutable check result');
+ const evidence:ImmutableRepositoryEvidence={ownerId:owner,bytes,requiredContentAvailable:true,stale:false,snapshot:{id:'check',repositoryIdentity:context.repositoryIdentity!,kind:'check',sourceUrl:'https://github.com/example/app/actions/runs/1',nativeRecordId:'1',candidate:context.commit,environment:null,conclusion:'success',observedAt:now,contentDigest:await contentHash(bytes),bodyObjectKey:'synthetic:check',availability:'complete'}};
+ const reference={snapshotId:'check',digest:evidence.snapshot.contentDigest};
+ assert.equal((await verifyRepositoryEvidence(owner,context,reference,evidence)).stage,'verified');
+ assert.equal((await verifyRepositoryEvidence(owner,{...context,commit:'b'.repeat(40)},reference,evidence)).stage,'unknown');
+ assert.equal((await verifyRepositoryEvidence(owner,{...context,commit:null},reference,evidence)).stage,'unknown');
+ assert.equal((await verifyRepositoryEvidence(owner,context,reference,{...evidence,requiredContentAvailable:false})).stage,'unknown');
+ assert.equal((await verifyRepositoryEvidence(owner,context,reference,{...evidence,stale:true})).stage,'unknown');
+ assert.equal((await verifyRepositoryEvidence(owner,context,reference,{...evidence,snapshot:{...evidence.snapshot,kind:'pull_request',conclusion:'merged'}})).stage,'implemented');
+ assert.equal((await verifyRepositoryEvidence(owner,context,reference,{...evidence,snapshot:{...evidence.snapshot,kind:'deployment',environment:null}})).stage,'unknown');
+ await assert.rejects(verifyRepositoryEvidence('foreign',context,reference,evidence),/owner/);
+});

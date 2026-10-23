@@ -1,3 +1,4 @@
+import {historyExportAdapter} from './history/module.ts';
 import {serializationHash,type SerializationHashContext} from './serialization-hash.ts';
 import {agentExportAdapters} from './agents/module.ts';
 import {personalRepositoryExportAdapter} from './personal-repository-module.ts';
@@ -126,3 +127,5 @@ export function parseWorkspaceBundle(value:unknown,registry:ExportRegistry=expor
 /** Historical provenance only; a transaction adapter must append these without replacing the target ledger. */
 export function historicalAuditRows(bundle:WorkspaceBundle,importHash:string):unknown[] { if(!/^[a-f0-9]{64}$/.test(importHash)) throw new Error('Invalid import hash.'); return (bundle.modules.audit_events?.records??[]).map((source,index)=>({id:`import:${importHash}:${index}`,kind:'imported-history',importHash,sourceRevision:bundle.source.workspaceRevision,sourceClaim:source})); }
 export type { WorkspaceEnvelope };
+
+exportRegistry.register(historyExportAdapter);

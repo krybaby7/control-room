@@ -24,6 +24,7 @@ export function ownerPrepareContext(db:SqlDatabase,userId:string,before:Workspac
   deviceRuntime:{enrollment:services.deviceEnrollment,latest:input=>readLatestRuntimeEvidence(db,userId,input)},
   baselineRuntime:{preview:input=>previewBaselineRevision(db,userId,input,now)},
   automationRuntime:{canResume:schedule=>canResumeAutomation(db,userId,schedule,now)},
+  historyRuntime:{executionEpoch:async()=>((await db.prepare('SELECT epoch FROM workspace_execution_state WHERE user_id=?').bind(userId).first<{epoch:number}>())?.epoch??0)},
   sourceRuntime:{state:sourceId=>readSourceSyncState(db,userId,sourceId),canResume:(connection,target)=>canResumeSource(db,userId,connection,target,now)},
   readImport:id=>readStagedImport(db,userId,id,now),backups:{get:id=>readWorkspaceBackup(db,userId,id),list:()=>listWorkspaceBackups(db,userId),...(fileBackupServices?{prepareFileRemoval:(input:import('./backup-removal.ts').BackupRemoval)=>prepareFileBackupRemoval(db,userId,input,fileBackupServices,now)}:{})},readAuditGroup:eventId=>readAuditCommandGroup(db,userId,eventId),
   trustedDecisionVersion:async(id,version,hash)=>Boolean(await db.prepare('SELECT decision_id FROM decision_owner_grants WHERE user_id=? AND decision_id=? AND version=? AND content_hash=?').bind(userId,id,version,hash).first()),

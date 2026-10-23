@@ -1,3 +1,4 @@
+import {parseHistoryRecord} from './history/record.ts';
 import {recoveryPrivateTargetRow} from './recovery-private-transform.ts';
 import {PRIVATE_PROFILE_TABLES} from './private-profile.ts';
 import {z} from 'zod';
@@ -18,6 +19,7 @@ import {parseAuditEvent} from './audit-events.ts';
 export const PRIVATE_CONTINUITY_LIMITS=Object.freeze({bytes:64*1024*1024,rows:200000,tableRows:100000,page:8});
 const digest=z.string().regex(/^[a-f0-9]{64}$/),integer=z.number().int().nonnegative().safe(),positive=integer.min(1),stamp=z.string().datetime({offset:true}),nullableStamp=stamp.nullable(),id=z.string().min(1).max(500),json=z.string().max(1800000),flag=z.union([z.literal(0),z.literal(1)]);
 const schemas={
+ history_object_ledger:z.object({key:id,source_id:id,epoch:id,scope_revision:positive,sha256:digest,bytes:integer.max(16777216),status:z.enum(['staging','ready','abandoned']),pending_token:id.nullable(),created_at:stamp,verified_at:stamp.nullable(),purged_at:stamp.nullable()}).strict(),
  workspace_imports:z.object({id,content_hash:digest,created_at:stamp,expires_at:stamp,bytes:integer.max(8000000),metadata_json:z.string().max(1600000)}).strict(),
  workspace_import_chunks:z.object({import_id:id,ordinal:integer.max(31),content_base64:z.string().max(349528)}).strict(),
  attachment_archive_stages:z.object({id,namespace:id,source_manifest_hash:digest,manifest_json:z.string().max(8000000),created_at:stamp,expires_at:stamp,target_revision:positive,status:z.enum(['preparing','verified','failed','committed']),import_id:id.nullable(),import_hash:digest.nullable()}).strict(),
@@ -45,7 +47,7 @@ const schemas={
  workspace_drafts:z.object({id,row_revision:positive,payload_json:json,expires_at:stamp}).strict(),
  backup_archive_retained_objects:z.object({storage_key:id,source_archive_id:id,part_number:integer.max(4),namespace:z.string().uuid(),bytes:positive.max(4194304),sha256:digest,created_at:stamp,verified_at:stamp,purged_at:nullableStamp}).strict(),
  operational_stream_heads:z.object({stream_id:z.string().regex(/^[a-z][a-z0-9_-]{0,63}$/),revision:positive,last_sequence:integer}).strict(),
- workspace_recovery:z.object({content:z.string().max(1250000),revision:positive,updated_at:stamp}).strict(),
+ workspace_recovery:z.object({content:z.string().max(1875000),revision:positive,updated_at:stamp}).strict(),
  workspace_backups:z.object({id,source_revision:positive,created_at:stamp,reason:id,bytes:integer.max(8000000),sha256:digest,content:z.string().max(8000000),status:z.enum(['preparing','ready','failed','expired']),pinned:flag}).strict(),
  backup_archive_cleanup_claims:z.object({storage_key:id,archive_id:id,part_number:integer.max(4),token:id,claimed_at:stamp,purged_at:nullableStamp}).strict(),
  attachment_blob_fences:z.object({storage_key:id,attachment_id:id,namespace:id,token:id,created_at:stamp,purged_at:nullableStamp}).strict(),
@@ -75,6 +77,7 @@ integration_jobs:["intent_id"],
 integration_job_attempts:["intent_id","attempt"],
 automation_occurrence_claims:["schedule_id","due_at"],
 automation_runtime:["schedule_id"],
+history_object_ledger:["key"],
 source_sync_state:["source_id"],
 device_runtime:["device_id"],
 device_sessions:["device_id","boot_id"],
@@ -210,7 +213,7 @@ export async function verifyNativeOwnerAttribution(db:SqlDatabase,owner:string,v
   if(!row||row.content_hash!==expected)throw new Error('Native owner attribution body is unavailable.');
   const parsed=JSON.parse(row.payload_json);if(await contentHash(canonical(parsed))!==expected)throw new Error('Native owner attribution digest differs.');return parsed;
  }
- for(const grant of value.tables.acceptance_owner_grants){const record=acceptanceRecordSchema.parse(await body('acceptance_records',grant.record_id,grant.content_hash));if(record.id!==grant.record_id)throw new Error('Native assessment identity differs.');}
+ for(const grant of value.tables.acceptance_owner_grants){if(grant.record_id.startsWith('roadmap_head:')||grant.record_id.startsWith('checkpoint_assessment:')||grant.record_id.startsWith('association_rule:')){const record=parseHistoryRecord(await body('project_history',grant.record_id,grant.content_hash));if(record.id!==grant.record_id||!['roadmap_head','checkpoint_assessment','association_rule'].includes(record.kind))throw new Error('Native history assessment identity differs.');}else{const record=acceptanceRecordSchema.parse(await body('acceptance_records',grant.record_id,grant.content_hash));if(record.id!==grant.record_id)throw new Error('Native assessment identity differs.');}}
  for(const grant of value.tables.decision_owner_grants){const record=decisionVersionSchema.parse(await body('decision_versions',await versionRowId(grant.decision_id,grant.version),grant.content_hash));if(record.id!==grant.decision_id||record.version!==grant.version||record.status!=='decided')throw new Error('Native decision identity differs.');}
  for(const grant of value.tables.review_ack_grants){
   const ack=reviewAcknowledgementSchema.parse(await body('review_acknowledgements',grant.ack_id,grant.ack_hash));
@@ -284,6 +287,7 @@ export async function captureRecoveryPrivateContinuity(db:SqlDatabase,owner:stri
 export function assessPrivateRecoveryContinuity(value:RecoveryPrivateContinuity):{installable:false;blockers:string[];nextExecutionEpoch:number;retainedUnknownAttempts:number}{
  const parsed=recoveryPrivateContinuitySchema.parse(value),blockers=['source_freeze_unverified','inactive_target_and_cutover_authority_unimplemented'];
  if(parsed.sourceContext.executionEpoch===Number.MAX_SAFE_INTEGER)throw new Error('Execution epoch exhausted.');
+ if(parsed.tables.history_object_ledger.some(row=>row.pending_token!==null||row.status==='staging'))blockers.push('unsettled_history_put');
  if(parsed.tables.attachment_upload_attempts.some(row=>row.settled_at===null))blockers.push('unsettled_upload_attempts');
  if(parsed.tables.backup_archive_objects.some(row=>row.pending_token!==null&&row.settled_at===null))blockers.push('unsettled_backup_archive_put');
  if(parsed.tables.backup_archive_objects.some(row=>row.purged_at===null))blockers.push('backup_archive_namespace_handoff_required');

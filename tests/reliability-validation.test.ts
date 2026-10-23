@@ -16,7 +16,7 @@ test('Cairo Monday rollover and dated completions use Cairo local date', () => {
 test('legacy pins use last saved week and retain all content; future schemas fail', () => {
   const old = legacyWorkspaceFixture(1,at); old.tasks[0].weekly = true;
   const migrated = parseWorkspaceExport({ workspace: old, updatedAt: at, revision: 8 });
-  assert.equal(migrated.schemaVersion, 4);
+  assert.equal(migrated.schemaVersion, 5);
   assert.equal(migrated.tasks[0].weeklyWeek, '2026-10-12');
   assert.equal(calendar.isCurrentWeek(migrated.tasks[0], '2026-10-19'), false);
   assert.equal(migrated.tasks[0].notes, old.tasks[0].notes);
@@ -50,11 +50,11 @@ test('restore rejects invalid references, cycles, duplicates, timestamps, URLs a
 });
 
 test('large valid workspace exports survive formatted export, strict preview and JSON roundtrip', () => {
-  const workspace = createSeedWorkspace(at);
+  const workspace = parseWorkspaceExport(createSeedWorkspace(at));
   const template = workspace.tasks[0];
   workspace.tasks.push(...Array.from({length:95},(_,i) => ({...template,id:`large-${i}`,notes:'x'.repeat(9800)})));
   const envelope = {workspace,revision:9,updatedAt:at,exportedAt:at};
   assert.ok(new TextEncoder().encode(JSON.stringify(workspace)).byteLength > 900000);
   assert.ok(new TextEncoder().encode(JSON.stringify(workspace)).byteLength < 1000000);
-  assert.deepEqual(parseWorkspaceExport(JSON.parse(JSON.stringify(envelope,null,2))),{...workspace,schemaVersion:4});
+  assert.deepEqual(parseWorkspaceExport(JSON.parse(JSON.stringify(envelope,null,2))),{...workspace,schemaVersion:5});
 });

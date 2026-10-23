@@ -1,5 +1,6 @@
 import type {SqlDatabase} from './workspace-store.ts';
 const moduleStreams=[
+ ["project_history","history","project_history_sequence"],
  ["source_observations","sources","source_observations_sequence"],
  ["source_sync_runs","sources","source_sync_runs_sequence"],
  ["integration_history","sources","integration_history_sequence"],

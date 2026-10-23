@@ -1,8 +1,10 @@
 'use client';
 
+import {TaskContext} from './ui';
+import {TaskClassificationFields} from './planning-editors';
 import {SubjectReviewLink} from './subject-review-link';
 
-import type { Capture, CaptureInput, Command, Horizon, Workspace } from '@/lib/types';
+import type { Capture, CaptureInput, Command, Horizon, Workspace, WorkType } from '@/lib/types';
 import { useDurableDraft } from './durable-draft';
 import { changedFields } from '@/lib/draft';
 import { Field, FormDialog } from './form-dialog';
@@ -30,17 +32,19 @@ export function CaptureEditor({ capture, workspace, onSave, onClose }: { capture
 }
 
 export function ConvertEditor({ capture, workspace, onSave, onClose }: { capture: Capture; workspace: Workspace; onSave: (command: Command) => Promise<void>; onClose: () => void }) {
-  const { baseline, draft, setDraft, saved, notice } = useDurableDraft('capture.convert', capture.id, { projectId: capture.projectId ?? '', milestoneId: '', horizon: 'now' as Horizon });
+  const { baseline, draft, setDraft, saved, notice } = useDurableDraft('capture.convert', capture.id, { projectId: capture.projectId ?? '', milestoneId: '', horizon: 'now' as Horizon,areaId:null as string|null,workType:'other' as WorkType });
   const { projectId, milestoneId, horizon } = draft;
   return <FormDialog title="Turn this into a task" subtitle="Its details and source link come with it. The capture stays linked." dirty={JSON.stringify(draft) !== JSON.stringify(baseline)} onClose={onClose} submitLabel="Create linked task" onSave={async () => {
     if (!projectId) throw new Error('Choose a project for this task.');
-    await onSave({ type: 'capture.convert', id: capture.id, projectId, milestoneId: milestoneId || null, horizon });
+    await onSave({ type: 'capture.convert', id: capture.id, projectId, milestoneId: milestoneId || null, horizon,areaId:draft.areaId??null,workType:draft.workType??'other' });
     await saved();
   }}>
     {notice}
     {capture&&<p><SubjectReviewLink subject={{type:'capture',id:capture.id}}/></p>}
     <div className="capture-preview"><span className="eyebrow">FROM YOUR INBOX</span><h3>{capture.title}</h3>{capture.body && <p>{capture.body}</p>}</div>
-    <Field label="Project"><select autoFocus required value={projectId} onChange={e => { setDraft(d => ({ ...d, projectId: e.target.value, milestoneId: '' })); }}><option value="">Choose a project</option>{workspace.projects.map(p => <option value={p.id} key={p.id}>{p.name}</option>)}</select></Field>
+    <Field label="Project"><select autoFocus required value={projectId} onChange={e => { setDraft(d => ({ ...d, projectId: e.target.value, areaId:null, milestoneId: '' })); }}><option value="">Choose a project</option>{workspace.projects.map(p => <option value={p.id} key={p.id}>{p.name}</option>)}</select></Field>
+    <TaskContext task={{projectId,areaId:draft.areaId??null,workType:draft.workType??'other'}} workspace={workspace}/>
+    <TaskClassificationFields workspace={workspace} projectId={projectId} areaId={draft.areaId} workType={draft.workType} onChange={value=>setDraft(d=>({...d,...value}))} />
     <div className="form-grid"><Field label="Milestone"><select value={milestoneId} onChange={e => setDraft(d => ({ ...d, milestoneId: e.target.value }))}><option value="">No milestone</option>{workspace.milestones.filter(m => m.projectId === projectId).map(m => <option key={m.id} value={m.id}>{m.title}</option>)}</select></Field><Field label="Horizon"><select value={horizon} onChange={e => setDraft(d => ({ ...d, horizon: e.target.value as Horizon }))}><option value="now">Now</option><option value="next">Next</option><option value="later">Later</option></select></Field></div>
   </FormDialog>;
 }

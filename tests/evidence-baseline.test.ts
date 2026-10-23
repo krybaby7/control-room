@@ -94,7 +94,7 @@ test('public baseline command atomically preserves owner history and rolls back 
  const {database}=await import('./helpers/sqlite.ts');const {loadWorkspace,readCurrent}=await import('../lib/workspace-store.ts');
  const {executeWorkspaceCommand}=await import('../lib/workspace-transaction.ts');const {workspaceHandlers}=await import('../lib/workspace-handlers.ts');
  const f=fixture(),{db,sqlite}=database();try{
- const ownerTask=taskFixture('original-owner-task',{projectId:f.before.projects[0].id,status:'done',completedAt:'2026-10-10T10:00:00.000Z',evidence:'Historical achieved result retained'});f.before.tasks.push(ownerTask);
+ const ownerTask=taskFixture('original-owner-task',{areaId:null,workType:'other',projectId:f.before.projects[0].id,status:'done',completedAt:'2026-10-10T10:00:00.000Z',evidence:'Historical achieved result retained'});f.before.tasks.push(ownerTask);
  await loadWorkspace(db,'synthetic-owner',()=>f.before,now);
  const tables=['workspaces','evidence_records','evidence_versions','evidence_links','audit_events','workspace_mutations','workspace_assertions'];
  const snapshot=()=>Object.fromEntries(tables.map(table=>[table,sqlite.prepare(`SELECT * FROM ${table} ORDER BY 1,2`).all()]));

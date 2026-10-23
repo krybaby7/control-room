@@ -1,3 +1,6 @@
+import {compileHistoryAnalysisConsent} from './history/analysis-commands.ts';
+import {createsHistoryOwnerGrant} from './history/owner-grants.ts';
+import {parseHistoryRecord} from './history/record.ts';
 import {generationAssertionStatements} from './generation-assertions.ts';
 import {readFinalMutation} from './final-mutation-read.ts';
 import {capturePlanningPreflight} from './recoverability-planning-capture.ts';
@@ -33,8 +36,8 @@ import { RECEIPT_CAPACITY, WorkspaceCapacityError, receiptCount } from './worksp
 import { checkMutationEpoch } from './idempotency-retention.ts';
 import { RetiredMutationError, CommandValidationError, MutationIdReuseError, ModuleConflictError, WorkspaceStorageError } from './workspace-errors.ts';
 export interface ModuleReplacement {table:RegisteredOwnerTable;beforeRows:ModuleRow[];records:Array<{id:string;value:import('./workspace-protocol.ts').JsonValue}>;}
-export interface MutationPlan { fileBackupRemoval?:import('./automations/backup-archive-removal.ts').FileBackupRemovalControl; normalizedMerge?:NormalizedMergeControl;attachmentMetadataDiscard?:{id:string;storageKey:string}; agentControls?:import('./agents/command-contracts.ts').AgentControls; deviceControls?:import('./runtime/command-contracts.ts').DeviceRuntimeControls; baselineAdvance?:{workspaceRevision:number;operationalWatermarks:Record<string,number>;revisionId:string;hash:string;projectId:string;expectedParent:import('./baselines/contracts.ts').BaselineParent;sourceProofs:import('./baselines/contracts.ts').BaselineSourceProof[]}; reviewGrants?:Array<{id:string;hash:string;snapshotId:string;snapshotHash:string}>;notificationReads?:Array<{id:string;hash:string;read:boolean}>;automationControls?:Array<{scheduleId:string;configurationHash:string;action:'pause'|'resume';nextDueAt:string}>;reviewJobs?:Array<{intentId:string;snapshotId:string;scope:import('./reviews/contracts.ts').ReviewScope}>; integrationJobs?:import('./background/job-contract.ts').IntegrationJobExtension[];sourceControls?:Array<{sourceId:string;action:'pause'|'resume';configurationHash:string}>;preserveModules?:boolean; decisionGrants?:Array<{id:string;version:number;hash:string}>; referenceSnapshot?:import('./workspace-references.ts').ReferenceSnapshot; backupRemoval?:{id:string;sha256:string;newerId:string;newerSha256:string};emptyModules?:RegisteredOwnerTable[];importSource?:{id:string;hash:string};replacements?:ModuleReplacement[];restoreEpoch?:boolean;historyImports?:Array<{id:string;source:import('./workspace-protocol.ts').JsonValue;importHash:string;sourceIdentity?:string;sourceHash?:string}>; planningAfter: Workspace; writes: GuardedWrite[]; preconditions?: RowPrecondition[]; events: AuditEventDraft[]; backup?: {reason:'restore'|'delete'|'repair'|'manual'}; jobs: JobIntent[]; }
-export interface PrepareContext { agentArtifact?:import('./agents/artifact-store.ts').AgentArtifactMaterial; agentRuntime?:import('./agents/command-contracts.ts').AgentCommandContext; deviceRuntime?:import('./runtime/command-contracts.ts').DeviceRuntimeContext; baselineRuntime?:{preview:(input:import('./baselines/contracts.ts').BaselinePreviewInput)=>Promise<import('./baselines/contracts.ts').BaselineRevisionPreview>}; automationRuntime?:{canResume:(schedule:import('./automations/contracts.ts').AutomationSchedule)=>Promise<boolean>}; sourceRuntime?:{state:(sourceId:string)=>Promise<import('./sources/contracts.ts').SourceSyncState|null>;canResume:(connection:import('./sources/contracts.ts').SourceConnection,target:import('./sources/contracts.ts').SourceTarget)=>Promise<boolean>};mutationId?:string; userId: string; before: WorkspaceEnvelope; command: WorkspaceCommand; now: string; query: OwnerScopedReader; backups?:{prepareFileRemoval?:(input:import('./backup-removal.ts').BackupRemoval)=>Promise<import('./automations/backup-archive-removal.ts').FileBackupRemovalControl>;get:(id:string)=>ReturnType<typeof readWorkspaceBackup>;list:()=>ReturnType<typeof listWorkspaceBackups>};readAuditGroup?:(eventId:string)=>Promise<import('./history-command-group.ts').AuditCommandGroup|null>;trustedAcceptanceRecord?:(id:string,hash:string)=>Promise<boolean>;trustedDecisionVersion?:(id:string,version:number,hash:string)=>Promise<boolean>;attachmentAccess?:{hasPhysicalIdentity?:(record:import('./evidence-contract.ts').AttachmentRecord)=>Promise<boolean>;ownerNamespace:string;store:import('./attachments.ts').BlobStore;resolveNamespace?:(record:import('./evidence-contract.ts').AttachmentRecord)=>Promise<string|null>};verifyAttachment?:(record:import('./evidence-contract.ts').AttachmentRecord)=>Promise<import('./evidence-requirements.ts').VerifiedAttachment|null>;readImport:(id:string)=>ReturnType<typeof readStagedImport>; }
+export interface MutationPlan { historyAnalysisConsent?:import('./history/analysis-commands.ts').HistoryAnalysisConsentControl; historyRemovalRows?:Array<{id:string;row_revision:number;content_hash:string}>; fileBackupRemoval?:import('./automations/backup-archive-removal.ts').FileBackupRemovalControl; normalizedMerge?:NormalizedMergeControl;attachmentMetadataDiscard?:{id:string;storageKey:string}; agentControls?:import('./agents/command-contracts.ts').AgentControls; deviceControls?:import('./runtime/command-contracts.ts').DeviceRuntimeControls; baselineAdvance?:{workspaceRevision:number;operationalWatermarks:Record<string,number>;revisionId:string;hash:string;projectId:string;expectedParent:import('./baselines/contracts.ts').BaselineParent;sourceProofs:import('./baselines/contracts.ts').BaselineSourceProof[]}; reviewGrants?:Array<{id:string;hash:string;snapshotId:string;snapshotHash:string}>;notificationReads?:Array<{id:string;hash:string;read:boolean}>;automationControls?:Array<{scheduleId:string;configurationHash:string;action:'pause'|'resume';nextDueAt:string}>;reviewJobs?:Array<{intentId:string;snapshotId:string;scope:import('./reviews/contracts.ts').ReviewScope}>; integrationJobs?:import('./background/job-contract.ts').IntegrationJobExtension[];sourceControls?:Array<{sourceId:string;action:'pause'|'resume';configurationHash:string}>;preserveModules?:boolean; decisionGrants?:Array<{id:string;version:number;hash:string}>; referenceSnapshot?:import('./workspace-references.ts').ReferenceSnapshot; backupRemoval?:{id:string;sha256:string;newerId:string;newerSha256:string};emptyModules?:RegisteredOwnerTable[];importSource?:{id:string;hash:string};replacements?:ModuleReplacement[];restoreEpoch?:boolean;historyImports?:Array<{id:string;source:import('./workspace-protocol.ts').JsonValue;importHash:string;sourceIdentity?:string;sourceHash?:string}>; planningAfter: Workspace; writes: GuardedWrite[]; preconditions?: RowPrecondition[]; events: AuditEventDraft[]; backup?: {reason:'restore'|'delete'|'repair'|'manual'}; jobs: JobIntent[]; }
+export interface PrepareContext { historyRuntime?:{executionEpoch:()=>Promise<number>}; agentArtifact?:import('./agents/artifact-store.ts').AgentArtifactMaterial; agentRuntime?:import('./agents/command-contracts.ts').AgentCommandContext; deviceRuntime?:import('./runtime/command-contracts.ts').DeviceRuntimeContext; baselineRuntime?:{preview:(input:import('./baselines/contracts.ts').BaselinePreviewInput)=>Promise<import('./baselines/contracts.ts').BaselineRevisionPreview>}; automationRuntime?:{canResume:(schedule:import('./automations/contracts.ts').AutomationSchedule)=>Promise<boolean>}; sourceRuntime?:{state:(sourceId:string)=>Promise<import('./sources/contracts.ts').SourceSyncState|null>;canResume:(connection:import('./sources/contracts.ts').SourceConnection,target:import('./sources/contracts.ts').SourceTarget)=>Promise<boolean>};mutationId?:string; userId: string; before: WorkspaceEnvelope; command: WorkspaceCommand; now: string; query: OwnerScopedReader; backups?:{prepareFileRemoval?:(input:import('./backup-removal.ts').BackupRemoval)=>Promise<import('./automations/backup-archive-removal.ts').FileBackupRemovalControl>;get:(id:string)=>ReturnType<typeof readWorkspaceBackup>;list:()=>ReturnType<typeof listWorkspaceBackups>};readAuditGroup?:(eventId:string)=>Promise<import('./history-command-group.ts').AuditCommandGroup|null>;trustedAcceptanceRecord?:(id:string,hash:string)=>Promise<boolean>;trustedDecisionVersion?:(id:string,version:number,hash:string)=>Promise<boolean>;attachmentAccess?:{hasPhysicalIdentity?:(record:import('./evidence-contract.ts').AttachmentRecord)=>Promise<boolean>;ownerNamespace:string;store:import('./attachments.ts').BlobStore;resolveNamespace?:(record:import('./evidence-contract.ts').AttachmentRecord)=>Promise<string|null>};verifyAttachment?:(record:import('./evidence-contract.ts').AttachmentRecord)=>Promise<import('./evidence-requirements.ts').VerifiedAttachment|null>;readImport:(id:string)=>ReturnType<typeof readStagedImport>; }
 export interface CommandHandler { prepare(context: PrepareContext): Promise<MutationPlan>; }
 export type CommandHandlerRegistry = ReadonlyMap<string, CommandHandler>;
 export interface WorkspaceTransactionDeps {
@@ -75,13 +78,19 @@ async function executeWorkspaceCommandAdmitted(userId:string,input:{protocolVers
   const {db}=deps,revision=input.expectedRevision,id=input.mutationId,now=deps.now();
   if (!input.command || typeof input.command!=='object' || Array.isArray(input.command) || typeof (input.command as {type?:unknown}).type!=='string') throw new CommandValidationError('A command type is required.');
   const command=input.command as WorkspaceCommand;
-  const hash=await hashJson({protocolVersion:1,command});
-  // Existing v2 receipts used the command-only hash; preserve their replay semantics.
-  const legacyHash=await hashJson(command);
+  // These are independent read-only preflights for this authenticated request.
+  // Keep both original native SHA identities and their original error priority;
+  // the later planning reread and every atomic claim/epoch/receipt guard remain.
+  const [admissionRead,protocolHash,legacyCommandHash]=await Promise.allSettled([
+    readMutationAdmission(db,userId,id),hashJson({protocolVersion:1,command}),hashJson(command)]);
+  if(protocolHash.status==='rejected')throw protocolHash.reason;
+  if(legacyCommandHash.status==='rejected')throw legacyCommandHash.reason;
+  if(admissionRead.status==='rejected')throw admissionRead.reason;
+  const hash=protocolHash.value,legacyHash=legacyCommandHash.value;
   const checkReceipt=async ():Promise<CommandResult|null>=>{const prior=await receipt(db,userId,id);if(!prior)return null;if(prior.command_hash!==hash && prior.command_hash!==legacyHash)throw new MutationIdReuseError('This mutation ID was reused for a different change.');return {status:'replayed',envelope:await readCurrent(db,userId,now),receipt:{mutationId:id,commandHash:prior.command_hash,appliedRevision:prior.revision}};};
   // One statement freezes the epoch, receipt and revision head together.
   // Later failure reconciliation and every atomic compiler guard stay intact.
-  const admission=await readMutationAdmission(db,userId,id),epoch=admission.epoch;
+  const admission=admissionRead.value,epoch=admission.epoch;
   const decision=classifyMutationAdmission(admission,{commandHash:hash,legacyHash,expectedRevision:revision});
   if(decision.status==='retired')throw new RetiredMutationError('This mutation epoch is retired.');
   if(decision.status==='replayed')return {status:'replayed',envelope:await readCurrent(db,userId,now),receipt:{mutationId:id,commandHash:decision.receipt.command_hash,appliedRevision:decision.receipt.revision}};
@@ -164,6 +173,18 @@ async function executeWorkspaceCommandAdmitted(userId:string,input:{protocolVers
       const payload=canonicalJson(rows);if(new TextEncoder().encode(payload).length>RECOVERABILITY_SQL_ARGUMENT_BYTES)throw new CommandValidationError('Reference assertions exceed atomic statement limit.');
       assertion(`(SELECT COUNT(*) FROM ${table} WHERE user_id=?) = ? AND NOT EXISTS (SELECT id,row_revision,content_hash FROM ${table} WHERE user_id=? EXCEPT SELECT json_extract(value,'$.id'),json_extract(value,'$.row_revision'),json_extract(value,'$.content_hash') FROM json_each(?))`,[userId,rows.length,userId,payload]);
     }
+  }
+  if(plan.historyRemovalRows){
+    const rows=plan.historyRemovalRows,payload=canonicalJson(rows);
+    if(command.type!=='history.source.remove'||rows.length>10000||new TextEncoder().encode(payload).length>RECOVERABILITY_SQL_ARGUMENT_BYTES)throw new CommandValidationError('Invalid history removal snapshot.');
+    assertion(`(SELECT COUNT(*) FROM project_history WHERE user_id=?)=? AND NOT EXISTS(SELECT id,row_revision,content_hash FROM project_history WHERE user_id=? EXCEPT SELECT json_extract(value,'$.id'),json_extract(value,'$.row_revision'),json_extract(value,'$.content_hash') FROM json_each(?))`,[userId,rows.length,userId,payload]);
+  }
+  // Native source commands bind their new source boundary to the current
+  // execution epoch. A restore racing preparation cannot install an obsolete
+  // source or enqueue cleanup against a different execution authority.
+  if(command.type.startsWith('history.source.'))for(const write of plan.writes)if(write.table==='project_history'&&write.operation!=='delete'){
+    const record=parseHistoryRecord(write.value);
+    if(record.kind==='source')assertion('COALESCE((SELECT epoch FROM workspace_execution_state WHERE user_id=?),0)=?',[userId,record.value.executionEpoch]);
   }
   for(const pre of plan.preconditions??[]){const table=ownerTable(pre.table);assertion(`EXISTS (SELECT 1 FROM ${table} WHERE user_id = ? AND id = ? AND row_revision = ?${pre.expectedHash===undefined?'':' AND content_hash = ?'})`,[userId,pre.id,pre.expectedRowRevision,...(pre.expectedHash===undefined?[]:[pre.expectedHash])]);}
   for(const grant of plan.decisionGrants??[])assertion('EXISTS (SELECT 1 FROM decision_owner_grants WHERE user_id=? AND decision_id=? AND version=? AND content_hash=?)',[userId,grant.id,grant.version,grant.hash]);
@@ -290,6 +311,19 @@ async function executeWorkspaceCommandAdmitted(userId:string,input:{protocolVers
     assertion("NOT EXISTS (SELECT 1 FROM attachment_archive_stages WHERE user_id=? AND import_id=? AND (import_hash<>? OR status<>'verified' OR target_revision<>? OR expires_at<=?))",[userId,plan.importSource.id,plan.importSource.hash,revision,now]);
     statements.push(db.prepare(`UPDATE attachment_archive_stages SET status='committed' WHERE user_id=? AND import_id=? AND import_hash=? AND status='verified' AND target_revision=? AND expires_at>? AND ${claim}`).bind(userId,plan.importSource.id,plan.importSource.hash,revision,now,...guard));
   }
+  // These native grants describe the CURRENT mutable pointer payload. Prior
+  // owner changes remain in audit; obsolete hashes must not become unrestorable
+  // attribution records after a rule edit or a new roadmap scope.
+  for(const write of plan.writes)if(write.table==='project_history'&&write.operation==='update'){
+    const value=parseHistoryRecord(write.value);
+    if(value.kind==='roadmap_head'||value.kind==='association_rule')statements.push(db.prepare(`DELETE FROM acceptance_owner_grants WHERE user_id=? AND record_id=? AND ${claim}`).bind(userId,write.id,...guard));
+  }
+  if(['roadmap.agree','checkpoint.assess','history.association.set'].includes(command.type))for(const write of plan.writes)if(write.table==='project_history'){
+    const value=parseHistoryRecord(write.value);
+    if(value.id!==write.id)throw new CommandValidationError('History grant identity differs.');
+    if(createsHistoryOwnerGrant(command.type,value,write.operation,now,id))
+      statements.push(db.prepare(`INSERT OR IGNORE INTO acceptance_owner_grants(user_id,record_id,content_hash) SELECT ?,?,? WHERE ${claim}`).bind(userId,write.id,await hashJson(value),...guard));
+  }
   if(command.type==='acceptance.record')for(const write of plan.writes)if(write.table==='acceptance_records'&&write.operation==='insert'){
     const value=write.value as unknown as import('./evidence-contract.ts').AcceptanceRecord;
     if(value.recordedAt!==now)throw new CommandValidationError('Owner assessment recording time must be current.');
@@ -326,6 +360,7 @@ async function executeWorkspaceCommandAdmitted(userId:string,input:{protocolVers
   statements.push(...await agentControlStatements(db,userId,plan,command.type,claim,guard,now,before.workspace));
   statements.push(...await deviceControlStatements(db,userId,plan,command.type,claim,guard,now));
   statements.push(...await baselineControlStatements(db,userId,plan,command.type,claim,guard,now));
+  statements.push(...await compileHistoryAnalysisConsent(db,userId,plan.historyAnalysisConsent,command.type,claim,guard,now));
   statements.push(...await reviewControlStatements(db,userId,plan,command.type,claim,guard,now));
   const sourceJobs=plan.jobs.filter(job=>job.kind==='source_refresh'),extensions=plan.integrationJobs??[];
   if(sourceJobs.length!==extensions.length||new Set(extensions.map(extension=>extension.intentId)).size!==extensions.length||sourceJobs.length&&command.type!=='sources.refresh.request')throw new CommandValidationError('Integration jobs must extend an explicit source refresh intent.');

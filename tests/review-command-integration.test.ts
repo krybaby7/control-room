@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {parsePlanningImport} from '../lib/workspace-codec.ts';
 import {test} from 'node:test';
 import {database} from './helpers/sqlite.ts';
 import {workspaceFixture,taskFixture} from './helpers/workspace.ts';
@@ -19,7 +20,7 @@ const now='2026-10-18T12:00:00.000Z';
 const scheduleInput={kind:'daily_review' as const,timezone:'Africa/Cairo' as const,enabled:true,recurrence:{frequency:'daily' as const,localTime:'09:00'},sourceId:null,projectIds:['p1'],catchUp:'latest_only' as const};
 const prefs={id:'notifications',mutedKinds:[],mutedSourceIds:[],quietHours:{enabled:false,timezone:'Africa/Cairo',start:'22:00',end:'08:00'},externalDelivery:'disabled'};
 async function fixture(){
- const {db,sqlite}=database(),workspace=workspaceFixture({tasks:[taskFixture()]});for(const owner of ['a','b'])await loadWorkspace(db,owner,()=>workspace,now);
+ const {db,sqlite}=database(),workspace=parsePlanningImport(workspaceFixture({tasks:[taskFixture()]}),now);for(const owner of ['a','b'])await loadWorkspace(db,owner,()=>workspace,now);
  async function put(table:RegisteredOwnerTable,value:unknown,owner='a',revision=1){const id=(value as {id:string}).id,text=canonical(value),hash=await contentHash(text),columns=moduleColumnNames(table),projection=await moduleProjection(table,id,value as JsonValue);sqlite.prepare(`INSERT INTO ${table}(user_id,id,row_revision,payload_json,content_hash${columns.length?`,${columns.join(',')}`:''}) VALUES(?,?,?,?,?${columns.map(()=>',?').join('')})`).run(owner,id,revision,text,hash,...columns.map(column=>projection[column]));return {id,hash};}
  async function send(command:WorkspaceCommand,owner='a',mutationId=crypto.randomUUID(),databaseOverride:SqlDatabase=db){const expectedRevision=(await readCurrent(db,owner,now)).revision;return executeWorkspaceCommand(owner,{protocolVersion:1,expectedRevision,mutationId,command},{db:databaseOverride,handlers:workspaceHandlers,now:()=>now});}
  async function snapshot(owner='a'){const input:ReviewAssemblyInput={envelope:await readCurrent(db,owner,now),projectIds:['p1'],filterDigest:'a'.repeat(64),operationalWatermarks:{},observations:[],sourceTargets:[],sourceStates:[],evidence:[],evidenceLinks:[],decisions:[],assessments:[],auditRecords:[],now};const value=await assembleReview(input);return {...await put('review_snapshots',value,owner),value};}

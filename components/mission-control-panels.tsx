@@ -1,17 +1,20 @@
 'use client';
 import type {ReactNode} from 'react';
-import {Activity,AlertTriangle,ArrowRight,Bot,CheckCheck,ChevronRight,Cloud,Flag,GitBranch,Inbox,Laptop,ListChecks,MessageSquare,Pin,Sparkles,Timer,Zap} from 'lucide-react';
+import {useState} from 'react';
+import {Activity,AlertTriangle,ArrowRight,Bot,CheckCheck,ChevronRight,CircleDashed,Cloud,Flag,GitBranch,HelpCircle,Inbox,Laptop,ListChecks,Pin,RefreshCw,Sparkles,Timer,Zap} from 'lucide-react';
 import type {Project,Task,Workspace} from '@/lib/types';
 import type {ActiveJob,AttentionItem,DashboardModel,LogEntry,PersonalJob,ProjectTile as ProjectTileModel,RecentJob,SignalTone} from '@/lib/dashboard/model';
 import {clockLabel,compactNumber,durationLabel,relativeTime} from '@/lib/dashboard/format';
 import {isCurrentWeek} from '@/lib/calendar';
 import {weeklyCompletionCount} from '@/lib/weekly-summary';
 import {archivedEntity} from '@/lib/entity-links';
-import {dateLabel,ProjectIcon} from './ui';
+import {TaskContext,dateLabel,ProjectIcon} from './ui';
 
 export interface DashboardActions {
  onProject:(project:Project)=>void;onTask:(task:Task)=>void;onTaskId:(taskId:string)=>void;onPin:(task:Task)=>void;onProjects:()=>void;onAgents:()=>void;onRuntime:()=>void;
  onRepositories:(projectId?:string)=>void;onInbox:()=>void;onAttention:()=>void;onWeekly:()=>void;busy:boolean;
+ onBrief:(projectId:string,repositoryKey:string,provider:'codex'|'claude')=>void;onKeepCurrent:(projectId:string,repositoryKey:string,provider:'codex'|'claude',enabled:boolean)=>void;onRetrySave:(projectId:string)=>void;
+ briefingNotices:Record<string,{message:string;tone:SignalTone;retry?:boolean}>;briefingWorking:Record<string,boolean>;
 }
 export function StatusLight({tone,label}:{tone:SignalTone;label?:string}){return <span className={`mc-light tone-${tone}`} role={label?'img':undefined} aria-label={label} aria-hidden={label?undefined:true}/>;}
 export function Meter({value,tone='good',label}:{value:number|null;tone?:SignalTone;label:string}){
@@ -63,16 +66,54 @@ export function OperationsPanel({model,actions}:{model:DashboardModel;actions:Da
  </section>;
 }
 
-function BriefingBlock({tile,now,actions}:{tile:ProjectTileModel;now:string;actions:DashboardActions}){
- const briefing=tile.briefing;
- if(!briefing)return <div className="mc-briefing empty"><MessageSquare size={15}/><div><strong>No analysis saved yet</strong><p>Analyze this project&apos;s repository with Codex or Claude Code to see where the last chats left off.</p><button type="button" className="text-button" onClick={()=>actions.onRepositories(tile.project.id)}>Analyze repository<ArrowRight size={13}/></button></div></div>;
- return <div className="mc-briefing"><div className="mc-briefing-head"><MessageSquare size={15}/><strong>Where we&apos;re at</strong><small>{briefing.providerLabel} · {relativeTime(briefing.recordedAt,now)} · <GitBranch size={11}/>{briefing.repositoryName} @ {briefing.head.slice(0,7)}{briefing.dirty?' (uncommitted changes)':''}</small></div>
-  <p className="mc-briefing-text">{briefing.excerpt}</p>
-  {briefing.chats?<ul className="mc-chats" aria-label="Recent local chats">{briefing.chats.map(chat=><li key={chat.provider} className={chat.status==='included'?'included':''}><StatusLight tone={chat.status==='included'?'good':'idle'}/><strong>{chat.label}</strong>{chat.status==='included'?<span>{chat.messages} message{chat.messages===1?'':'s'} · last {relativeTime(chat.latestAt,now)}{chat.truncated?' · excerpt':''}</span>:<span>{chat.statusLabel}</span>}</li>)}</ul>:<p className="mc-briefing-note">{briefing.kind==='cloud'?'Imported from a Codex Cloud handoff; local chat history is not part of cloud reports.':'This report predates chat context; refresh the analysis to include recent chats.'}</p>}
-  <p className="mc-briefing-note">{briefing.suggestedTasks} suggested task{briefing.suggestedTasks===1?'':'s'} waiting for review · {briefing.findings} cited finding{briefing.findings===1?'':'s'} · chat transcripts stay on your PC.<button type="button" className="text-button" onClick={()=>actions.onRepositories(tile.project.id)}>Open report<ArrowRight size={13}/></button></p>
+function AnalysisBlock({tile,now,actions}:{tile:ProjectTileModel;now:string;actions:DashboardActions}){
+ const analysis=tile.analysis;
+ if(!analysis)return null;
+ return <details className="mc-analysis"><summary><Bot size={13}/>Technical analysis for your engineers<small>{analysis.providerLabel} · {relativeTime(analysis.recordedAt,now)} · <GitBranch size={11}/>{analysis.repositoryName} @ {analysis.head.slice(0,7)}{analysis.dirty?' (uncommitted changes)':''}</small></summary>
+  <p className="mc-briefing-text">{analysis.excerpt}</p>
+  {analysis.chats?<ul className="mc-chats" aria-label="Recent local chats">{analysis.chats.map(chat=><li key={chat.provider} className={chat.status==='included'?'included':''}><StatusLight tone={chat.status==='included'?'good':'idle'}/><strong>{chat.label}</strong>{chat.status==='included'?<span>{chat.messages} message{chat.messages===1?'':'s'} · last {relativeTime(chat.latestAt,now)}{chat.truncated?' · excerpt':''}</span>:<span>{chat.statusLabel}</span>}</li>)}</ul>:<p className="mc-briefing-note">{analysis.kind==='cloud'?'Imported from a Codex Cloud handoff; local chat history is not part of cloud reports.':'This report predates chat context; refresh the analysis to include recent chats.'}</p>}
+  <p className="mc-briefing-note">{analysis.suggestedTasks} suggested task{analysis.suggestedTasks===1?'':'s'} waiting for review · {analysis.findings} cited finding{analysis.findings===1?'':'s'} · chat transcripts stay on your PC.<button type="button" className="text-button" onClick={()=>actions.onRepositories(tile.project.id)}>Open report<ArrowRight size={13}/></button></p>
+ </details>;
+}
+const OUTCOME_ICON={finished:CheckCheck,unfinished:CircleDashed,unclear:HelpCircle} as const;
+function BriefingControls({tile,actions}:{tile:ProjectTileModel;actions:DashboardActions}){
+ const view=tile.briefing,id=tile.project.id,working=actions.briefingWorking[id]??false,notice=actions.briefingNotices[id]??null;
+ const [provider,setProvider]=useState<'codex'|'claude'>(view.policy?.provider??view.report?.run.provider??(view.providers.find(row=>row.ready)?.id??'codex'));
+ const [repository,setRepository]=useState<string>(view.repositoryKey??'');
+ const repositoryKey=view.repositoryKey??(view.repositoryChoices.some(row=>row.key===repository)?repository:'');
+ const ready=view.providers.find(row=>row.id===provider)?.ready??false;
+ const canRequest=view.canRequest&&Boolean(repositoryKey)&&ready&&!working&&!actions.busy;
+ const keepCurrent=view.policy?.enabled??false;
+ return <div className="mc-brief-controls">
+  {!view.repositoryKey&&view.repositoryChoices.length>0&&<label className="mc-brief-pick">Folder on your PC<select value={repository} onChange={event=>setRepository(event.target.value)} disabled={working}><option value="">Choose a folder</option>{view.repositoryChoices.map(row=><option key={row.key} value={row.key}>{row.name}</option>)}</select></label>}
+  <label className="mc-brief-pick">Assistant<select value={provider} onChange={event=>setProvider(event.target.value as 'codex'|'claude')} disabled={working}>{view.providers.map(row=><option key={row.id} value={row.id}>{row.label}{row.ready?'':' (not signed in)'}</option>)}</select></label>
+  <button type="button" className="button secondary" disabled={!canRequest} onClick={()=>actions.onBrief(id,repositoryKey,provider)}><RefreshCw size={13}/>{view.report?'Refresh briefing':'Brief this project'}</button>
+  {repositoryKey&&<label className="mc-brief-toggle"><input type="checkbox" checked={keepCurrent} disabled={working||actions.busy||view.connector!=='online'&&!keepCurrent} onChange={event=>actions.onKeepCurrent(id,repositoryKey,provider,event.target.checked)}/><span>Keep current{keepCurrent&&view.policy?` · ${view.policy.provider==='codex'?'Codex':'Claude Code'}, at most every ${view.policy.minIntervalMinutes>=120?`${Math.round(view.policy.minIntervalMinutes/60)} h`:`${view.policy.minIntervalMinutes} min`}`:''}</span></label>}
+  {view.requestHint&&!view.activeJob&&<p className="mc-brief-hint">{view.requestHint}</p>}
+  {notice&&<p className={`mc-brief-notice tone-${notice.tone}`} role={notice.tone==='bad'?'alert':'status'}>{notice.message}{notice.retry&&<button type="button" className="text-button" disabled={working||actions.busy} onClick={()=>actions.onRetrySave(id)}>Retry save</button>}</p>}
  </div>;
 }
-export function ProjectTile({tile,now,actions}:{tile:ProjectTileModel;now:string;actions:DashboardActions}){
+export function BriefingCard({tile,now,actions}:{tile:ProjectTileModel;now:string;actions:DashboardActions}){
+ const view=tile.briefing,report=view.report;
+ return <section className={`mc-brief tone-${view.status.tone}`} aria-label={`Briefing for ${tile.project.name}`}>
+  <header className="mc-brief-head"><Sparkles size={15}/><strong>Where we&apos;re at</strong><Chip tone={view.status.tone}>{view.status.label}</Chip>{report&&<small>as of {relativeTime(view.recordedAt,now)} · {view.providerLabel} · {view.originLabel}{view.source==='completed'?' · saving…':''}</small>}</header>
+  {view.activeJob&&<p className="mc-brief-live" role="status"><StatusLight tone="live"/>{view.activeJob.status==='claimed'?`${view.activeJob.providerLabel} is writing the briefing on your PC`:'Waiting for your PC to pick up the briefing'}{view.activeJob.origin==='auto'?' (kept current)':''} · {relativeTime(view.activeJob.claimedAt??view.activeJob.createdAt,now)}</p>}
+  {view.lastFailure&&<p className="mc-brief-flag tone-bad"><AlertTriangle size={13}/>The last briefing attempt did not finish: {view.lastFailure.reason} ({relativeTime(view.lastFailure.at,now)}).</p>}
+  {report?<>
+   <p className="mc-brief-headline">{report.headline}</p>
+   <p className="mc-brief-reason">{report.status.reason}</p>
+   {view.freshness.newWork&&<p className="mc-brief-flag tone-warn"><AlertTriangle size={13}/>{view.freshness.detail} {view.policy?.enabled?'A refresh is scheduled the next time your PC is on.':'Refresh to catch up.'}</p>}
+   {view.work.length>0&&<div className="mc-brief-work"><strong>Last pieces of work</strong><ul>{view.work.map((row,index)=>{const Icon=OUTCOME_ICON[row.outcome];return <li key={index} className={`tone-${row.tone}`}><Icon size={14}/><span><b>{row.title}</b><em>{row.outcomeLabel} · {row.whereLabel}{row.when?` · ${dateLabel(row.when)}`:''}</em><small>{row.detail}</small></span></li>;})}</ul></div>}
+   {report.unfinished.length>0&&<div className="mc-brief-unfinished"><strong>Still open from that work</strong><ul>{report.unfinished.map((row,index)=><li key={index}><b>{row.title}</b> · {row.remaining}</li>)}</ul></div>}
+   <div className="mc-brief-columns"><div><strong><CheckCheck size={12}/>Done</strong>{report.done.length?<ul>{report.done.map((text,index)=><li key={index}>{text}</li>)}</ul>:<p>Nothing recorded as done yet.</p>}</div><div><strong><CircleDashed size={12}/>Not yet</strong>{report.notDone.length?<ul>{report.notDone.map((text,index)=><li key={index}>{text}</li>)}</ul>:<p>Nothing outstanding was identified.</p>}</div></div>
+   {report.decisionsNeeded.length>0&&<div className="mc-brief-decisions"><strong><Flag size={12}/>Needs your decision</strong><ul>{report.decisionsNeeded.map((text,index)=><li key={index}>{text}</li>)}</ul></div>}
+   {report.nextSteps.length>0&&<div className="mc-brief-next"><strong><ArrowRight size={12}/>Next steps</strong><ol>{report.nextSteps.map((text,index)=><li key={index}>{text}</li>)}</ol></div>}
+   <details className="mc-brief-basis"><summary>How this briefing was put together</summary><p>Based on work up to {relativeTime(view.freshness.basedOnAt,now)}: {view.evidenceLine}. Written by {view.providerLabel} on your PC{report.run.observedModel?` (${report.run.observedModel})`:''}; chat text and code never leave your PC except inside that one request.</p>{view.work.some(row=>row.evidence.length>0)&&<p className="mc-brief-refs">References for your engineers: {view.work.flatMap(row=>row.evidence).join(', ')}</p>}<ul>{report.limitations.map((text,index)=><li key={index}>{text}</li>)}</ul></details>
+  </>:!view.activeJob&&<div className="mc-brief-empty"><p>No briefing yet. Your PC can write one from the latest commits, GitHub branches and pull requests, your recent Codex and Claude Code chats, and your plan.</p></div>}
+  <BriefingControls tile={tile} actions={actions}/>
+ </section>;
+}
+export function ProjectTile({tile,now,actions,workspace}:{tile:ProjectTileModel;now:string;actions:DashboardActions;workspace:Workspace}){
  const {project,progress,agent}=tile;
  return <article className={`mc-project ${project.color}`} aria-label={`Project ${project.name}`}>
   <header className="mc-project-head"><ProjectIcon project={project}/><div className="mc-project-title"><h2>{project.name}</h2><p>{project.goal||'Define the outcome you want to work toward.'}</p></div><span className="mc-level" title="Progress level: achieved milestones plus one per five completed tasks">LVL {tile.level}</span></header>
@@ -83,10 +124,11 @@ export function ProjectTile({tile,now,actions}:{tile:ProjectTileModel;now:string
   </div>
   <div className="mc-chip-row">{progress.inProgress>0&&<Chip tone="live">{progress.inProgress} in progress</Chip>}{progress.inReview>0&&<Chip tone="warn">{progress.inReview} in review</Chip>}{progress.blocked>0&&<Chip tone="bad">{progress.blocked} blocked</Chip>}{progress.overdue>0&&<Chip tone="bad">{progress.overdue} overdue</Chip>}{progress.weeklyPinned>0&&<Chip tone="good"><Pin size={10}/>{progress.weeklyPinned} this week</Chip>}{progress.proposed>0&&<Chip>{progress.proposed} proposed</Chip>}{tile.milestone&&<Chip tone="idle" title={tile.milestone.targetDate?`Target ${dateLabel(tile.milestone.targetDate)}`:'No target date'}>{tile.milestone.status==='active'?'Now: ':'Next: '}{tile.milestone.title}</Chip>}</div>
   {(agent.jobs.length>0||agent.personal.length>0)&&<div className="mc-project-live">{agent.jobs.map(job=><ActiveJobCard key={job.id} job={job} now={now} compact onOpen={actions.onAgents}/>)}{agent.personal.length>0&&<ul className="mc-personal-list">{agent.personal.map(job=><PersonalJobRow key={job.id} job={job} now={now}/>)}</ul>}</div>}
-  <BriefingBlock tile={tile} now={now} actions={actions}/>
+  <BriefingCard tile={tile} now={now} actions={actions}/>
+  <AnalysisBlock tile={tile} now={now} actions={actions}/>
   <div className="mc-project-columns">
    <div className="mc-activity"><strong><Activity size={13}/>Recent activity</strong>{tile.activity.length?<ul>{tile.activity.map(entry=><li key={entry.id}><time dateTime={entry.at}>{relativeTime(entry.at,now)}</time><span>{entry.text}</span></li>)}</ul>:<p>No saved activity for this project yet.</p>}</div>
-   <div className="mc-next"><strong><Sparkles size={13}/>Next action</strong>{tile.nextAction?<button type="button" className="mc-next-task" onClick={()=>actions.onTask(tile.nextAction!.task)}><span>{tile.nextAction.task.title}</span><small>{tile.nextAction.reason}</small></button>:<p>No ready step. Accept a proposal or add a task.</p>}</div>
+   <div className="mc-next"><strong><Sparkles size={13}/>Next action</strong>{tile.nextAction?<button type="button" className="mc-next-task" onClick={()=>actions.onTask(tile.nextAction!.task)}><span>{tile.nextAction.task.title}<TaskContext task={tile.nextAction.task} workspace={workspace}/></span><small>{tile.nextAction.reason}</small></button>:<p>No ready step. Accept a proposal or add a task.</p>}</div>
   </div>
   <footer className="mc-project-foot"><span title="Summed from recorded run results">{tile.tokens.runs?`${compactNumber(tile.tokens.input)} in · ${compactNumber(tile.tokens.output)} out · ${tile.tokens.runs} run${tile.tokens.runs===1?'':'s'}${tile.tokens.reported<tile.tokens.runs?` (${tile.tokens.runs-tile.tokens.reported} without usage)`:''}`:'No agent run recorded'}</span><span className="mc-project-actions"><button type="button" className="button secondary" onClick={()=>actions.onRepositories(project.id)}>Analyze</button><button type="button" className="button primary" onClick={()=>actions.onProject(project)}>Open project<ArrowRight size={14}/></button></span></footer>
  </article>;
@@ -104,7 +146,7 @@ export function WeekPanel({workspace,now,actions}:{workspace:Workspace;now:strin
  const weekly=workspace.tasks.filter(task=>isCurrentWeek(task,now)&&!['done','archived'].includes(task.status)&&!archivedEntity(workspace,{kind:'task',id:task.id}));
  const completed=weeklyCompletionCount(workspace.tasks,now);
  return <section className="panel weekly-panel mc-week" aria-labelledby="weekly-heading"><div className="panel-heading"><div><p className="eyebrow">MAKE IT INTENTIONAL</p><h2 id="weekly-heading">This week <span className="count">{weekly.length}</span></h2></div><Pin size={18} className="muted-icon"/></div>
-  {weekly.length?<div className="weekly-list">{weekly.slice(0,6).map(task=>{const project=workspace.projects.find(row=>row.id===task.projectId);return <button className="weekly-item" key={task.id} onClick={()=>actions.onTask(task)}><span className={`weekly-marker ${project?.color??''}`}/><span>{task.title}<small>{project?.name}</small></span><ChevronRight size={15}/></button>;})}</div>:<div className="mc-empty small"><h3>Leave a little room. Then choose.</h3><p>Pin a few tasks to give your week a clear focus.</p></div>}
+  {weekly.length?<div className="weekly-list">{weekly.slice(0,6).map(task=>{const project=workspace.projects.find(row=>row.id===task.projectId);return <button className="weekly-item" key={task.id} onClick={()=>actions.onTask(task)}><span className={`weekly-marker ${project?.color??''}`}/><span>{task.title}<TaskContext task={task} workspace={workspace}/></span><ChevronRight size={15}/></button>;})}</div>:<div className="mc-empty small"><h3>Leave a little room. Then choose.</h3><p>Pin a few tasks to give your week a clear focus.</p></div>}
   <div className="mc-attention-foot">{completed>0&&<span className="weekly-done"><CheckCheck size={15}/>{completed} completed this week</span>}<button type="button" className="text-button" onClick={actions.onWeekly}>Plan the week<ArrowRight size={13}/></button></div>
  </section>;
 }

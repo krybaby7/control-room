@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { fixtureOrigin, openFixture, workspace } from './helpers';
+import { fixtureOrigin, openFixture, workspace, clickFixtureNavigation } from './helpers';
 import { entityHref } from '../../lib/entity-links';
 import type { WorkspaceEnvelope } from '../../lib/types';
 
@@ -146,4 +146,21 @@ for (const checkFirst of [false, true]) test(`an uncorrelated proxy 408 retains 
   const receipt = await page.request.get(`/api/workspace/mutations/${originalMutationId}`);
   expect(receipt.ok()).toBeTruthy();
   expect((await receipt.json()).status).toBe('committed');
+});
+
+
+test('secondary navigation remains usable immediately after restoring a secondary URL', async ({ page }) => {
+  await openFixture(page);
+  const navigation = page.getByRole('navigation', { name: 'Main navigation', exact: true });
+  for (const name of ['Agents', 'Sources'] as const) {
+    await clickFixtureNavigation(page, name);
+    await page.reload();
+    // Exercise the same immediate reload-to-navigation path as enrollment and
+    // encrypted-draft recovery, without waiting for a feature panel first.
+    await clickFixtureNavigation(page, name);
+    await expect(navigation.getByRole('button', { name, exact: true })).toHaveAttribute('aria-current', 'page');
+    await expect(navigation.locator('details')).toHaveAttribute('open', '');
+    if (name === 'Agents') await expect(page.getByRole('heading', { name: 'Agents', exact: true })).toBeVisible();
+    else await expect(page.getByRole('region', { name: 'Review an import', exact: true })).toBeVisible();
+  }
 });

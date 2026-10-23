@@ -1,5 +1,6 @@
 /** Small display helpers for the mission-control dashboard. Pure and timezone-aware (Cairo). */
 const MINUTE=60_000,HOUR=3_600_000,DAY=86_400_000;
+let absoluteDateFormatter:Intl.DateTimeFormat|undefined,clockFormatter:Intl.DateTimeFormat|undefined;
 function instant(value:string|null|undefined):number|null{if(!value)return null;const parsed=Date.parse(value);return Number.isFinite(parsed)?parsed:null;}
 /** "just now", "4 min ago", "2 h ago", "yesterday", "5 d ago" or an absolute date for older stamps. Future stamps read as "ahead of clock". */
 export function relativeTime(value:string|null|undefined,now:string):string{
@@ -12,12 +13,12 @@ export function relativeTime(value:string|null|undefined,now:string):string{
  if(delta<DAY)return `${Math.round(delta/HOUR)} h ago`;
  if(delta<2*DAY)return 'yesterday';
  if(delta<14*DAY)return `${Math.round(delta/DAY)} d ago`;
- return new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short',timeZone:'Africa/Cairo'}).format(new Date(at));
+ return (absoluteDateFormatter??=new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short',timeZone:'Africa/Cairo'})).format(new Date(at));
 }
 /** Cairo clock time for a stamp, e.g. "14:07". */
 export function clockLabel(value:string|null|undefined):string{
  const at=instant(value);if(at===null)return '--:--';
- return new Intl.DateTimeFormat('en-GB',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Africa/Cairo'}).format(new Date(at));
+ return (clockFormatter??=new Intl.DateTimeFormat('en-GB',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Africa/Cairo'})).format(new Date(at));
 }
 /** 12400 → "12.4k", 1_250_000 → "1.25M", null → "—". */
 export function compactNumber(value:number|null|undefined):string{

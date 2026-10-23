@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {parsePlanningImport} from '../lib/workspace-codec.ts';
 import {test} from 'node:test';
 import {sourceCommandHandlers,sourceCommandSchema} from '../lib/sources/commands.ts';
 import {sourceConfigurationHash} from '../lib/background/job-store.ts';
@@ -12,7 +13,7 @@ import type {SourceConnection,SourceTarget,SourceSyncState,SourceProposal,Source
 import type {JsonValue,WorkspaceCommand} from '../lib/workspace-protocol.ts';
 const now='2026-10-18T12:00:00.000Z';
 async function fixture(){
- const workspace=createSeedWorkspace(now),projectId=workspace.projects[0].id;workspace.tasks=[taskFixture('owner-task',{projectId,notes:'Original owner notes',status:'done',completedAt:'2026-10-10T10:00:00.000Z',weekly:false,evidence:'Owner history'})];workspace.milestones=[];workspace.captures=[];
+ let workspace=createSeedWorkspace(now);const projectId=workspace.projects[0].id;workspace.tasks=[taskFixture('owner-task',{projectId,notes:'Original owner notes',status:'done',completedAt:'2026-10-10T10:00:00.000Z',weekly:false,evidence:'Owner history'})];workspace.milestones=[];workspace.captures=[];workspace=parsePlanningImport(workspace,now);
  const connection:SourceConnection={id:'connection',provider:'github',label:'Selected GitHub',accessMode:'interactive',enabled:true,archivedAt:null};
  const target:SourceTarget={id:'target',connectionId:connection.id,projectId,kind:'github_repository',providerResourceId:'42',canonicalUrl:'https://github.com/owner/repository',selectedPaths:[],staleAfterSeconds:3600,selectionVersion:1,archivedAt:null};
  const rows=new Map<string,ModuleRow>();

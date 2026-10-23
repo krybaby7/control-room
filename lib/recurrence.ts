@@ -1,3 +1,4 @@
+import {WORK_TYPES} from './areas.ts';
 import {z} from 'zod';
 import type {Task,TaskInput,Workspace} from './types.ts';
 export type RecurrencePattern={frequency:'daily';interval:number}|{frequency:'weekly';interval:number;weekdays:number[]}|{frequency:'monthly';interval:number;day:number};
@@ -13,7 +14,7 @@ export const recurrencePatternSchema=z.discriminatedUnion('frequency',[
  z.object({frequency:z.literal('monthly'),interval,day:z.number().int().min(1).max(31)}).strict(),
 ]);
 const source=z.string().max(2048).refine(value=>{try{const url=new URL(value);return ['https:','http:'].includes(url.protocol)&&!url.username&&!url.password&&!/[\u0000-\u0020\u007f]/.test(value);}catch{return false;}});
-export const recurrenceRuleSchema=z.object({id:z.string().uuid(),startDate:date,endDate:date.nullable(),pattern:recurrencePatternSchema,enabled:z.boolean(),template:z.object({estimateMinutes:z.number().int().min(1).max(10080).nullable(),projectId:identifier,milestoneId:identifier.nullable(),title:z.string().max(200).refine(value=>!!value.trim()),notes:z.string().max(10000),horizon:z.enum(['now','next','later']),priority:z.enum(['high','normal','low']),blocker:z.string().max(1000),sourceUrl:source.nullable()}).strict()}).strict().refine(rule=>rule.endDate===null||rule.endDate>=rule.startDate,'End date precedes start date.');
+export const recurrenceRuleSchema=z.object({id:z.string().uuid(),startDate:date,endDate:date.nullable(),pattern:recurrencePatternSchema,enabled:z.boolean(),template:z.object({areaId:identifier.nullable().optional(),workType:z.enum(WORK_TYPES).optional(),estimateMinutes:z.number().int().min(1).max(10080).nullable(),projectId:identifier,milestoneId:identifier.nullable(),title:z.string().max(200).refine(value=>!!value.trim()),notes:z.string().max(10000),horizon:z.enum(['now','next','later']),priority:z.enum(['high','normal','low']),blocker:z.string().max(1000),sourceUrl:source.nullable()}).strict()}).strict().refine(rule=>rule.endDate===null||rule.endDate>=rule.startDate,'End date precedes start date.');
 export function parseRecurrenceRule(value:unknown):RecurrenceRule {return recurrenceRuleSchema.parse(value);}
 function ordinal(value:string):number {return Date.parse(`${value}T00:00:00Z`)/DAY;}
 function dayAt(value:number):string {const result=new Date(value*DAY).toISOString().slice(0,10);if(!validDate(result))throw new Error('Calendar date exceeds supported years.');return result;}
@@ -48,7 +49,7 @@ export function nextTenOccurrences(input:RecurrenceRule,from:string,through?:str
 export function occurrenceTaskId(ruleId:string,value:string):string {
  if(!z.string().uuid().safeParse(ruleId).success||!validDate(value))throw new Error('A saved recurrence rule and calendar date are required.');return `repeat:${ruleId}:${value}`;
 }
-export type RecurrenceAttention='paused-rule'|'missing-project'|'archived-project'|'missing-milestone'|'archived-milestone';
+export type RecurrenceAttention='paused-rule'|'missing-project'|'archived-project'|'missing-milestone'|'archived-milestone'|'missing-area'|'archived-area';
 export type RecurrenceProposal={status:'proposed';task:Task}|{status:'attention';reason:RecurrenceAttention}|{status:'not-due'};
 /** Produces a reviewable proposal only; never persists tasks, occurrence disposition or job intent. */
 export function createRecurrenceProposal(input:RecurrenceRule,value:string,workspace:Workspace,now:string):RecurrenceProposal {
@@ -56,8 +57,9 @@ export function createRecurrenceProposal(input:RecurrenceRule,value:string,works
  if(!rule.enabled)return {status:'attention',reason:'paused-rule'};
  const project=workspace.projects.find(item=>item.id===rule.template.projectId);if(!project)return {status:'attention',reason:'missing-project'};if(project.archivedAt)return {status:'attention',reason:'archived-project'};
  if(rule.template.milestoneId!==null){const milestone=workspace.milestones.find(item=>item.id===rule.template.milestoneId&&item.projectId===project.id);if(!milestone)return {status:'attention',reason:'missing-milestone'};if(milestone.archivedAt)return {status:'attention',reason:'archived-milestone'};}
+ if(rule.template.areaId){const area=workspace.areas?.find(item=>item.id===rule.template.areaId&&item.projectId===project.id);if(!area)return {status:'attention',reason:'missing-area'};if(area.archivedAt)return {status:'attention',reason:'archived-area'};}
  if(!occurs(rule,value,ordinal(value)))return {status:'not-due'};
- return {status:'proposed',task:{...structuredClone(rule.template),id:occurrenceTaskId(rule.id,value),status:'proposed',weekly:false,weeklyWeek:null,dueDate:value,dependsOn:[],evidence:'',createdAt:now,updatedAt:now,completedAt:null,archivedFromStatus:null}};
+ return {status:'proposed',task:{...structuredClone(rule.template),areaId:rule.template.areaId??null,workType:rule.template.workType??'other',id:occurrenceTaskId(rule.id,value),status:'proposed',weekly:false,weeklyWeek:null,dueDate:value,dependsOn:[],evidence:'',createdAt:now,updatedAt:now,completedAt:null,archivedFromStatus:null}};
 }
 
 export const recurrenceOccurrenceSchema=z.object({ruleId:z.string().uuid(),occurrenceDate:date,taskId:z.string().min(1).max(128).nullable(),generatedAt:z.string().datetime({offset:true}),disposition:z.enum(['created','skipped','removed'])}).strict().superRefine((row,ctx)=>{if(row.taskId!==null&&row.taskId!==occurrenceTaskId(row.ruleId,row.occurrenceDate)||row.taskId===null&&row.disposition!=='skipped')ctx.addIssue({code:'custom',message:'Occurrence task identity differs.'});});
