@@ -20,7 +20,7 @@ export function searchPlanning(workspace:Workspace,options:PlanningSearchOptions
    const status=typeof record.status==='string'?record.status:null,archived=archivedEntity(workspace,{kind:type,id:row.id});
    if(archived&&!options.includeArchived||options.entityTypes&&!options.entityTypes.includes(type)||options.projectIds&&!options.projectIds.includes(projectId??'')||options.statuses&&!options.statuses.includes(status??''))continue;
    const fields=type==='project'?['name','goal','description']:type==='milestone'?['title','acceptance','description','evidence']:type==='task'?['title','notes','evidence','sourceUrl']:['title','body','sourceUrl'];
-   const body=fields.map(key=>typeof record[key]==='string'?record[key]:'').join('\n');const haystack=normalized(body);if(!tokens.every(token=>haystack.includes(token)))continue;
+   const body=fields.map(key=>typeof record[key]==='string'?record[key]:'').join('\n');const classification=type==='task'?[workspace.projects.find(project=>project.id===projectId)?.name??'',workspace.areas?.find(area=>area.id===record.areaId&&area.projectId===projectId)?.name??'Unclassified',String(record.workType??'other')].join(' '):'';const haystack=normalized(body+'\n'+classification);if(!tokens.every(token=>haystack.includes(token)))continue;
    const rawTime=record.updatedAt??record.createdAt;const timestamp=typeof rawTime==='string'&&Number.isFinite(Date.parse(rawTime))?rawTime:null;
    const rank=tokens.filter(token=>normalized(title).includes(token)).length;
    results.push({id:row.id,type,title,projectId,project:workspace.projects.find(project=>project.id===projectId)?.name??null,snippet:body.slice(0,240),archived,status,timestamp,timestampUnknown:timestamp===null,href:entityHref({kind:type,id:row.id}),rank});

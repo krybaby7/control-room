@@ -1,3 +1,4 @@
+import {parseWorkspaceExport} from '../lib/workspace-validation.ts';
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {database} from './helpers/sqlite.ts';
@@ -18,7 +19,7 @@ import {getProjectBaseline} from '../lib/project-baselines.ts';
 import {reviewSourceWatermark} from '../lib/reviews/freshness.ts';
 import {versionRowId} from '../lib/version-identity.ts';
 const now='2026-10-18T12:00:00.000Z';
-async function fixture(native=true){const f=database(),workspace=workspaceFixture({tasks:[taskFixture()]});for(const owner of ['a','b'])await loadWorkspace(f.db,owner,()=>workspace,now);
+async function fixture(native=true){const f=database(),workspace=parseWorkspaceExport(workspaceFixture({tasks:[taskFixture()]}));for(const owner of ['a','b'])await loadWorkspace(f.db,owner,()=>workspace,now);
  async function put(table:RegisteredOwnerTable,value:unknown,owner='a',id=(value as {id:string}).id){const text=canonical(value),columns=moduleColumnNames(table),projection=await moduleProjection(table,id,value as JsonValue);f.sqlite.prepare(`INSERT INTO ${table}(user_id,id,row_revision,payload_json,content_hash${columns.length?`,${columns.join(',')}`:''}) VALUES(?,?,1,?,?${columns.map(()=>',?').join('')})`).run(owner,id,text,await contentHash(text),...columns.map(key=>projection[key]));}
  const connection:SourceConnection={id:'connection',provider:'documents',label:'Synthetic manual source',accessMode:'interactive',enabled:true,archivedAt:null},target:SourceTarget={id:'source',connectionId:'connection',projectId:'p1',kind:'document',providerResourceId:'synthetic-resource',canonicalUrl:null,selectedPaths:[],staleAfterSeconds:3600,selectionVersion:1,archivedAt:null};await put('source_connections',connection);await put('source_targets',target);f.sqlite.prepare('INSERT INTO source_sync_state(user_id,source_id,operational_revision,configuration_hash,execution_epoch,paused,failure_count) VALUES(?,?,1,?,0,0,0)').run('a',target.id,await sourceConfigurationHash(connection,target));
  if(native){const input:ManualSourceImport={revision:1,mutationId:'synthetic-baseline-native-import-0001',expectedRowRevision:1,document:{metadata:{version:1,sourceId:target.providerResourceId,sourceVersion:null,filename:'synthetic.txt',contentType:'text/plain',sourceModifiedAt:null,canonicalUrl:null,extractionLimitations:[]},content:'Dated contextual source only; do not accept or execute work.'}};assert.equal((await importManualSource(f.db,'a',target.id,input,()=>now)).status,'completed');}

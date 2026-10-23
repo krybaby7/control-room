@@ -13,7 +13,7 @@ test('rejects a cross-origin request before parsing its payload', async () => {
 test('rejects form submissions and invalid or oversized JSON', async () => {
   await assert.rejects(readMutation(request('{}', 'https://app.example', 'text/plain')), { status: 415 });
   await assert.rejects(readMutation(request('not json')), { status: 400 });
-  await assert.rejects(readMutation(request('x'.repeat(1_350_001))), { status: 413 });
+  await assert.rejects(readMutation(request('x'.repeat(2_000_001))), { status: 413 });
   await assert.rejects(readMutation(request(JSON.stringify({revision:1,mutationId:'mutation-00000001',command:{type:'capture.create',text:'x'.repeat(65_536)}}))), {status:413});
 });
 
@@ -45,4 +45,15 @@ test('mutation boundary rejects invalid UTF-8 instead of silently replacing owne
  source[source.indexOf(88)]=255;
  const malformed=new Request('https://app.example/api/workspace',{method:'POST',headers:{origin:'https://app.example','content-type':'application/json'},body:source});
  await assert.rejects(readMutation(malformed),{status:400});
+});
+
+test('restore transport accepts legacy content and v5 serialized headroom up to the exact 2 MB request bound',async()=>{
+ for(const contentBytes of [1_000_000,1_500_000,1_875_000]){
+  const command={type:'workspace.restore',workspace:{content:'x'.repeat(contentBytes)}};
+  assert.deepEqual((await readMutation(request(JSON.stringify({revision:1,mutationId:'restore-headroom-0001',command})))).command,command);
+ }
+ const envelope={revision:1,mutationId:'restore-boundary-0001',command:{type:'workspace.restore',workspace:{content:''}}};
+ const overhead=new TextEncoder().encode(JSON.stringify(envelope)).byteLength;envelope.command.workspace.content='x'.repeat(2_000_000-overhead);
+ const exact=JSON.stringify(envelope);assert.equal(new TextEncoder().encode(exact).byteLength,2_000_000);assert.equal((await readMutation(request(exact))).revision,1);
+ envelope.command.workspace.content+='x';await assert.rejects(readMutation(request(JSON.stringify(envelope))),{status:413});
 });

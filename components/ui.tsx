@@ -1,3 +1,4 @@
+import {taskContext,WORK_TYPE_LABELS} from '@/lib/areas';
 import { ArrowUpRight, Check, Circle, CircleDashed, CircleDot, Clock3, GitBranch, Mountain, Pin, Sparkles } from 'lucide-react';
 import type { Project, Task, TaskStatus, Workspace } from '@/lib/types';
 import { getBlockers } from '@/lib/planning';
@@ -8,10 +9,12 @@ export const horizonLabels = { now: 'Now', next: 'Next', later: 'Later' };
 export function cairoToday() {
   return cairoDate();
 }
+let shortDateFormatter:Intl.DateTimeFormat|undefined,fullDateFormatter:Intl.DateTimeFormat|undefined;
 export function dateLabel(value: string | null, full = false) {
   if (!value) return 'No target date';
   const date = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T12:00:00Z`) : new Date(value);
-  return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: full ? 'long' : 'short', ...(full ? { year: 'numeric' } : {}), timeZone: 'Africa/Cairo' }).format(date);
+  const formatter=full?(fullDateFormatter??=new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'long',year:'numeric',timeZone:'Africa/Cairo'})):(shortDateFormatter??=new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short',timeZone:'Africa/Cairo'}));
+  return formatter.format(date);
 }
 export function ProjectIcon({ project, small = false }: { project: Project; small?: boolean }) {
   return <span className={`project-icon ${project.color} ${small ? 'small' : ''}`} aria-hidden="true">{project.color === 'orange' ? <Mountain size={small ? 18 : 25} strokeWidth={1.8} /> : <GitBranch size={small ? 18 : 25} strokeWidth={1.8} />}</span>;
@@ -23,16 +26,21 @@ export function Status({ status }: { status: TaskStatus }) {
 export function EmptyState({ title, text, action }: { title: string; text: string; action?: React.ReactNode }) {
   return <div className="empty-state"><span className="empty-symbol"><Sparkles size={21} strokeWidth={1.5} /></span><h3>{title}</h3><p>{text}</p>{action}</div>;
 }
+export function TaskContext({task,workspace,showProject=true}:{task:Pick<Task,'projectId'|'areaId'|'workType'>;workspace:Workspace;showProject?:boolean}){
+ const project=workspace.projects.find(row=>row.id===task.projectId),area=(workspace.areas??[]).find(row=>row.id===task.areaId&&row.projectId===task.projectId);
+ const type=WORK_TYPE_LABELS[task.workType??'other'],label=taskContext(project?.name??'Unknown project',area?.name??null,type);
+ return <span className="task-context" aria-label={label}>{showProject?label:[area?.name??'Unclassified',type].join(' / ')}{area?.archivedAt?' · Area archived':''}</span>;
+}
 export function TaskRow({ task, workspace, reason, onEdit, onPin, busy, showProject = true }: { task: Task; workspace: Workspace; reason?: string; onEdit: (task: Task) => void; onPin: (task: Task) => void; busy: boolean; showProject?: boolean }) {
   const project = workspace.projects.find(p => p.id === task.projectId);
   const blockers = getBlockers(task, workspace);
   const overdue = task.dueDate && task.dueDate < cairoToday() && !['done', 'archived'].includes(task.status);
   const pinned = isCurrentWeek(task);
   return <article className={`task-row ${task.status === 'done' ? 'task-done' : ''}`}>
-    <button className="task-open" onClick={() => onEdit(task)} aria-label={`Edit task: ${task.title}`}>
+    <button className="task-open" onClick={() => onEdit(task)} aria-label={`Edit task: ${task.title} · ${taskContext(project?.name??'Unknown project',(workspace.areas??[]).find(area=>area.id===task.areaId)?.name??null,WORK_TYPE_LABELS[task.workType??'other'])}`}>
       <span className={`task-check ${task.status}`} aria-hidden="true">{task.status === 'done' ? <Check size={15} /> : task.status === 'doing' ? <span /> : null}</span>
       <span className="task-copy"><span className="task-title">{task.title}</span>{reason && <span className="task-reason">{reason}</span>}
-        <span className="task-meta">{showProject && project && <span className={`project-label ${project.color}`}><i />{project.name}</span>}<Status status={task.status} />{task.priority === 'high' && <span className="priority">High priority</span>}{task.dueDate && <span className={overdue ? 'overdue' : ''}>{overdue ? 'Overdue · ' : ''}{dateLabel(task.dueDate)}</span>}</span>
+        <span className="task-meta">{showProject && project && <span className={`project-label ${project.color}`}><i />{project.name}</span>}<TaskContext task={task} workspace={workspace} showProject={false} /><Status status={task.status} />{task.priority === 'high' && <span className="priority">High priority</span>}{task.dueDate && <span className={overdue ? 'overdue' : ''}>{overdue ? 'Overdue · ' : ''}{dateLabel(task.dueDate)}</span>}</span>
         {blockers.length > 0 && <span className="blocker-text">Blocked: {blockers.join(' · ')}</span>}
       </span>
     </button>

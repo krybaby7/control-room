@@ -6,7 +6,7 @@
  * that ride in the one model prompt. */
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
-import {repositoryIdentity,digest,forbiddenPath} from './snapshot.mjs';
+import {repositoryIdentity,digest,forbiddenPath,snapshotRepository} from './snapshot.mjs';
 import {readCodexChatContext} from './codex-chat-context.mjs';
 import {chatTextHasSecret,redactChatText} from './chat-context.mjs';
 const exec=promisify(execFile);
@@ -27,7 +27,11 @@ async function defaultBranch(root,remote,locals,signal){
  for(const name of ['main','master'])if(locals.some(ref=>ref.name===name))return name;return locals[0]?.name??null;
 }
 async function compare(root,base,ref,signal){if(!base||base===ref)return {ahead:null,behind:null,merged:null};const counts=(await git(root,['rev-list','--left-right','--count',`${base}...${ref}`],{signal}).catch(()=>'')).trim().split(/\s+/);const behind=Number(counts[0]),ahead=Number(counts[1]);const merged=await git(root,['merge-base','--is-ancestor',ref,base],{signal}).then(()=>true,error=>error?.code===1?false:null);return {ahead:Number.isSafeInteger(ahead)?ahead:null,behind:Number.isSafeInteger(behind)?behind:null,merged};}
-async function readUncommitted(root,signal){const status=(await git(root,['status','--porcelain=v1','-z','--untracked-files=normal','--ignore-submodules=all'],{signal}).catch(()=>'')).split('\0').filter(Boolean);const paths=[];for(const entry of status){const path=entry.slice(3).replaceAll('\\','/');if(!path)continue;paths.push(forbiddenPath(path)?'[excluded path]':clean(path,160));}const shortstat=clean((await git(root,['diff','--shortstat','--ignore-submodules=all','HEAD'],{signal}).catch(()=>'')).trim(),200);return {files:status.length,paths:paths.slice(0,EVIDENCE_LIMITS.uncommittedPaths),summary:shortstat||null};}
+async function readUncommitted(root,signal){const status=(await git(root,['status','--porcelain=v1','-z','--untracked-files=normal','--ignore-submodules=all'],{signal}).catch(()=>'')).split('\0').filter(Boolean);const paths=[];for(const entry of status){const path=entry.slice(3).replaceAll('\\','/');if(!path)continue;paths.push(forbiddenPath(path)?'[excluded path]':clean(path,160));}const shortstat=clean((await git(root,['diff','--shortstat','--ignore-submodules=all','HEAD'],{signal}).catch(()=>'')).trim(),200);const result={files:status.length,paths:paths.slice(0,EVIDENCE_LIMITS.uncommittedPaths),summary:shortstat||null};
+ // Reuse the bounded source reader's path, link, secret and cancellation rules.
+ // Only its digest participates locally; source excerpts never enter this bundle.
+ if(status.length){const snapshot=await snapshotRepository(root,{signal});Object.defineProperty(result,'contentFingerprint',{value:snapshot.sha256});}
+ return result;}
 async function readPullRequests(remote,signal,{ghMs=EVIDENCE_LIMITS.ghMs}={}){
  const match=/^github\.com\/([^/]+\/[^/]+)$/.exec(remote??'');if(!match)return null;
  const env={...gitEnvironment(true),GH_PROMPT_DISABLED:'1',GH_NO_UPDATE_NOTIFIER:'1',NO_COLOR:'1'};
@@ -89,8 +93,8 @@ export async function collectBriefingEvidence(root,{signal,now=()=>new Date().to
  const summary={window:{since,until},local:{branch,commits:localBranches.reduce((sum,row)=>sum+row.commits.length,0),branches:localBranches.length,latestCommitAt:latest(localBranches),uncommittedFiles:uncommitted.files},cloud:{status:cloudStatus,remote,branches:cloudBranches.length,commits:cloudBranches.reduce((sum,row)=>sum+row.commits.length,0),latestCommitAt:latest(cloudBranches),pullRequests:prs?prs.length:null,openPullRequests:prs?prs.filter(row=>row.state==='open').length:null,fetchedAt},chats:chats.map(row=>row.summary),plan:null,inputSha256:digest(JSON.stringify(bundle))};
  return {identity,branch,bundle,summary,fingerprint:workFingerprint({head:identity.head,uncommitted,locals,remotes,chats:chats.map(row=>row.summary.latestAt)})};
 }
-function workFingerprint({head,uncommitted,locals,remotes,chats}){return digest(JSON.stringify({head,uncommitted:uncommitted.paths,locals:locals.map(ref=>[ref.name,ref.sha]),remotes:remotes.map(ref=>[ref.name,ref.sha]),chats}));}
-/** Cheap change detector for automatic refresh: heads, uncommitted paths, remote refs and chat recency. */
+function workFingerprint({head,uncommitted,locals,remotes,chats}){return digest(JSON.stringify({head,uncommitted:uncommitted.paths,contentFingerprint:uncommitted.contentFingerprint??null,locals:locals.map(ref=>[ref.name,ref.sha]),remotes:remotes.map(ref=>[ref.name,ref.sha]),chats}));}
+/** Bounded change detector: heads, safe source content, remote refs and chat recency. */
 export async function computeWorkFingerprint(root,{signal,fetchRemote=true,codexHome,claudeHome}={}){
  signal?.throwIfAborted();const identity=await repositoryIdentity(root,{signal});
  const remoteUrl=(await git(identity.root,['config','--local','--get','remote.origin.url'],{signal}).catch(()=>'')).trim(),remote=remoteIdentity(remoteUrl);

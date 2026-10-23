@@ -1,7 +1,7 @@
 import type {ScopedPlanningCapture} from './recoverability-planning-capture.ts';
-import {readRecoveryReadPages} from './recoverability-read-pages.ts';
+import {readRecoveryReadPageGroups,type RecoveryReadPageInput} from './recoverability-read-pages.ts';
 import {createSerializationHashContext,closeSerializationHashContext} from './serialization-hash.ts';
-import {verifyRecoverabilityRowHashes} from './recoverability-row-hashes.ts';
+import {assertRecoverabilityHashRows,verifyRecoverabilityRowHashes} from './recoverability-row-hashes.ts';
 import {startRecoverabilityPhase} from './recoverability-diagnostics.ts';
 import {compareSqliteText} from './sqlite-text-order.ts';
 import {REFERENCE_LIMITS} from './workspace-references.ts';
@@ -21,23 +21,30 @@ import {validateOperationalWatermarks} from './operational-watermarks.ts';
 import {canonicalJsonValue} from './audit-events.ts';
 import {getWorkspaceNamespaces} from './workspace-namespaces.ts';
 import {parseWorkspaceExport} from './workspace-validation.ts';
-const streams:Partial<Record<RegisteredOwnerTable,string>>={agent_results:'agents',evaluation_runs:'agents',source_observations:'sources',source_sync_runs:'sources',integration_history:'sources',review_snapshots:'reviews',review_analysis_runs:'reviews',notification_events:'notifications',automation_occurrences:'automations'};
+const streams:Partial<Record<RegisteredOwnerTable,string>>={project_history:'history',agent_results:'agents',evaluation_runs:'agents',source_observations:'sources',source_sync_runs:'sources',integration_history:'sources',review_snapshots:'reviews',review_analysis_runs:'reviews',notification_events:'notifications',automation_occurrences:'automations'};
 
 type CapturedPhysicalRow=ModuleRow&{stream_sequence?:number};
 /** Closed read-only batches retain independent key cursors, exact row shapes,
  * source sequence, page and row bounds. No JSON aggregate exceeds a row limit. */
 async function readPhysicalImage(db:SqlDatabase,owner:string,auditWatermarks:Record<string,number>):Promise<{physical:Map<RegisteredOwnerTable,CapturedPhysicalRow[]>;auditPage:Record<string,unknown>[]} >{
  // The closed inventory includes the personal PC state. Each statement still
- // reads at most 36 physical pages plus audit; the final boundary guards both batches.
- if(OWNER_TABLES.length>37)throw new Error('Physical snapshot table batch bound exceeded.');
+ // reads at most 36 physical pages plus audit; the final boundary guards both groups.
+ if(OWNER_TABLES.length>38)throw new Error('Physical snapshot table batch bound exceeded.');
  const image=new Map<RegisteredOwnerTable,CapturedPhysicalRow[]>(),after=new Map<RegisteredOwnerTable,string>();
  let pending=[...OWNER_TABLES],retainedBytes=0,auditPage:Record<string,unknown>[]|undefined;
  for(const table of pending){image.set(table,[]);after.set(table,'');}
  while(pending.length){
   const following:RegisteredOwnerTable[]=[];
+  const selections:Array<{tables:RegisteredOwnerTable[];includesAudit:boolean;input:RecoveryReadPageInput}>=[];
   for(let offset=0;offset<pending.length;offset+=36){
-   const tables=pending.slice(offset,offset+36),includesAudit=auditPage===undefined;
-   const pages=await readRecoveryReadPages(db,owner,{tables:tables.map(table=>({table,after:after.get(table)!})),...(includesAudit?{audit:{after:'',watermarks:auditWatermarks}}:{})});
+   const tables=pending.slice(offset,offset+36),includesAudit=auditPage===undefined&&offset===0;
+   selections.push({tables,includesAudit,input:{tables:tables.map(table=>({table,after:after.get(table)!})),...(includesAudit?{audit:{after:'',watermarks:auditWatermarks}}:{})}});
+  }
+  // Both groups have independent bounded statements/decoders. One read-only
+  // batch covers the closed 38-table inventory without a second transport wait.
+  const groupedPages=await readRecoveryReadPageGroups(db,owner,selections.map(group=>group.input));
+  for(const [index,{tables,includesAudit}]of selections.entries()){
+   const pages=groupedPages[index];
    if(includesAudit){if(pages.auditPage===undefined)throw new Error('Missing audit snapshot batch.');auditPage=pages.auditPage;}
    for(const table of tables){
     const page=pages.physical.get(table);
@@ -64,7 +71,7 @@ export interface ProspectiveRecoverabilityInput {
  agentTerminalReserveDelta?:number;
  now:string;planningAfter?:Workspace;writes?:GuardedWrite[];replacements?:ModuleReplacement[];
  events?:AuditEventDraft[];historyImports?:MutationPlan['historyImports'];
- operationalWrites?:Array<{table:RegisteredOwnerTable;value:JsonValue;streamSequence:number}>;
+ operationalWrites?:Array<{table:RegisteredOwnerTable;value:JsonValue;streamSequence:number;operation?:'insert'|'update';expectedRowRevision?:number}>;
  operationalEvents?:Array<{event:AuditEventDraft;streamId:string;sequence:number}>;
  operationalWatermarksAfter?:Record<string,number>;
 }
@@ -99,7 +106,14 @@ export async function measureProspectiveRecoverability(db:SqlDatabase,owner:stri
  const capturedRows=await readPhysicalImage(db,owner,boundaryWatermarks),capturedPhysical=capturedRows.physical,capturedAudit=await readAudit(capturedRows.auditPage);
  const physical=new Map<RegisteredOwnerTable,Map<string,ModuleRow>>(),beforeRows=new Map<RegisteredOwnerTable,ModuleRow[]>(),sequences=new Map<string,number>();
  const finishHashCurrent=startRecoverabilityPhase(db,'hash-current');
- await verifyRecoverabilityRowHashes([...capturedPhysical.values()].flat());
+ const hashRows=[...capturedPhysical.values()].flat();
+ // Refuse shape/aggregate overflow synchronously before either pool starts.
+ assertRecoverabilityHashRows(hashRows);
+ // Both following computations consume only this immutable
+ // captured image; neither can write or expose a bundle before the join below.
+ const verifiedHashes=verifyRecoverabilityRowHashes(hashRows).then(
+  ()=>({status:'fulfilled' as const}),reason=>({status:'rejected' as const,reason}));
+ try{
  for(const table of OWNER_TABLES){
   const rawRows=capturedPhysical.get(table)!,rows:ModuleRow[]=rawRows.map(({id,row_revision,payload_json,content_hash})=>({id,row_revision,payload_json,content_hash}));
   beforeRows.set(table,rows);physical.set(table,new Map(rows.map(row=>[row.id,{...row}])));
@@ -111,11 +125,14 @@ export async function measureProspectiveRecoverability(db:SqlDatabase,owner:stri
  const blockedDb:SqlDatabase={prepare(){throw new Error('Prospective serializer unexpectedly requested SQL.');},async batch(){throw new Error('Prospective measurement cannot write.');}};
  const serializeModules=async()=>{const modules:WorkspaceBundle['modules']={};for(const adapter of exportRegistry.entries()){if(adapter.key==='audit_events')continue;modules[adapter.key]={schemaVersion:adapter.schemaVersion,records:await adapter.exportRows({userId:owner,sourceRevision:boundaryRevision,query:virtual,db:blockedDb,serializationHashContext})};}return modules;};
  for(const table of OWNER_TABLES)if(beforeRows.get(table)!.length&&!exportRegistry.entries().some(adapter=>moduleTables(adapter).includes(table)))throw new Error('Current populated module has no export adapter.');
- finishHashCurrent();
  const finishOriginalSerializer=startRecoverabilityPhase(db,'originalserializer');
- const baseline=await serializeModules();
+ const serializedModules=serializeModules().then(value=>({status:'fulfilled' as const,value}),reason=>({status:'rejected' as const,reason})).finally(finishOriginalSerializer);
+ const hashResult=await verifiedHashes;finishHashCurrent();
+ const moduleResult=await serializedModules;
+ if(hashResult.status==='rejected')throw hashResult.reason;
+ if(moduleResult.status==='rejected')throw moduleResult.reason;
+ const baseline=moduleResult.value;
  baseline.audit_events={schemaVersion:exportRegistry.get('audit_events').schemaVersion,records:capturedAudit.map(({id:_,...row})=>{void _;return serializePortableAuditRow(row as Record<string,unknown>&{event_id:string;payload_json:string});})};
- finishOriginalSerializer();
  const finishBundleOriginal=startRecoverabilityPhase(db,'bundleoriginal');
  const original=await buildWorkspaceBundle({planning:captured.workspace,modules:baseline,workspaceRevision:boundaryRevision,operationalWatermarks:boundaryWatermarks,...(namespaces?{auditNamespace:namespaces.auditNamespace}:{}),exportedAt:input.now},{serializationHashContext});
  finishBundleOriginal();
@@ -134,7 +151,19 @@ export async function measureProspectiveRecoverability(db:SqlDatabase,owner:stri
   if(write.operation!=='insert'&&write.operation!=='update'||write.value===undefined)throw new Error('Invalid prospective row operation.');await moduleProjection(table,write.id,write.value);
   rows.set(write.id,{id:write.id,row_revision:(before?.row_revision??0)+1,payload_json:canonical(write.value),content_hash:await contentHash(canonical(write.value))});if(!before)sequences.set(key,0);
  }
- for(const write of input.operationalWrites??[]){const table=ownerTable(write.table),stream=streams[table]??(table==='source_proposals'?'sources':undefined),id=(write.value as {id?:unknown})?.id;if(!stream||typeof id!=='string'||!Number.isSafeInteger(write.streamSequence)||write.streamSequence<1||write.streamSequence<=(boundaryWatermarks[stream]??0)||write.streamSequence>(watermarks[stream]??0))throw new Error('Operational insert is outside its prospective watermark.');const key=`${table}:${id}`;if(replaced.has(table)||changed.has(key)||physical.get(table)!.has(id))throw new Error('Duplicate operational physical identity.');changed.add(key);await moduleProjection(table,id,write.value);physical.get(table)!.set(id,{id,row_revision:1,payload_json:canonical(write.value),content_hash:await contentHash(canonical(write.value))});sequences.set(key,write.streamSequence);}
+ for(const write of input.operationalWrites??[]){
+  const table=ownerTable(write.table),stream=streams[table]??(table==='source_proposals'?'sources':undefined),id=(write.value as {id?:unknown})?.id;
+  if(!stream||typeof id!=='string'||!Number.isSafeInteger(write.streamSequence)||write.streamSequence<1||write.streamSequence<=(boundaryWatermarks[stream]??0)||write.streamSequence>(watermarks[stream]??0))throw new Error('Operational write is outside its prospective watermark.');
+  const key=`${table}:${id}`,prior=physical.get(table)!.get(id),updating=write.operation==='update';
+  if(replaced.has(table)||changed.has(key))throw new Error('Duplicate operational physical identity.');
+  if(updating){
+   if(table!=='project_history'||!prior||!Number.isSafeInteger(write.expectedRowRevision)||prior.row_revision!==write.expectedRowRevision)throw new Error('Operational row revision differs.');
+  }else if(prior!==undefined||write.expectedRowRevision!==undefined||write.operation!==undefined&&write.operation!=='insert')throw new Error('Duplicate operational physical identity.');
+  changed.add(key);await moduleProjection(table,id,write.value);
+  physical.get(table)!.set(id,{id,row_revision:updating?prior!.row_revision+1:1,payload_json:canonical(write.value),content_hash:await contentHash(canonical(write.value))});
+  sequences.set(key,write.streamSequence);
+ }
+
  for(const table of OWNER_TABLES)if(physical.get(table)!.size&&!exportRegistry.entries().some(adapter=>moduleTables(adapter).includes(table)))throw new Error('Prospective populated module has no export adapter.');
  finishProjectPlan();
  const finishAfterSerializer=startRecoverabilityPhase(db,'afterserializer');
@@ -189,5 +218,6 @@ export async function measureProspectiveRecoverability(db:SqlDatabase,owner:stri
  if((await getWorkspaceNamespaces(db,owner))?.auditNamespace!==namespaces?.auditNamespace)throw new Error('Audit namespace changed during recoverability measurement.');
  finishFinalReads();
  return {agentTerminalReserveRows:terminalReserveRows,measurement,boundaryRevision,boundaryWatermarks:{...boundaryWatermarks},boundaryRows:OWNER_TABLES.map(table=>({table,rows:beforeRows.get(table)!.map(({id,row_revision,content_hash})=>({id,row_revision,content_hash}))}))};
+ }catch(error){const hashResult=await verifiedHashes;finishHashCurrent();if(hashResult.status==='rejected')throw hashResult.reason;throw error;}
  }finally{closeSerializationHashContext(serializationHashContext);}
 }

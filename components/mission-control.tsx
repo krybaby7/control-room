@@ -110,7 +110,7 @@ export function MissionControl({workspace,revision,busy,onProject,onTask,onPin,o
   <HudStrip model={model} actions={actions}/>
   <FeedWarning model={model}/>
   <section aria-labelledby="projects-heading" className="mc-projects"><div className="section-heading"><h2 id="projects-heading">Your projects <span className="count">{model.projects.length}</span></h2><button type="button" className="text-button" onClick={()=>onNavigate('projects')}>View projects</button></div>
-   {model.projects.length?<div className="mc-project-grid">{model.projects.map(tile=><ProjectTile key={tile.project.id} tile={tile} now={model.now} actions={actions}/>)}</div>:<div className="panel mc-empty"><h3>No active project</h3><p>Create a project or restore an archived one to see it here.</p><button type="button" className="button secondary" onClick={()=>onNavigate('projects')}>Open projects</button></div>}
+   {model.projects.length?<div className="mc-project-grid">{model.projects.map(tile=><ProjectTile workspace={workspace} key={tile.project.id} tile={tile} now={model.now} actions={actions}/>)}</div>:<div className="panel mc-empty"><h3>No active project</h3><p>Create a project or restore an archived one to see it here.</p><button type="button" className="button secondary" onClick={()=>onNavigate('projects')}>Open projects</button></div>}
   </section>
   <div className="mc-lower">
    <div className="mc-main-column"><OperationsPanel model={model} actions={actions}/><NextUpPanel workspace={workspace} onProject={onProject} onTask={onTask} onPin={onPin} onProjects={()=>onNavigate('projects')} busy={busy}/></div>

@@ -1,6 +1,6 @@
 import {createHash} from 'node:crypto';
 import {expect,test,type Page} from '@playwright/test';
-import {fixtureOrigin,openFixture,setFixtureSession,workspace} from './helpers';
+import {fixtureOrigin,openFixture,setFixtureSession,workspace,clickFixtureNavigation} from './helpers';
 import {capturePostResponse} from './server-response';
 import {canonical} from '../../lib/canonical-json';
 import {projectReviewScope} from '../../lib/reviews/scope';
@@ -13,7 +13,7 @@ interface ReviewList {snapshots:Array<{id:string;hash:string;acknowledged:boolea
 async function reviews(page:Page):Promise<ReviewList>{const response=await page.request.get('/api/reviews');expect(response.ok(),await response.text()).toBeTruthy();return response.json();}
 async function command(page:Page,value:unknown):Promise<WorkspaceEnvelope>{const before:WorkspaceEnvelope=await workspace(page),ticket=await page.request.post('/api/workspace/mutation-ids',{headers:{Origin:fixtureOrigin},data:{}});expect(ticket.ok()).toBeTruthy();const {mutationId}=await ticket.json(),response=await page.request.post('/api/workspace',{headers:{Origin:fixtureOrigin},data:{revision:before.revision,mutationId,command:value}});expect(response.ok(),await response.text()).toBeTruthy();return response.json();}
 async function history(page:Page,projectId:string):Promise<BaselineHistoryPage>{const response=await page.request.get(`/api/baselines?projectId=${encodeURIComponent(projectId)}`);expect(response.ok(),await response.text()).toBeTruthy();return response.json();}
-async function openSnapshot(page:Page,id:string){await page.getByRole('button',{name:'Briefs & automations',exact:true}).click();await expect(page.getByRole('button',{name:'New schedule configuration',exact:true})).toBeEnabled();const rows=await reviews(page),index=rows.snapshots.findIndex(row=>row.id===id);expect(index).toBeGreaterThanOrEqual(0);await page.getByRole('region',{name:'Saved review snapshots',exact:true}).getByRole('button',{name:'Open exact review snapshot',exact:true}).nth(index).click();await expect(page.getByRole('region',{name:'Frozen review baseline actions',exact:true})).toBeVisible();}
+async function openSnapshot(page:Page,id:string){await clickFixtureNavigation(page,'Briefs & automations');await expect(page.getByRole('button',{name:'New schedule configuration',exact:true})).toBeEnabled();const rows=await reviews(page),index=rows.snapshots.findIndex(row=>row.id===id);expect(index).toBeGreaterThanOrEqual(0);await page.getByRole('region',{name:'Saved review snapshots',exact:true}).getByRole('button',{name:'Open exact review snapshot',exact:true}).nth(index).click();await expect(page.getByRole('region',{name:'Frozen review baseline actions',exact:true})).toBeVisible();}
 
 test('owner records a previewed baseline revision from a real frozen brief without changing planning; exact receipt retries and historical context remain immutable',async({page})=>{
  await openFixture(page,'a');const unique=crypto.randomUUID(),projectName=`Synthetic baseline context ${unique}`;

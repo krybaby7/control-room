@@ -1,3 +1,5 @@
+import {createsHistoryOwnerGrant} from './history/owner-grants.ts';
+import {parseHistoryRecord} from './history/record.ts';
 import {canonical,contentHash} from './canonical-json.ts';
 import {sourceConfigurationHash} from './background/job-store.ts';
 import {sourceConnectionSchema,sourceTargetSchema} from './sources/validation.ts';
@@ -73,10 +75,13 @@ export async function workspacePrivateCapacityGrowth(db:SqlDatabase,owner:string
   }
  }
  for(const entry of plan.historyImports??[])if(entry.sourceIdentity!==undefined&&entry.sourceHash!==undefined)await upsert('audit_import_identities',{source_identity:entry.sourceIdentity},{source_hash:entry.sourceHash,event_id:entry.id});
+ // Consent is non-recoverable authority: its compiler enforces a separate
+ // finite authority pool with funded revocation, never the recovery DATA quota.
  for(const grant of plan.reviewGrants??[])await insert('review_ack_grants',{ack_id:grant.id,ack_hash:grant.hash,snapshot_id:grant.snapshotId,snapshot_hash:grant.snapshotHash,created_at:now});
  for(const read of plan.notificationReads??[])if(read.read)await upsert('notification_read_state',{notification_id:read.id},{notification_hash:read.hash,read_at:now,request_id:input.mutationId});
  if(plan.baselineAdvance)await upsert('project_baseline_heads',{project_id:plan.baselineAdvance.projectId},{revision_id:plan.baselineAdvance.revisionId,content_hash:plan.baselineAdvance.hash,recorded_at:now});
  for(const write of plan.writes){
+  if(write.table==='project_history'&&write.operation!=='delete'&&['roadmap.agree','checkpoint.assess','history.association.set'].includes(command.type)&&createsHistoryOwnerGrant(command.type,parseHistoryRecord(write.value),write.operation,now,input.mutationId))await insert('acceptance_owner_grants',{record_id:write.id,content_hash:await contentHash(canonical(write.value))});
   if(command.type==='acceptance.record'&&write.table==='acceptance_records'&&write.operation==='insert')await insert('acceptance_owner_grants',{record_id:write.id,content_hash:await contentHash(canonical(write.value))});
   if((command.type==='decisions.decide'||command.type==='decisions.supersede')&&write.table==='decision_versions'&&write.operation==='insert'){
    const value=write.value as unknown as {id:string;version:number;status:string;decidedAt:string|null;recordedAt:string};

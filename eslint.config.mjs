@@ -9,6 +9,8 @@ const eslintConfig = defineConfig([
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",
+    // Ephemeral baseline renderer bundles are removed by its existing finally.
+    ".baseline-render-*/**",
     "out/**",
     "build/**",
     "next-env.d.ts",

@@ -1,5 +1,5 @@
 import {expect,test} from '@playwright/test';
-import {fixtureOrigin,openFixture,workspace} from './helpers';
+import {fixtureOrigin,openFixture,workspace,clickFixtureNavigation} from './helpers';
 import type {WorkspaceEnvelope} from '../../lib/types';
 import type {JobReadModel} from '../../lib/agents/read-model';
 test('native exact owner job history reads the frozen proposal and redacts on session expiry without execution or acceptance',async({page})=>{
@@ -8,7 +8,7 @@ test('native exact owner job history reads the frozen proposal and redacts on se
  const ticket=await page.request.post('/api/workspace/mutation-ids',{headers:{Origin:fixtureOrigin},data:{}});expect(ticket.ok()).toBeTruthy();const {mutationId}=await ticket.json();
  const repositoryKey='history-'+crypto.randomUUID(),created=await page.request.post('/api/workspace',{headers:{Origin:fixtureOrigin},data:{revision:before.revision,mutationId,command:{type:'jobs.create',value:{operation:'project.inspect',projectId:task!.projectId,taskId:task!.id,repositoryKey,baseCommit:'b'.repeat(40),inputArtifactIds:[],requestedModel:'synthetic-exact-model',effort:'medium',timeoutSeconds:30,outputBytesLimit:4096,dependsOnJobIds:[]}}}});expect(created.ok(),await created.text()).toBeTruthy();
  const readResponse=await page.request.get('/api/jobs');expect(readResponse.ok()).toBeTruthy();const read=await readResponse.json() as JobReadModel,job=read.jobs.find(row=>row.record.spec.repositoryKey===repositoryKey);expect(job).toBeTruthy();
- await page.reload();await page.getByRole('button',{name:'Agents',exact:true}).click();
+ await page.reload();await clickFixtureNavigation(page,'Agents');
  // The queue's existing task label can identify multiple proposals. Select the
  // unique ordered item matching the actual owner response, without DOM mutation.
  const queue=page.getByRole('region',{name:'Agent job queue'}),index=read.jobs.findIndex(row=>row.record.id===job!.record.id);

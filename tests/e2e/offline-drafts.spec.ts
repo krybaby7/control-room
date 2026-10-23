@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
-import { openFixture, setFixtureSession } from './helpers';
+import { openFixture, setFixtureSession ,clickFixtureNavigation} from './helpers';
 
 async function openDeviceSettings(page: import('@playwright/test').Page) {
-  await page.getByRole('button', { name: 'Sources', exact: true }).click();
+  await clickFixtureNavigation(page,'Sources');
   await expect(page.getByRole('heading', { name: 'Drafts on a trusted device' })).toBeVisible();
 }
 async function unlock(page: import('@playwright/test').Page) {

@@ -23,11 +23,11 @@ test('HUD renders device, app readiness, agent and attention lights with plain-l
  assert.ok(html.includes('mc-light tone-live'));
 });
 test('project tiles show live progress, chat coverage, usage totals and the next action',async()=>{
- const {model:value}=await model();
- const html=renderToStaticMarkup(createElement(panels.ProjectTile,{tile:value.projects[0],now:NOW,actions}));
+ const {model:value,fixture}=await model();
+ const html=renderToStaticMarkup(createElement(panels.ProjectTile,{tile:value.projects[0],now:NOW,actions,workspace:fixture.workspace}));
  for(const text of ['TAMENNI','LVL 2','Agent working now','Executing with the model',' 3/8','5m 0s','Codex','gpt-6.1-sol','on Workstation','No briefing yet','Brief this project','Technical analysis for your engineers','TMNI @ ddddddd','uncommitted changes','4 messages','last 3 h ago','No matching chat','12.4k in · 3.1k out · 1 run','Next action','Recent activity','Updated task: Define Android device acceptance','1 in review','1 overdue','1 this week'])assert.ok(html.includes(text),`missing ${text}`);
  assert.ok(!html.includes('b'.repeat(40)),'commit hashes are shortened');assert.ok(!html.includes(value.projects[0].agent.jobs[0].id),'raw job identifiers are not shown on the tile');
- const idle=renderToStaticMarkup(createElement(panels.ProjectTile,{tile:value.projects[1],now:NOW,actions}));
+ const idle=renderToStaticMarkup(createElement(panels.ProjectTile,{tile:value.projects[1],now:NOW,actions,workspace:fixture.workspace}));
  for(const text of ['Trade Graph','Analysis of trade-graph · Running on this PC','Claude Code','Codex Cloud handoff','No agent run recorded','Where we&#x27;re at','On track','as of 50 min ago','The trading graph can now run a full cycle','Last pieces of work','Finished · on your PC · 21 Oct','Unfinished · in the cloud','Still open from that work','Needs your decision','Approve the first live trial budget.','Next steps','Refresh briefing','Keep current · Claude Code, at most every 2 h','How this briefing was put together','12 local commits'])assert.ok(idle.includes(text),`missing ${text}`);
  assert.ok(idle.indexOf('a1b2c3d')>idle.indexOf('How this briefing was put together'),'evidence references stay behind the details fold');assert.ok(idle.includes('PR #12'),'evidence references are kept for the owner to check');
 });
@@ -40,7 +40,7 @@ test('operations, attention and log panels render honest empty and populated sta
  const log=renderToStaticMarkup(createElement(panels.MissionLog,{log:value.log,now:NOW,actions}));
  assert.ok(log.includes('15 min ago'));assert.ok(log.includes('Created task: Inspect a complete trading cycle'));
  const empty=buildDashboardModel({now:NOW,workspace:fixture.workspace,jobs:null,jobDetails:{},runtime:null,connector:null,localReports:[],cloudReports:[],briefings:[],feeds:{jobs:{status:'failed',checkedAt:NOW,message:'x'},runtime:{status:'loading',checkedAt:null},connector:{status:'unconfigured',checkedAt:NOW},local:{status:'ok',checkedAt:NOW},cloud:{status:'ok',checkedAt:NOW},briefings:{status:'ok',checkedAt:NOW}}});
- const unconfigured=renderToStaticMarkup(createElement(panels.ProjectTile,{tile:empty.projects[0],now:NOW,actions}));
+ const unconfigured=renderToStaticMarkup(createElement(panels.ProjectTile,{tile:empty.projects[0],now:NOW,actions,workspace:fixture.workspace}));
  assert.ok(unconfigured.includes('Connect your PC under Repositories'));assert.ok(!unconfigured.includes('Brief this project</button>')||unconfigured.includes('disabled'));
  const emptyOps=renderToStaticMarkup(createElement(panels.OperationsPanel,{model:empty,actions}));
  assert.ok(emptyOps.includes('No agent is working right now'));

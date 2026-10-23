@@ -28,9 +28,9 @@ export function legacyWorkspaceFixture(version:1|2|3,at=FIXTURE_AT):Workspace {
 }
 export function legacyPlanningFixture(workspace:Workspace,version:1|2|3):Workspace {
  const raw=JSON.parse(JSON.stringify(workspace)) as Record<string,unknown>;
- raw.schemaVersion=version;
+ raw.schemaVersion=version;delete raw.areas;
  for(const project of raw.projects as Record<string,unknown>[])delete project.archivedAt;
  for(const milestone of raw.milestones as Record<string,unknown>[]){delete milestone.archivedAt;delete milestone.sortKey;}
- for(const task of raw.tasks as Record<string,unknown>[]){delete task.estimateMinutes;if(version===1){delete task.weeklyWeek;delete task.archivedFromStatus;}}
+ for(const task of raw.tasks as Record<string,unknown>[]){delete task.areaId;delete task.workType;delete task.estimateMinutes;if(version===1){delete task.weeklyWeek;delete task.archivedFromStatus;}}
  return raw as unknown as Workspace;
 }

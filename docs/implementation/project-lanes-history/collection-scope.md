@@ -1,0 +1,9 @@
+# Collection scope and completeness
+
+Each configured source has a stable identity and an independent provider kind: Codex local, Codex cloud, Claude Code local or Claude Code cloud. Account/device/root selection, archive inclusion, explicit exclusions, parser and normalization versions live in the private source configuration. Portable exports redact account/device/root selection. Configuration changes rotate the server epoch and scope revision and require a fresh inventory run; retained older observations do not become members of that new generation automatically.
+
+Inventory membership is keyed by source, epoch, scope revision, generation and conversation. A partial sweep never deletes retained conversations. An empty or exhausted inventory proves neither a known historical denominator nor readable transcript content. Capability verification remains independent of successfully parsing fixtures or importing a manual file.
+
+Conversation identity uses source and native thread identity, not title, text or shared session-tree identity. Message identity includes native message and immutable revision digest. Missing source timestamps remain null. Segments retain their own native identities, inherited lineage and half-open byte/record ranges. Cycles, inaccessible parents, unknown ranges, corrupt bytes and unavailable attachments prevent complete content. Citation offsets use Unicode code points in immutable normalized text.
+
+All four live source classes are currently unverified on this managed runner. See cloud-capability-proof.md for supported interfaces and exact owner/provider proof requirements. No source account, private local root or transcript bytes were probed during cloud capability inspection. Automatic collection must remain disabled for a source until private ingress, scoped renewable authentication and fresh-process read behavior are proven separately.

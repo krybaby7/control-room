@@ -25,6 +25,10 @@ jobs:
     name: Native acceptance - ${{ matrix.browser }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # Exact lockfile-matched browsers and OS dependencies; avoid per-job apt mirrors.
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble@sha256:7852dc5a7d72f5fe458a597d690f6c42fbc8e9e26ddfa95f8e6ef552558d9bbf
+      options: --init --ipc=host
     strategy:
       fail-fast: false
       matrix:
@@ -41,7 +45,10 @@ jobs:
           cache: npm
       - run: npm run install:ci
       - run: npm run build
-      - run: npx playwright install --with-deps ${{ matrix.browser }}
+      - name: Verify locked browser package matches pinned image
+        run: node -e "require('node:assert/strict').equal(require('playwright/package.json').version,'1.64.1')"
+      - name: Match ephemeral browser home ownership to the container user
+        run: node -e "const fs=require('node:fs'),home=process.env.HOME,s=fs.lstatSync(home);if(!s.isDirectory()||s.isSymbolicLink())throw new Error('Expected isolated directory');fs.chownSync(home,process.getuid(),process.getgid())"
       - run: npx playwright test --config playwright.acceptance.config.ts --project=${{ matrix.browser }}
       - uses: actions/upload-artifact@v4
         if: always()

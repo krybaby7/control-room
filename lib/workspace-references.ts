@@ -1,3 +1,4 @@
+import {historyReferenceDescriptor} from './history/module.ts';
 import {agentReferenceDescriptors} from './agents/module.ts';
 import {personalRepositoryReferenceDescriptor} from './personal-repository-module.ts';
 import {runtimeReferenceDescriptors} from './runtime/module.ts';
@@ -11,7 +12,7 @@ import type {Workspace} from './types.ts';
 import {OWNER_TABLES,ownerTable,type RegisteredOwnerTable,type OwnerScopedReader} from './workspace-modules.ts';
 import {assertPortable,canonical,contentHash} from './workspace-export.ts';
 
-export const REFERENCE_KINDS=['project','milestone','task','capture','evidence','decision','attachment','source-connection','source','source-observation','review-snapshot','automation-schedule','baseline-revision','device','runtime-evidence','agent-job','agent-result','evaluation-run'] as const;
+export const REFERENCE_KINDS=['area','project','milestone','task','capture','evidence','decision','attachment','source-connection','source','source-observation','review-snapshot','automation-schedule','baseline-revision','device','runtime-evidence','agent-job','agent-result','evaluation-run'] as const;
 export type ReferenceKind=typeof REFERENCE_KINDS[number];
 const id=z.string().min(1).max(128).refine(value=>value.trim()===value);
 const referenceSchema=z.object({kind:z.enum(REFERENCE_KINDS),id,path:z.array(z.union([z.string().min(1),z.number().int().nonnegative().safe()])).min(1).max(40)}).strict();
@@ -69,7 +70,7 @@ export interface ReferenceImpact {references:Array<TypedReference & {module:Regi
 export function referenceImpact(planning:Workspace,snapshot:ReferenceSnapshot,registry:ReferenceRegistry,target:{kind:ReferenceKind;id:string}):ReferenceImpact {
   z.object({kind:z.enum(REFERENCE_KINDS),id}).strict().parse(target);
   const targets=new Map<ReferenceKind,Set<string>>([
-    ['project',new Set(planning.projects.map(row=>row.id))],['milestone',new Set(planning.milestones.map(row=>row.id))],['task',new Set(planning.tasks.map(row=>row.id))],['capture',new Set(planning.captures.map(row=>row.id))],
+    ['area',new Set((planning.areas??[]).map(row=>row.id))],['project',new Set(planning.projects.map(row=>row.id))],['milestone',new Set(planning.milestones.map(row=>row.id))],['task',new Set(planning.tasks.map(row=>row.id))],['capture',new Set(planning.captures.map(row=>row.id))],
   ]);
   for(const descriptor of registry.entries())if(descriptor.entityKind&&!targets.has(descriptor.entityKind))targets.set(descriptor.entityKind,new Set());
   for(const row of snapshot.rows){const descriptor=registry.get(row.module);if(descriptor.entityKind)targets.get(descriptor.entityKind)!.add(row.id);}
@@ -79,3 +80,5 @@ export function referenceImpact(planning:Workspace,snapshot:ReferenceSnapshot,re
 }
 
 for(const descriptor of [...planningReferenceDescriptors,...evidenceReferenceDescriptors,...sourceReferenceDescriptors,...reviewReferenceDescriptors,...baselineReferenceDescriptors,...runtimeReferenceDescriptors,...agentReferenceDescriptors,personalRepositoryReferenceDescriptor])referenceRegistry.register(descriptor);
+
+referenceRegistry.register(historyReferenceDescriptor);

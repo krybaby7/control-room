@@ -1,0 +1,917 @@
+{
+  "planVersion": 1,
+  "createdDate": "2026-10-22",
+  "timezone": "Africa/Cairo",
+  "status": "in_progress",
+  "requiredImplementationModel": "gpt-6.1-sol",
+  "actualImplementationBaseline": "17f7103e131bd6b9979a404d8a7535bba3b3a661",
+  "implementationBranch": "feat/project-lanes-history-cloud",
+  "modelSelections": [
+    {
+      "workerId": "/root",
+      "modelParameter": "gpt-6.1-sol",
+      "accepted": true,
+      "selectionEvidence": "Delegated turn explicitly selected through supported send-message model control; accepted execution continuation. Opaque execution chat ID is not exposed by available runtime tools.",
+      "delegatingThreadId": "01a1650a-9d49-7030-a1e8-4e69f0199a08"
+    },
+    {
+      "workerId": "/root/lanes_import_review",
+      "modelParameter": "gpt-6.1-sol",
+      "forkTurns": "none",
+      "accepted": true,
+      "selectionEvidence": "Supported spawn_agent parameter accepted and canonical worker ID returned."
+    },
+    {
+      "workerId": "/root/lanes_contracts",
+      "modelParameter": "gpt-6.1-sol",
+      "forkTurns": "none",
+      "accepted": true,
+      "selectionEvidence": "Supported spawn_agent parameter accepted and canonical worker ID returned."
+    },
+    {
+      "workerId": "/root/lanes_capability_audit",
+      "modelParameter": "gpt-6.1-sol",
+      "forkTurns": "none",
+      "accepted": true,
+      "selectionEvidence": "Supported spawn_agent parameter accepted and canonical worker ID returned."
+    },
+    {
+      "workerId": "/root/lanes_areas",
+      "modelParameter": "gpt-6.1-sol",
+      "forkTurns": "none",
+      "accepted": true,
+      "selectionEvidence": "Supported spawn_agent parameter accepted and canonical worker ID returned."
+    },
+    {
+      "workerId": "/root/lanes_objects",
+      "modelParameter": "gpt-6.1-sol",
+      "forkTurns": "none",
+      "accepted": true,
+      "selectionEvidence": "Supported spawn_agent parameter accepted and canonical worker ID returned."
+    },
+    {
+      "workerId": "/root/lanes_ui",
+      "modelParameter": "gpt-6.1-sol",
+      "forkTurns": "none",
+      "accepted": true,
+      "selectionEvidence": "Supported spawn_agent accepted explicit model and returned canonical worker ID."
+    }
+  ],
+  "approvedDirection": {
+    "home": "project_lanes",
+    "cloudClaudeScope": "claude_code_web_cloud",
+    "taskContext": [
+      "project",
+      "area",
+      "work_type"
+    ],
+    "ownerAcceptance": "explicit"
+  },
+  "currentStage": "S6",
+  "nextAction": "Publishfrozencandidateandrunallsource-specificActionsgates;retainhistoricalfailuresandactualartifactdigests.",
+  "stages": [
+    {
+      "id": "S0",
+      "tasks": [
+        "F1"
+      ],
+      "dependsOn": [],
+      "status": "implemented",
+      "evidence": [
+        "F1 actual imported Node24 baseline and capabilities recorded."
+      ],
+      "blockers": []
+    },
+    {
+      "id": "S1",
+      "tasks": [
+        "F2",
+        "F3",
+        "F4",
+        "F5",
+        "F6",
+        "C1"
+      ],
+      "dependsOn": [
+        "S0"
+      ],
+      "status": "implemented",
+      "evidence": [
+        "Exact localbc57d07/public5a936891 tree474329ec:2037/2037Node24;typecheck/lint/buildpass. Prior57fail and4fail candidates retained; no thresholds/assertions weakened."
+      ],
+      "blockers": []
+    },
+    {
+      "id": "S2",
+      "tasks": [
+        "C2",
+        "C3",
+        "C4",
+        "C5"
+      ],
+      "dependsOn": [
+        "S1"
+      ],
+      "status": "externally_blocked",
+      "evidence": [
+        "Cloud-capable source, adapters, package and synthetic integration implemented; source-specific verification ledger distinguishes real unavailable access."
+      ],
+      "blockers": [
+        "No connected supported account inventory/content adapter or renewable unattended provider principal is available in this cloud session. Manual imports and capability fixtures do not close the gate."
+      ]
+    },
+    {
+      "id": "S3",
+      "tasks": [
+        "A1",
+        "A2",
+        "A3",
+        "A4",
+        "A5",
+        "A6"
+      ],
+      "dependsOn": [
+        "S1"
+      ],
+      "integrationDependencies": [
+        "S2:first working adapter"
+      ],
+      "status": "externally_blocked",
+      "evidence": [
+        "Cloud-capable source, adapters, package and synthetic integration implemented; source-specific verification ledger distinguishes real unavailable access."
+      ],
+      "blockers": [
+        "Actual owner Windows enrollment, protected credential, Task Scheduler restart/offline/revocation and terminal/browser-closed operation require the enrolled machine."
+      ]
+    },
+    {
+      "id": "S4",
+      "tasks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6"
+      ],
+      "dependsOn": [
+        "S1"
+      ],
+      "integrationDependencies": [
+        "S2:normalized fixtures and retained inputs"
+      ],
+      "status": "implemented",
+      "evidence": [
+        "Native contracts, actual SQLite/D1 composition and guarded UI implemented; complete exact-candidate release checks in progress."
+      ],
+      "blockers": []
+    },
+    {
+      "id": "S5",
+      "tasks": [
+        "L1",
+        "L2",
+        "L3",
+        "L4"
+      ],
+      "dependsOn": [
+        "S1"
+      ],
+      "integrationDependencies": [
+        "S4:area progress/story contracts"
+      ],
+      "status": "implemented",
+      "evidence": [
+        "Native contracts, actual SQLite/D1 composition and guarded UI implemented; complete exact-candidate release checks in progress."
+      ],
+      "blockers": []
+    },
+    {
+      "id": "S6",
+      "tasks": [
+        "R1",
+        "R2",
+        "R3"
+      ],
+      "dependsOn": [
+        "S2",
+        "S3",
+        "S4",
+        "S5"
+      ],
+      "status": "in_progress",
+      "evidence": [
+        "Native isolated D1 ingest/duplicate/analysis/owner acceptance/selected-byte export/reviewed same-owner restore macro passes; browser scenarios implemented, execution pending. Integrated Sol review identified three substantive fixes in progress."
+      ],
+      "blockers": []
+    }
+  ],
+  "tasks": [
+    {
+      "id": "F1",
+      "chapter": "01-foundation-contracts.md",
+      "status": "implemented",
+      "changedFiles": [
+        "docs/implementation/project-lanes-history/baseline.md",
+        "docs/implementation/project-lanes-history/capabilities.md",
+        "docs/implementation/project-lanes-history/cloud-capability-proof.md"
+      ],
+      "commit": "6edcaf4744d9f4ca1996c5072a684e4ee53c0b31",
+      "verification": [
+        {
+          "command": "npm run install:ci; npm test; npm run typecheck; npm run lint; npm run build",
+          "outcome": "install/pass;1936/1936Node;typecheck/pass;lint/fail21generatedbundleerrors28warnings;build/pass",
+          "date": "2026-10-22",
+          "evidenceRef": "docs/implementation/project-lanes-history/baseline.md",
+          "sourceCommit": "17f7103e131bd6b9979a404d8a7535bba3b3a661",
+          "localEquivalentCommit": "b75e2c87eb312bbf86deeb4c27e12e667b83a3cc"
+        }
+      ],
+      "blockers": [],
+      "nextAction": null
+    },
+    {
+      "id": "F2",
+      "chapter": "01-foundation-contracts.md",
+      "status": "implemented",
+      "changedFiles": [],
+      "commit": "1fbc05a98ce5661b352bf329db9e17238e6424a5",
+      "verification": [
+        {
+          "command": "Focused strict codec, migration, area/recurrence, owner source controls, native D1 ingestion, storage/admission, object quota, roadmap, export/restore and normalized merge regressions",
+          "outcome": "Passing focused checks; complete corrected candidate rerun pending. See s1-verification.json for source-specific results.",
+          "date": "2026-10-22",
+          "evidenceRef": "docs/implementation/project-lanes-history/s1-verification.json"
+        },
+        {
+          "command": "npm test; npm run typecheck; npm run lint; npm run build",
+          "outcome": "2037/2037Node;0fail/cancel/skip;typecheck/lint/buildpass",
+          "date": "2026-10-22",
+          "sourceCommit": "5a9368917b78ab6682efd75d005fca93f40d9323",
+          "localEquivalentCommit": "bc57d07",
+          "tree": "474329ec7580f8a2a8e0f2647dd6e05e2670b4da"
+        }
+      ],
+      "blockers": [],
+      "nextAction": null
+    },
+    {
+      "id": "F3",
+      "chapter": "01-foundation-contracts.md",
+      "status": "implemented",
+      "changedFiles": [],
+      "commit": "1fbc05a98ce5661b352bf329db9e17238e6424a5",
+      "verification": [
+        {
+          "command": "Focused strict codec, migration, area/recurrence, owner source controls, native D1 ingestion, storage/admission, object quota, roadmap, export/restore and normalized merge regressions",
+          "outcome": "Passing focused checks; complete corrected candidate rerun pending. See s1-verification.json for source-specific results.",
+          "date": "2026-10-22",
+          "evidenceRef": "docs/implementation/project-lanes-history/s1-verification.json"
+        },
+        {
+          "command": "npm test; npm run typecheck; npm run lint; npm run build",
+          "outcome": "2037/2037Node;0fail/cancel/skip;typecheck/lint/buildpass",
+          "date": "2026-10-22",
+          "sourceCommit": "5a9368917b78ab6682efd75d005fca93f40d9323",
+          "localEquivalentCommit": "bc57d07",
+          "tree": "474329ec7580f8a2a8e0f2647dd6e05e2670b4da"
+        }
+      ],
+      "blockers": [],
+      "nextAction": null
+    },
+    {
+      "id": "F4",
+      "chapter": "01-foundation-contracts.md",
+      "status": "implemented",
+      "changedFiles": [],
+      "commit": "1fbc05a98ce5661b352bf329db9e17238e6424a5",
+      "verification": [
+        {
+          "command": "Focused strict codec, migration, area/recurrence, owner source controls, native D1 ingestion, storage/admission, object quota, roadmap, export/restore and normalized merge regressions",
+          "outcome": "Passing focused checks; complete corrected candidate rerun pending. See s1-verification.json for source-specific results.",
+          "date": "2026-10-22",
+          "evidenceRef": "docs/implementation/project-lanes-history/s1-verification.json"
+        },
+        {
+          "command": "npm test; npm run typecheck; npm run lint; npm run build",
+          "outcome": "2037/2037Node;0fail/cancel/skip;typecheck/lint/buildpass",
+          "date": "2026-10-22",
+          "sourceCommit": "5a9368917b78ab6682efd75d005fca93f40d9323",
+          "localEquivalentCommit": "bc57d07",
+          "tree": "474329ec7580f8a2a8e0f2647dd6e05e2670b4da"
+        }
+      ],
+      "blockers": [],
+      "nextAction": null
+    },
+    {
+      "id": "F5",
+      "chapter": "01-foundation-contracts.md",
+      "status": "implemented",
+      "changedFiles": [],
+      "commit": "1fbc05a98ce5661b352bf329db9e17238e6424a5",
+      "verification": [
+        {
+          "command": "Focused strict codec, migration, area/recurrence, owner source controls, native D1 ingestion, storage/admission, object quota, roadmap, export/restore and normalized merge regressions",
+          "outcome": "Passing focused checks; complete corrected candidate rerun pending. See s1-verification.json for source-specific results.",
+          "date": "2026-10-22",
+          "evidenceRef": "docs/implementation/project-lanes-history/s1-verification.json"
+        },
+        {
+          "command": "npm test; npm run typecheck; npm run lint; npm run build",
+          "outcome": "2037/2037Node;0fail/cancel/skip;typecheck/lint/buildpass",
+          "date": "2026-10-22",
+          "sourceCommit": "5a9368917b78ab6682efd75d005fca93f40d9323",
+          "localEquivalentCommit": "bc57d07",
+          "tree": "474329ec7580f8a2a8e0f2647dd6e05e2670b4da"
+        }
+      ],
+      "blockers": [],
+      "nextAction": null
+    },
+    {
+      "id": "F6",
+      "chapter": "01-foundation-contracts.md",
+      "status": "implemented",
+      "changedFiles": [],
+      "commit": "1fbc05a98ce5661b352bf329db9e17238e6424a5",
+      "verification": [
+        {
+          "command": "Focused strict codec, migration, area/recurrence, owner source controls, native D1 ingestion, storage/admission, object quota, roadmap, export/restore and normalized merge regressions",
+          "outcome": "Passing focused checks; complete corrected candidate rerun pending. See s1-verification.json for source-specific results.",
+          "date": "2026-10-22",
+          "evidenceRef": "docs/implementation/project-lanes-history/s1-verification.json"
+        },
+        {
+          "command": "npm test; npm run typecheck; npm run lint; npm run build",
+          "outcome": "2037/2037Node;0fail/cancel/skip;typecheck/lint/buildpass",
+          "date": "2026-10-22",
+          "sourceCommit": "5a9368917b78ab6682efd75d005fca93f40d9323",
+          "localEquivalentCommit": "bc57d07",
+          "tree": "474329ec7580f8a2a8e0f2647dd6e05e2670b4da"
+        }
+      ],
+      "blockers": [],
+      "nextAction": null
+    },
+    {
+      "id": "C1",
+      "chapter": "02-history-collection.md",
+      "status": "implemented",
+      "changedFiles": [],
+      "commit": "1fbc05a98ce5661b352bf329db9e17238e6424a5",
+      "verification": [
+        {
+          "command": "Focused strict codec, migration, area/recurrence, owner source controls, native D1 ingestion, storage/admission, object quota, roadmap, export/restore and normalized merge regressions",
+          "outcome": "Passing focused checks; complete corrected candidate rerun pending. See s1-verification.json for source-specific results.",
+          "date": "2026-10-22",
+          "evidenceRef": "docs/implementation/project-lanes-history/s1-verification.json"
+        },
+        {
+          "command": "npm test; npm run typecheck; npm run lint; npm run build",
+          "outcome": "2037/2037Node;0fail/cancel/skip;typecheck/lint/buildpass",
+          "date": "2026-10-22",
+          "sourceCommit": "5a9368917b78ab6682efd75d005fca93f40d9323",
+          "localEquivalentCommit": "bc57d07",
+          "tree": "474329ec7580f8a2a8e0f2647dd6e05e2670b4da"
+        }
+      ],
+      "blockers": [],
+      "nextAction": null
+    },
+    {
+      "id": "C2",
+      "chapter": "02-history-collection.md",
+      "status": "implemented",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
+    },
+    {
+      "id": "C3",
+      "chapter": "02-history-collection.md",
+      "status": "implemented",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
+    },
+    {
+      "id": "C4",
+      "chapter": "02-history-collection.md",
+      "status": "externally_blocked",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [
+        "No connected supported account inventory/content adapter or renewable unattended provider principal is available in this cloud session. Manual imports and capability fixtures do not close the gate."
+      ],
+      "nextAction": "No connected supported account inventory/content adapter or renewable unattended provider principal is available in this cloud session. Manual imports and capability fixtures do not close the gate."
+    },
+    {
+      "id": "C5",
+      "chapter": "02-history-collection.md",
+      "status": "implemented",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
+    },
+    {
+      "id": "A1",
+      "chapter": "03-automatic-sync.md",
+      "status": "implemented",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
+    },
+    {
+      "id": "A2",
+      "chapter": "03-automatic-sync.md",
+      "status": "implemented",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
+    },
+    {
+      "id": "A3",
+      "chapter": "03-automatic-sync.md",
+      "status": "implemented",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
+    },
+    {
+      "id": "A4",
+      "chapter": "03-automatic-sync.md",
+      "status": "implemented",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
+    },
+    {
+      "id": "A5",
+      "chapter": "03-automatic-sync.md",
+      "status": "implemented",
+      "changedFiles": [
+        "lib/history/sweep-proof.ts",
+        "lib/history/store.ts",
+        "lib/history/job-store.ts",
+        "lib/history/sync-http.ts",
+        "lib/history/overview.ts"
+      ],
+      "commit": "f74e021",
+      "verification": [
+        "33/33 actual SQLite native sweep/HTTP/job/overview tests; cursor-only/default/JSON/foreign/generation/race/expiry checks retain unverified coverage"
+      ],
+      "blockers": [],
+      "nextAction": "Final integrated candidate canonical and browser verification; configure actual private native reader and ingress only after independent live acceptance."
+    },
+    {
+      "id": "A6",
+      "chapter": "03-automatic-sync.md",
+      "status": "externally_blocked",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [
+        "Actual owner Windows enrollment, protected credential, Task Scheduler restart/offline/revocation and terminal/browser-closed operation require the enrolled machine."
+      ],
+      "nextAction": "Actual owner Windows enrollment, protected credential, Task Scheduler restart/offline/revocation and terminal/browser-closed operation require the enrolled machine."
+    },
+    {
+      "id": "U1",
+      "chapter": "04-project-understanding.md",
+      "status": "implemented",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
+    },
+    {
+      "id": "U2",
+      "chapter": "04-project-understanding.md",
+      "status": "implemented",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
+    },
+    {
+      "id": "U3",
+      "chapter": "04-project-understanding.md",
+      "status": "implemented",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
+    },
+    {
+      "id": "U4",
+      "chapter": "04-project-understanding.md",
+      "status": "implemented",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
+    },
+    {
+      "id": "U5",
+      "chapter": "04-project-understanding.md",
+      "status": "implemented",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
+    },
+    {
+      "id": "U6",
+      "chapter": "04-project-understanding.md",
+      "status": "implemented",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
+    },
+    {
+      "id": "L1",
+      "chapter": "05-project-lanes-and-release.md",
+      "status": "implemented",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
+    },
+    {
+      "id": "L2",
+      "chapter": "05-project-lanes-and-release.md",
+      "status": "implemented",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
+    },
+    {
+      "id": "L3",
+      "chapter": "05-project-lanes-and-release.md",
+      "status": "implemented",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
+    },
+    {
+      "id": "L4",
+      "chapter": "05-project-lanes-and-release.md",
+      "status": "implemented",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
+    },
+    {
+      "id": "R1",
+      "chapter": "05-project-lanes-and-release.md",
+      "status": "in_progress",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": "Finish exact-candidate integration and record source-specific evidence; live activation gates remain unverified."
+    },
+    {
+      "id": "R2",
+      "chapter": "05-project-lanes-and-release.md",
+      "status": "externally_blocked",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [
+        "All nine real source/runtime/owner/hosted/device gates remain unverified; exact actions are in acceptance.md."
+      ],
+      "nextAction": "All nine real source/runtime/owner/hosted/device gates remain unverified; exact actions are in acceptance.md."
+    },
+    {
+      "id": "R3",
+      "chapter": "05-project-lanes-and-release.md",
+      "status": "in_progress",
+      "changedFiles": [],
+      "commit": null,
+      "verification": [],
+      "blockers": [],
+      "nextAction": "Finish exact-candidate integration and record source-specific evidence; live activation gates remain unverified."
+    }
+  ],
+  "sources": [
+    {
+      "kind": "codex_local",
+      "capability": "unverified",
+      "implemented": true,
+      "verifiedLocal": false,
+      "verifiedUnattended": false,
+      "verifiedHosted": false,
+      "proofRefs": [],
+      "limitations": [
+        "Read-only retained-scope adapter and installable collector implemented; fixtures pass, actual owner roots and unattended machine proof unavailable."
+      ]
+    },
+    {
+      "kind": "codex_cloud",
+      "capability": "unverified",
+      "implemented": false,
+      "verifiedLocal": false,
+      "verifiedUnattended": false,
+      "verifiedHosted": false,
+      "proofRefs": [],
+      "limitations": [
+        "Capability/error/manual-import adapter boundary implemented; no supported connected live inventory/content/renewable unattended read is configured."
+      ]
+    },
+    {
+      "kind": "claude_code_local",
+      "capability": "unverified",
+      "implemented": true,
+      "verifiedLocal": false,
+      "verifiedUnattended": false,
+      "verifiedHosted": false,
+      "proofRefs": [],
+      "limitations": [
+        "Read-only retained-scope adapter and installable collector implemented; fixtures pass, actual owner roots and unattended machine proof unavailable."
+      ]
+    },
+    {
+      "kind": "claude_code_cloud",
+      "capability": "unverified",
+      "implemented": false,
+      "verifiedLocal": false,
+      "verifiedUnattended": false,
+      "verifiedHosted": false,
+      "proofRefs": [],
+      "limitations": [
+        "Capability/error/manual-import adapter boundary implemented; no supported connected live inventory/content/renewable unattended read is configured."
+      ]
+    }
+  ],
+  "liveGates": [
+    {
+      "id": "G-local-codex",
+      "status": "not_verified",
+      "requiredForFullRequestedCompletion": true,
+      "evidence": [],
+      "blockers": [
+        "See docs/implementation/project-lanes-history/acceptance.md for the exact source/runtime/owner action. Synthetic checks are insufficient."
+      ]
+    },
+    {
+      "id": "G-local-claude",
+      "status": "not_verified",
+      "requiredForFullRequestedCompletion": true,
+      "evidence": [],
+      "blockers": [
+        "See docs/implementation/project-lanes-history/acceptance.md for the exact source/runtime/owner action. Synthetic checks are insufficient."
+      ]
+    },
+    {
+      "id": "G-cloud-codex",
+      "status": "not_verified",
+      "requiredForFullRequestedCompletion": true,
+      "evidence": [],
+      "blockers": [
+        "See docs/implementation/project-lanes-history/acceptance.md for the exact source/runtime/owner action. Synthetic checks are insufficient."
+      ]
+    },
+    {
+      "id": "G-cloud-claude",
+      "status": "not_verified",
+      "requiredForFullRequestedCompletion": true,
+      "evidence": [],
+      "blockers": [
+        "See docs/implementation/project-lanes-history/acceptance.md for the exact source/runtime/owner action. Synthetic checks are insufficient."
+      ]
+    },
+    {
+      "id": "G-unattended",
+      "status": "not_verified",
+      "requiredForFullRequestedCompletion": true,
+      "evidence": [],
+      "blockers": [
+        "See docs/implementation/project-lanes-history/acceptance.md for the exact source/runtime/owner action. Synthetic checks are insufficient."
+      ]
+    },
+    {
+      "id": "G-story-runtime",
+      "status": "not_verified",
+      "requiredForFullRequestedCompletion": true,
+      "evidence": [],
+      "blockers": [
+        "See docs/implementation/project-lanes-history/acceptance.md for the exact source/runtime/owner action. Synthetic checks are insufficient."
+      ]
+    },
+    {
+      "id": "G-private-hosted",
+      "status": "not_verified",
+      "requiredForFullRequestedCompletion": true,
+      "evidence": [],
+      "blockers": [
+        "See docs/implementation/project-lanes-history/acceptance.md for the exact source/runtime/owner action. Synthetic checks are insufficient."
+      ]
+    },
+    {
+      "id": "G-owner-workflow",
+      "status": "not_verified",
+      "requiredForFullRequestedCompletion": true,
+      "evidence": [],
+      "blockers": [
+        "See docs/implementation/project-lanes-history/acceptance.md for the exact source/runtime/owner action. Synthetic checks are insufficient."
+      ]
+    },
+    {
+      "id": "G-physical-acceptance",
+      "status": "not_verified",
+      "requiredForFullRequestedCompletion": false,
+      "evidence": [],
+      "blockers": [
+        "See docs/implementation/project-lanes-history/acceptance.md for the exact source/runtime/owner action. Synthetic checks are insufficient."
+      ]
+    }
+  ],
+  "inference": {
+    "provider": null,
+    "model": null,
+    "budget": null,
+    "authorized": false,
+    "enabled": false,
+    "status": "not_configured"
+  },
+  "release": {
+    "checks": [
+      {
+        "source": "ba6bc0d3c6572293cd5f27482542739d1fed2b50",
+        "command": "npm test",
+        "result": "failed",
+        "tests": 2221,
+        "passed": 2219,
+        "failed": 2,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 236945.792736,
+        "evidence": "Collector lock failure retained; scheduled archive terminal-epoch race passed in original run."
+      },
+      {
+        "source": "ce9f3233002a357acb3fe4165a82e0bd8547798c",
+        "localEquivalent": "64036d111b8b9c5af63229755a0eebb3ffb7ade4",
+        "tree": "c641bbb0f0b9b6110eebab1757906c4f3ec56dfe",
+        "command": "npm test",
+        "result": "passed",
+        "tests": 2265,
+        "passed": 2265,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 232278.372093
+      },
+      {
+        "source": "ce9f3233002a357acb3fe4165a82e0bd8547798c",
+        "command": "npm run typecheck; npm run lint; npm run build",
+        "result": "passed",
+        "lintWarnings": 15
+      },
+      {
+        "source": "ce9f3233002a357acb3fe4165a82e0bd8547798c",
+        "command": "collector + collector package tests; bridge; companion; GitHub",
+        "result": "passed",
+        "collector": {
+          "passed": 52,
+          "skipped": 0
+        },
+        "bridge": {
+          "passed": 210,
+          "skippedWindows": 9
+        },
+        "companion": {
+          "passed": 105,
+          "skippedWindows": 2
+        },
+        "github": {
+          "passed": 20,
+          "skipped": 0
+        }
+      },
+      {
+        "source": "ce9f3233002a357acb3fe4165a82e0bd8547798c",
+        "command": "Controlled workspace benchmark GitHub run39859390790/job120105857996",
+        "result": "failed",
+        "operation": "miniflareD1:concurrentSessionSave",
+        "samples": 100,
+        "p95Milliseconds": 2032.553715999995,
+        "unchangedBudgetMilliseconds": 2000
+      },
+      {
+        "source": "ce9f3233002a357acb3fe4165a82e0bd8547798c",
+        "command": "Controlled browser performance run39859390671 and cross-browser acceptance run39859390626",
+        "result": "failed",
+        "evidence": "Old Capture/secondary-nav assumptions incompatible with default lanes; serious lanes small-text contrast failure. Corrected at dd9c069; final browser rerun pending."
+      },
+      {
+        "source": "ce9f3233002a357acb3fe4165a82e0bd8547798c",
+        "command": "Windows companion run39859390684/job120105852971",
+        "result": "failed",
+        "passed": 105,
+        "failed": 2,
+        "evidence": "Settings home lexical-vs-real path identity rejects synthetic Windows fixture. Corrected at 4b3d67d retaining redirect/hardlink checks; actual Windows rerun pending."
+      }
+    ],
+    "review": {
+      "workerId": "/root/lanes_objects",
+      "modelParameter": "gpt-6.1-sol",
+      "accepted": true,
+      "head": "64036d1",
+      "result": "Four substantive findings corrected;41 focused delta regressions pass; original deferred-PUT reproduction now safely rejects freeze and permits settlement. Later performance/Windows/browser fixes require final delta review."
+    },
+    "pullRequest": "https://github.com/krybaby7/control-room/pull/5",
+    "deployment": null,
+    "fullRequestedCoverage": false
+  },
+  "allowedTaskStatuses": [
+    "not_started",
+    "in_progress",
+    "implemented",
+    "verified",
+    "externally_blocked"
+  ],
+  "allowedGateStatuses": [
+    "not_verified",
+    "verified",
+    "partial",
+    "externally_blocked",
+    "not_applicable"
+  ],
+  "checkpointRules": [
+    "Update tasks and evidence after each meaningful commit; actual git/code/tests outrank stale checkpoint claims.",
+    "S1 freezes all Chapter 1, C1 and Chapter 4 shared contracts before worker implementation.",
+    "Verification entries record command, outcome, timestamp and evidence reference; public files contain no private transcript bytes or secrets.",
+    "An implemented task can have open live gates. Unavailable cloud access never becomes verified from fixtures/manual imports.",
+    "S6 can deliver a partial release with explicitly open gates; fullRequestedCoverage remains false until all four requested source classes pass.",
+    "Physical acceptance applies to the user's projects, not a prerequisite to shipping Control Room.",
+    "Do not mutate the older program's unrelated phase statuses. Cross-reference overlap after implementation."
+  ],
+  "preservedIncrement": {
+    "publicCommit": "17f7103e131bd6b9979a404d8a7535bba3b3a661",
+    "localCommit": "b75e2c87eb312bbf86deeb4c27e12e667b83a3cc",
+    "tree": "08a6b569fe0fc47c30df023dec2d0e0a2970094c",
+    "paths": 47,
+    "insertions": 1343,
+    "deletions": 145,
+    "sanitizationPreserved": true,
+    "reviewWorker": "/root/lanes_import_review",
+    "review": "No import-blocking issue; dirty-file fingerprint follow-up recorded."
+  },
+  "updatedAt": "2026-10-22",
+  "checkpoint": {
+    "currentSource": "45f68d3",
+    "publicSource": "1639b0c7c4437d7bb8c618809bab44b01702437f",
+    "sourceMeaning": "Finaltrace-baseddelta:TodayinitialJS-31080gzipbytes;ephemeralFirefoxhomeownership;actual200%cardoverflow;fourobsoleteWeeklynavlabels;75mainbrowsercaseswithR1layoutfixtures. Actual1639fullNode2311passandallpre-browserD1/R2/HTTPpass;canonical66pass5fail1notrun. Allcurrentcandidategatesrequirerun.",
+    "tests": "Source1639Node2311/2311zero fail/cancel/skip380372.928062ms;bridge210+9Windowsskips;companion108+2Windowsskips;GitHub20;type/lint/build/allD1/fixture/R2/HTTPpass;R2browser3/3. Main66pass5fail1notrun;CSSzoomandWeeklylabels corrected. SaveD1p951441.181662/2000passes100samples;12restores. Browserfirstusable3105.2/3000fails;reviewedTodaydeferralmeasures31080gzipbytereduction;finalperfneeded.",
+    "unfinished": "Exactfinalcandidate75main/3R2/3engine/performance/Windows andarchiveintegritygates;responsive screenshotreview;sanitizedfinalcheckpoint/PR;ninelivegatesexternal.",
+    "nextCommand": "Publishfrozencandidateandrunallsource-specificActionsgates;retainhistoricalfailuresandactualartifactdigests.",
+    "deployed": false,
+    "merged": false,
+    "knownFailures": [
+      "Publicce9 D1 savep952032.553716ms exceeds2000 budget. Same-host frozen640 controlledprofile2176.904913ms alsofails; no unchanged rerun claimed asfix.",
+      "Publicce9 browser performance/acceptance fail obsolete navigation assumptions plus real lanes contrast; correcteddd9c069 but unverified in browsers.",
+      "No owner Windows collector/provider/unattended private ingress/complete verified private backup/private Site publication acceptance.",
+      "Isolated overlap-only072c82e profiling benchmark2097.474214ms and grouped3317b97 profiling benchmark2086.713317ms fail2000 target. Active-owner4 e01f09f profiling benchmark2149.067782ms also fails and is not integrated. Canonical no-profiling3317 run pending.",
+      "Public3dfaa prior browser performance39863232496 failed unchanged200ms maximum main-thread task; newer run pending. Passing D1 rerun alone is not a demonstrated correction of historical failures.",
+      "Isolated a8c0e7f canonical no-profile benchmark passes D1savep951961.683327ms/100samples and12restores; source recorded by committed worktree/log correlation (runner report says local-source-not-recorded). Same-tree final integrated source still requires canonical CI; earlier failures retained.",
+      "Public3dfaa browserperformance39863238589 now passes2/2 unchanged checks; earlier same-head202ms failure retained. Accessibility39863238648 still fails .mc-brief-hint contrast, corrected8a7830d; final-candidate acceptance pending.",
+      "Public111/local6eef fullNode2309failed8 at strict consent source schema rejecting semanticDigest; explicit live-row allowlist correctioncde6f0b passes9focused including actual D1. Final full rerun pending; no schema loosening.",
+      "Exact62 canonical39865844323/job120128099800 main5failed32passed34notrun;R2all3failed. Traces show reload URL-restoration/disclosure race and four direct hidden R2 navigation clicks. Corrected4f9ed78 with stable selected-view readiness and real reload regression; assertions/timeouts unchanged; rerunpending.",
+      "Public29 canonical39868523205/job120137313011 main5failed40passed27notrun;R2threepass; actual archived trace diagnoses and narrow corrections recorded in acceptance.md. D1save1917.061107/2000 andbrowser2786.2/3000,124/200pass independently;not finalcanonicalgreen.",
+      "Public1639 browserfirstusablep953105.2ms/3000failed; actualassetsdelayGETuntil2581ms. ReviewedToday-onlymoduledeferral33059b9 removes31080gzipinitialbytes; no perfpassclaimedbeforeexactrerun. Firefoxcontainerlaunchhomeownershipfailurebeforeassertionscorrectedwithoutenvreassignment/sandboxflags;Chrome/WebKitpass.",
+      "Public1639canonical39870936056/job120145456503 main66pass5fail1notrun7.7min(max5,notglobaltimeout);R2three/HTTPpass. FourobsoleteWeeklyplanningnavlabels corrected daf412f. Actual200%zoomlanegrid490CSSpxminimumin~358pxcard corrected45f68d3 withcardinline-sizequery, nohiddenoverfloworassertionchange. IndependentSolreviewnoblocker;75main+3R2rerunrequired."
+    ]
+  }
+}

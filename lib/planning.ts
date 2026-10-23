@@ -1,10 +1,11 @@
+import {applyAreaCommand,classification} from './areas.ts';
 import type { Workspace, Task, TaskInput, MilestoneInput, CaptureInput, Capture, Recommendation } from './types.ts';
 import { validateTaskGraph } from './task-graph.ts';
 import { currentWeek, isCurrentWeek } from './calendar.ts';
 import { parseWorkspaceExport } from './workspace-validation.ts';
 import { applyProjectBaseline, BASELINE_ID } from './project-baselines.ts';
 
-const TASK_FIELDS = ['estimateMinutes','projectId', 'milestoneId', 'title', 'notes', 'status', 'horizon', 'priority', 'dueDate', 'weekly', 'dependsOn', 'blocker', 'sourceUrl', 'evidence'];
+const TASK_FIELDS = ['areaId','workType','estimateMinutes','projectId', 'milestoneId', 'title', 'notes', 'status', 'horizon', 'priority', 'dueDate', 'weekly', 'dependsOn', 'blocker', 'sourceUrl', 'evidence'];
 const MILESTONE_FIELDS = ['projectId', 'title', 'description', 'acceptance', 'status', 'targetDate', 'evidence'];
 const CAPTURE_FIELDS = ['title', 'body', 'projectId', 'kind', 'sourceUrl'];
 const DAY_MS = 86_400_000;
@@ -89,6 +90,7 @@ function validateTask(value: unknown, workspace: Workspace, existing?:Task): Tas
   const status = choice(data.status, ['proposed', 'todo', 'doing', 'review', 'done', 'archived'] as const, 'Task status');
   if(data.weekly&&status==='proposed'&&!existing?.weekly)throw new Error('Accept a proposed task before committing it to a week.');
   return {
+    ...classification(workspace,project,data.areaId,data.workType,existing),
     estimateMinutes:(data.estimateMinutes as number|null|undefined)??null, projectId: project, milestoneId: milestoneId(data.milestoneId, project, workspace, existing?.milestoneId),
     title: text(data.title, 'Title', 200, true), notes: text(data.notes, 'Notes', 10000), status,
     horizon: choice(data.horizon, ['now', 'next', 'later'] as const, 'Horizon'),
@@ -146,6 +148,7 @@ function timestamp(value: string | undefined): string {
 export function applyCommand(workspace: Workspace, command: unknown, now?: string, options:{baselineRemovedIds?:readonly string[]}={}): Workspace {
   const data = object(command, 'Command');
   const at = timestamp(now);
+  if(typeof data.type==='string'&&data.type.startsWith('area.'))return applyAreaCommand(workspace,command,at,()=>crypto.randomUUID());
   const next = structuredClone(workspace);
   let activityText: string;
   let activityProject: string | null;
@@ -253,7 +256,7 @@ export function applyCommand(workspace: Workspace, command: unknown, now?: strin
       break;
     }
     case 'capture.convert': {
-      fields(data, ['type', 'id', 'milestoneId', 'horizon', 'projectId'], 'Command');
+      fields(data, ['type', 'id', 'milestoneId', 'horizon', 'projectId','areaId','workType'], 'Command');
       const existing = findById(next.captures, data.id, 'Capture');
       if (existing.convertedTaskId) throw new Error('This capture has already been converted to a task.');
       if (existing.status === 'archived') throw new Error('Restore this archived capture before converting it.');
@@ -261,7 +264,7 @@ export function applyCommand(workspace: Workspace, command: unknown, now?: strin
       if (!selectedProject) throw new Error('Assign this capture to a project before converting it.');
       capacity(next.tasks.length, 2000, 'tasks');
       const input = validateTask({
-        projectId: selectedProject, milestoneId: data.milestoneId, title: existing.title, notes: existing.body,
+        areaId:data.areaId,workType:data.workType,projectId: selectedProject, milestoneId: data.milestoneId, title: existing.title, notes: existing.body,
         status: 'proposed', horizon: data.horizon, priority: 'normal', dueDate: null, weekly: false,
         dependsOn: [], blocker: '', sourceUrl: existing.sourceUrl, evidence: '',
       }, next);

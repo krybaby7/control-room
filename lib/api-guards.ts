@@ -13,7 +13,7 @@ export async function readMutation(request: Request,options:{importId?:string}={
       const { value, done } = await reader.read();
       if (done) break;
       length += value.byteLength;
-      if (length > 1_350_000) { await reader.cancel(); throw new RequestError('This entry is too large. A workspace backup must fit the planning storage limit.', 413); }
+      if (length > 2_000_000) { await reader.cancel(); throw new RequestError('This entry is too large. A workspace backup must fit the planning storage limit.', 413); }
       chunks.push(value);
     }
   } finally { reader.releaseLock(); }

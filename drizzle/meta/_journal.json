@@ -204,6 +204,13 @@
       "when": 1792598401000,
       "tag": "0028_personal_repository_presence",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "6",
+      "when": 1792699200000,
+      "tag": "0029_project_history",
+      "breakpoints": true
     }
   ]
 }

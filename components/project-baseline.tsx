@@ -1,5 +1,6 @@
 'use client';
 
+import {TaskContext} from './ui';
 import { useId } from 'react';
 import { BookOpen, CheckCircle2, Plus } from 'lucide-react';
 import { entityHref } from '@/lib/entity-links';
@@ -55,7 +56,7 @@ export function ProjectBaseline({ project, workspace, busy, onApply, removedIds=
       <summary>Five specific next-step proposals</summary>
       <p className="baseline-help">These suggestions add detail to the existing plan. Review and edit them before accepting work; they carry no deadline or weekly commitment.</p>
       <ol className="baseline-proposals">{proposals.map(proposal => <li key={proposal.key}>
-        <strong>{proposal.title}</strong>
+        <strong>{proposal.title}</strong><TaskContext task={workspace.tasks.find(task=>task.id===proposal.id)??{projectId:project.id,areaId:proposal.areaId,workType:proposal.workType}} workspace={workspace}/>
         <span className="baseline-milestone">{proposal.milestoneNote}{proposal.removed ? ' · Previously applied; task removed. Owner deletion tombstone prevents recreation.' : proposal.exists ? ' · Record already saved; your edits are preserved.' : ''}</span>
         {proposal.exists && <p><a href={entityHref({kind:'task',id:proposal.id})}>Open saved task{proposal.currentProjectId!==project.id ? ` in ${workspace.projects.find(row=>row.id===proposal.currentProjectId)?.name??'its current project'}` : ''}</a></p>}
         <details><summary>Acceptance and existing work</summary><p className="baseline-meta">{proposal.existingWork}</p><p>{proposal.acceptance}</p></details>

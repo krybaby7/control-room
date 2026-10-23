@@ -10,6 +10,7 @@ import {combineClaimConditions,recoverabilityConditions,prepareClaimAssertions,t
 import {executeWorkspaceCommand} from '../lib/workspace-transaction.ts';
 import {workspaceHandlers} from '../lib/workspace-handlers.ts';
 import {issueMutationId} from '../lib/idempotency-retention.ts';
+import {OWNER_TABLES} from '../lib/workspace-modules.ts';
 const owner='synthetic-contiguous-assertions',now='2026-10-18T12:00:00.000Z',id='assertion-mutation',guard=[owner,id,'token'];
 const claim='EXISTS(SELECT 1 FROM workspace_command_guards WHERE user_id=? AND mutation_id=? AND claim_token=?)';
 function combine(conditions:RecoverabilityCondition[]){return combineClaimConditions(owner,id,claim,guard,conditions);}
@@ -32,11 +33,14 @@ async function preflight(db:SqlDatabase){
  const prefix=[capacity,{sql:metadata.guard.sql,bindings:[...metadata.guard.bindings]},checks[0]],rows=checks.slice(1,-1),suffix=[checks.at(-1)!,{sql:'(SELECT COUNT(*) FROM workspace_mutations WHERE user_id=?) < ?',bindings:[owner,100000]}];
  return {before,prefix,rows,suffix};
 }
-test('all real prewrite predicates remain ordered while twelve-table row groups and the personal table tail stay exact',async()=>{
+test('all real prewrite predicates remain ordered while twelve-table row groups and the two-table tail stay exact',async()=>{
  const f=database();try{
   const {prefix,rows,suffix}=await preflight(f.db);assert.equal(prefix.length,3);assert.equal(rows.length,4);assert.equal(suffix.length,2);
-  assert.deepEqual(rows.map(condition=>(condition.sql.match(/ EXCEPT /gu)??[]).length),[12,12,12,1]);
-  const grouped=[...combine(prefix),...rows,...combine(suffix)];assert.equal(grouped.length,6);assert.deepEqual(grouped.map(condition=>2+condition.bindings.length+guard.length),[35,53,53,53,9,11]);
+  assert.equal(OWNER_TABLES.length,38);
+  assert.deepEqual(rows.map(condition=>(condition.sql.match(/ EXCEPT /gu)??[]).length),[12,12,12,2]);
+  const rowSql=rows.map(condition=>condition.sql).join('\n');let lastTable=-1;
+  for(const table of OWNER_TABLES){const positions=[...rowSql.matchAll(new RegExp(`FROM ${table} WHERE`,'gu'))].map(match=>match.index);assert.equal(positions.length,2,`count and exact-set predicates for ${table}`);assert.ok(positions[0]>lastTable,`ordered row predicate for ${table}`);lastTable=positions[1];}
+  const grouped=[...combine(prefix),...rows,...combine(suffix)];assert.equal(grouped.length,6);assert.deepEqual(grouped.map(condition=>2+condition.bindings.length+guard.length),[35,53,53,53,13,11]);
   assert.deepEqual(grouped.flatMap(condition=>condition.bindings),[...prefix,...rows,...suffix].flatMap(condition=>condition.bindings));
   for(const group of grouped){assert.ok(2+group.bindings.length+guard.length<=100);assert.ok(new TextEncoder().encode(JSON.stringify([owner,id,...group.bindings,...guard])).length<=1800000);}
   const schemaSql=prefix[1].sql;assert.equal(grouped[0].sql.split(schemaSql).length-1,2);assert.ok(grouped[0].sql.includes(prefix[0].sql));assert.ok(grouped[0].sql.indexOf(prefix[0].sql)<grouped[0].sql.indexOf(prefix[2].sql));
@@ -62,7 +66,7 @@ test('actual D1 accepts combined real prefix and suffix without changing native 
   const nativeDb=await mf.getD1Database('DB'),db:SqlDatabase=nativeDb,files=(await readdir(new URL('../drizzle/',import.meta.url))).filter(name=>/^\d+.*\.sql$/u.test(name)).sort();
   for(const name of files)for(const sql of (await readFile(new URL('../drizzle/'+name,import.meta.url),'utf8')).split('--> statement-breakpoint'))if(sql.trim())await db.prepare(sql.trim()).run();
   const {prefix,rows,suffix}=await preflight(db);await db.prepare('INSERT INTO workspace_command_guards(user_id,mutation_id,claim_token,valid) VALUES(?,?,?,1)').bind(...guard).run();
-  const grouped=[...combine(prefix),...rows,...combine(suffix)];assert.equal(grouped.length,6);assert.deepEqual(grouped.map(condition=>2+condition.bindings.length+guard.length),[35,53,53,53,9,11]);
+  const grouped=[...combine(prefix),...rows,...combine(suffix)];assert.equal(grouped.length,6);assert.deepEqual(grouped.map(condition=>2+condition.bindings.length+guard.length),[35,53,53,53,13,11]);
   await db.batch(prepareClaimAssertions(db,owner,id,claim,guard,grouped));assert.equal((await db.prepare('SELECT COUNT(*) n FROM workspace_assertions').first<{n:number}>())!.n,6);
   await db.prepare('DELETE FROM workspace_assertions').run();
   const deniedCapacity=await privateCapacityGuard(db,owner,{growth:[{table:'workspace_mutations',bytes:100000000,rows:0}]});

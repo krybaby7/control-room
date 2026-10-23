@@ -5,14 +5,15 @@ import {compactPlanning,measurePlanning,measureValidatedPlanning} from '../lib/w
 import {parseWorkspaceExport} from '../lib/workspace-validation.ts';
 import {workspaceFixture,projectFixture,milestoneFixture,taskFixture,legacyPlanningFixture,FIXTURE_AT} from './helpers/workspace.ts';
 
-// Frozen pre-optimization algorithm: independent projection and two actual JSON
-// serializations, including their original property-presence and spread rules.
+// Independent projection oracle: actual JSON serialization, preserving the
+// historical spread rules and omitting only declared generated v5 defaults.
 function reference(workspace:Workspace){
  const positions=new Map<string,number>();
- const compact={...workspace,
+ const base={...workspace};if(!base.areas?.length)delete base.areas;
+ const compact={...base,
   projects:workspace.projects.map(project=>{const {archivedAt,...rest}=project;return archivedAt===null?rest:project;}),
   milestones:workspace.milestones.map(milestone=>{const next=positions.get(milestone.projectId)??0;positions.set(milestone.projectId,next+1);const copy:Partial<typeof milestone>={...milestone};if(copy.archivedAt===null)delete copy.archivedAt;if(copy.sortKey===next)delete copy.sortKey;return copy;}),
-  tasks:workspace.tasks.map(task=>{const copy:Partial<typeof task>={...task};if(copy.weeklyWeek===null)delete copy.weeklyWeek;if(copy.archivedFromStatus===null)delete copy.archivedFromStatus;if(copy.estimateMinutes===null)delete copy.estimateMinutes;return copy;})};
+  tasks:workspace.tasks.map(task=>{const copy:Partial<typeof task>={...task};if(copy.weeklyWeek===null)delete copy.weeklyWeek;if(copy.archivedFromStatus===null)delete copy.archivedFromStatus;if(copy.estimateMinutes===null)delete copy.estimateMinutes;if(copy.areaId===null)delete copy.areaId;if(copy.workType==='other')delete copy.workType;return copy;})};
  const {schemaVersion:_version,...content}=compact;void _version;
  const tasks=content.tasks.map(task=>{const {weeklyWeek:_week,archivedFromStatus:_previous,...owner}=task;void _week;void _previous;return owner;});
  const bytes=(value:unknown)=>new TextEncoder().encode(JSON.stringify(value)).length;
@@ -32,11 +33,11 @@ function fixture(){return workspaceFixture({
  captures:[{id:'capture',title:'Capture',body:'Owner body',projectId:null,kind:'idea',sourceUrl:null,status:'inbox',createdAt:FIXTURE_AT,convertedTaskId:null}],
  activity:[{id:'activity',text:'Owner activity',at:FIXTURE_AT,projectId:null}],
 });}
-test('exact measurement matches historical projection for schemas 1–4 before and after strict migration',()=>{
+test('exact measurement matches historical projection for schemas 1–5 before and after strict migration',()=>{
  const current=fixture();for(const version of [1,2,3,4] as const){
   const raw=version===4?current:legacyPlanningFixture(current,version);check(raw);check(parseWorkspaceExport(raw,FIXTURE_AT));
  }
- check(workspaceFixture({projects:[]}));
+ check(workspaceFixture({projects:[]}));check(parseWorkspaceExport(current,FIXTURE_AT));
 });
 test('Unicode, JSON escaping and generated-name owner text are never excluded or undercounted',()=>{
  const texts=['','ASCII weeklyWeek archivedFromStatus schemaVersion sortKey archivedAt estimateMinutes','مرحبا 測試 😀 e\u0301','\ud800','\udfff','a\ud800b\udfffc','\u0000\b\t\n\r\f"\\/','\u2028\u2029','"weeklyWeek":null,"archivedFromStatus":"done"'];
@@ -75,8 +76,8 @@ test('legacy projection remains the fallback for accessors, nonenumerable/inheri
 });
 test('near-cap and over-cap inputs keep exact content and serialized bytes without mutating immutable records',()=>{
  const w=workspaceFixture({tasks:Array.from({length:1700},(_,i)=>taskFixture('capacity-'+i,{notes:'Synthetic measurement fixture.'})),captures:Array.from({length:850},(_,i)=>({id:'capture-'+i,title:'Capture',body:'Synthetic metadata.',projectId:null,kind:'idea',sourceUrl:null,status:'inbox',createdAt:FIXTURE_AT,convertedTaskId:null}))});
- let remaining=1_000_000-reference(w).contentBytes;assert.ok(remaining>0);for(const task of w.tasks){const amount=Math.min(10000-task.notes.length,remaining);task.notes+='x'.repeat(amount);remaining-=amount;}assert.equal(remaining,0);assert.equal(reference(w).contentBytes,1_000_000);check(w);assert.deepEqual(parseWorkspaceExport(w),w);
- const last=w.tasks.at(-1)!;const saved=last.notes;last.notes=saved.slice(0,-1);assert.equal(reference(w).contentBytes,999_999);check(w);assert.deepEqual(parseWorkspaceExport(w),w);last.notes=saved+'x';assert.equal(reference(w).contentBytes,1_000_001);check(w);assert.throws(()=>parseWorkspaceExport(w),error=>error instanceof Error&&error.message==='Workspace exceeds the 1 MB user-content storage limit.');
+ let remaining=1_000_000-reference(w).contentBytes;assert.ok(remaining>0);for(const task of w.tasks){const amount=Math.min(10000-task.notes.length,remaining);task.notes+='x'.repeat(amount);remaining-=amount;}assert.equal(remaining,0);assert.equal(reference(w).contentBytes,1_000_000);check(w);assert.deepEqual(parseWorkspaceExport(w),{...w,schemaVersion:5,areas:[],tasks:w.tasks.map(task=>({...task,areaId:null,workType:'other'}))});
+ const last=w.tasks.at(-1)!;const saved=last.notes;last.notes=saved.slice(0,-1);assert.equal(reference(w).contentBytes,999_999);check(w);assert.deepEqual(parseWorkspaceExport(w),{...w,schemaVersion:5,areas:[],tasks:w.tasks.map(task=>({...task,areaId:null,workType:'other'}))});last.notes=saved+'x';assert.equal(reference(w).contentBytes,1_000_001);check(w);assert.throws(()=>parseWorkspaceExport(w),error=>error instanceof Error&&error.message==='Workspace exceeds the 1 MB legacy user-content storage limit.');
  last.notes=saved+'ع';assert.equal(reference(w).contentBytes,1_000_002);check(w);assert.throws(()=>parseWorkspaceExport(w),/user-content storage limit/);
  for(const rows of [w.projects,w.milestones,w.tasks,w.captures,w.activity]){for(const row of rows)Object.freeze(row);Object.freeze(rows);}Object.freeze(w);check(w);
 });
@@ -89,6 +90,26 @@ test('serialized ceiling neighbors retain exact counts and the existing content-
   assert.equal(remaining,0);assert.equal(reference(w).serializedBytes,target);check(w);
   // Under the current task count/history bounds, content already exceeds 1MB
   // here. The earlier error must retain priority over the serialized ceiling.
-  assert.throws(()=>parseWorkspaceExport(w),error=>error instanceof Error&&error.message==='Workspace exceeds the 1 MB user-content storage limit.');
+  assert.throws(()=>parseWorkspaceExport(w),error=>error instanceof Error&&error.message==='Workspace exceeds the 1 MB legacy user-content storage limit.');
+ }
+});
+
+test('v5 area identity and classification defaults match an independent projection byte for byte',()=>{
+ const w=parseWorkspaceExport(fixture(),FIXTURE_AT);
+ w.areas=[{id:'area-測😀',projectId:'p1',name:'Owner area "測"',aliases:['weeklyWeek areaId workType'],order:19,archivedAt:FIXTURE_AT}];
+ w.tasks[0].areaId=w.areas[0].id;w.tasks[0].workType='review';
+ w.tasks[1].notes='areas areaId workType "other" null';
+ check(w);check(parseWorkspaceExport(w,FIXTURE_AT));
+ const original=reference(w);w.tasks[0].areaId=null;w.tasks[0].workType='other';
+ assert.ok(reference(w).contentBytes<original.contentBytes);check(w);
+ w.areas=[];check(w);delete w.areas;check(w);
+});
+test('v5 serialized 1.875 MB ceiling neighbors retain exact counts and content-first validation',()=>{
+ for(const target of [1_874_999,1_875_000,1_875_001]){
+  const w=parseWorkspaceExport(workspaceFixture({tasks:Array.from({length:220},(_,i)=>taskFixture('v5-serialized-'+i,{notes:''}))}));
+  let remaining=target-reference(w).serializedBytes;
+  for(const task of w.tasks){const amount=Math.min(10000,remaining);task.notes='x'.repeat(amount);remaining-=amount;}
+  assert.equal(remaining,0);assert.equal(reference(w).serializedBytes,target);check(w);
+  assert.throws(()=>parseWorkspaceExport(w),error=>error instanceof Error&&error.message==='Workspace exceeds the 1.5 MB user-content storage limit.');
  }
 });

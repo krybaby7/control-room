@@ -1,0 +1,6 @@
+{"timestamp":"2026-01-01T12:00:00.000Z","type":"session_meta","payload":{"id":"synthetic-thread-a","session_tree_id":"synthetic-tree","segment_id":"segment-a"}}
+{"timestamp":"2026-01-01T12:00:01.000Z","type":"response_item","payload":{"type":"message","id":"user-1","role":"user","content":[{"type":"input_text","text":"Café\r\n😀"}]}}
+{"type":"response_item","payload":{"type":"message","id":"assistant-1","role":"assistant","content":[{"type":"output_text","text":"Synthetic reply"}]}}
+{"type":"response_item","payload":{"type":"function_call","call_id":"call-1","name":"synthetic_tool","arguments":"{}"}}
+{"type":"response_item","payload":{"type":"function_call_output","call_id":"call-1","output":"synthetic tool output"}}
+{"type":"response_item","payload":{"type":"message","id":"system-1","role":"system","content":[{"type":"input_text","text":"Synthetic system record"}]}}

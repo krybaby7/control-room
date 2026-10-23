@@ -31,12 +31,12 @@ test('stored legacy workspaces migrate from saved timestamp without reseeding or
   delete legacy.tasks[0].weeklyWeek; delete legacy.tasks[0].archivedFromStatus;
   sqlite.prepare('INSERT INTO workspaces VALUES (?, ?, ?, ?)').run('owner',JSON.stringify(legacy),12,at);
   const loaded = await storage.loadWorkspace(db,'owner',() => { throw new Error('must not reseed'); },'2026-10-20T12:00:00Z');
-  assert.equal(loaded.revision,12); assert.equal(loaded.workspace.schemaVersion,4);
+  assert.equal(loaded.revision,12); assert.equal(loaded.workspace.schemaVersion,5);
   assert.equal(loaded.workspace.tasks[0].weeklyWeek,'2026-10-12');
   assert.equal(JSON.parse(sqlite.prepare('SELECT content FROM workspaces').get()!.content as string).schemaVersion,1);
   const saved = await storage.mutateWorkspace(db,'owner',12,'migration-0000001',{type:'project.update',id:legacy.projects[0].id,patch:{goal:'Kept'}},at);
   assert.equal(saved?.workspace.tasks[0].weeklyWeek,'2026-10-12');
-  assert.equal(JSON.parse(sqlite.prepare('SELECT content FROM workspaces').get()!.content as string).schemaVersion,4);
+  assert.equal(JSON.parse(sqlite.prepare('SELECT content FROM workspaces').get()!.content as string).schemaVersion,5);
   sqlite.prepare('UPDATE workspaces SET content = ?').run(JSON.stringify({...legacy,schemaVersion:100}));
   await assert.rejects(storage.loadWorkspace(db,'owner',seed,at),/version/);
   assert.equal(JSON.parse(sqlite.prepare('SELECT content FROM workspaces').get()!.content as string).schemaVersion,100);
@@ -54,10 +54,11 @@ function nearLimitLegacyFixture() {
 }
 test('near-limit legacy content can migrate, export, restore and shrink', async () => {
   const source = nearLimitLegacyFixture();
+  assert.ok(new TextEncoder().encode(JSON.stringify(source)).byteLength <= 1_000_000);
   const v3 = migratePlanningV2ToV3(migratePlanningV1ToV2(source, at));
   const migrated = parsePlanningImport(v3,at);
   const encoded = encodePlanning(migrated);
-  assert.ok(measurePlanning(migrated).serializedBytes <= 1_250_000);
+  assert.ok(measurePlanning(migrated).serializedBytes <= 1_500_000);
   assert.deepEqual(decodePlanning(encoded, at), migrated);
   assert.deepEqual(parsePlanningImport(JSON.parse(encoded), at), migrated);
   const smaller = structuredClone(migrated); smaller.tasks[0].notes = '';
@@ -106,7 +107,7 @@ test('oversized user content fails without saving a document or reserving a rece
   const {db,sqlite}=database();
   const original=await storage.loadWorkspace(db,'oversized-owner',seed,at);
   const oversized=seed();
-  oversized.tasks=Array.from({length:110},(_,i)=>({...oversized.tasks[0],id:`oversized-${i}`,notes:'ع'.repeat(5000)}));
+  oversized.tasks=Array.from({length:160},(_,i)=>({...oversized.tasks[0],id:`oversized-${i}`,notes:'ع'.repeat(5000)}));
   await assert.rejects(storage.mutateWorkspace(db,'oversized-owner',1,'oversized-000001',{type:'workspace.restore',workspace:oversized},at),/storage limit/);
   assert.deepEqual(await storage.loadWorkspace(db,'oversized-owner',seed,at),original);
   assert.equal(sqlite.prepare('SELECT count(*) AS count FROM workspace_mutations').get()!.count,0);

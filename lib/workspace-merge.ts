@@ -1,10 +1,10 @@
 import type { Workspace } from './types.ts';
 import { parsePlanningImport } from './workspace-codec.ts';
 import { WorkspaceValidationError } from './workspace-validation.ts';
-const collections=['projects','milestones','tasks','captures','activity'] as const;
+const collections=['projects','areas','milestones','tasks','captures','activity'] as const;
 export type PlanningCollection=typeof collections[number];
-export type PlanningMergeSelection={[K in PlanningCollection]:string[]};
-type PlanningRecord=Workspace[PlanningCollection][number];
+export type PlanningMergeSelection={[K in Exclude<PlanningCollection,'areas'>]:string[]}&{areas?:string[]};
+type PlanningRecord=NonNullable<Workspace[PlanningCollection]>[number];
 export interface PlanningMergePreview {
   workspace:Workspace;
   conflicts:{collection:PlanningCollection;id:string;before:PlanningRecord;after:PlanningRecord}[];
@@ -22,12 +22,12 @@ function same(left:unknown,right:unknown):boolean {
 /** A pure review result; accepting this preview still requires an explicit owner command. */
 export function previewPlanningMerge(current:Workspace,incoming:Workspace,selection:PlanningMergeSelection):PlanningMergePreview {
   const target=parsePlanningImport(current),source=parsePlanningImport(incoming);
-  if(!selection || typeof selection!=='object' || Array.isArray(selection) || Object.keys(selection).length!==collections.length || Object.keys(selection).some(key=>!collections.includes(key as PlanningCollection)))fail('Merge selection must name every planning collection.');
+  if(!selection || typeof selection!=='object' || Array.isArray(selection) || ![collections.length,collections.length-1].includes(Object.keys(selection).length) || Object.keys(selection).some(key=>!collections.includes(key as PlanningCollection)))fail('Merge selection must name every planning collection.');
   const preview:PlanningMergePreview={workspace:structuredClone(target),conflicts:[],added:0,changed:0,sourceClaims:[]};
   for(const collection of collections) {
-    const selected=selection[collection];
+    const selected=collection==='areas'?selection.areas??[]:selection[collection];
     if(!Array.isArray(selected) || selected.some(id=>typeof id!=='string') || new Set(selected).size!==selected.length)fail(`Merge selection for ${collection} must contain unique IDs.`);
-    const sourceRows=new Map<string,PlanningRecord>(source[collection].map(row=>[row.id,row]));
+    const sourceRows=new Map<string,PlanningRecord>((source[collection]??[]).map(row=>[row.id,row]));
     const targetRows=preview.workspace[collection] as PlanningRecord[];
     for(const id of selected) {
       const from=sourceRows.get(id); if(!from)fail(`Merge selection refers to a missing ${collection} record.`);

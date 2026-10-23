@@ -36,7 +36,7 @@ test('exclusion retains exact record in recovery report without cascading or dro
 });
 test('migration uses saved anchor and fails closed on unknown versions while ordinary repairs preserve them',async()=>{
  const source=legacyWorkspaceFixture(1,at);source.tasks[0].weekly=true;
- const migrated=decode((await repairPlanningImport(encode({workspace:source,updatedAt:at}),{type:'migrate'})).raw);assert.equal(migrated.workspace.schemaVersion,4);assert.equal(migrated.workspace.tasks[0].weeklyWeek,'2026-10-12');
+ const migrated=decode((await repairPlanningImport(encode({workspace:source,updatedAt:at}),{type:'migrate'})).raw);assert.equal(migrated.workspace.schemaVersion,5);assert.ok(migrated.workspace.tasks.every((task:{areaId:string|null;workType:string})=>task.areaId===null&&task.workType==='other'));assert.equal(migrated.workspace.tasks[0].weeklyWeek,'2026-10-12');
  const future={...source,schemaVersion:999};await assert.rejects(repairPlanningImport(encode(future),{type:'migrate'}),/version/);
  const repaired=await repairPlanningImport(encode(future),{type:'exclude-record',collection:'captures',id:source.captures[0].id});assert.equal(decode(repaired.raw).schemaVersion,999);
 });
