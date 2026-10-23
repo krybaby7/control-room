@@ -2,7 +2,7 @@
   "planVersion": 1,
   "createdDate": "2026-10-22",
   "timezone": "Africa/Cairo",
-  "status": "in_progress",
+  "status": "externally_blocked",
   "requiredImplementationModel": "gpt-6.1-sol",
   "actualImplementationBaseline": "17f7103e131bd6b9979a404d8a7535bba3b3a661",
   "implementationBranch": "feat/project-lanes-history-cloud",
@@ -68,7 +68,7 @@
     "ownerAcceptance": "explicit"
   },
   "currentStage": "S6",
-  "nextAction": "Publishfrozencandidateandrunallsource-specificActionsgates;retainhistoricalfailuresandactualartifactdigests.",
+  "nextAction": "Owner/provider/private-Site operator completes the nine live gates in acceptance.md; no merge or deployment in this continuation.",
   "stages": [
     {
       "id": "S0",
@@ -162,7 +162,7 @@
       ],
       "status": "implemented",
       "evidence": [
-        "Native contracts, actual SQLite/D1 composition and guarded UI implemented; complete exact-candidate release checks in progress."
+        "Exact e940 Node24 2311/2311;main browser75/75;R2browser3/3;bridge/companion/GitHub/typecheck/lint/build/D1/R2/HTTP pass. Three-engine acceptance/native Windows and all auxiliary checks pass. Collector52/52; archive closed inventory/allfilehashes verified. D1save100samples p951188.884882ms/2000;12synthetic restores; browserfirstusable2850.9ms/3000,zero observed navigationlongtasks;20sessionHTTPsave356.070156ms/2000. All thresholds/assertions unchanged."
       ],
       "blockers": []
     },
@@ -182,7 +182,7 @@
       ],
       "status": "implemented",
       "evidence": [
-        "Native contracts, actual SQLite/D1 composition and guarded UI implemented; complete exact-candidate release checks in progress."
+        "Exact e940 Node24 2311/2311;main browser75/75;R2browser3/3;bridge/companion/GitHub/typecheck/lint/build/D1/R2/HTTP pass. Three-engine acceptance/native Windows and all auxiliary checks pass. Collector52/52; archive closed inventory/allfilehashes verified. D1save100samples p951188.884882ms/2000;12synthetic restores; browserfirstusable2850.9ms/3000,zero observed navigationlongtasks;20sessionHTTPsave356.070156ms/2000. All thresholds/assertions unchanged."
       ],
       "blockers": []
     },
@@ -199,11 +199,14 @@
         "S4",
         "S5"
       ],
-      "status": "in_progress",
+      "status": "externally_blocked",
       "evidence": [
-        "Native isolated D1 ingest/duplicate/analysis/owner acceptance/selected-byte export/reviewed same-owner restore macro passes; browser scenarios implemented, execution pending. Integrated Sol review identified three substantive fixes in progress."
+        "Exact e940 Node24 2311/2311;main browser75/75;R2browser3/3;bridge/companion/GitHub/typecheck/lint/build/D1/R2/HTTP pass. Three-engine acceptance/native Windows and all auxiliary checks pass. Collector52/52; archive closed inventory/allfilehashes verified. D1save100samples p951188.884882ms/2000;12synthetic restores; browserfirstusable2850.9ms/3000,zero observed navigationlongtasks;20sessionHTTPsave356.070156ms/2000. All thresholds/assertions unchanged.",
+        "All four substantive R3 recovery/authority findings corrected; focused review and source-specific final checks pass."
       ],
-      "blockers": []
+      "blockers": [
+        "R2 live source/runtime/owner acceptance remains unverified. R3 private publication requires complete verified metadata+allprivatebytes backup/tested compatible restore and separately authorized supported publication. Physical project/device acceptance remains separate evidence, not a Control Room source-shipping prerequisite."
+      ]
     }
   ],
   "tasks": [
@@ -388,7 +391,7 @@
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
+      "nextAction": null
     },
     {
       "id": "C3",
@@ -398,7 +401,7 @@
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
+      "nextAction": null
     },
     {
       "id": "C4",
@@ -420,7 +423,7 @@
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
+      "nextAction": null
     },
     {
       "id": "A1",
@@ -430,7 +433,7 @@
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
+      "nextAction": null
     },
     {
       "id": "A2",
@@ -440,7 +443,7 @@
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
+      "nextAction": null
     },
     {
       "id": "A3",
@@ -450,7 +453,7 @@
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
+      "nextAction": null
     },
     {
       "id": "A4",
@@ -460,7 +463,7 @@
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
+      "nextAction": null
     },
     {
       "id": "A5",
@@ -478,7 +481,7 @@
         "33/33 actual SQLite native sweep/HTTP/job/overview tests; cursor-only/default/JSON/foreign/generation/race/expiry checks retain unverified coverage"
       ],
       "blockers": [],
-      "nextAction": "Final integrated candidate canonical and browser verification; configure actual private native reader and ingress only after independent live acceptance."
+      "nextAction": null
     },
     {
       "id": "A6",
@@ -500,7 +503,7 @@
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
+      "nextAction": null
     },
     {
       "id": "U2",
@@ -510,7 +513,7 @@
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
+      "nextAction": null
     },
     {
       "id": "U3",
@@ -520,7 +523,7 @@
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
+      "nextAction": null
     },
     {
       "id": "U4",
@@ -530,7 +533,7 @@
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
+      "nextAction": null
     },
     {
       "id": "U5",
@@ -540,7 +543,7 @@
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
+      "nextAction": null
     },
     {
       "id": "U6",
@@ -550,7 +553,7 @@
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
+      "nextAction": null
     },
     {
       "id": "L1",
@@ -560,7 +563,7 @@
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
+      "nextAction": null
     },
     {
       "id": "L2",
@@ -570,7 +573,7 @@
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
+      "nextAction": null
     },
     {
       "id": "L3",
@@ -580,7 +583,7 @@
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
+      "nextAction": null
     },
     {
       "id": "L4",
@@ -590,17 +593,25 @@
       "commit": null,
       "verification": [],
       "blockers": [],
-      "nextAction": "Exact integrated candidate canonical/browser/performance verification in progress; retain separately unverified live gates."
+      "nextAction": null
     },
     {
       "id": "R1",
       "chapter": "05-project-lanes-and-release.md",
-      "status": "in_progress",
+      "status": "implemented",
       "changedFiles": [],
-      "commit": null,
-      "verification": [],
+      "commit": "e94004c55c9bd02b5e2bbd992f81fefdb38aa423",
+      "verification": [
+        {
+          "command": "All exact-candidate automated gates; independent archives/screenshots",
+          "outcome": "Exact e940 Node24 2311/2311;main browser75/75;R2browser3/3;bridge/companion/GitHub/typecheck/lint/build/D1/R2/HTTP pass. Three-engine acceptance/native Windows and all auxiliary checks pass. Collector52/52; archive closed inventory/allfilehashes verified. D1save100samples p951188.884882ms/2000;12synthetic restores; browserfirstusable2850.9ms/3000,zero observed navigationlongtasks;20sessionHTTPsave356.070156ms/2000. All thresholds/assertions unchanged.",
+          "date": "2026-10-23",
+          "evidenceRef": "docs/implementation/project-lanes-history/verification-e94004c5.json",
+          "sourceCommit": "e94004c55c9bd02b5e2bbd992f81fefdb38aa423"
+        }
+      ],
       "blockers": [],
-      "nextAction": "Finish exact-candidate integration and record source-specific evidence; live activation gates remain unverified."
+      "nextAction": null
     },
     {
       "id": "R2",
@@ -617,12 +628,22 @@
     {
       "id": "R3",
       "chapter": "05-project-lanes-and-release.md",
-      "status": "in_progress",
+      "status": "externally_blocked",
       "changedFiles": [],
-      "commit": null,
-      "verification": [],
-      "blockers": [],
-      "nextAction": "Finish exact-candidate integration and record source-specific evidence; live activation gates remain unverified."
+      "commit": "e94004c55c9bd02b5e2bbd992f81fefdb38aa423",
+      "verification": [
+        {
+          "command": "Integrated Sol review, source packages and handoff",
+          "outcome": "Source review/package/handoff implemented and automated-verified; private publication not performed.",
+          "date": "2026-10-23",
+          "evidenceRef": "docs/implementation/project-lanes-history/release.md",
+          "sourceCommit": "e94004c55c9bd02b5e2bbd992f81fefdb38aa423"
+        }
+      ],
+      "blockers": [
+        "Complete private metadata+allreferencedbytes backup/tested compatible restore and supported private Site publication/access/version checks remain external; no merge/deploy authorized in this continuation."
+      ],
+      "nextAction": "Authorized owner/operator follows release.md when private cutover prerequisites and separate publication authorization are available."
     }
   ],
   "sources": [
@@ -842,14 +863,39 @@
         "passed": 105,
         "failed": 2,
         "evidence": "Settings home lexical-vs-real path identity rejects synthetic Windows fixture. Corrected at 4b3d67d retaining redirect/hardlink checks; actual Windows rerun pending."
+      },
+      {
+        "source": "e94004c55c9bd02b5e2bbd992f81fefdb38aa423",
+        "command": "controlled workspace benchmark39875895904/job120161296549; browserperformance39875895869/job120161296990",
+        "result": "passed",
+        "d1SaveSamples": 100,
+        "d1SaveP95Milliseconds": 1188.884882,
+        "unchangedSaveBudgetMilliseconds": 2000,
+        "confirmedSyntheticRestores": 12,
+        "browserFirstUsableP95Milliseconds": 2850.9,
+        "unchangedBrowserBudgetMilliseconds": 3000,
+        "navigationLongTasksObserved": 0,
+        "unchangedNavigationBudgetMilliseconds": 200,
+        "browserConcurrentSaveP95Milliseconds": 356.070156,
+        "artifactHashes": {
+          "12468850735": "3f3a95143682886f077a82ee13e45a721c9135ea2a96b990b1247943b932d21f",
+          "12467723432": "69dcd548e90d7f0ae319a817061c0fb9684b08a8d5e13f0242cb519b4bc3993d"
+        }
+      },
+      {
+        "source": "e94004c55c9bd02b5e2bbd992f81fefdb38aa423",
+        "command": "Final canonical39875895922/job120161841328 plus full source-specific gates",
+        "result": "passed",
+        "evidence": "Exact e940 Node24 2311/2311;main browser75/75;R2browser3/3;bridge/companion/GitHub/typecheck/lint/build/D1/R2/HTTP pass. Three-engine acceptance/native Windows and all auxiliary checks pass. Collector52/52; archive closed inventory/allfilehashes verified. D1save100samples p951188.884882ms/2000;12synthetic restores; browserfirstusable2850.9ms/3000,zero observed navigationlongtasks;20sessionHTTPsave356.070156ms/2000. All thresholds/assertions unchanged.",
+        "evidenceRef": "docs/implementation/project-lanes-history/verification-e94004c5.json"
       }
     ],
     "review": {
       "workerId": "/root/lanes_objects",
       "modelParameter": "gpt-6.1-sol",
       "accepted": true,
-      "head": "64036d1",
-      "result": "Four substantive findings corrected;41 focused delta regressions pass; original deferred-PUT reproduction now safely rejects freeze and permits settlement. Later performance/Windows/browser fixes require final delta review."
+      "head": "e94004c55c9bd02b5e2bbd992f81fefdb38aa423",
+      "result": "Four substantive recovery/authority findings corrected and41focused checks retained. Final delta reviewed by accepted Sol workers; no further cloud-capable source gap found. Exact automated candidate passes; retained native setup timeout is not a source fix."
     },
     "pullRequest": "https://github.com/krybaby7/control-room/pull/5",
     "deployment": null,
@@ -889,17 +935,18 @@
     "reviewWorker": "/root/lanes_import_review",
     "review": "No import-blocking issue; dirty-file fingerprint follow-up recorded."
   },
-  "updatedAt": "2026-10-22",
+  "updatedAt": "2026-10-23",
   "checkpoint": {
-    "currentSource": "45f68d3",
-    "publicSource": "1639b0c7c4437d7bb8c618809bab44b01702437f",
-    "sourceMeaning": "Finaltrace-baseddelta:TodayinitialJS-31080gzipbytes;ephemeralFirefoxhomeownership;actual200%cardoverflow;fourobsoleteWeeklynavlabels;75mainbrowsercaseswithR1layoutfixtures. Actual1639fullNode2311passandallpre-browserD1/R2/HTTPpass;canonical66pass5fail1notrun. Allcurrentcandidategatesrequirerun.",
-    "tests": "Source1639Node2311/2311zero fail/cancel/skip380372.928062ms;bridge210+9Windowsskips;companion108+2Windowsskips;GitHub20;type/lint/build/allD1/fixture/R2/HTTPpass;R2browser3/3. Main66pass5fail1notrun;CSSzoomandWeeklylabels corrected. SaveD1p951441.181662/2000passes100samples;12restores. Browserfirstusable3105.2/3000fails;reviewedTodaydeferralmeasures31080gzipbytereduction;finalperfneeded.",
-    "unfinished": "Exactfinalcandidate75main/3R2/3engine/performance/Windows andarchiveintegritygates;responsive screenshotreview;sanitizedfinalcheckpoint/PR;ninelivegatesexternal.",
-    "nextCommand": "Publishfrozencandidateandrunallsource-specificActionsgates;retainhistoricalfailuresandactualartifactdigests.",
+    "currentSource": "b189bde0e9fddcbd2b12445fb2a07726cf0f8599",
+    "publicSource": "e94004c55c9bd02b5e2bbd992f81fefdb38aa423",
+    "sourceMeaning": "Frozen validated application source; final evidence is published on the separate source-bound checkpoint branch.",
+    "tests": "Exact e940 Node24 2311/2311;main browser75/75;R2browser3/3;bridge/companion/GitHub/typecheck/lint/build/D1/R2/HTTP pass. Three-engine acceptance/native Windows and all auxiliary checks pass. Collector52/52; archive closed inventory/allfilehashes verified. D1save100samples p951188.884882ms/2000;12synthetic restores; browserfirstusable2850.9ms/3000,zero observed navigationlongtasks;20sessionHTTPsave356.070156ms/2000. All thresholds/assertions unchanged.",
+    "unfinished": "Nine real source/provider/owner/device/private-hosted gates remain unverified; private publication/activation not performed.",
+    "nextCommand": "Owner/provider/private-Site operator completes the nine live gates in acceptance.md; no merge or deployment in this continuation.",
     "deployed": false,
     "merged": false,
-    "knownFailures": [
+    "tree": "3c001997e2ea8397c83e4e11e5cdd4ec67429bf9",
+    "historicalFailures": [
       "Publicce9 D1 savep952032.553716ms exceeds2000 budget. Same-host frozen640 controlledprofile2176.904913ms alsofails; no unchanged rerun claimed asfix.",
       "Publicce9 browser performance/acceptance fail obsolete navigation assumptions plus real lanes contrast; correcteddd9c069 but unverified in browsers.",
       "No owner Windows collector/provider/unattended private ingress/complete verified private backup/private Site publication acceptance.",
@@ -911,7 +958,12 @@
       "Exact62 canonical39865844323/job120128099800 main5failed32passed34notrun;R2all3failed. Traces show reload URL-restoration/disclosure race and four direct hidden R2 navigation clicks. Corrected4f9ed78 with stable selected-view readiness and real reload regression; assertions/timeouts unchanged; rerunpending.",
       "Public29 canonical39868523205/job120137313011 main5failed40passed27notrun;R2threepass; actual archived trace diagnoses and narrow corrections recorded in acceptance.md. D1save1917.061107/2000 andbrowser2786.2/3000,124/200pass independently;not finalcanonicalgreen.",
       "Public1639 browserfirstusablep953105.2ms/3000failed; actualassetsdelayGETuntil2581ms. ReviewedToday-onlymoduledeferral33059b9 removes31080gzipinitialbytes; no perfpassclaimedbeforeexactrerun. Firefoxcontainerlaunchhomeownershipfailurebeforeassertionscorrectedwithoutenvreassignment/sandboxflags;Chrome/WebKitpass.",
-      "Public1639canonical39870936056/job120145456503 main66pass5fail1notrun7.7min(max5,notglobaltimeout);R2three/HTTPpass. FourobsoleteWeeklyplanningnavlabels corrected daf412f. Actual200%zoomlanegrid490CSSpxminimumin~358pxcard corrected45f68d3 withcardinline-sizequery, nohiddenoverfloworassertionchange. IndependentSolreviewnoblocker;75main+3R2rerunrequired."
+      "Public1639canonical39870936056/job120145456503 main66pass5fail1notrun7.7min(max5,notglobaltimeout);R2three/HTTPpass. FourobsoleteWeeklyplanningnavlabels corrected daf412f. Actual200%zoomlanegrid490CSSpxminimumin~358pxcard corrected45f68d3 withcardinline-sizequery, nohiddenoverfloworassertionchange. IndependentSolreviewnoblocker;75main+3R2rerunrequired.",
+      "Source4bc main74/75,R2three/HTTPpass,2311Nodepass; exact bare-title Inspect selector stale after classification. Artifact12468142300 SHA02128b0169d498a4a2723138aa8bfe69cf1dde54547357ef3e41b51cb3b5cab6. Correctedb189bde; currente940 canonical pending.",
+      "Exacte940 duplicate Windows pushrun39875889027/job120161274422:10hook failures from one setup owned_helper_acl_timeout at unchanged10000ms. PRnativejob120161296996 passes10native/200portable; images differ. Unchanged diagnosticrerun120162450084 is not a sourcefix; retain original."
+    ],
+    "knownFailures": [
+      "Exacte940 duplicate native Windows initial setup exceeded unchanged10000ms ACL verifier deadline;10 inherited hook failures. PRnative and unchanged diagnostic rerun on same newer image passed10native+200portable. Original failure retained as intermittent setup risk; no source fix or owner-device acceptance claimed."
     ]
   }
 }

@@ -1,0 +1,604 @@
+{
+  "version": 1,
+  "status": "source_automated_verified_external_gates_open",
+  "applicationSource": {
+    "publicCommit": "e94004c55c9bd02b5e2bbd992f81fefdb38aa423",
+    "localCommit": "b189bde0e9fddcbd2b12445fb2a07726cf0f8599",
+    "tree": "3c001997e2ea8397c83e4e11e5cdd4ec67429bf9",
+    "branch": "feat/project-lanes-history-cloud",
+    "draftPr": 5
+  },
+  "model": {
+    "supportedSelectedModel": "gpt-6.1-sol",
+    "integrator": "/root",
+    "selectionEvidence": "Accepted delegated session control; accepted explicit model parameter for all six implementation/review leaf workers, recorded in program progress. No alternative model."
+  },
+  "tests": {
+    "prior111FullNode": {
+      "tests": 2309,
+      "passed": 2301,
+      "failed": 8,
+      "cancelled": 0,
+      "skipped": 0,
+      "correction": "cde6f0b explicit five-field live-source pin projection; strict schema unchanged;9focused commands/D1 pass"
+    },
+    "nativeSweepSQLite": {
+      "passed": 33,
+      "failed": 0
+    },
+    "nativeSweepD1": {
+      "passed": 1,
+      "failed": 0,
+      "maximumBindings": 53,
+      "maximumArgumentBytes": 51261
+    },
+    "prior111CI": {
+      "d1SaveSamples": 100,
+      "d1SaveP95Milliseconds": 1840.711268,
+      "budgetMilliseconds": 2000,
+      "browserPerformance": "2/2 pass",
+      "accessibility": "chromium/firefox/webkit pass"
+    },
+    "currentFullNode": {
+      "source": "e94004c55c9bd02b5e2bbd992f81fefdb38aa423",
+      "tests": 2311,
+      "passed": 2311,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "durationMs": 370814.957458
+    },
+    "typecheck": "passed",
+    "lint": "passed;0errors15warnings",
+    "build": "passed",
+    "bridge": {
+      "passed": 210,
+      "windowsSkipped": 9
+    },
+    "collector": {
+      "passed": 52,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "durationMs": 8988.698741,
+      "treeEquivalentToCurrentPublic": true
+    },
+    "companion": {
+      "passed": 108,
+      "windowsSkipped": 2
+    },
+    "github": {
+      "passed": 20,
+      "failed": 0
+    },
+    "localR2": "text/PDF/PNG/retry/isolation/forgery/race and reviewed recovery pass",
+    "localHTTP": "synthetic private owner/CSRF/replay/R2 upload/finalize/download/isolation/forgery smoke passed",
+    "previous62CI": {
+      "source": "62f2b047a0ef4fd28848f2ad9445a53dc389f541",
+      "canonicalRun": 39865844323,
+      "canonicalJob": 120128099800,
+      "status": "Completed:2310Node pass;mainbrowser5failed32passed34notrun,R2threefailed;HTTPpass. Actual trace-based correction4f9ed78 incorporatedsource29.",
+      "benchmarkRun": 39865844158,
+      "benchmarkJob": 120127707395,
+      "d1SaveSamples": 100,
+      "d1SaveP95Milliseconds": 1292.436711,
+      "budgetMilliseconds": 2000,
+      "confirmedSyntheticRestores": 12,
+      "browserPerformanceRun": 39865843923,
+      "browserFirstUsableP95Milliseconds": 2972.8,
+      "browserFirstUsableBudgetMilliseconds": 3000,
+      "navigationMaximumMilliseconds": 164,
+      "navigationMaximumBudgetMilliseconds": 200
+    },
+    "previous29CI": {
+      "source": "29c1b8305fe6a5eaf2438b4f9664714bd30db358",
+      "canonicalRun": 39868523205,
+      "canonicalJob": 120137313011,
+      "status": "main40pass5fail27notrun;R2threepass;HTTPpass;FirefoxOSdependencyinstall20mincutoff",
+      "benchmarkRun": 39868523284,
+      "benchmarkJob": 120136769646,
+      "d1SaveSamples": 100,
+      "d1SaveP95Milliseconds": 1917.061107,
+      "budgetMilliseconds": 2000,
+      "confirmedSyntheticRestores": 12,
+      "benchmark": "passed;allotherbudgetsunchanged",
+      "accessibilityRun": 39868523243,
+      "webkitJob": 120136769339,
+      "webkit": "passed",
+      "chromium": "passed",
+      "firefox": "cancelled during apt installation before assertions",
+      "browserPerformanceRun": 39868523290,
+      "browserPerformanceJob": 120136770215,
+      "browserPerformance": "2/2 passed",
+      "browserFirstUsableP95Milliseconds": 2786.20000000007,
+      "browserFirstUsableBudgetMilliseconds": 3000,
+      "navigationMaximumMilliseconds": 124,
+      "navigationMaximumBudgetMilliseconds": 200,
+      "browserConcurrentSaveP95Milliseconds": 228.701764,
+      "browserPerformanceArtifact": 12465453461,
+      "browserPerformanceArtifactSha256": "a710ce34071fdffc2801a81f444d19a3bfec173efe1a5166f92bcd767b4c5740",
+      "failureArtifact": 12466037148,
+      "failureArtifactSha256": "abee2fe49b2b5a2d6880da230bfaedbe6afdaf6098e7c7b47fa1afb06fce8700"
+    },
+    "previous1639CI": {
+      "source": "1639b0c7c4437d7bb8c618809bab44b01702437f",
+      "canonicalRun": 39870936056,
+      "benchmarkRun": 39870935935,
+      "browserPerformanceRun": 39870935950,
+      "acceptanceRun": 39870935908,
+      "status": "completed failure:2311Nodepass;66mainpass5fail1notrun(max5),R2three/HTTPpass",
+      "canonicalJob": 120145456503,
+      "benchmark": "passed",
+      "benchmarkJob": 120144904780,
+      "d1SaveSamples": 100,
+      "d1SaveP95Milliseconds": 1441.181662,
+      "budgetMilliseconds": 2000,
+      "browserPerformance": "failed:firstusable3105.2ms>3000;other4samples2795\u20132821;navigation131ms<200;concurrentsavepasses",
+      "browserPerformanceJob": 120144904650,
+      "browserPerformanceArtifact": 12466232377,
+      "browserPerformanceArtifactSha256": "8122eb363599aefcf1c3491797ec465f97733e5ef3df6ce7e13aed1614710768",
+      "acceptance": "Chromium/WebKitpass;Firefoxlaunchfailsbeforeassertionsdueephemeralhomeowner",
+      "nodeTests": 2311,
+      "nodePassed": 2311,
+      "nodeFailed": 0,
+      "nodeCancelled": 0,
+      "nodeSkipped": 0,
+      "nodeDurationMs": 380372.928062,
+      "canonicalFailureArtifact": 12467395880,
+      "canonicalFailureArtifactSha256": "21a9b66bf3da06884df0ae6271159844ae03a58633d801b5815b216859e745d3"
+    },
+    "previous4bcCI": {
+      "source": "4bc198cdc366fadea24b80a9c5f09e40dbca5768",
+      "canonicalRun": 39873592388,
+      "canonicalJob": 120153654639,
+      "acceptanceRun": 39873592254,
+      "benchmarkRun": 39873592373,
+      "browserPerformanceRun": 39873592237,
+      "status": "completed failure:2311 Node pass;74/75 main pass,1 stale exact Inspect label failure;3/3 R2 andHTTP pass; all performance/3engine/Windows gates pass",
+      "benchmark": "passed",
+      "benchmarkJob": 120153651397,
+      "d1SaveSamples": 100,
+      "d1SaveP95Milliseconds": 1827.343354,
+      "budgetMilliseconds": 2000,
+      "confirmedSyntheticRestores": 12,
+      "benchmarkArtifact": 12466688587,
+      "benchmarkArtifactSha256": "b80a0fa5d0d2c10aa3cf1de304abb25543a83edfcee155c3729dbbc8407eed4a",
+      "browserPerformance": "2/2passed",
+      "browserPerformanceJob": 120153651099,
+      "browserFirstUsableP95Milliseconds": 2907.4,
+      "browserFirstUsableBudgetMilliseconds": 3000,
+      "navigationMaximumMilliseconds": 50,
+      "navigationBudgetMilliseconds": 200,
+      "browserConcurrentSaveP95Milliseconds": 396.653167,
+      "browserPerformanceArtifact": 12467312892,
+      "browserPerformanceArtifactSha256": "15f6922daa7618bda8e4d40f7e3216384eec3ec4e0f9f4df461d29766f62bcc9",
+      "chromium": "passed",
+      "firefox": "passed",
+      "webkit": "passed",
+      "nativeWindows": "passed",
+      "nodeTests": 2311,
+      "nodePassed": 2311,
+      "nodeDurationMs": 392900.985955,
+      "mainPassed": 74,
+      "mainFailed": 1,
+      "r2Passed": 3,
+      "failureArtifact": 12468142300,
+      "failureArtifactSha256": "02128b0169d498a4a2723138aa8bfe69cf1dde54547357ef3e41b51cb3b5cab6",
+      "correction": "b189bde: exact full title/project/area/work-type Inspect label; no other assertion or timeout change; scoped lint/typecheck/3casesparse pass; independently checked actual failure snapshot"
+    },
+    "currentCI": {
+      "source": "e94004c55c9bd02b5e2bbd992f81fefdb38aa423",
+      "status": "passed",
+      "canonicalRun": 39875895922,
+      "canonicalJob": 120161841328,
+      "benchmarkRun": 39875895904,
+      "benchmarkJob": 120161296549,
+      "benchmark": "passed",
+      "d1SaveSamples": 100,
+      "d1SaveP95Milliseconds": 1188.884882,
+      "budgetMilliseconds": 2000,
+      "confirmedSyntheticRestores": 12,
+      "benchmarkArtifact": 12468850735,
+      "benchmarkArtifactSha256": "3f3a95143682886f077a82ee13e45a721c9135ea2a96b990b1247943b932d21f",
+      "browserPerformanceRun": 39875895869,
+      "browserPerformanceJob": 120161296990,
+      "browserPerformance": "2/2passed",
+      "browserFirstUsableP95Milliseconds": 2850.9,
+      "browserFirstUsableBudgetMilliseconds": 3000,
+      "navigationLongTasksObserved": 0,
+      "navigationBudgetMilliseconds": 200,
+      "browserConcurrentSaveP95Milliseconds": 356.070156,
+      "browserPerformanceArtifact": 12467723432,
+      "browserPerformanceArtifactSha256": "69dcd548e90d7f0ae319a817061c0fb9684b08a8d5e13f0242cb519b4bc3993d",
+      "acceptanceRun": 39875895843,
+      "chromium": "passed",
+      "firefox": "passed;existing unsupported-touch skip",
+      "webkit": "passed",
+      "nativeWindowsRun": 39875895916,
+      "nativeWindowsJob": 120161296996,
+      "nativeWindows": "passed",
+      "evidence": "Exact e940 Node24 2311/2311;main browser75/75;R2browser3/3;bridge/companion/GitHub/typecheck/lint/build/D1/R2/HTTP pass. Three-engine acceptance/native Windows and all auxiliary checks pass. Collector52/52; archive closed inventory/allfilehashes verified. D1save100samples p951188.884882ms/2000;12synthetic restores; browserfirstusable2850.9ms/3000,zero observed navigationlongtasks;20sessionHTTPsave356.070156ms/2000. All thresholds/assertions unchanged.",
+      "canonical": {
+        "run": 39875895922,
+        "job": 120161841328,
+        "status": "passed",
+        "jobConclusion": "success",
+        "node": {
+          "tests": 2311,
+          "passed": 2311,
+          "failed": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "durationMs": 370814.957458
+        },
+        "mainBrowser": {
+          "passed": 75,
+          "failed": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "duration": "5.0m"
+        },
+        "r2Browser": {
+          "passed": 3,
+          "failed": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "duration": "54.2s"
+        },
+        "steps": [
+          {
+            "name": "Set up job",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v4",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/setup-node@v4",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run install:ci",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm test",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run test:bridge",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run test:companion",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run test:github",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run typecheck",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run lint",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run build",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run test:generation-d1",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run test:workspace-d1",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run test:sources-d1",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run test:reviews-migration-d1",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run test:reviews-d1",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run test:scheduled-backup-d1",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run test:scheduled-source-d1",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run test:runtime-d1",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run test:fixture-proxy",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run test:fixture",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run test:attachments-r2",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run test:attachment-recovery-r2",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npx playwright install --with-deps chromium",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run test:e2e",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run test:e2e:r2",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run test:attachments-http",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/upload-artifact@v4",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/upload-artifact@v4",
+            "conclusion": "skipped"
+          },
+          {
+            "name": "Run npm run package:bridge",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/upload-artifact@v4",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run node scripts/package-candidate.mjs",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/upload-artifact@v4",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/setup-node@v4",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v4",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "conclusion": "success"
+          }
+        ],
+        "bridge": {
+          "passed": 210,
+          "skipped": 9
+        },
+        "companion": {
+          "passed": 108,
+          "skipped": 2
+        },
+        "github": {
+          "passed": 20,
+          "skipped": 0
+        },
+        "lint": {
+          "errors": 0,
+          "warnings": 15
+        }
+      }
+    },
+    "duplicateWindowsDiagnostic": {
+      "run": 39875889027,
+      "failedJob": 120161274422,
+      "failure": "one setup ACL subprocess timeout caused10hook failures; no ACL bypass or ownership repair executed",
+      "fixedBoundaryTimeoutMs": 10000,
+      "diagnosticRerunJob": 120162450084,
+      "meaning": "diagnostic only; unchanged rerun cannot establish a source fix; keep original failure",
+      "ownerDeviceAcceptance": false,
+      "diagnosticResult": "passed10native+200portable on same newer image with unchanged source/10sACLdeadline; original transient timeout retained, no source fix claimed"
+    },
+    "previous62FullNode": {
+      "applicationSourceLocal": "7795b92",
+      "onlySubsequentChange": "40a0c5d retains synthetic PNG artifacts; application/test source unchanged",
+      "tests": 2310,
+      "passed": 2310,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "durationMs": 207522.765479
+    }
+  },
+  "unfinished": [
+    "Nine live owner/provider/device/privatebackup/privatehosted gates in acceptance.md remain unverified",
+    "No merge/deployment/paidinference/operational effects/externalalerts performed"
+  ],
+  "nextCommand": "Owner/provider/operator follows acceptance.md and release.md; verify complete private backup/compatible restore before separately authorized publication.",
+  "merged": false,
+  "deployed": false,
+  "privateDataPublished": false,
+  "packages": {
+    "localCandidateSource": "40a0c5dae25e1c0225b4dd3265d512d40b1e9375",
+    "publicTreeEquivalent": "571e75173cb926c94540c71d76b629afbd7a3634",
+    "localSourceArchiveSha256": "437d9cdd298051e34bbb06fce8ce59d8d44667695b957e9e124e1dab578cfa34",
+    "localBuildArchiveSha256": "21b14857248c6fc92d7cb89983b90ab2ae0ae20f13751dbad9cd8b5fea87be09",
+    "verifiedBuildFiles": 373,
+    "publicCollectorSource": "29c1b8305fe6a5eaf2438b4f9664714bd30db358",
+    "publicCollectorZipSha256": "65af028205ca56aec1633eb96f0596c8ed4d593fc68d4b38c191dd6d4829a94e",
+    "collectorInstallerManifestSha256": "15e948c4d07fb840c9f9d560250a8de8f3f3ce71ac0fa05c4790be1e1daa8275",
+    "collectorVerifiedFiles": 19,
+    "publicBridgeSource": "29c1b8305fe6a5eaf2438b4f9664714bd30db358",
+    "bridgeArchiveSha256": "d1310e0988907d18952ec57e510578fb8e5a32e955a8cb7718883747acab0894",
+    "publicSourceArchiveSha256": "4f216ef8a0c38c92d916e8c8447218886ceae12c9a828d9c0f8f2a8bde1c5aac",
+    "publicSourceArchiveBytes": 15677440,
+    "publicCollectorVerifiedFiles": 19,
+    "publicBridgeVerifiedFiles": 49,
+    "verification": "Independent exact-source29 archive SHA/length and every19collector/49bridgefilehash verified; closed bridge inventory and safe regular-file paths.",
+    "current": {
+      "source": "e94004c55c9bd02b5e2bbd992f81fefdb38aa423",
+      "collector": {
+        "sha256": "74597069b624663e7fed22acba4a2300c4134f40a42601bfdecd87698b31b845",
+        "manifestSha256": "dbae687b2ae6c5d0c0b57afe21aa7ba5dbbb166860deb9f19fd80eec592f560f",
+        "filesVerified": 19,
+        "bytes": 136877
+      },
+      "bridge": {
+        "sha256": "d1310e0988907d18952ec57e510578fb8e5a32e955a8cb7718883747acab0894",
+        "filesVerified": 49,
+        "bytes": 96407
+      },
+      "sourceArchive": {
+        "sha256": "9084fead334fbb2994630bb9e4e37be976e6949bcfbf3a4e4ae40a54e5a8bfad",
+        "bytes": 15687680
+      }
+    }
+  },
+  "newPaidInferenceActivated": false,
+  "previousPendingCandidate": {
+    "publicCommit": "c47c533f05646773974b2e27ed303422dcc36a36",
+    "localCommit": "a4e5aca815dd3bca7168445c750df6176404156c",
+    "tree": "485f78e21f2c09ca8d4466b09ad04144fe6f2942",
+    "branch": "checkpoints/project-lanes-history-boot-candidate",
+    "status": "reviewed/build/type/lint/parsepass;exactCIpending;featPRstill1639untilexistingcanonicalbrowserfinishes",
+    "changes": "TodayinitialJS-31080gzipbytes;Firefoxephemeralhomeownership;75mainbrowsercasesincludingR1long/empty/errorcaptures",
+    "packages": {
+      "collectorArchiveSha256": "78f4e0006c66545fa11949927efafaf405ca7740fd1a2dd5106b1939ec624661",
+      "collectorInstallerManifestSha256": "383fdc045acc19b098adc2da9b38bf3559f5554c217ad1e0371d01fd7bd29fcb",
+      "collectorVerifiedFiles": 19,
+      "bridgeArchiveSha256": "d1310e0988907d18952ec57e510578fb8e5a32e955a8cb7718883747acab0894",
+      "bridgeVerifiedFiles": 49,
+      "sourceArchiveSha256": "8f2447dbc0717321973c60a74c4f5dea511c51dbc95f971038dc8509d08108f5",
+      "sourceArchiveBytes": 15687680,
+      "internalCollectorManifestVerified": true
+    },
+    "initialJavaScript": {
+      "method": "same production static import closure;gzipcompressed sizes,notactualnetworktiming",
+      "beforeGzipBytes": 307544,
+      "afterGzipBytes": 276464,
+      "reductionGzipBytes": 31080,
+      "beforeRawBytes": 1082640,
+      "afterRawBytes": 974345,
+      "performanceRerunRequired": true
+    }
+  },
+  "historicalFailures": [
+    "Historical save p95 and browser failures retained in acceptance.md and progress.json",
+    "Public111 full Node eight semanticDigest strict-control failures fixed; full corrected candidate still running",
+    "Exact source62 canonical run39865844323/job120128099800 npm run test:e2e failed; diagnose actual assertions once job logs/failure artifacts become available. Do not substitute passing separate performance/acceptance suites.",
+    "Source62 canonical5main+3R2 failures traced to URL-restoration/disclosure helper and four direct hidden navigation actions. Corrected4f9ed78, reviewed independently;72main+3R2 on29required. Source62 WebKit installation hit20minute cutoff during Ubuntu dependency downloads; new29WebKit actualtests pass.",
+    "Source29mainfive actual failures fixedb6a9bf6/3cbdbf2; focusedmigration10,SSR8,lint/typepass. Functional acceptance pinnedofficial1.64.1image after two observed aptinstallationcutoffs; benchmarkenvironment unchanged.",
+    "Source1639 controlledbrowser firstusable3105.2ms/3000fails; actualresourceprofile42assets~340kBdelaysfreshworkspaceGETto2581ms. NarrownoninitialTodaymoduledeferral investigation;no unchangedrerunclaimedasfix.",
+    "4bc main74/75; exact stale bare-title Inspect selector fixed b189bde using artifact-confirmed full classified accessible name; new-source validation pending."
+  ],
+  "knownFailures": [
+    "Exacte940 duplicate native Windows initial setup exceeded unchanged10000ms ACL verifier deadline;10 inherited hook failures. PRnative and unchanged diagnostic rerun on same newer image passed10native+200portable. Original failure retained as intermittent setup risk; no source fix or owner-device acceptance claimed."
+  ],
+  "candidateArchiveIntegrity": {
+    "source": "e94004c55c9bd02b5e2bbd992f81fefdb38aa423",
+    "artifactZipSha256": "6ae7b4432c5e752b6022c710b97ca944997a1389b7459fa80e1720b303a9ada0",
+    "artifacts": [
+      {
+        "path": "control-room-source-e94004c55c9bd02b5e2bbd992f81fefdb38aa423.tar",
+        "bytes": 15687680,
+        "sha256": "e1e8c61e448e6fff5a6c9354d569b8b712c4a11e9a70bdaf0d89d280b590e006"
+      },
+      {
+        "path": "control-room-build-e94004c55c9bd02b5e2bbd992f81fefdb38aa423.tar.gz",
+        "bytes": 1622577,
+        "sha256": "9dba9ec14eeb5432ddaa798f842a38521bc70db33fa9817a89bdec6b51677b8b"
+      }
+    ],
+    "verifiedBuildFiles": 387,
+    "verifiedBridgeFiles": 49,
+    "sourceMatchesGitArchive": true,
+    "closedBuildInventory": true,
+    "companionMatchesSource": true,
+    "deployed": false,
+    "artifact": 12468539313
+  },
+  "screenshots": {
+    "source": "e94004c55c9bd02b5e2bbd992f81fefdb38aa423",
+    "artifact": 12469581615,
+    "artifactZipSha256": "95fba4fff445b139d753554476a311d267a4d79617cb8d88f982bff32c8befce",
+    "independentlyHashVerified": true,
+    "visualReviewCompleted": true,
+    "images": [
+      {
+        "path": "history-sync-failed-operat-425e5-xplicit-stale-error-message-chromium/project-lanes-stale-error-390-synthetic.png",
+        "bytes": 99959,
+        "sha256": "bf7a99a2d8118e2cd095b8b13d62d93fb8e5c999f1c16816d9ebc1b24bcca9eb",
+        "pixels": [
+          390,
+          1603
+        ]
+      },
+      {
+        "path": "project-lanes-narrow-viewp-eff1f-rizontal-document-scrolling-chromium/project-lanes-200-percent-synthetic.png",
+        "bytes": 548940,
+        "sha256": "03143c78f005ee86655d8dfbb8f1f38b543afdccc67c61a147ec48dbb429aff4",
+        "pixels": [
+          1440,
+          6294
+        ]
+      },
+      {
+        "path": "project-lanes-narrow-viewp-eff1f-rizontal-document-scrolling-chromium/project-lanes-1440-synthetic.png",
+        "bytes": 235410,
+        "sha256": "a8b05893f863c13c941325c1dd08b3f5c13c231d2aff889b289d3da52e834d89",
+        "pixels": [
+          1440,
+          2239
+        ]
+      },
+      {
+        "path": "project-lanes-narrow-viewp-eff1f-rizontal-document-scrolling-chromium/project-lanes-390-synthetic.png",
+        "bytes": 200520,
+        "sha256": "6672ee2426651d6a7bc35812c405baa4fa7a793916c37572f4591ea3e3825a45",
+        "pixels": [
+          390,
+          3289
+        ]
+      },
+      {
+        "path": "project-lanes-many-long-na-4093c--area-is-keyboard-reachable-chromium/project-lanes-many-long-areas-390-synthetic.png",
+        "bytes": 346797,
+        "sha256": "bd109a85d2717d50e89171f97614351ee3e4ce52500c57b2ffc084303b8b9a16",
+        "pixels": [
+          390,
+          5798
+        ]
+      },
+      {
+        "path": "project-lanes-routed-empty-e1865-hout-clearing-owner-records-chromium/project-lanes-empty-390-synthetic.png",
+        "bytes": 46136,
+        "sha256": "6919eb922bda8d5aad97a4ccc436e1d23bf2ae52c3b4081a5091fd34f27ad6c3",
+        "pixels": [
+          390,
+          1053
+        ]
+      }
+    ],
+    "visualReviewNotes": "Reviewed all six original source-bound images via contact sheet plus long-area/focused200percent details; text wraps, empty Capture focused, stale warning retained, observed/accepted separate. No horizontal overflow asserted by unchanged tests."
+  }
+}

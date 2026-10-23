@@ -42,11 +42,20 @@ import {RuntimeView,EnrollmentSecretUnavailableError,EnrollmentNotStartedError,t
 import type {ReviewSnapshot} from '@/lib/reviews/contracts';
 
 // Load noninitial panels only when selected; no private data or fetch is cached.
-class PanelModuleLoadError extends Error{constructor(){super('The selected panel module could not be loaded.');this.name='PanelModuleLoadError';}}
+class PanelModuleLoadError extends Error{constructor(readonly replaced=false){super(replaced?'This tab is running a Control Room version that is no longer deployed.':'The selected panel module could not be loaded.');this.name='PanelModuleLoadError';}}
+// A deploy removes the previous hashed chunks, and a changed panel chunk also renames the
+// chunks that import it. If this page's own chunks are gone, only a reload can load panels.
+async function pageChunksReplaced(){
+ try{
+  const urls=new Set([...document.querySelectorAll<HTMLScriptElement>('script[type="module"][src]')].map(node=>node.src).concat([...document.querySelectorAll<HTMLLinkElement>('link[rel="modulepreload"][href]')].map(node=>node.href)));
+  const missing=async(url:string)=>{try{return (await fetch(url,{method:'HEAD',cache:'no-store',signal:AbortSignal.timeout(5000)})).status===404;}catch{return false;}};
+  return (await Promise.all([...urls].map(missing))).some(Boolean);
+ }catch{return false;}
+}
 async function boundedPanelModule<T>(load:()=>Promise<T>):Promise<T>{
  let timer:ReturnType<typeof setTimeout>|undefined;
  try{return await Promise.race([load(),new Promise<never>((_,reject)=>{timer=setTimeout(()=>reject(new Error('Panel module load deadline exceeded.')),15000);})]);}
- catch{throw new PanelModuleLoadError();}
+ catch{throw new PanelModuleLoadError(await pageChunksReplaced());}
  finally{if(timer!==undefined)clearTimeout(timer);}
 }
 // Module definitions only: no owner data, requests or authorization is retained.
@@ -85,15 +94,22 @@ const SourcesView=deferredPanel<Parameters<typeof import('./sources-view').Sourc
 const ReviewCenter=deferredPanel<Parameters<typeof import('./review-center').ReviewCenter>[0]>(()=>import('./review-center').then(module=>({default:module.ReviewCenter})));
 const AgentsView=deferredPanel<Parameters<typeof import('./agents-view').AgentsView>[0]>(()=>import('./agents-view').then(module=>({default:module.AgentsView})));
 function ViewLoading({label}:{label:string}){return <p role="status" className="muted">Loading {label}…</p>;}
-class PanelLoadBoundary extends Component<{label:string;children:ReactNode;onRetry:()=>void;onBack:()=>void;backLabel?:string},{failed:boolean}>{
- state={failed:false};
- static getDerivedStateFromError(error:unknown){if(!(error instanceof PanelModuleLoadError))throw error;return {failed:true};}
- render(){return this.state.failed?<section className="panel" role="alert"><h2>{this.props.label} could not be loaded.</h2><p>The selected panel did not finish loading. Retry loading it or return to {this.props.backLabel??'Today'}. Review any pending save outcome before retrying a change; saved draft recovery remains available.</p><div className="data-actions"><button type="button" className="button secondary" onClick={this.props.onRetry}>Retry loading panel</button><button type="button" className="button secondary" onClick={this.props.onBack}>Return to {this.props.backLabel??'Today'}</button></div></section>:this.props.children;}
+class PanelLoadBoundary extends Component<{label:string;children:ReactNode;onRetry:()=>void;onReload:()=>void;onBack:()=>void;backLabel?:string},{failed:boolean;replaced:boolean}>{
+ state={failed:false,replaced:false};
+ static getDerivedStateFromError(error:unknown){if(!(error instanceof PanelModuleLoadError))throw error;return {failed:true,replaced:error.replaced};}
+ render(){
+  if(!this.state.failed)return this.props.children;
+  const back=this.props.backLabel??'Today',backButton=<button type="button" className="button secondary" onClick={this.props.onBack}>Return to {back}</button>;
+  if(this.state.replaced)return <section className="panel" role="alert"><h2>{this.props.label} could not be loaded.</h2><p>This tab is running a Control Room version that is no longer deployed, so it can no longer load the selected panel. Reload Control Room to open it in the current version. Review any pending save outcome before reloading; saved draft recovery remains available.</p><div className="data-actions"><button type="button" className="button primary" onClick={this.props.onReload}>Reload Control Room</button>{backButton}</div></section>;
+  return <section className="panel" role="alert"><h2>{this.props.label} could not be loaded.</h2><p>The selected panel did not finish loading. Retry loading it or return to {back}. Review any pending save outcome before retrying a change; saved draft recovery remains available.</p><div className="data-actions"><button type="button" className="button secondary" onClick={this.props.onRetry}>Retry loading panel</button>{backButton}</div></section>;
+ }
 }
 function DeferredPanel({label,children,canRetry,onBack,backLabel}:{label:string;children:ReactNode;canRetry:()=>boolean;onBack:()=>void;backLabel?:string}){
  const [retry,setRetry]=useState<{attempt:number;resources:ReadonlyMap<symbol,unknown>|null}>({attempt:0,resources:null});
  const retryModule=()=>{if(!canRetry())return;const resources=new Map<symbol,unknown>();for(const [id,create]of panelModuleFactories)resources.set(id,create());setRetry(value=>({attempt:value.attempt+1,resources}));};
- return <PanelRetryContext.Provider value={retry.resources}><PanelLoadBoundary key={retry.attempt} label={label} onRetry={retryModule} onBack={onBack} backLabel={backLabel}><Suspense fallback={<ViewLoading label={label}/>}>{children}</Suspense></PanelLoadBoundary></PanelRetryContext.Provider>;
+ // The URL keeps the selected view, and the page's unload guards still protect unsaved work.
+ const reloadPage=()=>{if(canRetry())window.location.reload();};
+ return <PanelRetryContext.Provider value={retry.resources}><PanelLoadBoundary key={retry.attempt} label={label} onRetry={retryModule} onReload={reloadPage} onBack={onBack} backLabel={backLabel}><Suspense fallback={<ViewLoading label={label}/>}>{children}</Suspense></PanelLoadBoundary></PanelRetryContext.Provider>;
 }
 
 type View = 'lanes' | 'today' | 'projects' | 'inbox' | 'sources' | 'reviews' | 'search' | 'attention' | 'weekly' | 'evidence' | 'history' | 'runtime' | 'agents' | 'local-analysis';

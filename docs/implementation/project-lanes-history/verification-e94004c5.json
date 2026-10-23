@@ -1,0 +1,521 @@
+{
+  "version": 1,
+  "scope": "Project lanes/history; old program statuses unchanged",
+  "status": "source_automated_verified_external_gates_open",
+  "source": {
+    "publicCommit": "e94004c55c9bd02b5e2bbd992f81fefdb38aa423",
+    "localCommit": "b189bde0e9fddcbd2b12445fb2a07726cf0f8599",
+    "tree": "3c001997e2ea8397c83e4e11e5cdd4ec67429bf9",
+    "branch": "feat/project-lanes-history-cloud",
+    "draftPr": 5
+  },
+  "model": {
+    "parameter": "gpt-6.1-sol",
+    "accepted": true,
+    "integrator": "/root",
+    "workerIds": [
+      "/root/lanes_import_review",
+      "/root/lanes_contracts",
+      "/root/lanes_capability_audit",
+      "/root/lanes_areas",
+      "/root/lanes_objects",
+      "/root/lanes_ui"
+    ],
+    "evidence": "Accepted supported session and explicit child spawn model controls; no substitution; opaque cloud execution chat ID unavailable"
+  },
+  "canonical": {
+    "run": 39875895922,
+    "job": 120161841328,
+    "status": "passed",
+    "jobConclusion": "success",
+    "node": {
+      "tests": 2311,
+      "passed": 2311,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "durationMs": 370814.957458
+    },
+    "mainBrowser": {
+      "passed": 75,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "duration": "5.0m"
+    },
+    "r2Browser": {
+      "passed": 3,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "duration": "54.2s"
+    },
+    "steps": [
+      {
+        "name": "Set up job",
+        "conclusion": "success"
+      },
+      {
+        "name": "Run actions/checkout@v4",
+        "conclusion": "success"
+      },
+      {
+        "name": "Run actions/setup-node@v4",
+        "conclusion": "success"
+      },
+      {
+        "name": "Run npm run install:ci",
+        "conclusion": "success"
+      },
+      {
+        "name": "Run npm test",
+        "conclusion": "success"
+      },
+      {
+        "name": "Run npm run test:bridge",
+        "conclusion": "success"
+      },
+      {
+        "name": "Run npm run test:companion",
+        "conclusion": "success"
+      },
+      {
+        "name": "Run npm run test:github",
+        "conclusion": "success"
+      },
+      {
+        "name": "Run npm run typecheck",
+        "conclusion": "success"
+      },
+      {
+        "name": "Run npm run lint",
+        "conclusion": "success"
+      },
+      {
+        "name": "Run npm run build",
+        "conclusion": "success"
+      },
+      {
+        "name": "Run npm run test:generation-d1",
+        "conclusion": "success"
+      },
+      {
+        "name": "Run npm run test:workspace-d1",
+        "conclusion": "success"
+      },
+      {
+        "name": "Run npm run test:sources-d1",
+        "conclusion": "success"
+      },
+      {
+        "name": "Run npm run test:reviews-migration-d1",
+        "conclusion": "success"
+      },
+      {
+        "name": "Run npm run test:reviews-d1",
+        "conclusion": "success"
+      },
+      {
+        "name": "Run npm run test:scheduled-backup-d1",
+        "conclusion": "success"
+      },
+      {
+        "name": "Run npm run test:scheduled-source-d1",
+        "conclusion": "success"
+      },
+      {
+        "name": "Run npm run test:runtime-d1",
+        "conclusion": "success"
+      },
+      {
+        "name": "Run npm run test:fixture-proxy",
+        "conclusion": "success"
+      },
+      {
+        "name": "Run npm run test:fixture",
+        "conclusion": "success"
+      },
+      {
+        "name": "Run npm run test:attachments-r2",
+        "conclusion": "success"
+      },
+      {
+        "name": "Run npm run test:attachment-recovery-r2",
+        "conclusion": "success"
+      },
+      {
+        "name": "Run npx playwright install --with-deps chromium",
+        "conclusion": "success"
+      },
+      {
+        "name": "Run npm run test:e2e",
+        "conclusion": "success"
+      },
+      {
+        "name": "Run npm run test:e2e:r2",
+        "conclusion": "success"
+      },
+      {
+        "name": "Run npm run test:attachments-http",
+        "conclusion": "success"
+      },
+      {
+        "name": "Run actions/upload-artifact@v4",
+        "conclusion": "success"
+      },
+      {
+        "name": "Run actions/upload-artifact@v4",
+        "conclusion": "skipped"
+      },
+      {
+        "name": "Run npm run package:bridge",
+        "conclusion": "success"
+      },
+      {
+        "name": "Run actions/upload-artifact@v4",
+        "conclusion": "success"
+      },
+      {
+        "name": "Run node scripts/package-candidate.mjs",
+        "conclusion": "success"
+      },
+      {
+        "name": "Run actions/upload-artifact@v4",
+        "conclusion": "success"
+      },
+      {
+        "name": "Post Run actions/setup-node@v4",
+        "conclusion": "success"
+      },
+      {
+        "name": "Post Run actions/checkout@v4",
+        "conclusion": "success"
+      },
+      {
+        "name": "Complete job",
+        "conclusion": "success"
+      }
+    ],
+    "bridge": {
+      "passed": 210,
+      "skipped": 9
+    },
+    "companion": {
+      "passed": 108,
+      "skipped": 2
+    },
+    "github": {
+      "passed": 20,
+      "skipped": 0
+    },
+    "lint": {
+      "errors": 0,
+      "warnings": 15
+    }
+  },
+  "workspacePerformance": {
+    "run": 39875895904,
+    "job": 120161296549,
+    "status": "passed",
+    "saveSamplesPerEngine": 100,
+    "d1SaveP95Milliseconds": 1188.884882,
+    "sqliteSaveP95Milliseconds": 464.278979,
+    "unchangedSaveBudgetMilliseconds": 2000,
+    "confirmedSyntheticRestores": 12,
+    "tasks": 1700,
+    "captures": 850,
+    "normalizedRows": 512,
+    "bundleBytes": 1439908,
+    "artifact": 12468850735,
+    "sha256": "3f3a95143682886f077a82ee13e45a721c9135ea2a96b990b1247943b932d21f",
+    "independentlyVerified": true
+  },
+  "browserPerformance": {
+    "run": 39875895869,
+    "job": 120161296990,
+    "passed": 2,
+    "failed": 0,
+    "firstUsableSamplesMilliseconds": [
+      2843.1,
+      2835.6,
+      2842.3,
+      2850.9,
+      2845.6
+    ],
+    "firstUsableP95Milliseconds": 2850.9,
+    "unchangedFirstUsableBudgetMilliseconds": 3000,
+    "navigationLongTasksObserved": 0,
+    "navigationMaximumMilliseconds": null,
+    "unchangedNavigationBudgetMilliseconds": 200,
+    "actualCookieSessions": 20,
+    "saveP95Milliseconds": 356.070156,
+    "commits": 2,
+    "revisionConflicts": 18,
+    "replayAdditionalRevisions": 0,
+    "artifact": 12467723432,
+    "sha256": "69dcd548e90d7f0ae319a817061c0fb9684b08a8d5e13f0242cb519b4bc3993d",
+    "independentlyVerified": true
+  },
+  "browserAcceptance": {
+    "run": 39875895843,
+    "chromium": {
+      "job": 120161296906,
+      "passed": 4
+    },
+    "webkit": {
+      "job": 120161296931,
+      "passed": 4
+    },
+    "firefox": {
+      "job": 120161296573,
+      "passed": 3,
+      "skipped": 1,
+      "skipReason": "existing Playwright Firefox mobile/touch unsupported;390pxkeyboard journey runs"
+    }
+  },
+  "nativeWindows": {
+    "run": 39875895916,
+    "job": 120161296996,
+    "status": "passed",
+    "native": {
+      "passed": 10,
+      "skipped": 1
+    },
+    "portable": {
+      "passed": 200,
+      "skipped": 8
+    },
+    "artifact": 12468995079,
+    "zipSha256": "ab5781caac261abb8ff3f65882bb59f56f253fed607a4cadfc2224830a7666b2",
+    "helperSha256": "a09caa332f143d57ee6c7683c9e02ea1623b495095845c56c669b3127344c751",
+    "helperBytes": 174601,
+    "independentlyVerified": true,
+    "ownerDeviceAcceptance": false,
+    "providerExecution": false,
+    "retainedDiagnostic": {
+      "run": 39875889027,
+      "initialJob": 120161274422,
+      "initialResult": "one setup fixed10000ms ACL verifier timeout;10 inherited hook failures,1skip; failclosed, noownershiprepair invoked",
+      "diagnosticRerunJob": 120162450084,
+      "diagnosticResult": "passed10native200portable on same newer image with unchangedsource/ACLdeadline; originalfailure retained, no sourcefix claimed"
+    }
+  },
+  "packages": {
+    "source": "e94004c55c9bd02b5e2bbd992f81fefdb38aa423",
+    "collector": {
+      "sha256": "74597069b624663e7fed22acba4a2300c4134f40a42601bfdecd87698b31b845",
+      "manifestSha256": "dbae687b2ae6c5d0c0b57afe21aa7ba5dbbb166860deb9f19fd80eec592f560f",
+      "filesVerified": 19,
+      "bytes": 136877
+    },
+    "bridge": {
+      "sha256": "d1310e0988907d18952ec57e510578fb8e5a32e955a8cb7718883747acab0894",
+      "filesVerified": 49,
+      "bytes": 96407
+    },
+    "sourceArchive": {
+      "sha256": "9084fead334fbb2994630bb9e4e37be976e6949bcfbf3a4e4ae40a54e5a8bfad",
+      "bytes": 15687680
+    }
+  },
+  "candidateArchiveIntegrity": {
+    "source": "e94004c55c9bd02b5e2bbd992f81fefdb38aa423",
+    "artifactZipSha256": "6ae7b4432c5e752b6022c710b97ca944997a1389b7459fa80e1720b303a9ada0",
+    "artifacts": [
+      {
+        "path": "control-room-source-e94004c55c9bd02b5e2bbd992f81fefdb38aa423.tar",
+        "bytes": 15687680,
+        "sha256": "e1e8c61e448e6fff5a6c9354d569b8b712c4a11e9a70bdaf0d89d280b590e006"
+      },
+      {
+        "path": "control-room-build-e94004c55c9bd02b5e2bbd992f81fefdb38aa423.tar.gz",
+        "bytes": 1622577,
+        "sha256": "9dba9ec14eeb5432ddaa798f842a38521bc70db33fa9817a89bdec6b51677b8b"
+      }
+    ],
+    "verifiedBuildFiles": 387,
+    "verifiedBridgeFiles": 49,
+    "sourceMatchesGitArchive": true,
+    "closedBuildInventory": true,
+    "companionMatchesSource": true,
+    "deployed": false,
+    "artifact": 12468539313
+  },
+  "screenshots": {
+    "source": "e94004c55c9bd02b5e2bbd992f81fefdb38aa423",
+    "artifact": 12469581615,
+    "artifactZipSha256": "95fba4fff445b139d753554476a311d267a4d79617cb8d88f982bff32c8befce",
+    "independentlyHashVerified": true,
+    "visualReviewCompleted": true,
+    "images": [
+      {
+        "path": "history-sync-failed-operat-425e5-xplicit-stale-error-message-chromium/project-lanes-stale-error-390-synthetic.png",
+        "bytes": 99959,
+        "sha256": "bf7a99a2d8118e2cd095b8b13d62d93fb8e5c999f1c16816d9ebc1b24bcca9eb",
+        "pixels": [
+          390,
+          1603
+        ]
+      },
+      {
+        "path": "project-lanes-narrow-viewp-eff1f-rizontal-document-scrolling-chromium/project-lanes-200-percent-synthetic.png",
+        "bytes": 548940,
+        "sha256": "03143c78f005ee86655d8dfbb8f1f38b543afdccc67c61a147ec48dbb429aff4",
+        "pixels": [
+          1440,
+          6294
+        ]
+      },
+      {
+        "path": "project-lanes-narrow-viewp-eff1f-rizontal-document-scrolling-chromium/project-lanes-1440-synthetic.png",
+        "bytes": 235410,
+        "sha256": "a8b05893f863c13c941325c1dd08b3f5c13c231d2aff889b289d3da52e834d89",
+        "pixels": [
+          1440,
+          2239
+        ]
+      },
+      {
+        "path": "project-lanes-narrow-viewp-eff1f-rizontal-document-scrolling-chromium/project-lanes-390-synthetic.png",
+        "bytes": 200520,
+        "sha256": "6672ee2426651d6a7bc35812c405baa4fa7a793916c37572f4591ea3e3825a45",
+        "pixels": [
+          390,
+          3289
+        ]
+      },
+      {
+        "path": "project-lanes-many-long-na-4093c--area-is-keyboard-reachable-chromium/project-lanes-many-long-areas-390-synthetic.png",
+        "bytes": 346797,
+        "sha256": "bd109a85d2717d50e89171f97614351ee3e4ce52500c57b2ffc084303b8b9a16",
+        "pixels": [
+          390,
+          5798
+        ]
+      },
+      {
+        "path": "project-lanes-routed-empty-e1865-hout-clearing-owner-records-chromium/project-lanes-empty-390-synthetic.png",
+        "bytes": 46136,
+        "sha256": "6919eb922bda8d5aad97a4ccc436e1d23bf2ae52c3b4081a5091fd34f27ad6c3",
+        "pixels": [
+          390,
+          1053
+        ]
+      }
+    ],
+    "visualReviewNotes": "Reviewed all six original source-bound images via contact sheet plus long-area/focused200percent details; text wraps, empty Capture focused, stale warning retained, observed/accepted separate. No horizontal overflow asserted by unchanged tests."
+  },
+  "liveGates": {
+    "fourSourceCapabilities": "unverified",
+    "gateCount": 9,
+    "allGates": "unverified",
+    "fullRequestedCoverage": false
+  },
+  "release": {
+    "merged": false,
+    "deployed": false,
+    "newPaidInference": false,
+    "operationalEffects": false,
+    "externalAlerts": false,
+    "realOwnerDataModified": false,
+    "isolatedSyntheticOwnersModified": true
+  },
+  "collector": {
+    "command": "node --test --test-timeout=30000 collector/test/*.test.mjs tests/history-collector-package.test.mjs",
+    "sourceTree": "3c001997e2ea8397c83e4e11e5cdd4ec67429bf9",
+    "localCommit": "b189bde0e9fddcbd2b12445fb2a07726cf0f8599",
+    "publicTreeEquivalent": true,
+    "node": "24.19.0",
+    "passed": 52,
+    "failed": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "durationMs": 8988.698741,
+    "setupAttemptRetained": "Initial packaging-only detached checkout lacked zod/node_modules:25pass4module-resolutionfail; rerun in existing Node24 locked-install implementation checkout with identical tracked tree passes52. No test or dependency changes."
+  },
+  "auxiliaryWorkflows": [
+    {
+      "run": 39875896011,
+      "jobs": [
+        {
+          "id": 120161297366,
+          "name": "agents-d1",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "run": 39875895931,
+      "jobs": [
+        {
+          "id": 120161296959,
+          "name": "actual-d1",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "run": 39875895853,
+      "jobs": [
+        {
+          "id": 120161435858,
+          "name": "stream-contracts",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "run": 39875895977,
+      "jobs": [
+        {
+          "id": 120161297023,
+          "name": "companion (windows-latest)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "id": 120161297427,
+          "name": "companion (ubuntu-latest)",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "run": 39875895854,
+      "jobs": [
+        {
+          "id": 120161296879,
+          "name": "isolated-replacement",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "run": 39875889053,
+      "jobs": [
+        {
+          "id": 120161274553,
+          "name": "executor-boundary",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "run": 39875889003,
+      "jobs": [
+        {
+          "id": 120161274085,
+          "name": "agent-artifacts",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ]
+}

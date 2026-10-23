@@ -1,0 +1,275 @@
+{
+  "format": "control-room-lanes-history-verification-v1",
+  "status": "failed_main_browser",
+  "source": {
+    "commit": "4bc198cdc366fadea24b80a9c5f09e40dbca5768",
+    "tree": "4d0257fda352c5d02f1d16253707aeb971d2abd8",
+    "branch": "feat/project-lanes-history-cloud",
+    "pr": "https://github.com/krybaby7/control-room/pull/5"
+  },
+  "model": {
+    "execution": "managed-cloud",
+    "requiredAndAcceptedModel": "gpt-6.1-sol",
+    "integrator": "/root",
+    "implementationReviewWorkerIds": [
+      "/root/lanes_import_review",
+      "/root/lanes_contracts",
+      "/root/lanes_capability_audit",
+      "/root/lanes_areas",
+      "/root/lanes_objects",
+      "/root/lanes_ui"
+    ],
+    "evidence": "Accepted supported session selection and explicit model spawn parameters; program progress records returned worker IDs. No alternative model."
+  },
+  "canonical": {
+    "run": 39873592388,
+    "job": 120153654639,
+    "status": "in_progress",
+    "node": "passed;exactcount/summarypendingdecodedterminal log",
+    "preBrowserStages": "Node/bridge/companion/GitHub/typecheck/lint/build/allD1/fixture/R2passed",
+    "requiredMainBrowserTests": 75,
+    "requiredR2BrowserTests": 3
+  },
+  "controlledWorkspace": {
+    "source": "4bc198cdc366fadea24b80a9c5f09e40dbca5768",
+    "status": "passed",
+    "errors": [],
+    "regressionFailures": [],
+    "engines": [
+      {
+        "name": "sqlite",
+        "samples": 100,
+        "saveP95Milliseconds": 651.6374739999992,
+        "saveBudgetMilliseconds": 2000,
+        "restores": 6,
+        "fixture": {
+          "fixtureSha256": "8797eda1c819de7fdd08d2752bf6c316fed3279a1d348c0a23f87203f9cc17ce",
+          "planningTasks": 1700,
+          "planningTaskCap": 2000,
+          "planningCaptures": 850,
+          "planningCaptureCap": 1000,
+          "recordCapFraction": 0.85,
+          "evidenceHeads": 256,
+          "evidenceVersions": 256,
+          "normalizedRows": 512,
+          "bundleBytes": 1439908,
+          "bundleSha256": "abaa142cd11faee54ec9d6dbb987c37ac7b8dddc269a35d1b70d5d47a1a005f3",
+          "d1RecoveryByteFraction": 0.7999488888888889,
+          "compactPlanningBytes": 975111,
+          "statementFillerBytes": 143
+        }
+      },
+      {
+        "name": "miniflareD1",
+        "samples": 100,
+        "saveP95Milliseconds": 1827.3433540000042,
+        "saveBudgetMilliseconds": 2000,
+        "restores": 6,
+        "fixture": {
+          "fixtureSha256": "8797eda1c819de7fdd08d2752bf6c316fed3279a1d348c0a23f87203f9cc17ce",
+          "planningTasks": 1700,
+          "planningTaskCap": 2000,
+          "planningCaptures": 850,
+          "planningCaptureCap": 1000,
+          "recordCapFraction": 0.85,
+          "evidenceHeads": 256,
+          "evidenceVersions": 256,
+          "normalizedRows": 512,
+          "bundleBytes": 1439908,
+          "bundleSha256": "a88bd193002aa471db27076c45f5f1374698282ca88fdaac52d22923ccd80f50",
+          "d1RecoveryByteFraction": 0.7999488888888889,
+          "compactPlanningBytes": 975111,
+          "statementFillerBytes": 143
+        }
+      }
+    ]
+  },
+  "controlledBrowser": {
+    "source": "4bc198cdc366fadea24b80a9c5f09e40dbca5768",
+    "status": "passed",
+    "firstUsable": {
+      "samples": [
+        2883.8000000000466,
+        2890.0999999999767,
+        2899.0999999999767,
+        2907.4000000000233,
+        2907.4000000000233
+      ],
+      "p50Milliseconds": 2899.0999999999767,
+      "p95Milliseconds": 2907.4000000000233
+    },
+    "navigation": {
+      "count": 1,
+      "maximumMilliseconds": 50,
+      "noneObserved": false
+    },
+    "budgets": {
+      "firstUsableP95Milliseconds": 3000,
+      "normalNavigationLongTaskMaximumMilliseconds": 200
+    },
+    "cookieSessions": {
+      "status": "passed",
+      "sessions": 20,
+      "p95Milliseconds": 396.65316700000403,
+      "budgetP95Milliseconds": 2000,
+      "commits": 2,
+      "revisionConflicts": 18,
+      "originalReplayAdditionalRevisions": 0
+    },
+    "initialCompletedResources": {
+      "count": 44,
+      "retainedCount": 44,
+      "truncated": false,
+      "categories": {
+        "stylesheet": {
+          "count": 1,
+          "encodedBytes": 30931,
+          "transferBytes": 31231,
+          "durationSumMilliseconds": 583.2000000000698,
+          "earliestStartMilliseconds": 186.90000000002328,
+          "latestResponseEndMilliseconds": 770.1000000000931
+        },
+        "other_resource": {
+          "count": 31,
+          "encodedBytes": 208192,
+          "transferBytes": 217492,
+          "durationSumMilliseconds": 41994.700000000186,
+          "earliestStartMilliseconds": 187.90000000002328,
+          "latestResponseEndMilliseconds": 2285.9000000000233
+        },
+        "script": {
+          "count": 11,
+          "encodedBytes": 69596,
+          "transferBytes": 72896,
+          "durationSumMilliseconds": 4555.5,
+          "earliestStartMilliseconds": 188.20000000006985,
+          "latestResponseEndMilliseconds": 1251.4000000000233
+        },
+        "workspace_api": {
+          "count": 1,
+          "encodedBytes": 531,
+          "transferBytes": 831,
+          "durationSumMilliseconds": 156.39999999990687,
+          "earliestStartMilliseconds": 2616.600000000093,
+          "latestResponseEndMilliseconds": 2773
+        }
+      }
+    },
+    "firstSampleMilestones": {
+      "savedStatus": 2883.8000000000466,
+      "captureEnabled": 2883.8000000000466,
+      "lanesVisible": 2883.8000000000466,
+      "firstUsable": 2883.8000000000466
+    }
+  },
+  "functionalAcceptance": {
+    "run": 39873592254,
+    "chromium": {
+      "job": 120153666186,
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0
+    },
+    "webkit": {
+      "job": 120153666261,
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0
+    },
+    "firefox": {
+      "job": 120153665982,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 1,
+      "existingSkipReason": "Playwright Firefox lacks mobile/touch context emulation;390pxkeyboardjourney runs. No new skip."
+    }
+  },
+  "nativeWindows": {
+    "run": 39873592300,
+    "job": 120153651329,
+    "nativeTests": {
+      "passed": 10,
+      "failed": 0,
+      "skipped": 1
+    },
+    "portableTests": {
+      "passed": 200,
+      "failed": 0,
+      "skipped": 8
+    },
+    "ownerDeviceAcceptance": false,
+    "helperPackage": {
+      "providerExecution": false,
+      "ownerDeviceAcceptance": false,
+      "sha256": "3546ac221d5f180a7669267e9e73bc2661299b02b3bb35582e11df8ed9ad79fb",
+      "runtimeRequirement": ".NET 8",
+      "sourceCommit": "4bc198cdc366fadea24b80a9c5f09e40dbca5768",
+      "bytes": 174601,
+      "artifact": 12466749691,
+      "artifactSha256": "16cdbcd51ba487d90adf4bf3ff314602e437ce7a0b0065845a9985d79f362749",
+      "independentlyVerified": true
+    }
+  },
+  "packages": {
+    "history-collector": {
+      "sha256": "fe0446571f64c17df1a50f5de36c21e37fbeb65a076b84677421de34e5790e91",
+      "manifestSha256": "aa7c2b9ad6627862ec76daa72bf572bbb98c94d422c26aafeabbaf78c8d4343f",
+      "filesVerified": 19,
+      "source": "4bc198cdc366fadea24b80a9c5f09e40dbca5768"
+    },
+    "bridge": {
+      "sha256": "d1310e0988907d18952ec57e510578fb8e5a32e955a8cb7718883747acab0894",
+      "manifestSha256": null,
+      "filesVerified": 49,
+      "source": "4bc198cdc366fadea24b80a9c5f09e40dbca5768"
+    },
+    "source": {
+      "bytes": 15687680,
+      "sha256": "f8ad4143701ac7873a7a16a6e77ec6784c58a265a27507017f532f20328fccd0"
+    }
+  },
+  "artifacts": [
+    {
+      "id": 12466688587,
+      "name": "synthetic-workspace-performance",
+      "sha256": "b80a0fa5d0d2c10aa3cf1de304abb25543a83edfcee155c3729dbbc8407eed4a",
+      "downloadedHashVerified": true
+    },
+    {
+      "id": 12467312892,
+      "name": "controlled-browser-performance",
+      "sha256": "15f6922daa7618bda8e4d40f7e3216384eec3ec4e0f9f4df461d29766f62bcc9",
+      "downloadedHashVerified": true
+    }
+  ],
+  "liveGatesVerified": 0,
+  "liveGates": 9,
+  "allFourActualSourceCapabilities": "unverified",
+  "fullRequestedCoverage": false,
+  "deployed": false,
+  "merged": false,
+  "paidInferenceEnabled": false,
+  "operationalEffectsEnabled": false,
+  "mainBrowser": {
+    "passed": 74,
+    "failed": 1,
+    "total": 75,
+    "failure": "weekly-planning.spec.ts21 stale exact bare-title Inspect selector; actual snapshot includes title/project/area/work-type",
+    "artifact": 12468142300,
+    "sha256": "02128b0169d498a4a2723138aa8bfe69cf1dde54547357ef3e41b51cb3b5cab6",
+    "correctionLocal": "b189bde",
+    "nextSource": "e94004c55c9bd02b5e2bbd992f81fefdb38aa423",
+    "candidateArchive": "skipped after failed main"
+  },
+  "fullNode": {
+    "passed": 2311,
+    "failed": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "durationMs": 392900.985955
+  },
+  "r2Browser": {
+    "passed": 3,
+    "failed": 0
+  }
+}
