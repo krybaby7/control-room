@@ -68,7 +68,7 @@
     "ownerAcceptance": "explicit"
   },
   "currentStage": "S6",
-  "nextAction": "Publishfrozencandidateandrunallsource-specificActionsgates;retainhistoricalfailuresandactualartifactdigests.",
+  "nextAction": "Finish exact e940 canonical main/R2/archive gates; retain duplicate Windows ACL timeout diagnostic; reconcile final screenshots/packages and nine external live gates.",
   "stages": [
     {
       "id": "S0",
@@ -842,6 +842,24 @@
         "passed": 105,
         "failed": 2,
         "evidence": "Settings home lexical-vs-real path identity rejects synthetic Windows fixture. Corrected at 4b3d67d retaining redirect/hardlink checks; actual Windows rerun pending."
+      },
+      {
+        "source": "e94004c55c9bd02b5e2bbd992f81fefdb38aa423",
+        "command": "controlled workspace benchmark39875895904/job120161296549; browserperformance39875895869/job120161296990",
+        "result": "passed",
+        "d1SaveSamples": 100,
+        "d1SaveP95Milliseconds": 1188.884882,
+        "unchangedSaveBudgetMilliseconds": 2000,
+        "confirmedSyntheticRestores": 12,
+        "browserFirstUsableP95Milliseconds": 2850.9,
+        "unchangedBrowserBudgetMilliseconds": 3000,
+        "navigationLongTasksObserved": 0,
+        "unchangedNavigationBudgetMilliseconds": 200,
+        "browserConcurrentSaveP95Milliseconds": 356.070156,
+        "artifactHashes": {
+          "12468850735": "3f3a95143682886f077a82ee13e45a721c9135ea2a96b990b1247943b932d21f",
+          "12467723432": "69dcd548e90d7f0ae319a817061c0fb9684b08a8d5e13f0242cb519b4bc3993d"
+        }
       }
     ],
     "review": {
@@ -889,14 +907,14 @@
     "reviewWorker": "/root/lanes_import_review",
     "review": "No import-blocking issue; dirty-file fingerprint follow-up recorded."
   },
-  "updatedAt": "2026-10-22",
+  "updatedAt": "2026-10-23",
   "checkpoint": {
-    "currentSource": "45f68d3",
-    "publicSource": "1639b0c7c4437d7bb8c618809bab44b01702437f",
-    "sourceMeaning": "Finaltrace-baseddelta:TodayinitialJS-31080gzipbytes;ephemeralFirefoxhomeownership;actual200%cardoverflow;fourobsoleteWeeklynavlabels;75mainbrowsercaseswithR1layoutfixtures. Actual1639fullNode2311passandallpre-browserD1/R2/HTTPpass;canonical66pass5fail1notrun. Allcurrentcandidategatesrequirerun.",
-    "tests": "Source1639Node2311/2311zero fail/cancel/skip380372.928062ms;bridge210+9Windowsskips;companion108+2Windowsskips;GitHub20;type/lint/build/allD1/fixture/R2/HTTPpass;R2browser3/3. Main66pass5fail1notrun;CSSzoomandWeeklylabels corrected. SaveD1p951441.181662/2000passes100samples;12restores. Browserfirstusable3105.2/3000fails;reviewedTodaydeferralmeasures31080gzipbytereduction;finalperfneeded.",
-    "unfinished": "Exactfinalcandidate75main/3R2/3engine/performance/Windows andarchiveintegritygates;responsive screenshotreview;sanitizedfinalcheckpoint/PR;ninelivegatesexternal.",
-    "nextCommand": "Publishfrozencandidateandrunallsource-specificActionsgates;retainhistoricalfailuresandactualartifactdigests.",
+    "currentSource": "b189bde0e9fddcbd2b12445fb2a07726cf0f8599",
+    "publicSource": "e94004c55c9bd02b5e2bbd992f81fefdb38aa423",
+    "sourceMeaning": "Exact e940 one-line Weekly task selector correction confirmed from4bc failure snapshot; title/project/area/work-type exactidentity, all substantive assertions unchanged.",
+    "tests": "Current e940 controlled D1save100samples p951188.884882ms/2000 and12restores pass; browser2/2 firstusable2850.9/3000,zero navigationlongtasks observed,20cookiesave356.070156/2000; threeengine acceptance/native Windows PR pass. Canonical39875895922/job120161841328 running. DuplicateWindows push initialsetup10sACLtimeout retained; diagnosticrerun not a sourcefix.",
+    "unfinished": "Finish exact-current canonical75main/3R2/HTTP/archive and screenshot review; investigate/retain duplicate Windows setup timeout; nine live gates external.",
+    "nextCommand": "Finish exact e940 canonical main/R2/archive gates; retain duplicate Windows ACL timeout diagnostic; reconcile final screenshots/packages and nine external live gates.",
     "deployed": false,
     "merged": false,
     "knownFailures": [
@@ -911,7 +929,10 @@
       "Exact62 canonical39865844323/job120128099800 main5failed32passed34notrun;R2all3failed. Traces show reload URL-restoration/disclosure race and four direct hidden R2 navigation clicks. Corrected4f9ed78 with stable selected-view readiness and real reload regression; assertions/timeouts unchanged; rerunpending.",
       "Public29 canonical39868523205/job120137313011 main5failed40passed27notrun;R2threepass; actual archived trace diagnoses and narrow corrections recorded in acceptance.md. D1save1917.061107/2000 andbrowser2786.2/3000,124/200pass independently;not finalcanonicalgreen.",
       "Public1639 browserfirstusablep953105.2ms/3000failed; actualassetsdelayGETuntil2581ms. ReviewedToday-onlymoduledeferral33059b9 removes31080gzipinitialbytes; no perfpassclaimedbeforeexactrerun. Firefoxcontainerlaunchhomeownershipfailurebeforeassertionscorrectedwithoutenvreassignment/sandboxflags;Chrome/WebKitpass.",
-      "Public1639canonical39870936056/job120145456503 main66pass5fail1notrun7.7min(max5,notglobaltimeout);R2three/HTTPpass. FourobsoleteWeeklyplanningnavlabels corrected daf412f. Actual200%zoomlanegrid490CSSpxminimumin~358pxcard corrected45f68d3 withcardinline-sizequery, nohiddenoverfloworassertionchange. IndependentSolreviewnoblocker;75main+3R2rerunrequired."
-    ]
+      "Public1639canonical39870936056/job120145456503 main66pass5fail1notrun7.7min(max5,notglobaltimeout);R2three/HTTPpass. FourobsoleteWeeklyplanningnavlabels corrected daf412f. Actual200%zoomlanegrid490CSSpxminimumin~358pxcard corrected45f68d3 withcardinline-sizequery, nohiddenoverfloworassertionchange. IndependentSolreviewnoblocker;75main+3R2rerunrequired.",
+      "Source4bc main74/75,R2three/HTTPpass,2311Nodepass; exact bare-title Inspect selector stale after classification. Artifact12468142300 SHA02128b0169d498a4a2723138aa8bfe69cf1dde54547357ef3e41b51cb3b5cab6. Correctedb189bde; currente940 canonical pending.",
+      "Exacte940 duplicate Windows pushrun39875889027/job120161274422:10hook failures from one setup owned_helper_acl_timeout at unchanged10000ms. PRnativejob120161296996 passes10native/200portable; images differ. Unchanged diagnosticrerun120162450084 is not a sourcefix; retain original."
+    ],
+    "tree": "3c001997e2ea8397c83e4e11e5cdd4ec67429bf9"
   }
 }

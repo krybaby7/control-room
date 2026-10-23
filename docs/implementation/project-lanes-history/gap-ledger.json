@@ -32,7 +32,7 @@
       "id": "integration-ui",
       "status": "in_progress",
       "requirement": "Default Project lanes central wiring, source mapping, full retained context, search context and responsive/browser acceptance.",
-      "evidence": "Default lanes and guarded owner forms/context/citations integrated. Initial real browser axe found contrast; default/secondary-nav tests and contrast correcteddd9c069, final browser verification pending. Actual Today hint contrast corrected8a7830d; immutable Intl formatter reuse reduces measured Today mount work; unchanged browser performance3dfaa passes2/2 while prior202ms failure remains recorded. Final source acceptance pending."
+      "evidence": "Default lanes, guarded owner forms/context/citations, truthful coverage implemented. Actual4bc main74/75 including390px/200%/20longareas/empty/stale captures pass; lone exact WeeklyInspect selector correctedb189bde. Currente940 main75/3R2/archive pending. Actual3engine and controlledperformance currentpass; all9livegates unchanged."
     },
     {
       "id": "reobservation",
@@ -69,7 +69,7 @@
       "id": "final-verification",
       "status": "in_progress",
       "requirement": "Exact integrated source Node/collector/bridge/D1/R2/HTTP/browser/performance and archive-integrity gates; no deployment claim.",
-      "evidence": "Frozen640/publicce9:2265/2265Node;typecheck/lint/buildpass;collector52;bridge210+9Windows skips;companion105+2Windows skips;GitHub20. Public controlled benchmark fails D1 savep952032.553716ms vs2000; browser assumptions/actual contrast and Windows model-settings path tests fail. Corrections and isolated performance experiment underway; exact final rerun required."
+      "evidence": "Current e940 controlled D1save1188.884882/2000,100samples and12restores; browser2850.9/3000,zero navigationlongtasks,20session356.070156/2000; threeengine and native Windows PR pass. Full75main/3R2/currentarchive verification pending. DuplicateWindows initialsetup10sACLtimeout retained separately; no unchanged rerun claimed as fix. Historical failing candidates retained in acceptance/progress."
     },
     {
       "id": "review-recovery-authority",
@@ -81,7 +81,7 @@
       "id": "native-capability-promotion",
       "status": "implemented_focused",
       "requirement": "Verified private read proof must promote stored source capability and unlock the existing scheduler without custom SQL.",
-      "evidence": "b925af8 provides branded native verifier\u2192guarded publication\u2192schedule seam; actualSQLite5/5 plus job admission5/5 pass. Live verifier/principal/reader registration remains external. Capability-only semantic refresh compatibility is being integrated."
+      "evidence": "Branded native verifier\u2192guarded capability publication\u2192existing scheduler implemented; capability-only semantic refresh compatible with exact physical source pins/legacy conservative identity. Explicit strict five-field consent projection and actual D1 regressions pass; live verifier/principal/server reader registration remains external."
     },
     {
       "id": "native-sweep-retention",
@@ -90,5 +90,6 @@
       "evidence": "Native same-batch proof/job/terminal receipt and branded retained overview integration committed throughf74e021;33/33 actual SQLite checks pass. All real source coverage gates remain unverified."
     }
   ],
-  "currentCheckpoint": "dacbd5d"
+  "currentCheckpoint": "exact-e940-verification-running",
+  "currentSource": "e94004c55c9bd02b5e2bbd992f81fefdb38aa423"
 }

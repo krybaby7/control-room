@@ -1,0 +1,89 @@
+{
+  "format": "control-room-lanes-history-verification-v1",
+  "status": "failed",
+  "source": {
+    "commit": "29c1b8305fe6a5eaf2438b4f9664714bd30db358",
+    "tree": "b2de2f24ece3107804aa8c9f7615c44bc5bbff81",
+    "branch": "feat/project-lanes-history-cloud",
+    "draftPr": "https://github.com/krybaby7/control-room/pull/5"
+  },
+  "runtime": {
+    "execution": "managed-cloud",
+    "implementationReviewModel": "gpt-6.1-sol",
+    "selectionEvidence": "Accepted supported delegated session selection and six explicit model-parameter worker requests; IDs recorded in program progress.",
+    "localNode": "24.19.0"
+  },
+  "canonical": {
+    "run": 39868523205,
+    "job": 120137313011,
+    "status": "failed",
+    "requiredMainBrowserTests": 72,
+    "requiredR2BrowserTests": 3,
+    "mainBrowser": {
+      "passed": 40,
+      "failed": 5,
+      "notRun": 27
+    },
+    "r2Browser": {
+      "passed": 3,
+      "failed": 0
+    },
+    "http": "passed"
+  },
+  "performance": {
+    "workspaceRun": 39868523284,
+    "workspaceJob": 120136769646,
+    "status": "passed",
+    "d1SaveSamples": 100,
+    "d1SaveP95Milliseconds": 1917.061107,
+    "d1SaveBudgetMilliseconds": 2000,
+    "reviewedSyntheticRestores": 12,
+    "fixture": {
+      "planningTasks": 1700,
+      "planningCaptures": 850,
+      "normalizedRows": 512,
+      "bundleBytes": 1439908
+    },
+    "browserRun": 39868523290,
+    "browserJob": 120136770215,
+    "browserTestsPassed": 2,
+    "firstUsableP95Milliseconds": 2786.20000000007,
+    "firstUsableBudgetMilliseconds": 3000,
+    "navigationLongTaskMaximumMilliseconds": 124,
+    "navigationBudgetMilliseconds": 200,
+    "realCookieSessionSave": {
+      "sessions": 20,
+      "p95Milliseconds": 228.70176399999764,
+      "budgetMilliseconds": 2000,
+      "commits": 2,
+      "conflicts": 18,
+      "replayAdditionalRevisions": 0
+    }
+  },
+  "artifacts": [
+    {
+      "id": 12465601261,
+      "name": "synthetic-workspace-performance",
+      "sha256": "2d5402a997163b2a157224a3a8154e1e54fac2a17ab8027cb5d8bfbabc66ab71",
+      "downloadedHashVerified": true
+    },
+    {
+      "id": 12465453461,
+      "name": "controlled-browser-performance",
+      "sha256": "a710ce34071fdffc2801a81f444d19a3bfec173efe1a5166f92bcd767b4c5740",
+      "downloadedHashVerified": true
+    }
+  ],
+  "automatedIsNotLiveAcceptance": true,
+  "liveGatesVerified": 0,
+  "liveGatesRequired": 9,
+  "merged": false,
+  "deployed": false,
+  "paidInferenceEnabled": false,
+  "acceptance": {
+    "chromium": "passed",
+    "webkit": "passed",
+    "firefox": "not-run;OSdependencyinstallation20minute job cutoff",
+    "firefoxJob": 120136769787
+  }
+}
