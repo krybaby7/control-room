@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "status": "repair_verification_running",
+  "status": "source_automated_verified_external_gates_open",
   "applicationSource": {
     "publicCommit": "e94004c55c9bd02b5e2bbd992f81fefdb38aa423",
     "localCommit": "b189bde0e9fddcbd2b12445fb2a07726cf0f8599",
@@ -40,14 +40,13 @@
       "accessibility": "chromium/firefox/webkit pass"
     },
     "currentFullNode": {
-      "applicationSourceLocal": "7795b92",
-      "onlySubsequentChange": "40a0c5d retains synthetic PNG artifacts; application/test source unchanged",
-      "tests": 2310,
-      "passed": 2310,
+      "source": "e94004c55c9bd02b5e2bbd992f81fefdb38aa423",
+      "tests": 2311,
+      "passed": 2311,
       "failed": 0,
       "cancelled": 0,
       "skipped": 0,
-      "durationMs": 207522.765479
+      "durationMs": 370814.957458
     },
     "typecheck": "passed",
     "lint": "passed;0errors15warnings",
@@ -58,7 +57,11 @@
     },
     "collector": {
       "passed": 52,
-      "failed": 0
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "durationMs": 8988.698741,
+      "treeEquivalentToCurrentPublic": true
     },
     "companion": {
       "passed": 108,
@@ -103,7 +106,7 @@
       "webkitJob": 120136769339,
       "webkit": "passed",
       "chromium": "passed",
-      "firefox": "installing",
+      "firefox": "cancelled during apt installation before assertions",
       "browserPerformanceRun": 39868523290,
       "browserPerformanceJob": 120136770215,
       "browserPerformance": "2/2 passed",
@@ -185,7 +188,7 @@
     },
     "currentCI": {
       "source": "e94004c55c9bd02b5e2bbd992f81fefdb38aa423",
-      "status": "new source published; canonical push run39875889134 starting; exact-current remaining gates pending",
+      "status": "passed",
       "canonicalRun": 39875895922,
       "canonicalJob": 120161841328,
       "benchmarkRun": 39875895904,
@@ -213,7 +216,198 @@
       "webkit": "passed",
       "nativeWindowsRun": 39875895916,
       "nativeWindowsJob": 120161296996,
-      "nativeWindows": "passed"
+      "nativeWindows": "passed",
+      "evidence": "Exact e940 Node24 2311/2311;main browser75/75;R2browser3/3;bridge/companion/GitHub/typecheck/lint/build/D1/R2/HTTP pass. Three-engine acceptance/native Windows and all auxiliary checks pass. Collector52/52; archive closed inventory/allfilehashes verified. D1save100samples p951188.884882ms/2000;12synthetic restores; browserfirstusable2850.9ms/3000,zero observed navigationlongtasks;20sessionHTTPsave356.070156ms/2000. All thresholds/assertions unchanged.",
+      "canonical": {
+        "run": 39875895922,
+        "job": 120161841328,
+        "status": "passed",
+        "jobConclusion": "success",
+        "node": {
+          "tests": 2311,
+          "passed": 2311,
+          "failed": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "durationMs": 370814.957458
+        },
+        "mainBrowser": {
+          "passed": 75,
+          "failed": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "duration": "5.0m"
+        },
+        "r2Browser": {
+          "passed": 3,
+          "failed": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "duration": "54.2s"
+        },
+        "steps": [
+          {
+            "name": "Set up job",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@v4",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/setup-node@v4",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run install:ci",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm test",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run test:bridge",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run test:companion",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run test:github",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run typecheck",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run lint",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run build",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run test:generation-d1",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run test:workspace-d1",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run test:sources-d1",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run test:reviews-migration-d1",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run test:reviews-d1",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run test:scheduled-backup-d1",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run test:scheduled-source-d1",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run test:runtime-d1",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run test:fixture-proxy",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run test:fixture",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run test:attachments-r2",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run test:attachment-recovery-r2",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npx playwright install --with-deps chromium",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run test:e2e",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run test:e2e:r2",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run npm run test:attachments-http",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/upload-artifact@v4",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/upload-artifact@v4",
+            "conclusion": "skipped"
+          },
+          {
+            "name": "Run npm run package:bridge",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/upload-artifact@v4",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run node scripts/package-candidate.mjs",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/upload-artifact@v4",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/setup-node@v4",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@v4",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "conclusion": "success"
+          }
+        ],
+        "bridge": {
+          "passed": 210,
+          "skipped": 9
+        },
+        "companion": {
+          "passed": 108,
+          "skipped": 2
+        },
+        "github": {
+          "passed": 20,
+          "skipped": 0
+        },
+        "lint": {
+          "errors": 0,
+          "warnings": 15
+        }
+      }
     },
     "duplicateWindowsDiagnostic": {
       "run": 39875889027,
@@ -222,25 +416,25 @@
       "fixedBoundaryTimeoutMs": 10000,
       "diagnosticRerunJob": 120162450084,
       "meaning": "diagnostic only; unchanged rerun cannot establish a source fix; keep original failure",
-      "ownerDeviceAcceptance": false
+      "ownerDeviceAcceptance": false,
+      "diagnosticResult": "passed10native+200portable on same newer image with unchanged source/10sACLdeadline; original transient timeout retained, no source fix claimed"
+    },
+    "previous62FullNode": {
+      "applicationSourceLocal": "7795b92",
+      "onlySubsequentChange": "40a0c5d retains synthetic PNG artifacts; application/test source unchanged",
+      "tests": 2310,
+      "passed": 2310,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "durationMs": 207522.765479
     }
   },
   "unfinished": [
-    "Complete exact e940 main75/R2three and all required source-specific gates; retain 4bc failed main evidence",
-    "Inspectallsource-boundresponsivePNGsandCIcandidatefullarchiveintegrity",
-    "Reconcileprogress/gapledgerandpublishsanitizedfinalcheckpoint/updatePR",
-    "Nineactualowner/provider/device/privatebackup/hostedgatesremainexternal"
+    "Nine live owner/provider/device/privatebackup/privatehosted gates in acceptance.md remain unverified",
+    "No merge/deployment/paidinference/operational effects/externalalerts performed"
   ],
-  "knownFailures": [
-    "Historical save p95 and browser failures retained in acceptance.md and progress.json",
-    "Public111 full Node eight semanticDigest strict-control failures fixed; full corrected candidate still running",
-    "Exact source62 canonical run39865844323/job120128099800 npm run test:e2e failed; diagnose actual assertions once job logs/failure artifacts become available. Do not substitute passing separate performance/acceptance suites.",
-    "Source62 canonical5main+3R2 failures traced to URL-restoration/disclosure helper and four direct hidden navigation actions. Corrected4f9ed78, reviewed independently;72main+3R2 on29required. Source62 WebKit installation hit20minute cutoff during Ubuntu dependency downloads; new29WebKit actualtests pass.",
-    "Source29mainfive actual failures fixedb6a9bf6/3cbdbf2; focusedmigration10,SSR8,lint/typepass. Functional acceptance pinnedofficial1.64.1image after two observed aptinstallationcutoffs; benchmarkenvironment unchanged.",
-    "Source1639 controlledbrowser firstusable3105.2ms/3000fails; actualresourceprofile42assets~340kBdelaysfreshworkspaceGETto2581ms. NarrownoninitialTodaymoduledeferral investigation;no unchangedrerunclaimedasfix.",
-    "4bc main74/75; exact stale bare-title Inspect selector fixed b189bde using artifact-confirmed full classified accessible name; new-source validation pending."
-  ],
-  "nextCommand": "Finish e940 canonical39875895922/job120161841328; inspect final screenshots and exact CIcandidate archive; retain duplicate Windows ACL timeout and diagnostic rerun outcome; reconcile progress/gaps/PR without merge/deploy.",
+  "nextCommand": "Owner/provider/operator follows acceptance.md and release.md; verify complete private backup/compatible restore before separately authorized publication.",
   "merged": false,
   "deployed": false,
   "privateDataPublished": false,
@@ -307,5 +501,104 @@
       "afterRawBytes": 974345,
       "performanceRerunRequired": true
     }
+  },
+  "historicalFailures": [
+    "Historical save p95 and browser failures retained in acceptance.md and progress.json",
+    "Public111 full Node eight semanticDigest strict-control failures fixed; full corrected candidate still running",
+    "Exact source62 canonical run39865844323/job120128099800 npm run test:e2e failed; diagnose actual assertions once job logs/failure artifacts become available. Do not substitute passing separate performance/acceptance suites.",
+    "Source62 canonical5main+3R2 failures traced to URL-restoration/disclosure helper and four direct hidden navigation actions. Corrected4f9ed78, reviewed independently;72main+3R2 on29required. Source62 WebKit installation hit20minute cutoff during Ubuntu dependency downloads; new29WebKit actualtests pass.",
+    "Source29mainfive actual failures fixedb6a9bf6/3cbdbf2; focusedmigration10,SSR8,lint/typepass. Functional acceptance pinnedofficial1.64.1image after two observed aptinstallationcutoffs; benchmarkenvironment unchanged.",
+    "Source1639 controlledbrowser firstusable3105.2ms/3000fails; actualresourceprofile42assets~340kBdelaysfreshworkspaceGETto2581ms. NarrownoninitialTodaymoduledeferral investigation;no unchangedrerunclaimedasfix.",
+    "4bc main74/75; exact stale bare-title Inspect selector fixed b189bde using artifact-confirmed full classified accessible name; new-source validation pending."
+  ],
+  "knownFailures": [
+    "Exacte940 duplicate native Windows initial setup exceeded unchanged10000ms ACL verifier deadline;10 inherited hook failures. PRnative and unchanged diagnostic rerun on same newer image passed10native+200portable. Original failure retained as intermittent setup risk; no source fix or owner-device acceptance claimed."
+  ],
+  "candidateArchiveIntegrity": {
+    "source": "e94004c55c9bd02b5e2bbd992f81fefdb38aa423",
+    "artifactZipSha256": "6ae7b4432c5e752b6022c710b97ca944997a1389b7459fa80e1720b303a9ada0",
+    "artifacts": [
+      {
+        "path": "control-room-source-e94004c55c9bd02b5e2bbd992f81fefdb38aa423.tar",
+        "bytes": 15687680,
+        "sha256": "e1e8c61e448e6fff5a6c9354d569b8b712c4a11e9a70bdaf0d89d280b590e006"
+      },
+      {
+        "path": "control-room-build-e94004c55c9bd02b5e2bbd992f81fefdb38aa423.tar.gz",
+        "bytes": 1622577,
+        "sha256": "9dba9ec14eeb5432ddaa798f842a38521bc70db33fa9817a89bdec6b51677b8b"
+      }
+    ],
+    "verifiedBuildFiles": 387,
+    "verifiedBridgeFiles": 49,
+    "sourceMatchesGitArchive": true,
+    "closedBuildInventory": true,
+    "companionMatchesSource": true,
+    "deployed": false,
+    "artifact": 12468539313
+  },
+  "screenshots": {
+    "source": "e94004c55c9bd02b5e2bbd992f81fefdb38aa423",
+    "artifact": 12469581615,
+    "artifactZipSha256": "95fba4fff445b139d753554476a311d267a4d79617cb8d88f982bff32c8befce",
+    "independentlyHashVerified": true,
+    "visualReviewCompleted": true,
+    "images": [
+      {
+        "path": "history-sync-failed-operat-425e5-xplicit-stale-error-message-chromium/project-lanes-stale-error-390-synthetic.png",
+        "bytes": 99959,
+        "sha256": "bf7a99a2d8118e2cd095b8b13d62d93fb8e5c999f1c16816d9ebc1b24bcca9eb",
+        "pixels": [
+          390,
+          1603
+        ]
+      },
+      {
+        "path": "project-lanes-narrow-viewp-eff1f-rizontal-document-scrolling-chromium/project-lanes-200-percent-synthetic.png",
+        "bytes": 548940,
+        "sha256": "03143c78f005ee86655d8dfbb8f1f38b543afdccc67c61a147ec48dbb429aff4",
+        "pixels": [
+          1440,
+          6294
+        ]
+      },
+      {
+        "path": "project-lanes-narrow-viewp-eff1f-rizontal-document-scrolling-chromium/project-lanes-1440-synthetic.png",
+        "bytes": 235410,
+        "sha256": "a8b05893f863c13c941325c1dd08b3f5c13c231d2aff889b289d3da52e834d89",
+        "pixels": [
+          1440,
+          2239
+        ]
+      },
+      {
+        "path": "project-lanes-narrow-viewp-eff1f-rizontal-document-scrolling-chromium/project-lanes-390-synthetic.png",
+        "bytes": 200520,
+        "sha256": "6672ee2426651d6a7bc35812c405baa4fa7a793916c37572f4591ea3e3825a45",
+        "pixels": [
+          390,
+          3289
+        ]
+      },
+      {
+        "path": "project-lanes-many-long-na-4093c--area-is-keyboard-reachable-chromium/project-lanes-many-long-areas-390-synthetic.png",
+        "bytes": 346797,
+        "sha256": "bd109a85d2717d50e89171f97614351ee3e4ce52500c57b2ffc084303b8b9a16",
+        "pixels": [
+          390,
+          5798
+        ]
+      },
+      {
+        "path": "project-lanes-routed-empty-e1865-hout-clearing-owner-records-chromium/project-lanes-empty-390-synthetic.png",
+        "bytes": 46136,
+        "sha256": "6919eb922bda8d5aad97a4ccc436e1d23bf2ae52c3b4081a5091fd34f27ad6c3",
+        "pixels": [
+          390,
+          1053
+        ]
+      }
+    ],
+    "visualReviewNotes": "Reviewed all six original source-bound images via contact sheet plus long-area/focused200percent details; text wraps, empty Capture focused, stale warning retained, observed/accepted separate. No horizontal overflow asserted by unchanged tests."
   }
 }

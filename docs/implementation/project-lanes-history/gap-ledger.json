@@ -18,27 +18,27 @@
   "gaps": [
     {
       "id": "integration-collection",
-      "status": "implemented_pending_final_verification",
+      "status": "verified_automated",
       "requirement": "Durable hosted continuation, leases and scheduling on existing workspace_job_intents; exact phase/run/receipt/source fencing.",
-      "evidence": "Native durable queue/leases/continuations, object reservations/cleanup, authenticated sync HTTP and batch activity-backed overview freshness integrated. Owner/device/private-ingress live operation remains unconfigured. Native capability publication, strict private sweep progress, genuine ingestion postimage overlay, native EOF/finalized-byte verification, same-batch terminal receipt and branded overview projection now integrated.33/33 actual SQLite integration checks passf74e021; final candidate gates pending."
+      "evidence": "Exact e940 automated source verification passes; see verification-e94004c5.json for full Node/D1/HTTP/browser/performance/archive evidence and retained failures. Durable native leases, continuation, finalized-byte proof and terminal same-batch receipts verified with isolated synthetic SQLite/D1; real principals/private ingress external."
     },
     {
       "id": "integration-analysis",
-      "status": "implemented_pending_final_verification",
+      "status": "verified_automated",
       "requirement": "Atomic exact-model budget reservation and validated proposal/story publication at pinned source/editor heads; paid inference remains off.",
-      "evidence": "Actual incremental native dispatcher, dual extraction/provider identities, cited continuing-work operations, exact-model budget/consent and native publication integrated. Full synthetic D1 acceptance/selected-byte export/reviewed restore passes; paid runtime remains default closed."
+      "evidence": "Exact e940 automated source verification passes; see verification-e94004c5.json for full Node/D1/HTTP/browser/performance/archive evidence and retained failures. Pinned-source/editor publication, exact-model/consent/budget and semantic capability refresh verified with synthetic analysis; paid runtime remains disabled."
     },
     {
       "id": "integration-ui",
-      "status": "in_progress",
+      "status": "verified_automated",
       "requirement": "Default Project lanes central wiring, source mapping, full retained context, search context and responsive/browser acceptance.",
-      "evidence": "Default lanes, guarded owner forms/context/citations, truthful coverage implemented. Actual4bc main74/75 including390px/200%/20longareas/empty/stale captures pass; lone exact WeeklyInspect selector correctedb189bde. Currente940 main75/3R2/archive pending. Actual3engine and controlledperformance currentpass; all9livegates unchanged."
+      "evidence": "Exact e940 automated source verification passes; see verification-e94004c5.json for full Node/D1/HTTP/browser/performance/archive evidence and retained failures. Default lanes/context/citations and observed-vs-accepted presentation pass actual main/threeengine/390px/200%/longareas/empty/stale checks and independent PNG review."
     },
     {
       "id": "reobservation",
-      "status": "implemented_pending_final_verification",
+      "status": "verified_automated",
       "requirement": "Persistent first-seen metadata and finalized object map; semantic same-content retries retain immutable original evidence.",
-      "evidence": "Collector durable first-seen identities/upload IDs/finalized map; real251-message HTTP/SQLite repeat import retains original clocks/keys/revisions. Root24focused checks pass; cross-scope retry orphan retirement is guarded and final candidate review pending."
+      "evidence": "Exact e940 automated source verification passes; see verification-e94004c5.json for full Node/D1/HTTP/browser/performance/archive evidence and retained failures. Durable first-seen/upload maps and exact same-content replay retain original evidence; collector52 and actualHTTP/D1 macro pass."
     },
     {
       "id": "physical-removal",
@@ -67,9 +67,10 @@
     },
     {
       "id": "final-verification",
-      "status": "in_progress",
+      "status": "verified_automated",
       "requirement": "Exact integrated source Node/collector/bridge/D1/R2/HTTP/browser/performance and archive-integrity gates; no deployment claim.",
-      "evidence": "Current e940 controlled D1save1188.884882/2000,100samples and12restores; browser2850.9/3000,zero navigationlongtasks,20session356.070156/2000; threeengine and native Windows PR pass. Full75main/3R2/currentarchive verification pending. DuplicateWindows initialsetup10sACLtimeout retained separately; no unchanged rerun claimed as fix. Historical failing candidates retained in acceptance/progress."
+      "evidence": "Exact e940 automated source verification passes; see verification-e94004c5.json for full Node/D1/HTTP/browser/performance/archive evidence and retained failures. Exact e940 Node24 2311/2311;main browser75/75;R2browser3/3;bridge/companion/GitHub/typecheck/lint/build/D1/R2/HTTP pass. Three-engine acceptance/native Windows and all auxiliary checks pass. Collector52/52; archive closed inventory/allfilehashes verified. D1save100samples p951188.884882ms/2000;12synthetic restores; browserfirstusable2850.9ms/3000,zero observed navigationlongtasks;20sessionHTTPsave356.070156ms/2000. All thresholds/assertions unchanged.",
+      "retainedRunnerDiagnostic": "Exacte940 duplicate native Windows initial setup exceeded unchanged10000ms ACL verifier deadline;10 inherited hook failures. PRnative and unchanged diagnostic rerun on same newer image passed10native+200portable. Original failure retained as intermittent setup risk; no source fix or owner-device acceptance claimed."
     },
     {
       "id": "review-recovery-authority",
@@ -79,17 +80,18 @@
     },
     {
       "id": "native-capability-promotion",
-      "status": "implemented_focused",
+      "status": "verified_automated",
       "requirement": "Verified private read proof must promote stored source capability and unlock the existing scheduler without custom SQL.",
-      "evidence": "Branded native verifier\u2192guarded capability publication\u2192existing scheduler implemented; capability-only semantic refresh compatible with exact physical source pins/legacy conservative identity. Explicit strict five-field consent projection and actual D1 regressions pass; live verifier/principal/server reader registration remains external."
+      "evidence": "Exact e940 automated source verification passes; see verification-e94004c5.json for full Node/D1/HTTP/browser/performance/archive evidence and retained failures. Branded native verifier\u2192guarded stored capability publication\u2192existing scheduler and strict source pin projection verified; actual reader/principal registration external."
     },
     {
       "id": "native-sweep-retention",
-      "status": "implemented_pending_final_verification",
+      "status": "verified_automated",
       "requirement": "Retain exact membership, EOF, row/object/parser proof and terminal receipt atomically; verify before reporting content complete.",
-      "evidence": "Native same-batch proof/job/terminal receipt and branded retained overview integration committed throughf74e021;33/33 actual SQLite checks pass. All real source coverage gates remain unverified."
+      "evidence": "Exact e940 automated source verification passes; see verification-e94004c5.json for full Node/D1/HTTP/browser/performance/archive evidence and retained failures. Exact membership/EOF/row/object/parser proof plus terminal receipt retained atomically and verified by branded overview; real source coverage remains unverified."
     }
   ],
-  "currentCheckpoint": "exact-e940-verification-running",
-  "currentSource": "e94004c55c9bd02b5e2bbd992f81fefdb38aa423"
+  "currentCheckpoint": "checkpoints/project-lanes-history-e940-final",
+  "currentSource": "e94004c55c9bd02b5e2bbd992f81fefdb38aa423",
+  "verificationRef": "verification-e94004c5.json"
 }
