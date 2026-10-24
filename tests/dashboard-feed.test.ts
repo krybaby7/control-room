@@ -4,6 +4,7 @@ import {canonical,contentHash} from '../lib/canonical-json.ts';
 import {SessionExpiredError} from '../lib/workspace-client.ts';
 import {emptyFeedSnapshot,FEED_LIMITS,LiveFeedScheduler,readFeedSnapshot,readJobDetailFeed} from '../lib/dashboard/feed.ts';
 import {dashboardFixture,NOW} from './fixtures/dashboard.ts';
+import {buildDashboardModel} from '../lib/dashboard/model.ts';
 
 class FakeClock {now=0;timers:{id:number;at:number;callback:()=>void}[]=[];private seq=0;set=(callback:()=>void,ms:number)=>{const id=++this.seq;this.timers.push({id,at:this.now+ms,callback});return id;};clear=(handle:unknown)=>{this.timers=this.timers.filter(timer=>timer.id!==handle);};async advance(ms:number){this.now+=ms;for(;;){const due=this.timers.filter(timer=>timer.at<=this.now).sort((a,b)=>a.at-b.at)[0];if(!due)break;this.timers=this.timers.filter(timer=>timer!==due);due.callback();await new Promise(resolve=>setImmediate(resolve));await new Promise(resolve=>setImmediate(resolve));}}next(){return this.timers.length?Math.min(...this.timers.map(timer=>timer.at))-this.now:null;}}
 async function flush(){for(let i=0;i<4;i++)await new Promise(resolve=>setImmediate(resolve));}
@@ -87,6 +88,25 @@ test('an unconfigured personal connector is a state, not an error; 401 expires t
  const expired=await fixtureFetch({'/api/jobs':()=>json({error:'Sign in again.'},401)});
  await assert.rejects(readFeedSnapshot(emptyFeedSnapshot(),{includeSlow:false,fetch:expired.fetcher,now:()=>NOW}),SessionExpiredError);
 });
+
+for(const count of [21,101])for(const status of ['claimed','failed'] as const){
+ test(`a fresh dashboard retains briefing ${status} status with ${count} PC requests`,async()=>{
+  const fixture=await dashboardFixture();
+  const jobs=Array.from({length:count-1},(_,index)=>({id:'past-request-'+index,kind:'browse',status:'completed' as const,createdAt:'2026-10-21T10:00:00.000Z',claimedAt:'2026-10-21T10:00:00.000Z'}));
+  const latest={id:'latest-brief',kind:'brief',status,createdAt:'2026-10-21T11:59:00.000Z',claimedAt:'2026-10-21T11:59:01.000Z',projectId:fixture.projectB,repositoryKey:'repo-b',provider:'codex' as const,requestedModel:'gpt-6.1-sol',origin:'owner',...(status==='failed'?{error:'deadline_exceeded'}:{})};
+  const connector={...fixture.connector,jobs:[...jobs,latest],completedBriefing:null};
+  const {fetcher}=await fixtureFetch({'/api/personal-repositories':()=>json(connector),'/api/project-briefings':()=>json({revision:3,asOf:NOW,briefings:[]})});
+  const snapshot=await readFeedSnapshot(emptyFeedSnapshot(),{includeSlow:true,fetch:fetcher,now:()=>NOW});
+  assert.equal(snapshot.feeds.connector.status,'ok',snapshot.feeds.connector.message);
+  assert.equal(snapshot.connector?.jobs.length,count);
+  assert.deepEqual(snapshot.connector?.jobs.at(-1),latest);
+  const model=buildDashboardModel({now:NOW,workspace:fixture.workspace,...snapshot});
+  assert.equal(model.hud.connector.state,'online');
+  const briefing=model.projects.find(row=>row.project.id===fixture.projectB)!.briefing;
+  if(status==='claimed'){assert.equal(briefing.state,'running');assert.equal(briefing.activeJob?.id,latest.id);}
+  else{assert.equal(briefing.lastFailure?.providerLabel,'Codex');assert.ok(briefing.lastFailure?.reason);}
+ });
+}
 test('job detail rejects tampered event digests and invalid records',async()=>{
  const {fixture,fetcher}=await fixtureFetch();
  const detail=await readJobDetailFeed('job-running',{fetch:fetcher});

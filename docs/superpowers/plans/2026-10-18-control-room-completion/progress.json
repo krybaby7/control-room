@@ -1,4 +1,14 @@
 {
+  "briefingRecovery": {
+    "date": "2026-10-24",
+    "status": "verified_source_and_local_companion_pending_private_publication",
+    "branch": "fix/briefing-status-and-companion",
+    "rootCauses": ["Installed companion predates briefing jobs and rejects them before a run receipt", "Dashboard owner-feed decoder still rejected more than 20 requests"],
+    "checks": {"focusedPassed": 40, "companionPassed": 25, "packagePassed": 2, "typecheck": "passed", "lint": "zero errors, 15 existing warnings", "supportedBuild": "passed"},
+    "reviewWorker": {"requestedModel": "gpt-6.1-sol", "workerId": "/root/review_briefing_fix", "result": "no actionable findings"},
+    "localUpdate": "Reviewed 31-file briefing-capable companion installed; encrypted connection and repository registry preserved; no inference started by update",
+    "verification": "docs/superpowers/plans/2026-10-24-briefing-recovery.md"
+  },
   "personalRequestCountRemoval": {
     "date": "2026-10-24",
     "status": "verified_source_ready_for_private_publication",

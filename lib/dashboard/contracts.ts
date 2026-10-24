@@ -15,7 +15,7 @@ export const personalConnectorViewSchema=z.object({
  configured:z.literal(true),deviceId:z.string().min(1).max(128),connected:z.boolean(),online:z.boolean(),lastSeenAt:stamp.nullable(),
  providers:z.object({codex:providerStateSchema,claude:providerStateSchema}).passthrough(),
  repositories:z.array(z.object({key:z.string().min(1).max(128),name:z.string().min(1).max(100),head:z.string().min(1).max(64),dirty:z.boolean(),hasPreviousAnalysis:z.boolean()}).passthrough()).max(16),
- jobs:z.array(personalConnectorJobSchema).max(20),
+ jobs:z.array(personalConnectorJobSchema),
  policies:z.array(personalPolicySchema).max(16).optional(),completedBriefing:completedBriefingSchema.nullable().optional(),
 }).passthrough();
 export type PersonalConnectorView=z.infer<typeof personalConnectorViewSchema>;

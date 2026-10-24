@@ -1,5 +1,9 @@
 # Control Room Audit Gap Coverage
 
+## Briefing execution and reload recovery — 2026-10-24
+
+The installed companion predated briefing jobs and rejected them before running a provider; the server later expired the request. The dashboard also retained a separate 20-entry decoder cap missed by the preceding change. That decoder cap is removed, queued messaging now describes waiting for the PC assistant, and the reviewed briefing-capable package is installed with existing connection/repository state preserved. Fresh-read claimed/failed status regressions cover 21 and 101 entries. Focused web checks pass 40 tests, companion checks pass 25, package checks pass two; typecheck/build pass and lint reports zero errors. Independent exact-model review found no actionable issues. Publication and live acceptance are tracked in [the recovery record](../2026-10-24-briefing-recovery.md); all unrelated program gates retain their own boundaries.
+
 ## Remove personal PC request-count limit — 2026-10-24
 
 The owner explicitly requested removal of the 20-request cap. Personal-state validation and both manual and automatic briefing admission now accept histories above 20 without pruning existing identities or results. Nine new regression cases reproduce the old refusal and verify larger histories, unsaved results, idempotent retries, full validation, backup restoration and unchanged byte/concurrency guards. The focused suite passes 39 tests; explicit `gpt-6.1-sol` independent review found no actionable issues. Broader checks and private publication are tracked in [the implementation record](../2026-10-24-personal-request-count.md). No inference or production data mutation was used for testing. Other gap rows retain their existing acceptance boundaries.
