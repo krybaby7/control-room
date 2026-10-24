@@ -1,4 +1,15 @@
 {
+  "personalRequestCountRemoval": {
+    "date": "2026-10-24",
+    "status": "verified_source_ready_for_private_publication",
+    "branch": "fix/remove-personal-request-count-limit",
+    "scope": "Remove all request-count checks for personal PC manual requests, automatic briefings and persisted state; preserve history and results without replacement caps or pruning",
+    "focusedTestsPassed": 39,
+    "checks": {"typecheck": "passed", "lint": "zero errors, 15 existing warnings", "supportedBuild": "passed", "fullSuite": {"total": 2320, "passed": 2265, "failed": 52, "skipped": 3}, "unchangedBaselineRepresentative": {"total": 20, "passed": 12, "failed": 8, "scope": "Eight Windows ACL/PowerShell/packaging failures reproduced; native transport and backup outcome failures not reproduced in bounded baseline run"}},
+    "reviewWorker": {"requestedModel": "gpt-6.1-sol", "workerId": "/root/limit_compatibility_review", "result": "no actionable findings"},
+    "verification": "docs/superpowers/plans/2026-10-24-personal-request-count.md",
+    "limits": "Existing payload-byte, authorization, deadline and execution-concurrency guards remain; no provider inference or owner-data writes used for testing"
+  },
   "planVersion": 1,
   "createdDate": "2026-10-18",
   "timezone": "Africa/Cairo",

@@ -4,7 +4,7 @@ const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]
 const ID=/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u,KEY=/^[A-Za-z0-9_-]{1,128}$/u,HASH=/^[a-f0-9]{64}$/u,HEAD=/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u;
 const statuses=['queued','claimed','completed','failed','cancelled'],providers=['codex','claude'],kinds=['browse','analyze','brief'];
 /** briefMs bounds one claimed briefing (fetch, chats and one model call); policies are per repository. */
-export const PERSONAL_LIMITS=Object.freeze({repositories:16,jobs:20,claimMs:300000,briefMs:600000,queueMs:600000,bodyBytes:65536,stateBytes:500000,policies:16,minIntervalMinutes:30,maxIntervalMinutes:1440,defaultIntervalMinutes:120});
+export const PERSONAL_LIMITS=Object.freeze({repositories:16,claimMs:300000,briefMs:600000,queueMs:600000,bodyBytes:65536,stateBytes:500000,policies:16,minIntervalMinutes:30,maxIntervalMinutes:1440,defaultIntervalMinutes:120});
 const requestKeys=['id','kind','status','createdAt','expiresAt','claimedAt','projectId','repositoryKey','provider','requestedModel','report','reportSha256','error','consumedAt','origin','plan','briefing','fingerprint'];
 const briefOnly=['origin','plan','briefing','fingerprint'];
 function fail(){throw new Error('Personal repository request is invalid.');}
@@ -72,7 +72,7 @@ function validateRequest(j){
 export function validatePersonalState(v){
  obj(v,['version','deviceId','connected','epoch','lastSeenAt','providers','repositories','requests','policies'],['version','deviceId','connected','epoch','lastSeenAt','providers','repositories','requests']);
  if(v.version!==1||!Number.isSafeInteger(v.epoch)||v.epoch<0)fail();text(v.deviceId,128,ID);bool(v.connected);if(v.lastSeenAt!==null)stamp(v.lastSeenAt);parseProviders(v.providers);parseRepositories(v.repositories);
- if(!Array.isArray(v.requests)||v.requests.length>20)fail();for(const j of v.requests)validateRequest(j);
+ if(!Array.isArray(v.requests))fail();for(const j of v.requests)validateRequest(j);
  if(new Set(v.requests.map(j=>j.id)).size!==v.requests.length)fail();
  if(Object.hasOwn(v,'policies'))parsePolicies(v.policies);
  if(new TextEncoder().encode(JSON.stringify(v)).byteLength>PERSONAL_LIMITS.stateBytes)fail();
@@ -81,7 +81,7 @@ export function validatePersonalState(v){
 /** Only the server can supply a plan: it reads the owner's workspace in the same request. */
 function requirePlan(context,projectId){const plan=context?.plan;if(!plan)fail();const checked=validateCompactPlan(plan);if(checked.project.id!==projectId)fail();return checked;}
 const hasResult=j=>Boolean(j.report||j.briefing);
-/** Pure finite queue. Repeated claims never repeat a model call; delivery retries are handled by the store. */
+/** Queue history has no request-count cap. Repeated claims never repeat a model call; delivery retries are handled by the store. */
 export function transitionPersonalState(raw,action,now,actor,context={}){
   const s=validatePersonalState(raw);if(!Object.hasOwn(s,'policies'))s.policies=[];stamp(now);const a=actor==='owner'?parseOwnerAction(action):parseDeviceAction(action);
  for(const j of s.requests)if(['queued','claimed'].includes(j.status)&&Date.parse(j.expiresAt)<=Date.parse(now)){j.status='failed';j.error='deadline_exceeded';}
@@ -103,7 +103,6 @@ export function transitionPersonalState(raw,action,now,actor,context={}){
   if(a.action==='ack'){const result=job?.report??job?.briefing;if(!job||job.status!=='completed'||!result||result.run.id!==a.runId||job.reportSha256!==a.reportSha256)fail();job.consumedAt??=now;return s;}
   if(!s.connected)fail();
   if(job){if(job.kind!==a.action||a.action!=='browse'&&(job.projectId!==a.projectId||job.repositoryKey!==a.repositoryKey||job.provider!==a.provider))fail();return s;}
-  if(s.requests.length>=20)throw new Error('Recent connection requests are full. Clear finished requests to continue.');
   if(a.action!=='browse'&&!s.repositories.some(r=>r.key===a.repositoryKey))fail();
   const plan=a.action==='brief'?requirePlan(context,a.projectId):null;
   s.requests.push({id:a.requestId,kind:a.action,status:'queued',createdAt:now,expiresAt:new Date(Date.parse(now)+PERSONAL_LIMITS.queueMs).toISOString(),claimedAt:null,...(a.action==='browse'?{}:{projectId:a.projectId,repositoryKey:a.repositoryKey,provider:a.provider,requestedModel:modelFor(a.provider)}),...(a.action==='brief'?{origin:'owner',plan}:{})});
@@ -119,7 +118,6 @@ export function transitionPersonalState(raw,action,now,actor,context={}){
   if(!policy||!s.repositories.some(r=>r.key===a.repositoryKey)||s.requests.some(j=>['queued','claimed'].includes(j.status)))throw new Error('Automatic briefing is not admitted right now.');
   const interval=policy.minIntervalMinutes*60000,recent=time=>time!==null&&Date.parse(now)-Date.parse(time)<interval;
   if(recent(policy.lastBriefAt)||recent(policy.lastAttemptAt)||policy.lastFingerprint===a.fingerprint)throw new Error('Automatic briefing is not due.');
-  if(s.requests.length>=20)throw new Error('Recent connection requests are full. Clear finished requests to continue.');
   const plan=requirePlan(context,policy.projectId);
   policy.lastAttemptAt=now;
   s.requests.push({id:a.requestId,kind:'brief',status:'claimed',createdAt:now,expiresAt:claimWindow('brief'),claimedAt:now,projectId:policy.projectId,repositoryKey:a.repositoryKey,provider:policy.provider,requestedModel:modelFor(policy.provider),origin:'auto',plan,fingerprint:a.fingerprint});

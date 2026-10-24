@@ -1,5 +1,9 @@
 # Control Room Audit Gap Coverage
 
+## Remove personal PC request-count limit — 2026-10-24
+
+The owner explicitly requested removal of the 20-request cap. Personal-state validation and both manual and automatic briefing admission now accept histories above 20 without pruning existing identities or results. Nine new regression cases reproduce the old refusal and verify larger histories, unsaved results, idempotent retries, full validation, backup restoration and unchanged byte/concurrency guards. The focused suite passes 39 tests; explicit `gpt-6.1-sol` independent review found no actionable issues. Broader checks and private publication are tracked in [the implementation record](../2026-10-24-personal-request-count.md). No inference or production data mutation was used for testing. Other gap rows retain their existing acceptance boundaries.
+
 ## Personal repository connection increment — 2026-10-21
 
 The existing private Site version 14 now supports native folder selection, Codex/Claude choice, outbound PC delivery, automatic evidence saving and latest-change refresh. One actual Claude run saved and acknowledged a new immutable version; existing planning and all earlier immutable records were preserved. Both subscriptions report ready. Installed Windows startup/URI/DPAPI and background execution were verified; physical folder-dialog selection and a full sign-in cycle remain unexercised. This bounded personal workflow does not activate unattended execution or resolve the separate whole-product performance gates. See [exact release verification](../../verification/2026-10-21-personal-repository-connection.md).
