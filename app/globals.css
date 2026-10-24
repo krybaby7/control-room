@@ -157,3 +157,4 @@
 /* Adapt to actual card space, including text zoom with a desktop sidebar. */
 @container (max-width:520px){.project-lane-card>.section-heading{flex-wrap:wrap;gap:10px}.project-lane-card>.section-heading>div{flex-basis:100%;min-width:0;overflow-wrap:anywhere}.project-lane-toggle{grid-template-columns:minmax(0,1fr);gap:9px;padding:16px 0}}
 @media(max-width:800px){.project-lane-card,.history-settings{padding:16px}.project-lane-toggle{grid-template-columns:1fr;gap:9px;padding:16px 0}.project-lanes h1{font-size:25px}.lanes-search{align-items:stretch;flex-direction:column;gap:5px}.lanes-search input{max-width:none}.project-lanes .section-heading{flex-wrap:wrap;gap:10px}}
+.setup-steps{margin:7px 0 0;padding-left:20px;list-style:decimal;font-size:13px;line-height:1.9;color:#59677d}.setup-steps a{color:#655294;text-decoration:underline;text-underline-offset:3px}.setup-steps code{font-size:11px;overflow-wrap:anywhere}
