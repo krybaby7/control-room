@@ -39,9 +39,9 @@ test('project tiles show live agent progress, briefing with chats, tokens and ne
  assert.equal(b.agent.state,'running');assert.equal(b.agent.personal.length,1);assert.equal(b.agent.personal[0].providerLabel,'Claude Code');assert.ok(b.agent.personal[0].label.startsWith('Analysis of trade-graph'));
  assert.equal(b.analysis?.kind,'cloud');assert.equal(b.analysis?.chats,null);assert.equal(b.analysis?.repositoryName,'krybaby7/trade-graph');
  const brief=b.briefing;assert.equal(brief.state,'ready');assert.equal(brief.source,'saved');assert.equal(brief.version,1);assert.equal(brief.status.label,'On track');assert.equal(brief.status.tone,'good');
- assert.deepEqual(brief.work.map(row=>[row.outcomeLabel,row.whereLabel,row.when]),[['Finished','on your PC','2026-10-21'],['Unfinished','in the cloud','2026-10-20']]);
+ assert.deepEqual(brief.ledger.intentions.map(row=>[row.stateLabel,row.sourceLabel,row.date,row.areaName,row.isNew]),[['Reached','a Codex chat on your PC','2026-10-21','Order placement',true],['In progress','cloud work on GitHub','2026-10-20','Reconciliation',true],['Changed by you','a Claude Code chat on your PC','2026-10-14','Reconciliation',false]]);assert.equal(brief.ledger.bends,1);assert.equal(brief.ledger.newSince,'2026-10-18T11:50:00.000Z');assert.deepEqual(brief.ledger.areas.map(row=>[row.id,row.stateLabel,row.tone,row.isAim]),[['signals','Proven on real data','good',false],['orders','Built, tested on made-up data','live',false],['reconcile','Open: no result yet','warn',true]]);
  assert.equal(brief.freshness.newWork,false);assert.equal(brief.providerLabel,'Claude Code');assert.equal(brief.originLabel,'on your request');
- assert.equal(brief.evidenceLine,'12 local commits on 3 branches and 2 uncommitted files · 9 cloud commits on 4 GitHub branches, 1 open of 3 pull requests · 3 Codex chats and 2 Claude Code chats · 4 milestones and 17 tasks from your plan');
+ assert.equal(brief.evidenceLine,'12 local commits on 3 branches and 2 uncommitted files · 9 cloud commits on 4 GitHub branches, 1 open of 3 pull requests · 3 Codex chats and 2 Claude Code chats · 23 messages of your own across 4 chats · 4 milestones and 17 tasks from your plan · carried forward from the briefing of 2026-10-18');
  assert.deepEqual(brief.policy,{repositoryKey:'repo-b',provider:'claude',enabled:true,minIntervalMinutes:120,lastBriefAt:'2026-10-21T11:05:00.000Z'});assert.equal(brief.repositoryName,'trade-graph');assert.equal(brief.canRequest,true);assert.equal(brief.unsaved,null);
  assert.deepEqual(b.tokens,{input:0,output:0,runs:0,reported:0});
 });
@@ -80,19 +80,19 @@ test('model derivation is deterministic for the same inputs and clock',async()=>
 });
 test('a briefing completed on the PC is shown and marked unsaved; new work and active jobs are reflected',async()=>{
  const base=await inputs(),fixture={connector:base.connector!,briefings:base.briefings,projectB:base.briefings[0].projectId};
- const fresh={...fixture.briefings[0].briefing,run:{...fixture.briefings[0].briefing.run,id:'77777777-7777-4777-8777-777777777777',completedAt:'2026-10-21T11:58:00.000Z',origin:'auto' as const},headline:'Fresh from the PC.'};
+ const fresh={...fixture.briefings[0].briefing,run:{...fixture.briefings[0].briefing.run,id:'77777777-7777-4777-8777-777777777777',completedAt:'2026-10-21T11:58:00.000Z',origin:'auto' as const},aim:'Fresh from the PC.'};
  const connector={...fixture.connector,repositories:[{...fixture.connector.repositories[0],head:'f'.repeat(40)}],completedBriefing:{requestId:'77777777-7777-4777-8777-777777777777',projectId:fixture.projectB,briefing:fresh,briefingSha256:'a'.repeat(64)}};
  const model=buildDashboardModel({...base,connector});
  const brief=model.projects[1].briefing;
- assert.equal(brief.source,'completed');assert.equal(brief.report?.headline,'Fresh from the PC.');assert.deepEqual(brief.unsaved,{requestId:'77777777-7777-4777-8777-777777777777',briefingSha256:'a'.repeat(64)});assert.equal(brief.originLabel,'kept current automatically');assert.equal(brief.version,null);
+ assert.equal(brief.source,'completed');assert.equal(brief.report?.aim,'Fresh from the PC.');assert.deepEqual(brief.unsaved,{requestId:'77777777-7777-4777-8777-777777777777',briefingSha256:'a'.repeat(64)});assert.equal(brief.originLabel,'kept current automatically');assert.equal(brief.version,null);
  assert.equal(brief.freshness.newWork,true);assert.match(brief.freshness.detail!,/New commits/);
  const queued={...fixture.connector,completedBriefing:null,jobs:[{id:'88888888-8888-4888-8888-888888888888',kind:'brief',status:'queued' as const,createdAt:'2026-10-21T11:59:00.000Z',claimedAt:null,projectId:fixture.projectB,repositoryKey:'repo-b',provider:'codex' as const,requestedModel:'gpt-6.1-sol',origin:'owner' as const}]};
  const waiting=buildDashboardModel({...base,connector:queued}).projects[1].briefing;
- assert.equal(waiting.state,'queued');assert.equal(waiting.activeJob?.providerLabel,'Codex');assert.equal(waiting.canRequest,false);assert.equal(waiting.report?.headline,fixture.briefings[0].briefing.headline,'the saved briefing stays visible while a refresh runs');
+ assert.equal(waiting.state,'queued');assert.equal(waiting.activeJob?.providerLabel,'Codex');assert.equal(waiting.canRequest,false);assert.equal(waiting.report?.aim,fixture.briefings[0].briefing.aim,'the saved briefing stays visible while a refresh runs');
  const failed={...queued,jobs:[{...queued.jobs[0],status:'failed' as const,createdAt:'2026-10-21T11:59:00.000Z',error:'provider_unavailable'}]};
  const tile=buildDashboardModel({...base,connector:failed}).projects[1].briefing;
  assert.equal(tile.state,'ready');assert.match(tile.lastFailure!.reason,/not signed in/);
  // A tampered completed briefing is ignored rather than displayed.
- const tampered={...connector,completedBriefing:{...connector.completedBriefing,briefing:{...fresh,headline:''}}};
+ const tampered={...connector,completedBriefing:{...connector.completedBriefing,briefing:{...fresh,aim:''}}};
  assert.equal(buildDashboardModel({...base,connector:tampered}).projects[1].briefing.source,'saved');
 });

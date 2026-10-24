@@ -5,7 +5,7 @@ import type {DeviceConnectivity,RuntimeMetrics} from '../runtime/contracts.ts';
 import type {ChatContextMetadata,LocalAnalysisReport} from '../../shared/local-analysis.mjs';
 import type {GithubAnalysisReport} from '../../shared/github-analysis.mjs';
 import type {PersonalConnectorJob,PersonalConnectorView} from './contracts.ts';
-import {validateProjectBriefing,type BriefingStatusLevel,type BriefingWorkOutcome,type BriefingWorkPlace,type ProjectBriefing} from '../../shared/project-briefing.mjs';
+import {validateProjectBriefing,type BriefingAreaState,type BriefingBend,type BriefingIntentionSource,type BriefingIntentionState,type BriefingStatusLevel,type ProjectBriefing} from '../../shared/project-briefing.mjs';
 import type {SavedProjectBriefing} from '../project-briefing-client.ts';
 import {getBlockers,getRecommendations} from '../planning.ts';
 import {cairoDate,isCurrentWeek} from '../calendar.ts';
@@ -37,14 +37,18 @@ export interface ChatSource {provider:'codex'|'claude';label:string;status:ChatC
 export interface ProjectAnalysis {kind:'local'|'cloud';kindLabel:string;provider:'codex'|'claude';providerLabel:string;model:string;observedModel:string|null;recordedAt:string;completedAt:string;repositoryName:string;head:string;dirty:boolean|null;summary:string;excerpt:string;suggestedTasks:number;findings:number;chats:ChatSource[]|null;chatCharacters:number|null}
 export interface ProjectProgress {milestonesDone:number;milestonesTotal:number;milestonePercent:number;tasksDone:number;tasksOpen:number;tasksTotal:number;taskPercent:number;inProgress:number;inReview:number;proposed:number;blocked:number;weeklyPinned:number;overdue:number}
 export type ProjectAgentState='running'|'cancelling'|'queued'|'reconcile'|'awaiting_approval'|'idle';
-export interface BriefingWorkRow {title:string;outcome:BriefingWorkOutcome;outcomeLabel:string;tone:SignalTone;whereLabel:string;when:string|null;detail:string;evidence:string[]}
+/** One of the owner's intentions as the card shows it: labelled, toned, tied to an area and marked when it is newer than the previous briefing. */
+export interface BriefingIntentionRow {date:string|null;title:string;outcome:string;state:BriefingIntentionState;stateLabel:string;tone:SignalTone;sourceLabel:string;areaId:string|null;areaName:string|null;bend:BriefingBend|null;evidence:string[];isNew:boolean}
+export interface BriefingAreaRow {id:string;name:string;state:BriefingAreaState;stateLabel:string;tone:SignalTone;done:number;total:number;note:string;isAim:boolean}
+/** The ledger and the map, ready to draw. `newSince` is the previous briefing's horizon when one was carried forward. */
+export interface BriefingLedger {intentions:BriefingIntentionRow[];areas:BriefingAreaRow[];links:{from:string;to:string}[];aimArea:string|null;newSince:string|null;bends:number}
 /** The owner-facing briefing for one project: the freshest of the saved copy and a completed-but-unsaved
  * briefing from the PC, plus what the dashboard needs to request or keep one current. */
 export interface BriefingView {
  state:'ready'|'running'|'queued'|'none';
  report:ProjectBriefing|null;source:'saved'|'completed'|null;recordedAt:string|null;version:number|null;evidenceId:string|null;
  unsaved:{requestId:string;briefingSha256:string}|null;
- status:{level:BriefingStatusLevel|null;label:string;tone:SignalTone};work:BriefingWorkRow[];
+ status:{level:BriefingStatusLevel|null;label:string;tone:SignalTone};ledger:BriefingLedger;
  freshness:{newWork:boolean;detail:string|null;basedOnAt:string|null};evidenceLine:string;
  providerLabel:string|null;originLabel:string|null;
  repositoryKey:string|null;repositoryName:string|null;repositoryChoices:{key:string;name:string}[];
@@ -74,8 +78,9 @@ const EXECUTION_LABELS:Record<string,{label:string;tone:SignalTone}>={ready:{lab
 const ACTIVE_ORDER:Record<string,number>={running:0,leased:1,cancelling:2,queued:3};
 const TONE_RANK:Record<SignalTone,number>={bad:0,warn:1,live:2,good:3,idle:4};
 const BRIEFING_STATUS:Record<BriefingStatusLevel,{label:string;tone:SignalTone}>={'on-track':{label:'On track',tone:'good'},'at-risk':{label:'At risk',tone:'warn'},blocked:{label:'Blocked',tone:'bad'},paused:{label:'Paused',tone:'idle'},unclear:{label:'Unclear',tone:'idle'}};
-const WORK_OUTCOME:Record<BriefingWorkOutcome,{label:string;tone:SignalTone}>={finished:{label:'Finished',tone:'good'},unfinished:{label:'Unfinished',tone:'warn'},unclear:{label:'Unclear',tone:'idle'}};
-const WORK_PLACE:Record<BriefingWorkPlace,string>={local:'on your PC',cloud:'in the cloud',both:'PC and cloud',chat:'mentioned in chats'};
+export const INTENTION_STATE:Record<BriefingIntentionState,{label:string;tone:SignalTone}>={reached:{label:'Reached',tone:'good'},negative:{label:'Reached, result negative',tone:'warn'},changed:{label:'Changed by you',tone:'warn'},paused:{label:'Started, then paused',tone:'warn'},'not-reached':{label:'Not reached',tone:'bad'},'in-progress':{label:'In progress',tone:'live'},open:{label:'Open',tone:'live'}};
+export const INTENTION_SOURCE:Record<BriefingIntentionSource,string>={'local-codex':'a Codex chat on your PC','local-claude':'a Claude Code chat on your PC',cloud:'cloud work on GitHub',plan:'your plan',repository:'the repository',unknown:'an unknown source'};
+export const AREA_STATE:Record<BriefingAreaState,{label:string;tone:SignalTone}>={proven:{label:'Proven on real data',tone:'good'},built:{label:'Built, tested on made-up data',tone:'live'},partial:{label:'Partly proven',tone:'live'},open:{label:'Open: no result yet',tone:'warn'},paused:{label:'Paused by you',tone:'warn'},blocked:{label:'Blocked',tone:'bad'},none:{label:'Not built, on purpose',tone:'idle'}};
 const BRIEF_FAILURES:Record<string,string>={provider_unavailable:'the assistant was not signed in on your PC',deadline_exceeded:'it took longer than allowed',cancelled:'it was cancelled',analysis_failed:'the assistant did not return a usable briefing',interrupted:'your PC app was restarted',disconnected:'your PC was disconnected'};
 
 export function providerForModel(model:string):AgentProvider{return /^claude/iu.test(model)?'claude':'codex';}
@@ -167,8 +172,18 @@ function evidenceLine(report:ProjectBriefing):string{
  else parts.push(`${plural(e.cloud.commits,'cloud commit')} on ${plural(e.cloud.branches,'GitHub branch','GitHub branches')}${e.cloud.pullRequests!==null?`, ${e.cloud.openPullRequests??0} open of ${plural(e.cloud.pullRequests,'pull request')}`:''}${e.cloud.status==='stale'?' (as last fetched)':''}`);
  const chats=e.chats.filter(chat=>chat.status==='included').map(chat=>`${plural(chat.sessions,`${PROVIDER_LABELS[chat.provider]} chat`)}`);
  parts.push(chats.length?chats.join(' and '):'no recent local chats');
+ if(e.ownerTurns.turns>0)parts.push(`${plural(e.ownerTurns.turns,'message')} of your own across ${plural(e.ownerTurns.sessions,'chat')}`);
  if(e.plan)parts.push(`${plural(e.plan.milestones,'milestone')} and ${plural(e.plan.tasks,'task')} from your plan`);
+ if(e.previous)parts.push(`carried forward from the briefing of ${e.previous.until.slice(0,10)}`);
  return parts.join(' · ');
+}
+function ledgerOf(report:ProjectBriefing|null):BriefingLedger{
+ if(!report)return {intentions:[],areas:[],links:[],aimArea:null,newSince:null,bends:0};
+ const newSince=report.evidence.previous?.until??null,horizon=newSince?Date.parse(newSince):null;
+ const areas=report.areas.map(area=>({id:area.id,name:area.name,state:area.state,stateLabel:AREA_STATE[area.state].label,tone:AREA_STATE[area.state].tone,done:area.done,total:area.total,note:area.note,isAim:report.aimArea===area.id}));
+ const names=new Map(areas.map(area=>[area.id,area.name]));
+ const intentions=report.intentions.map(row=>({date:row.date,title:row.title,outcome:row.outcome,state:row.state,stateLabel:INTENTION_STATE[row.state].label,tone:INTENTION_STATE[row.state].tone,sourceLabel:INTENTION_SOURCE[row.source],areaId:row.area,areaName:row.area?names.get(row.area)??null:null,bend:row.bend,evidence:row.evidence,isNew:horizon!==null&&row.date!==null&&Date.parse(row.date+'T23:59:59.999Z')>horizon}));
+ return {intentions,areas,links:report.links,aimArea:report.aimArea,newSince,bends:intentions.filter(row=>row.bend).length};
 }
 function briefingView(project:Project,saved:SavedProjectBriefing[],localReports:SavedReportLike<LocalAnalysisReport>[],connector:PersonalConnectorView|null,connectorState:ConnectorStatus['state']):BriefingView{
  const rows=saved.filter(row=>row.projectId===project.id).sort((a,b)=>Date.parse(b.recordedAt)-Date.parse(a.recordedAt)),latestSaved=rows[0]??null;
@@ -194,7 +209,7 @@ function briefingView(project:Project,saved:SavedProjectBriefing[],localReports:
  return {state,report,source:report?(useCompleted?'completed':'saved'):null,recordedAt:report?(useCompleted?report.run.completedAt:latestSaved!.recordedAt):null,version:useCompleted?null:latestSaved?.version??null,evidenceId:useCompleted?null:latestSaved?.evidenceId??null,
   unsaved:useCompleted?{requestId:completed!.requestId,briefingSha256:completed!.briefingSha256}:null,
   status:report?{level:report.status.level,...BRIEFING_STATUS[report.status.level]}:{level:null,label:state==='none'?'No briefing yet':'Briefing in progress',tone:state==='none'?'idle':'live'},
-  work:(report?.recentWork??[]).map(row=>({title:row.title,outcome:row.outcome,outcomeLabel:WORK_OUTCOME[row.outcome].label,tone:WORK_OUTCOME[row.outcome].tone,whereLabel:WORK_PLACE[row.where],when:row.when,detail:row.detail,evidence:row.evidence})),
+  ledger:ledgerOf(report),
   freshness:{newWork,detail:newWork?(liveRepository!.head!==report!.repository.head?'New commits have landed since this briefing.':'There are uncommitted changes since this briefing.'):null,basedOnAt:report?.evidence.window.until??null},
   evidenceLine:report?evidenceLine(report):'',providerLabel:report?PROVIDER_LABELS[report.run.provider]:null,originLabel:report?(report.run.origin==='auto'?'kept current automatically':'on your request'):null,
   repositoryKey,repositoryName,repositoryChoices:choices,policy:policy?{repositoryKey:policy.repositoryKey,provider:policy.provider,enabled:policy.enabled,minIntervalMinutes:policy.minIntervalMinutes,lastBriefAt:policy.lastBriefAt}:null,
@@ -238,7 +253,7 @@ export function buildDashboardModel(input:DashboardInputs):DashboardModel{
  for(const row of reconcile){const project=projectOf(workspace,row.record.spec.projectId),task=workspace.tasks.find(item=>item.id===row.record.spec.taskId);attention.push({key:`reconcile:${row.record.id}`,kind:'reconcile',title:`${operationLabel(row.record.spec.operation)} · ${task?.title??row.record.spec.taskId}`,detail:'Execution outcome is uncertain and needs reconciliation',projectId:row.record.spec.projectId,projectName:project?.name??null,jobId:row.record.id,tone:'bad'});}
  for(const task of workspace.tasks.filter(task=>openTask(task)&&task.dueDate!==null&&task.dueDate<today&&!archivedEntity(workspace,{kind:'task',id:task.id}))){const project=projectOf(workspace,task.projectId);attention.push({key:`overdue:${task.id}`,kind:'overdue',title:task.title,detail:`Overdue since ${task.dueDate}`,projectId:task.projectId,projectName:project?.name??null,taskId:task.id,tone:'bad'});}
  for(const task of workspace.tasks.filter(task=>openTask(task)&&task.weekly&&!isCurrentWeek(task,now)&&!archivedEntity(workspace,{kind:'task',id:task.id}))){const project=projectOf(workspace,task.projectId);attention.push({key:`carry:${task.id}`,kind:'carry',title:task.title,detail:`Pinned in the week of ${task.weeklyWeek??'an earlier week'} and still open`,projectId:task.projectId,projectName:project?.name??null,taskId:task.id,tone:'idle'});}
- for(const tile of projects){const report=tile.briefing.report;if(!report)continue;report.decisionsNeeded.slice(0,3).forEach((text,index)=>attention.push({key:`decision:${tile.project.id}:${index}`,kind:'decision',title:text,detail:'Raised by the project briefing',projectId:tile.project.id,projectName:tile.project.name,tone:'warn'}));}
+ for(const tile of projects){const report=tile.briefing.report;if(!report)continue;report.needsYou.slice(0,3).forEach((text,index)=>attention.push({key:`decision:${tile.project.id}:${index}`,kind:'decision',title:text,detail:'Raised by the project briefing',projectId:tile.project.id,projectName:tile.project.name,tone:'warn'}));}
  const inbox=workspace.captures.filter(capture=>capture.status==='inbox').length;
  if(inbox)attention.push({key:'inbox',kind:'inbox',title:`${inbox} capture${inbox===1?'':'s'} in the inbox`,detail:'File, convert or archive them',projectId:null,projectName:null,tone:'idle'});
  // Severity first; carried-over pins are informational and sort after everything else.

@@ -5,7 +5,7 @@ import {mkdtemp,mkdir,writeFile,realpath,rm} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {execFileSync} from 'node:child_process';
-import {collectBriefingEvidence,computeWorkFingerprint,sanitizeSessions,remoteIdentity,EVIDENCE_LIMITS} from '../companion/briefing-evidence.mjs';
+import {collectBriefingEvidence,computeWorkFingerprint,sanitizeSessions,ownerTurnsFrom,selectOwnerSessions,remoteIdentity,EVIDENCE_LIMITS} from '../companion/briefing-evidence.mjs';
 import {validateBriefingEvidence} from '../shared/project-briefing.mjs';
 const stamp='2026-10-21T10:00:00.000Z';
 const git=(root,...args)=>execFileSync('git',['-C',root,'-c','user.name=Fixture','-c','user.email=fixture@example.invalid',...args],{stdio:['ignore','pipe','ignore']}).toString().trim();
@@ -31,8 +31,14 @@ test('evidence pack sees local, cloud and uncommitted work, several chats per pr
   await addCodexChat(f,'older',Date.parse(stamp)-3600000,[{role:'user',text:'Finish the signal generation.'},{role:'assistant',text:'Signal generation is done on branch feature/signals.'}]);
   await addCodexChat(f,'newer',Date.parse(stamp),[{role:'user',text:'What is left?'},{role:'assistant',text:'Reconciliation remains. Token ghp_abcdefghijklmnop1234 must never appear.'}]);
   await addClaudeChat(f,'session-a',stamp,[{role:'user',text:'Please reconcile results in the cloud at C:\\Users\\owner\\repo.'},{role:'assistant',text:'Started a draft on claude/reconcile.'}]);
-  const evidence=await collectBriefingEvidence(f.root,{now:()=>'2026-10-21T12:00:00.000Z',codexHome:f.codexHome,claudeHome:f.claudeHome,pullRequests:async()=>{throw new Error('pull requests are only read for GitHub remotes');}});
+  const previous={runId:'33333333-3333-4333-8333-333333333333',until:new Date(Date.parse(stamp)-1800000).toISOString(),aim:'Earlier aim',areas:[],links:[],aimArea:null,intentions:[],open:[],needsYou:[]};
+  const evidence=await collectBriefingEvidence(f.root,{now:()=>'2026-10-21T12:00:00.000Z',codexHome:f.codexHome,claudeHome:f.claudeHome,previous,pullRequests:async()=>{throw new Error('pull requests are only read for GitHub remotes');}});
   const {bundle,summary}=evidence;
+  // The owner's own turns ride separately, newest session first with the ones since the previous briefing ahead, and never carry assistant text or secrets.
+  assert.deepEqual(bundle.ownerTurns.slice(0,2).map(row=>[row.provider,row.turns,row.sinceLastBriefing]).sort(),[['claude',['Please reconcile results in the cloud at [local path]'],true],['codex',['What is left?'],true]]);assert.deepEqual(bundle.ownerTurns.slice(2).map(row=>[row.provider,row.turns,row.sinceLastBriefing]),[['codex',['Finish the signal generation.'],false]]);
+  assert.deepEqual(summary.ownerTurns,{sessions:3,turns:3,characters:bundle.ownerTurns.reduce((sum,row)=>sum+row.turns.join('').length,0),earliestAt:bundle.ownerTurns[2].latestAt,latestAt:bundle.ownerTurns[0].latestAt});
+  assert.deepEqual(summary.previous,{runId:previous.runId,until:previous.until,intentions:0});assert.deepEqual(bundle.previous,previous);
+  assert.ok(!JSON.stringify(bundle.ownerTurns).includes('Reconciliation remains'));
   assert.equal(summary.cloud.status,'fetched');assert.equal(summary.cloud.remote,'local-remote');assert.equal(summary.cloud.pullRequests,null);assert.equal(summary.cloud.branches,2);assert.equal(summary.local.branches,2);assert.equal(summary.local.branch,'main');assert.equal(summary.local.uncommittedFiles,1);
   assert.deepEqual(summary.chats.map(row=>[row.provider,row.status,row.sessions,row.messages]),[['codex','included',2,3],['claude','included',1,2]]);
   assert.deepEqual(validateBriefingEvidence({...summary,plan:null}),{...summary,plan:null});
@@ -62,6 +68,18 @@ test('no remote, unreachable remote and absent chats degrade honestly',async()=>
   const skipped=await collectBriefingEvidence(f.root,{now:()=>'2026-10-21T12:00:00.000Z',fetchRemote:false,codexHome:f.codexHome,claudeHome:f.claudeHome,pullRequests:async()=>null});
   assert.equal(skipped.summary.cloud.status,'unavailable');assert.equal(skipped.summary.cloud.fetchedAt,null);
  }finally{await f.close();}
+});
+test('owner turns keep only the owner\'s messages, drop secrets, and fit the budget newest-since-last-briefing first',()=>{
+ const raw={status:'included',sessions:[{latestAt:'2026-10-21T08:00:00.000Z',messages:[{role:'assistant',text:'ignored'},{role:'user',text:'Keep this'},{role:'user',text:'api_key=abcdefghijklmnop'},{role:'user',text:'x'.repeat(5000)}],truncated:false},{latestAt:'2026-10-10T08:00:00.000Z',messages:[{role:'user',text:'Old aim'}],truncated:false},{latestAt:null,messages:[{role:'assistant',text:'only assistant'}],truncated:false}]};
+ const sessions=ownerTurnsFrom(raw,'claude');
+ assert.deepEqual(sessions.map(row=>[row.latestAt,row.turns.length,row.truncated]),[['2026-10-21T08:00:00.000Z',2,true],['2026-10-10T08:00:00.000Z',1,false]]);
+ assert.equal(sessions[0].turns[0],'Keep this');assert.ok(sessions[0].turns[1].length<=EVIDENCE_LIMITS.charactersPerTurn);assert.ok(!JSON.stringify(sessions).includes('abcdefghijklmnop'));
+ const picked=selectOwnerSessions([sessions[1],sessions[0]],{previousUntil:'2026-10-15T00:00:00.000Z'});
+ assert.deepEqual(picked.sessions.map(row=>[row.latestAt,row.sinceLastBriefing]),[['2026-10-21T08:00:00.000Z',true],['2026-10-10T08:00:00.000Z',false]]);
+ assert.equal(picked.summary.sessions,2);assert.equal(picked.summary.turns,3);assert.equal(picked.summary.earliestAt,'2026-10-10T08:00:00.000Z');assert.equal(picked.summary.latestAt,'2026-10-21T08:00:00.000Z');
+ const tight=selectOwnerSessions([sessions[0],sessions[1]],{previousUntil:null,budget:705});
+ assert.deepEqual(tight.sessions.map(row=>row.turns.map(text=>text.length)),[[EVIDENCE_LIMITS.charactersPerTurn]],'the oldest turn of the newest session is dropped first and the next session stops at the budget');assert.equal(tight.summary.characters,EVIDENCE_LIMITS.charactersPerTurn);assert.equal(tight.sessions[0].truncated,true);
+ assert.deepEqual(selectOwnerSessions([],{}).summary,{sessions:0,turns:0,characters:0,earliestAt:null,latestAt:null});
 });
 test('session sanitizer bounds sessions, drops credential messages and reports coverage',()=>{
  const sessions=Array.from({length:7},(_,i)=>({latestAt:new Date(Date.parse(stamp)-i*1000).toISOString(),messages:[{role:'user',text:'ok '+'x'.repeat(2000)},{role:'assistant',text:'Bearer abcdefghijklmnopqrstuvwxyz'},{role:'assistant',text:'done'}],truncated:false}));

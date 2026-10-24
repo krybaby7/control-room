@@ -76,7 +76,7 @@ test('one snapshot read combines every feed, follows active event pages and tole
  assert.ok(calls.includes('/api/jobs/job-running/events?attemptId=attempt-1&afterSequence=2'));
  const fast=await readFeedSnapshot(snapshot,{includeSlow:false,fetch:fetcher,now:()=>NOW});
  assert.equal(fast.localReports.length,1,'slow feeds are retained between fast reads');assert.equal(fast.briefings.length,1);
- const broken=await fixtureFetch({'/api/project-briefings':()=>json({revision:3,asOf:NOW,briefings:[{...fixture.briefings[0],briefing:{...fixture.briefings[0].briefing,headline:''}}]})});
+ const broken=await fixtureFetch({'/api/project-briefings':()=>json({revision:3,asOf:NOW,briefings:[{...fixture.briefings[0],briefing:{...fixture.briefings[0].briefing,aim:''}}]})});
  const rejected=await readFeedSnapshot(snapshot,{includeSlow:true,fetch:broken.fetcher,now:()=>NOW});
  assert.equal(rejected.feeds.briefings.status,'failed');assert.equal(rejected.briefings.length,1,'an invalid briefing feed keeps the last good briefings');assert.ok(!calls.slice(calls.length-6).includes('/api/local-analysis')||true);
 });

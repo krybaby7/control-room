@@ -10,7 +10,7 @@ import {repositoryIdentity,digest,forbiddenPath,snapshotRepository} from './snap
 import {readCodexChatContext} from './codex-chat-context.mjs';
 import {chatTextHasSecret,redactChatText} from './chat-context.mjs';
 const exec=promisify(execFile);
-export const EVIDENCE_LIMITS=Object.freeze({days:14,branches:24,commitsPerBranch:10,commits:160,pullRequests:25,sessionsPerProvider:5,messagesPerSession:10,charactersPerMessage:1200,charactersPerSession:2800,chatCharacters:16000,uncommittedPaths:40,bundleBytes:160000,fetchMs:60000,ghMs:20000});
+export const EVIDENCE_LIMITS=Object.freeze({days:14,branches:24,commitsPerBranch:10,commits:160,pullRequests:25,sessionsPerProvider:5,messagesPerSession:10,charactersPerMessage:1200,charactersPerSession:2800,chatCharacters:16000,ownerSessions:24,readMessages:60,ownerTurnsPerSession:40,charactersPerTurn:700,ownerCharacters:28000,uncommittedPaths:40,bundleBytes:160000,fetchMs:60000,ghMs:20000});
 const secretText=/(?:-----BEGIN .*PRIVATE KEY-----|\b(?:api[_-]?key|access[_-]?token|refresh[_-]?token|password|client[_-]?secret)\s*[=:]\s*["']?[^\s"']{8,}|\b(?:sk-|ghp_|github_pat_|xox[baprs]-)[A-Za-z0-9_-]{8,}|Bearer\s+[A-Za-z0-9._-]{12,}|\bAKIA[0-9A-Z]{16}\b)/i;
 const clean=(text,max)=>{const value=String(text??'').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/gu,'').trim();if(secretText.test(value))return '[filtered]';return value.length>max?value.slice(0,max-1)+'…':value;};
 function gitEnvironment(network){const env={};for(const key of ['SystemRoot','WINDIR','COMSPEC','PATH','PATHEXT','TEMP','TMP','USERPROFILE','HOME','LOCALAPPDATA','APPDATA','SSH_AUTH_SOCK'])if(process.env[key])env[key]=process.env[key];
@@ -60,17 +60,58 @@ export function sanitizeSessions(raw,provider){
  const status=kept.length?'included':raw?.status==='not-found'?'not-found':'unavailable';
  return {summary:{provider,status,sessions:kept.length,messages,latestAt:kept[0]?.latestAt??null},sessions:kept,characters};
 }
-async function readChats(root,{signal,codexHome,claudeHome}){
- const codex=await readCodexChatContext({repositoryRoot:root,signal,configRoot:codexHome,maxSessions:EVIDENCE_LIMITS.sessionsPerProvider,maxMessages:EVIDENCE_LIMITS.messagesPerSession}).catch(()=>{signal?.throwIfAborted();return {provider:'codex',status:'unavailable',messages:[]};});
- const claude=await import('./claude-chat-context.mjs').then(m=>m.readClaudeChatContext({repositoryRoot:root,signal,configRoot:claudeHome,maxSessions:EVIDENCE_LIMITS.sessionsPerProvider,maxMessages:EVIDENCE_LIMITS.messagesPerSession})).catch(()=>{signal?.throwIfAborted();return {provider:'claude',status:'unavailable',messages:[]};});
+/** The owner's own turns, kept apart from the clipped conversation excerpts: these are where the owner's
+ * intentions are stated. Whole turns that look like credentials are dropped; local paths are redacted. */
+export function ownerTurnsFrom(raw,provider){
+ const sessions=Array.isArray(raw?.sessions)?raw.sessions:[];
+ const kept=[];
+ for(const session of sessions.slice(0,EVIDENCE_LIMITS.ownerSessions)){
+  const latestAt=typeof session.latestAt==='string'&&Number.isFinite(Date.parse(session.latestAt))?new Date(session.latestAt).toISOString():null;
+  const turns=[];let truncated=!!session.truncated;
+  for(const row of (Array.isArray(session.messages)?session.messages:[])){
+   if(row?.role!=='user'||typeof row.text!=='string')continue;
+   if(Buffer.byteLength(row.text)>65536||chatTextHasSecret(row.text)){truncated=true;continue;}
+   const text=shorten(redactChatText(row.text).trim(),EVIDENCE_LIMITS.charactersPerTurn);if(!text){truncated=true;continue;}
+   if(text!==row.text)truncated=true;turns.push(text);
+  }
+  if(!turns.length)continue;
+  if(turns.length>EVIDENCE_LIMITS.ownerTurnsPerSession){truncated=true;turns.splice(0,turns.length-EVIDENCE_LIMITS.ownerTurnsPerSession);}
+  kept.push({provider,latestAt,turns,truncated});
+ }
+ return kept;
+}
+/** Newest sessions first, but every session newer than the previous briefing comes before any older one,
+ * so the ledger always sees what changed since. Older sessions fill the remaining budget. */
+export function selectOwnerSessions(sessions,{previousUntil=null,budget=EVIDENCE_LIMITS.ownerCharacters}={}){
+ const since=previousUntil?Date.parse(previousUntil):null;
+ const at=row=>row.latestAt?Date.parse(row.latestAt):0;
+ const fresh=since===null?[...sessions]:sessions.filter(row=>at(row)>since),old=since===null?[]:sessions.filter(row=>at(row)<=since);
+ const ordered=[...fresh.sort((a,b)=>at(b)-at(a)),...old.sort((a,b)=>at(b)-at(a))];
+ const picked=[];let used=0;
+ for(const session of ordered){
+  if(picked.length>=EVIDENCE_LIMITS.ownerSessions)break;
+  const turns=[...session.turns];let truncated=session.truncated;
+  while(turns.length&&used+turns.reduce((sum,text)=>sum+text.length,0)>budget){turns.shift();truncated=true;}
+  if(!turns.length)break;
+  used+=turns.reduce((sum,text)=>sum+text.length,0);
+  picked.push({provider:session.provider,latestAt:session.latestAt,turns,truncated,sinceLastBriefing:since!==null&&at(session)>since});
+ }
+ const stamps=picked.map(row=>row.latestAt).filter(Boolean).sort();
+ const summary={sessions:picked.length,turns:picked.reduce((sum,row)=>sum+row.turns.length,0),characters:used,earliestAt:stamps[0]??null,latestAt:stamps.at(-1)??null};
+ return {sessions:picked,summary};
+}
+async function readChats(root,{signal,codexHome,claudeHome,previousUntil=null}){
+ const codex=await readCodexChatContext({repositoryRoot:root,signal,configRoot:codexHome,maxSessions:EVIDENCE_LIMITS.ownerSessions,maxMessages:EVIDENCE_LIMITS.readMessages}).catch(()=>{signal?.throwIfAborted();return {provider:'codex',status:'unavailable',messages:[]};});
+ const claude=await import('./claude-chat-context.mjs').then(m=>m.readClaudeChatContext({repositoryRoot:root,signal,configRoot:claudeHome,maxSessions:EVIDENCE_LIMITS.ownerSessions,maxMessages:EVIDENCE_LIMITS.readMessages})).catch(()=>{signal?.throwIfAborted();return {provider:'claude',status:'unavailable',messages:[]};});
  const clean=[sanitizeSessions(codex,'codex'),sanitizeSessions(claude,'claude')];
  let characters=clean.reduce((sum,row)=>sum+row.characters,0);
  // Trim the oldest sessions first until the chat budget holds.
  while(characters>EVIDENCE_LIMITS.chatCharacters){const longest=clean.filter(row=>row.sessions.length).sort((a,b)=>b.sessions.length-a.sessions.length)[0];if(!longest)break;const dropped=longest.sessions.pop();longest.summary.sessions=longest.sessions.length;longest.summary.messages-=dropped.messages.length;longest.characters-=dropped.messages.reduce((sum,row)=>sum+row.text.length,0);if(!longest.sessions.length)longest.summary.status='unavailable';characters=clean.reduce((sum,row)=>sum+row.characters,0);}
- return clean;
+ const owner=selectOwnerSessions([...ownerTurnsFrom(codex,'codex'),...ownerTurnsFrom(claude,'claude')],{previousUntil});
+ return {chats:clean,owner};
 }
 /** Collect the evidence pack. `fetchRemote=false` skips the network read (stale remote refs are still used). */
-export async function collectBriefingEvidence(root,{signal,now=()=>new Date().toISOString(),days=EVIDENCE_LIMITS.days,fetchRemote=true,codexHome,claudeHome,pullRequests=readPullRequests}={}){
+export async function collectBriefingEvidence(root,{signal,now=()=>new Date().toISOString(),days=EVIDENCE_LIMITS.days,fetchRemote=true,codexHome,claudeHome,pullRequests=readPullRequests,previous=null}={}){
  signal?.throwIfAborted();
  const identity=await repositoryIdentity(root,{signal}),until=now(),since=new Date(Date.parse(until)-days*86400000).toISOString();
  const branch=(await git(identity.root,['symbolic-ref','-q','--short','HEAD'],{signal}).catch(()=>'')).trim()||null;
@@ -86,11 +127,11 @@ export async function collectBriefingEvidence(root,{signal,now=()=>new Date().to
  const localBranches=await describe(locals,'local'),cloudBranches=await describe(remotes,'cloud');
  const uncommitted=await readUncommitted(identity.root,signal);
  const prs=remote&&/^github\.com\//.test(remote)?await pullRequests(remote,signal):null;
- const chats=await readChats(identity.root,{signal,codexHome,claudeHome});
+ const {chats,owner}=await readChats(identity.root,{signal,codexHome,claudeHome,previousUntil:previous?.until??null});
  const latest=rows=>rows.map(row=>row.lastCommitAt).filter(Boolean).sort().at(-1)??null;
- const bundle={repository:{name:identity.name,branch,head:identity.head,dirty:identity.dirty,defaultBranch:base,remote,cloudStatus,fetchError},window:{since,until},localBranches,cloudBranches,uncommitted,pullRequests:prs,chats:chats.map(row=>({provider:row.summary.provider,status:row.summary.status,sessions:row.sessions}))};
- while(Buffer.byteLength(JSON.stringify(bundle))>EVIDENCE_LIMITS.bundleBytes){const longest=[...bundle.localBranches,...bundle.cloudBranches].sort((a,b)=>b.commits.length-a.commits.length)[0];if(longest?.commits.length)longest.commits.pop();else{const chat=bundle.chats.find(row=>row.sessions.length);if(!chat)break;chat.sessions.pop();}}
- const summary={window:{since,until},local:{branch,commits:localBranches.reduce((sum,row)=>sum+row.commits.length,0),branches:localBranches.length,latestCommitAt:latest(localBranches),uncommittedFiles:uncommitted.files},cloud:{status:cloudStatus,remote,branches:cloudBranches.length,commits:cloudBranches.reduce((sum,row)=>sum+row.commits.length,0),latestCommitAt:latest(cloudBranches),pullRequests:prs?prs.length:null,openPullRequests:prs?prs.filter(row=>row.state==='open').length:null,fetchedAt},chats:chats.map(row=>row.summary),plan:null,inputSha256:digest(JSON.stringify(bundle))};
+ const bundle={repository:{name:identity.name,branch,head:identity.head,dirty:identity.dirty,defaultBranch:base,remote,cloudStatus,fetchError},window:{since,until},localBranches,cloudBranches,uncommitted,pullRequests:prs,chats:chats.map(row=>({provider:row.summary.provider,status:row.summary.status,sessions:row.sessions})),ownerTurns:owner.sessions,previous};
+ while(Buffer.byteLength(JSON.stringify(bundle))>EVIDENCE_LIMITS.bundleBytes){const longest=[...bundle.localBranches,...bundle.cloudBranches].sort((a,b)=>b.commits.length-a.commits.length)[0];if(longest?.commits.length)longest.commits.pop();else{const chat=bundle.chats.find(row=>row.sessions.length);if(chat)chat.sessions.pop();else if(bundle.ownerTurns.length){const dropped=bundle.ownerTurns.pop();owner.summary.sessions=bundle.ownerTurns.length;owner.summary.turns-=dropped.turns.length;owner.summary.characters-=dropped.turns.reduce((sum,text)=>sum+text.length,0);const stamps=bundle.ownerTurns.map(row=>row.latestAt).filter(Boolean).sort();owner.summary.earliestAt=stamps[0]??null;owner.summary.latestAt=stamps.at(-1)??null;}else break;}}
+ const summary={window:{since,until},local:{branch,commits:localBranches.reduce((sum,row)=>sum+row.commits.length,0),branches:localBranches.length,latestCommitAt:latest(localBranches),uncommittedFiles:uncommitted.files},cloud:{status:cloudStatus,remote,branches:cloudBranches.length,commits:cloudBranches.reduce((sum,row)=>sum+row.commits.length,0),latestCommitAt:latest(cloudBranches),pullRequests:prs?prs.length:null,openPullRequests:prs?prs.filter(row=>row.state==='open').length:null,fetchedAt},chats:chats.map(row=>row.summary),plan:null,ownerTurns:owner.summary,previous:previous?{runId:previous.runId,until:previous.until,intentions:previous.intentions.length}:null,inputSha256:digest(JSON.stringify(bundle))};
  return {identity,branch,bundle,summary,fingerprint:workFingerprint({head:identity.head,uncommitted,locals,remotes,chats:chats.map(row=>row.summary.latestAt)})};
 }
 function workFingerprint({head,uncommitted,locals,remotes,chats}){return digest(JSON.stringify({head,uncommitted:uncommitted.paths,contentFingerprint:uncommitted.contentFingerprint??null,locals:locals.map(ref=>[ref.name,ref.sha]),remotes:remotes.map(ref=>[ref.name,ref.sha]),chats}));}
@@ -100,6 +141,6 @@ export async function computeWorkFingerprint(root,{signal,fetchRemote=true,codex
  const remoteUrl=(await git(identity.root,['config','--local','--get','remote.origin.url'],{signal}).catch(()=>'')).trim(),remote=remoteIdentity(remoteUrl);
  if(remote&&fetchRemote)await git(identity.root,['fetch','--prune','--no-recurse-submodules','--quiet','origin'],{signal,timeout:EVIDENCE_LIMITS.fetchMs,network:true}).catch(error=>{if(signal?.aborted)throw error;});
  const locals=await readRefs(identity.root,'refs/heads',signal),remotes=remote?await readRefs(identity.root,'refs/remotes/origin',signal):[];
- const uncommitted=await readUncommitted(identity.root,signal),chats=await readChats(identity.root,{signal,codexHome,claudeHome});
+ const uncommitted=await readUncommitted(identity.root,signal),{chats}=await readChats(identity.root,{signal,codexHome,claudeHome});
  return workFingerprint({head:identity.head,uncommitted,locals,remotes,chats:chats.map(row=>row.summary.latestAt)});
 }

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import {PROJECT_BRIEFING_MARKER,PROJECT_BRIEFING_MAX_CHARACTERS} from '../shared/project-briefing.mjs';
 import { EVIDENCE_LIMITS, type EvidenceInput, type EvidenceVersion, type EvidenceLink, type EvidenceSubject, type EvidenceRef, type VersionedRecordHead } from './evidence-contract.ts';
 export const evidenceIdSchema=z.string().min(1).max(128).refine(value=>value.trim()===value,'IDs cannot have surrounding whitespace.');
 export const evidenceDateSchema=z.string().datetime({offset:true}).refine(value=>{
@@ -12,13 +13,18 @@ const nullableContext=(max:number)=>z.string().min(1).max(max).refine(value=>Boo
 export const evidenceSubjectSchema=z.object({type:z.enum(['project','milestone','task','capture']),id:evidenceIdSchema}).strict();
 export const evidenceRefSchema=z.object({id:evidenceIdSchema,version:positiveVersion}).strict();
 export const evidenceHeadSchema=z.object({id:evidenceIdSchema,currentVersion:positiveVersion,archivedAt:evidenceDateSchema.nullable()}).strict();
-export const evidenceInputSchema=z.object({
- basis:evidenceBasisSchema,scope:claimScopeSchema,title:z.string().min(1).max(EVIDENCE_LIMITS.titleCharacters).refine(value=>Boolean(value.trim())),statement:z.string().min(1).max(EVIDENCE_LIMITS.statementCharacters).refine(value=>Boolean(value.trim())),
+const evidenceInputObject=z.object({
+ basis:evidenceBasisSchema,scope:claimScopeSchema,title:z.string().min(1).max(EVIDENCE_LIMITS.titleCharacters).refine(value=>Boolean(value.trim())),statement:z.string().min(1).max(PROJECT_BRIEFING_MAX_CHARACTERS).refine(value=>Boolean(value.trim())),
  observedAt:evidenceDateSchema.nullable(),candidate:nullableContext(500),environment:nullableContext(1000),sourceUrl:evidenceUrlSchema.nullable(),sourceRevision:nullableContext(200),sourceRecordId:evidenceIdSchema.nullable(),
  sourceObservationRef:z.object({id:evidenceIdSchema,contentDigest:z.string().regex(/^[a-f0-9]{64}$/)}).strict().optional(),
  attachmentIds:z.array(evidenceIdSchema).max(EVIDENCE_LIMITS.attachmentsPerVersion).refine(ids=>new Set(ids).size===ids.length,'Attachment references must be unique.'),
 }).strict();
-export const evidenceVersionSchema=evidenceInputSchema.extend({id:evidenceIdSchema,version:positiveVersion,recordedAt:evidenceDateSchema,supersedesVersion:positiveVersion.nullable()}).strict().superRefine((value,ctx)=>{
+// Only an uploaded project briefing may exceed the ordinary statement bound; every other statement keeps it.
+const statementBound=(value:{statement:string;sourceRecordId:string|null},ctx:z.RefinementCtx)=>{
+ if(value.sourceRecordId!==PROJECT_BRIEFING_MARKER&&value.statement.length>EVIDENCE_LIMITS.statementCharacters)ctx.addIssue({code:z.ZodIssueCode.too_big,path:['statement'],type:'string',maximum:EVIDENCE_LIMITS.statementCharacters,inclusive:true,message:`Statement must be at most ${EVIDENCE_LIMITS.statementCharacters} characters.`});
+};
+export const evidenceInputSchema=evidenceInputObject.superRefine(statementBound);
+export const evidenceVersionSchema=evidenceInputObject.extend({id:evidenceIdSchema,version:positiveVersion,recordedAt:evidenceDateSchema,supersedesVersion:positiveVersion.nullable()}).strict().superRefine(statementBound).superRefine((value,ctx)=>{
  if(value.supersedesVersion!==(value.version===1?null:value.version-1))ctx.addIssue({code:z.ZodIssueCode.custom,path:['supersedesVersion'],message:'Evidence revisions must supersede the immediately preceding version.'});
 });
 export const evidenceLinkInputSchema=z.object({evidenceId:evidenceIdSchema,evidenceVersion:positiveVersion,subject:evidenceSubjectSchema,requirementId:evidenceIdSchema.nullable(),relation:z.enum(['supports','contradicts','context'])}).strict();

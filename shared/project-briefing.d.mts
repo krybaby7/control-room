@@ -3,13 +3,27 @@ export type BriefingProvider='codex'|'claude';
 export type BriefingStatusLevel='on-track'|'at-risk'|'blocked'|'paused'|'unclear';
 export type BriefingWorkOutcome='finished'|'unfinished'|'unclear';
 export type BriefingWorkPlace='local'|'cloud'|'both'|'chat';
-export interface BriefingContent {
+export type BriefingAreaState='proven'|'built'|'partial'|'open'|'paused'|'blocked'|'none';
+export type BriefingIntentionState='reached'|'negative'|'changed'|'paused'|'not-reached'|'in-progress'|'open';
+export type BriefingIntentionSource='local-codex'|'local-claude'|'cloud'|'plan'|'repository'|'unknown';
+/** Version 1 content, still accepted on read and projected to version 2. */
+export interface BriefingContentV1 {
  headline:string;status:{level:BriefingStatusLevel;reason:string};
  recentWork:{title:string;outcome:BriefingWorkOutcome;when:string|null;where:BriefingWorkPlace;detail:string;evidence:string[]}[];
  unfinished:{title:string;remaining:string;where:BriefingWorkPlace}[];
  done:string[];notDone:string[];decisionsNeeded:string[];nextSteps:string[];limitations:string[];
 }
-export interface BriefingEvidence {
+export interface BriefingArea {id:string;name:string;state:BriefingAreaState;done:number;total:number;note:string}
+export interface BriefingLink {from:string;to:string}
+export interface BriefingBend {from:string;to:string;why:string}
+export interface BriefingIntention {date:string|null;title:string;outcome:string;state:BriefingIntentionState;source:BriefingIntentionSource;area:string|null;bend:BriefingBend|null;evidence:string[]}
+export interface BriefingContent {
+ aim:string;status:{level:BriefingStatusLevel;reason:string};leftOff:string[];
+ areas:BriefingArea[];links:BriefingLink[];aimArea:string|null;
+ intentions:BriefingIntention[];
+ open:string[];needsYou:string[];tried:string[];done:string[];notDone:string[];nextSteps:string[];limitations:string[];
+}
+export interface BriefingEvidenceV1 {
  window:{since:string;until:string};
  local:{branch:string|null;commits:number;branches:number;latestCommitAt:string|null;uncommittedFiles:number};
  cloud:{status:'fetched'|'stale'|'unavailable'|'no-remote';remote:string|null;branches:number;commits:number;latestCommitAt:string|null;pullRequests:number|null;openPullRequests:number|null;fetchedAt:string|null};
@@ -17,13 +31,18 @@ export interface BriefingEvidence {
  plan:{revision:number;milestones:number;tasks:number}|null;
  inputSha256:string;
 }
-export interface ProjectBriefing extends BriefingContent {
- format:'control-room-project-briefing';version:1;
+export interface BriefingEvidence extends BriefingEvidenceV1 {
+ ownerTurns:{sessions:number;turns:number;characters:number;earliestAt:string|null;latestAt:string|null};
+ previous:{runId:string;until:string;intentions:number}|null;
+}
+export interface BriefingIdentity {
  project:{id:string;name:string};
  repository:{key:string;name:string;head:string;branch:string|null;dirty:boolean};
  run:{id:string;provider:BriefingProvider;requestedModel:'gpt-6.1-sol'|'claude-code-default';observedModel:string|null;startedAt:string;completedAt:string;mode:'read-only';source:'personal-pc-connector';origin:'owner'|'auto'};
- evidence:BriefingEvidence;
 }
+export interface ProjectBriefingV1 extends BriefingContentV1,BriefingIdentity {format:'control-room-project-briefing';version:1;evidence:BriefingEvidenceV1}
+export interface ProjectBriefing extends BriefingContent,BriefingIdentity {format:'control-room-project-briefing';version:2;evidence:BriefingEvidence}
+export interface PreviousLedger {runId:string;until:string;aim:string;areas:BriefingArea[];links:BriefingLink[];aimArea:string|null;intentions:BriefingIntention[];open:string[];needsYou:string[]}
 export interface CompactPlan {
  revision:number;project:{id:string;name:string;goal:string;description:string};
  milestones:{title:string;status:'planned'|'active'|'achieved';targetDate:string|null}[];
@@ -31,19 +50,33 @@ export interface CompactPlan {
  totals:{tasks:number;open:number;done:number;omitted:number};
 }
 export const PROJECT_BRIEFING_MARKER:'control-room-project-briefing-v1';
-export const PROJECT_BRIEFING_MAX_CHARACTERS:9600;
+export const PROJECT_BRIEFING_VERSION:2;
+export const PROJECT_BRIEFING_MAX_CHARACTERS:26000;
+export const PREVIOUS_LEDGER_MAX_CHARACTERS:14000;
 export const COMPACT_PLAN_MAX_CHARACTERS:6000;
 export const BRIEFING_PROVIDERS:readonly BriefingProvider[];
 export const BRIEFING_MODELS:Readonly<Record<BriefingProvider,'gpt-6.1-sol'|'claude-code-default'>>;
 export const BRIEFING_STATUS_LEVELS:readonly BriefingStatusLevel[];
 export const BRIEFING_WORK_OUTCOMES:readonly BriefingWorkOutcome[];
 export const BRIEFING_WORK_PLACES:readonly BriefingWorkPlace[];
+export const BRIEFING_AREA_STATES:readonly BriefingAreaState[];
+export const BRIEFING_INTENTION_STATES:readonly BriefingIntentionState[];
+export const BRIEFING_INTENTION_SOURCES:readonly BriefingIntentionSource[];
 export const briefingContentSchema:Record<string,unknown>;
+export const briefingContentSchemaV1:Record<string,unknown>;
 export const briefingEvidenceSchema:Record<string,unknown>;
+export const briefingEvidenceSchemaV1:Record<string,unknown>;
 export const projectBriefingSchema:Record<string,unknown>;
+export const projectBriefingSchemaV1:Record<string,unknown>;
+export const previousLedgerSchema:Record<string,unknown>;
 export const compactPlanSchema:Record<string,unknown>;
 export function validateBriefingContent(value:unknown):BriefingContent;
+export function validateBriefingContentV1(value:unknown):BriefingContentV1;
 export function validateBriefingEvidence(value:unknown):BriefingEvidence;
+export function validateBriefingEvidenceV1(value:unknown):BriefingEvidenceV1;
+export function upgradeBriefing(value:ProjectBriefingV1):ProjectBriefing;
 export function validateProjectBriefing(value:unknown):ProjectBriefing;
+export function previousLedger(value:unknown):PreviousLedger;
+export function validatePreviousLedger(value:unknown):PreviousLedger;
 export function validateCompactPlan(value:unknown):CompactPlan;
 export function compactPlan(workspace:Workspace,projectId:string,revision:number):CompactPlan;
