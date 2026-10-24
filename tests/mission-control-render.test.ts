@@ -49,3 +49,14 @@ test('operations, attention and log panels render honest empty and populated sta
  const week=renderToStaticMarkup(createElement(panels.WeekPanel,{workspace:fixture.workspace,now:NOW,actions}));
  assert.ok(week.includes('This week'));assert.ok(week.includes('1 completed this week'));
 });
+
+test('an unmapped project offers the registered folder without selecting it or enabling a briefing',async()=>{
+ const {model:value}=await model();
+ const tile=value.projects[0];
+ assert.equal(tile.briefing.repositoryKey,null);
+ const html=renderToStaticMarkup(createElement(panels.BriefingCard,{tile,now:NOW,actions}));
+ assert.ok(html.includes('Folder on your PC'));
+ assert.ok(html.includes('<option value="" selected="">Choose a folder</option>'));
+ assert.ok(html.includes('<option value="repo-b">trade-graph</option>'));
+ assert.match(html,/<button[^>]*disabled=""[^>]*>[\s\S]*?Brief this project<\/button>/);
+});

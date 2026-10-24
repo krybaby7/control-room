@@ -1,0 +1,9 @@
+# Require a project folder association for briefing defaults
+
+**Problem:** An unmapped project inherited the only folder registered on the PC, even when that folder belonged to another project. The card hid the folder chooser once this fallback supplied a key. In addition, choosing a folder manually could not enable briefing because model availability still required a default key.
+
+**Change:** Remove the sole-folder fallback. A default must come from a saved briefing, keep-current policy or local analysis linked to the same project. Unmapped projects show an empty folder choice; the control requires a valid selection and a ready selected assistant. Model availability describes the online/ready/idle PC so local selection can enable the button. Hide the selection hint after a valid selection.
+
+**Evidence:** Two model regressions failed against the fallback. The focused dashboard/feed/render/request/briefing suite passes 36 cases, including linked-default precedence, no inheritance from other projects, explicit blank selection and offline/unready/active guards. Typecheck, lint and supported production build are release checks. Exact `gpt-6.1-sol` implementation worker `/root/review_briefing_fix` and independent reviewer `/root/limit_compatibility_review` used non-overlapping roles; review found no actionable issues.
+
+**Private acceptance:** The owner explicitly selected the correct local project folder for the retry. Local registration preserves existing repositories; it does not start inference. After private publication, select that folder in the owner UI and run one requested Codex briefing. Verify delivery and saved evidence before claiming a completed briefing. Keep runtime receipts, request identities, paths and resulting private reports out of public source history.

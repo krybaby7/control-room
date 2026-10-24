@@ -1,5 +1,9 @@
 # Control Room Audit Gap Coverage
 
+## Explicit briefing folder selection — 2026-10-24
+
+Unmapped projects previously inherited the PC's sole registered folder, regardless of which project it belonged to. The fallback is removed; project-linked briefing, policy and local-analysis defaults remain. An explicit folder choice is required for unmapped projects, and the UI can now enable the request after selection. Thirty-six focused checks and independent review cover this change. Private publication and the owner-requested retry are tracked in [the folder-selection record](../2026-10-24-briefing-folder-selection.md).
+
 ## Briefing execution and reload recovery — 2026-10-24
 
 The installed companion predated briefing jobs and rejected them before running a provider; the server later expired the request. The dashboard also retained a separate 20-entry decoder cap missed by the preceding change. That decoder cap is removed, queued messaging now describes waiting for the PC assistant, and the reviewed briefing-capable package is installed with existing connection/repository state preserved. Fresh-read claimed/failed status regressions cover 21 and 101 entries. Focused web checks pass 40 tests, companion checks pass 25, package checks pass two; typecheck/build pass and lint reports zero errors. Independent exact-model review found no actionable issues. Publication and live acceptance are tracked in [the recovery record](../2026-10-24-briefing-recovery.md); all unrelated program gates retain their own boundaries.

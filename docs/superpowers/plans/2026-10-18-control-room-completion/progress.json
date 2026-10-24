@@ -1,4 +1,12 @@
 {
+  "briefingFolderSelection": {
+    "date": "2026-10-24",
+    "status": "focused_verified_pending_private_publication_and_requested_retry",
+    "scope": "Remove implicit sole-folder assignment to unmapped projects; preserve project-linked defaults and allow explicit local folder selection",
+    "focusedTestsPassed": 36,
+    "workers": [{"requestedModel": "gpt-6.1-sol", "workerId": "/root/review_briefing_fix", "role": "bounded model implementation"}, {"requestedModel": "gpt-6.1-sol", "workerId": "/root/limit_compatibility_review", "role": "independent review", "result": "no actionable findings"}],
+    "verification": "docs/superpowers/plans/2026-10-24-briefing-folder-selection.md"
+  },
   "briefingRecovery": {
     "date": "2026-10-24",
     "status": "verified_source_and_local_companion_pending_private_publication",
