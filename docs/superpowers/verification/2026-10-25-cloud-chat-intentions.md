@@ -42,7 +42,7 @@ Explicit runtime `model: gpt-6.1-sol` requests were accepted for `/root/cloud_ro
 
 ## Not verified / owner follow-up
 
-- **Git identity resolved.** The owner supplied an exact repository-only author identity, now configured locally. The reader/convention and integration/card changes are separate reviewable commits; application code is at `5111d4a403a2e92d7273b10979be33b90188eac9`. GitHub push and draft PR creation follow the verification/checkpoint commit.
+- **Git identity resolved.** The owner supplied an exact repository-only author identity, now configured locally. The reader/convention and integration/card changes are separate reviewable commits; application code is at `5111d4a403a2e92d7273b10979be33b90188eac9`. The implementation and verification were pushed on `feat/cloud-chat-intentions`, and [draft PR #7](https://github.com/krybaby7/control-room/pull/7) targets `claude/wizardly-hawking-4ez6q8`. No merge is authorized.
 - **Trade Graph export is not accessible yet.** The owner identifies `trade-graph-owner-turns.md` as containing their verbatim messages from 23 Claude Code cloud sessions, including UTC times, session identifiers, titles and partial-coverage notes. No attachment resource was delivered in the task, and the named file was not found in Downloads, Documents or the usual task/temp directories. The owner was asked for its local path. No summary or older intention ledger may substitute for the original text. No command has touched Trade Graph. The required file-list/example review and explicit yes are still pending.
 - Once originals are available: announce every command touching Trade Graph, prepare/show the exact public-safe handoff, wait for the owner's explicit yes before committing there, then run one real subscription-backed briefing with this build and inspect the card for cloud intention/coverage. Stop on private/secret-bearing messages rather than publish them or mislabel redacted text. Keep real prompt/report artifacts private, outside this public repository.
 - No real briefing model call was run; actual CLI acceptance of the optional structured-output field remains unverified. Stubs do not prove it. No installed companion was replaced, hosted Site changed or production report saved. Real card acceptance remains outstanding.
@@ -55,3 +55,7 @@ Control Room agents now receive the handoff instruction from `AGENTS.md`. At ses
 ## Resumed handoff — 25 October
 
 The unchanged application source passed a fresh 12-reader-test run, 50 briefing app tests and six prompt/runner tests before committing. Independent follow-up review passed six runtime provenance/fingerprint cases with no remaining actionable finding. Existing private Site metadata still reports version23, owner access, one allowed user, no allowed groups and no external visitors. No publication has occurred in this resumed step.
+
+## GitHub handoff
+
+The three initial reviewable commits were pushed and verified against the remote: reader/convention `e5ee0bd`, briefing integration `5111d4a`, verification `a4a4edd`. Draft PR #7 is open against the exact requested base branch (`3c2b94f`). The export remains inaccessible, so no Trade Graph file list/example can yet be prepared. The Site remains version23; publication, installation and real briefing acceptance are pending.
