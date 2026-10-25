@@ -13,7 +13,7 @@ export const COMPANION_SOURCE_PATHS=Object.freeze([
  'companion/claude.mjs','companion/analysis-run.mjs','companion/provider-readiness.mjs',
  'companion/personal-connector.mjs','companion/personal-credentials.mjs','companion/personal-credentials.ps1',
  'companion/folder-picker.mjs','companion/folder-picker.ps1','scripts/install-personal-companion.ps1',
- 'companion/briefing-evidence.mjs','companion/briefing-prompt.mjs','companion/briefing-run.mjs',
+ 'companion/briefing-evidence.mjs','companion/briefing-prompt.mjs','companion/briefing-run.mjs','companion/cloud-owner-turns.mjs',
  'shared/local-analysis.mjs','shared/local-analysis.d.mts','shared/project-briefing.mjs','shared/project-briefing.d.mts',
 ]);
 export async function buildLocalCompanionArchive(){
