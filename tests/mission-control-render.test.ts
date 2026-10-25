@@ -60,3 +60,15 @@ test('an unmapped project offers the registered folder without selecting it or e
  assert.ok(html.includes('<option value="repo-b">trade-graph</option>'));
  assert.match(html,/<button[^>]*disabled=""[^>]*>[\s\S]*?Brief this project<\/button>/);
 });
+
+test('the briefing card identifies a cloud assistant and states cloud coverage in its basis fold',async()=>{
+ const {fixture}=await model();
+ const report=fixture.briefings[0].briefing;
+ report.intentions[1].cloudProvider='codex-cloud';
+ report.evidence.cloudTurns=[{provider:'claude-cloud',status:'not-found',sessions:0,turns:0},{provider:'codex-cloud',status:'included',sessions:1,turns:1}];
+ const value=buildDashboardModel({now:NOW,workspace:fixture.workspace,jobs:fixture.jobs,jobDetails:{},runtime:fixture.runtime,connector:fixture.connector,localReports:fixture.localReports,cloudReports:fixture.cloudReports,briefings:fixture.briefings,feeds:okFeeds()});
+ const html=renderToStaticMarkup(createElement(panels.BriefingCard,{tile:value.projects[1],now:NOW,actions}));
+ assert.ok(html.includes('Said in a Codex cloud chat'));
+ assert.ok(html.includes('no Claude Code cloud sessions were available'));
+ assert.ok(html.indexOf('1 owner turn across 1 Codex cloud session')>html.indexOf('How this briefing was put together'));
+});

@@ -26,3 +26,22 @@ test('invalid provider, plan, model identity or content fail closed without retr
  await assert.rejects(run('claude',()=>({content:content()}),{project:{id:'p2',name:'Other',goal:'',description:''},tasks:[{...plan.tasks[0],milestone:3}]}),/Invalid project briefing/);
  assert.equal(calls,2);
 });
+test('synthetic model stub receives cloud owner evidence once and returns cloud provenance',async()=>{
+ const cloudSession={provider:'claude-cloud',source:'cloud',sessionId:'cloud-fixture',title:'Reconciliation',origin:'repository-handoff',latestAt:'2026-10-21T08:00:00.000Z',turns:['Finish the cloud-only reconciliation.'],truncated:false,sinceLastBriefing:false};
+ const cloudTurns=[{provider:'claude-cloud',status:'included',sessions:1,turns:1},{provider:'codex-cloud',status:'not-found',sessions:0,turns:0}];
+ let calls=0,seenPrompt='';
+ const result=await runProjectBriefing({root:'/tmp/repo',requestId:id,provider:'claude',plan},{collect:async()=>({...evidence,bundle:{...evidence.bundle,ownerTurns:[cloudSession]},summary:{...evidence.summary,cloudTurns}}),runners:{claude:async({prompt})=>{calls++;seenPrompt=prompt;const generated=content();generated.intentions[0]={...generated.intentions[0],title:'Finish reconciliation',source:'cloud',cloudProvider:'claude-cloud'};return {content:generated};}},now:()=>'2026-10-21T12:00:00.000Z'});
+ assert.equal(calls,1);assert.ok(seenPrompt.includes('Finish the cloud-only reconciliation.'));assert.ok(seenPrompt.includes('repository-handoff'));assert.deepEqual(result.briefing.evidence.cloudTurns,cloudTurns);assert.equal(result.briefing.intentions[0].source,'cloud');assert.equal(result.briefing.intentions[0].cloudProvider,'claude-cloud');
+});
+
+test('new cloud intentions need a retained owner source while previous cloud rows can carry forward',async()=>{
+ const generated=content();generated.intentions[0]={...generated.intentions[0],source:'cloud',cloudProvider:'codex-cloud'};
+ const run=(output,prior=null)=>runProjectBriefing({root:'/tmp/repo',requestId:id,provider:'claude',plan,previous:prior},{collect:async()=>evidence,runners:{claude:async()=>({content:output})},now:()=>'2026-10-21T12:00:00.000Z'});
+ await assert.rejects(run(generated),/Cloud intention has no matching owner-turn source/);
+ delete generated.intentions[0].cloudProvider;
+ await assert.rejects(run(generated),/Cloud intention has no matching owner-turn source/);
+ const carried={...previous,areas:generated.areas,links:generated.links,intentions:generated.intentions};
+ const result=await run(generated,carried);
+ assert.equal(result.briefing.intentions[0].source,'cloud');
+ assert.equal(result.briefing.intentions[0].cloudProvider,undefined);
+});

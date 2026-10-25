@@ -22,6 +22,27 @@ test('a saved version 1 briefing still reads and is shown through the version 2 
  assert.deepEqual(upgradeBriefing(v1),shown);
  const broken=briefingFixtureV1();broken.headline='';assert.throws(()=>validateProjectBriefing(broken));
 });
+
+test('cloud provenance and coverage are additive and reject inconsistent claims',()=>{
+ const old=briefingFixture();
+ assert.deepEqual(validateProjectBriefing(old),old,'saved version 2 reports remain unchanged');
+ const value=briefingFixture();
+ value.intentions[1].cloudProvider='claude-cloud';
+ value.evidence.cloudTurns=[{provider:'claude-cloud',status:'included',sessions:1,turns:2},{provider:'codex-cloud',status:'not-found',sessions:0,turns:0}];
+ assert.deepEqual(validateProjectBriefing(value),value);
+ assert.equal(previousLedger(value).intentions[1].cloudProvider,'claude-cloud');
+ for(const edit of [
+  (v:typeof value)=>{v.intentions[0].cloudProvider='codex-cloud';},
+  (v:typeof value)=>{v.intentions[1].cloudProvider='other' as never;},
+  (v:typeof value)=>{v.evidence.cloudTurns![0].turns=0;},
+  (v:typeof value)=>{v.evidence.cloudTurns![1].turns=1;},
+  (v:typeof value)=>{v.evidence.cloudTurns![1]={...v.evidence.cloudTurns![0]};},
+  (v:typeof value)=>{v.evidence.cloudTurns![0].sessions=3;},
+  (v:typeof value)=>{v.evidence.cloudTurns![0].turns=24;},
+ ]){const broken=structuredClone(value);edit(broken);assert.throws(()=>validateProjectBriefing(broken));}
+ const modelContent=Object.fromEntries(Object.entries(value).filter(([key])=>!['format','version','project','repository','run','evidence'].includes(key)));
+ assert.equal(validateBriefingContent(modelContent).intentions[1].cloudProvider,'claude-cloud');
+});
 test('the previous ledger is a bounded slice that drops the oldest intentions first',()=>{
  const slice=previousLedger(briefingFixture());
  assert.deepEqual(Object.keys(slice),['runId','until','aim','areas','links','aimArea','intentions','open','needsYou']);

@@ -6,6 +6,7 @@ export type BriefingWorkPlace='local'|'cloud'|'both'|'chat';
 export type BriefingAreaState='proven'|'built'|'partial'|'open'|'paused'|'blocked'|'none';
 export type BriefingIntentionState='reached'|'negative'|'changed'|'paused'|'not-reached'|'in-progress'|'open';
 export type BriefingIntentionSource='local-codex'|'local-claude'|'cloud'|'plan'|'repository'|'unknown';
+export type BriefingCloudProvider='claude-cloud'|'codex-cloud';
 /** Version 1 content, still accepted on read and projected to version 2. */
 export interface BriefingContentV1 {
  headline:string;status:{level:BriefingStatusLevel;reason:string};
@@ -16,7 +17,7 @@ export interface BriefingContentV1 {
 export interface BriefingArea {id:string;name:string;state:BriefingAreaState;done:number;total:number;note:string}
 export interface BriefingLink {from:string;to:string}
 export interface BriefingBend {from:string;to:string;why:string}
-export interface BriefingIntention {date:string|null;title:string;outcome:string;state:BriefingIntentionState;source:BriefingIntentionSource;area:string|null;bend:BriefingBend|null;evidence:string[]}
+export interface BriefingIntention {date:string|null;title:string;outcome:string;state:BriefingIntentionState;source:BriefingIntentionSource;cloudProvider?:BriefingCloudProvider;area:string|null;bend:BriefingBend|null;evidence:string[]}
 export interface BriefingContent {
  aim:string;status:{level:BriefingStatusLevel;reason:string};leftOff:string[];
  areas:BriefingArea[];links:BriefingLink[];aimArea:string|null;
@@ -33,6 +34,7 @@ export interface BriefingEvidenceV1 {
 }
 export interface BriefingEvidence extends BriefingEvidenceV1 {
  ownerTurns:{sessions:number;turns:number;characters:number;earliestAt:string|null;latestAt:string|null};
+ cloudTurns?:{provider:BriefingCloudProvider;status:'included'|'not-found'|'unavailable';sessions:number;turns:number}[];
  previous:{runId:string;until:string;intentions:number}|null;
 }
 export interface BriefingIdentity {
@@ -62,6 +64,7 @@ export const BRIEFING_WORK_PLACES:readonly BriefingWorkPlace[];
 export const BRIEFING_AREA_STATES:readonly BriefingAreaState[];
 export const BRIEFING_INTENTION_STATES:readonly BriefingIntentionState[];
 export const BRIEFING_INTENTION_SOURCES:readonly BriefingIntentionSource[];
+export const BRIEFING_CLOUD_PROVIDERS:readonly BriefingCloudProvider[];
 export const briefingContentSchema:Record<string,unknown>;
 export const briefingContentSchemaV1:Record<string,unknown>;
 export const briefingEvidenceSchema:Record<string,unknown>;

@@ -173,6 +173,10 @@ function evidenceLine(report:ProjectBriefing):string{
  const chats=e.chats.filter(chat=>chat.status==='included').map(chat=>`${plural(chat.sessions,`${PROVIDER_LABELS[chat.provider]} chat`)}`);
  parts.push(chats.length?chats.join(' and '):'no recent local chats');
  if(e.ownerTurns.turns>0)parts.push(`${plural(e.ownerTurns.turns,'message')} of your own across ${plural(e.ownerTurns.sessions,'chat')}`);
+ if(e.cloudTurns)for(const provider of ['claude-cloud','codex-cloud'] as const){
+  const label=provider==='claude-cloud'?'Claude Code':'Codex',coverage=e.cloudTurns.find(row=>row.provider===provider);
+  parts.push(coverage?.status==='included'?`${plural(coverage.turns,'owner turn')} across ${plural(coverage.sessions,`${label} cloud session`)}`:`no ${label} cloud sessions were available${coverage?.status==='unavailable'?' (unreadable or excluded)':''}`);
+ }else parts.push('cloud chat coverage was not recorded in this saved briefing');
  if(e.plan)parts.push(`${plural(e.plan.milestones,'milestone')} and ${plural(e.plan.tasks,'task')} from your plan`);
  if(e.previous)parts.push(`carried forward from the briefing of ${e.previous.until.slice(0,10)}`);
  return parts.join(' · ');
@@ -182,7 +186,7 @@ function ledgerOf(report:ProjectBriefing|null):BriefingLedger{
  const newSince=report.evidence.previous?.until??null,horizon=newSince?Date.parse(newSince):null;
  const areas=report.areas.map(area=>({id:area.id,name:area.name,state:area.state,stateLabel:AREA_STATE[area.state].label,tone:AREA_STATE[area.state].tone,done:area.done,total:area.total,note:area.note,isAim:report.aimArea===area.id}));
  const names=new Map(areas.map(area=>[area.id,area.name]));
- const intentions=report.intentions.map(row=>({date:row.date,title:row.title,outcome:row.outcome,state:row.state,stateLabel:INTENTION_STATE[row.state].label,tone:INTENTION_STATE[row.state].tone,sourceLabel:INTENTION_SOURCE[row.source],areaId:row.area,areaName:row.area?names.get(row.area)??null:null,bend:row.bend,evidence:row.evidence,isNew:horizon!==null&&row.date!==null&&Date.parse(row.date+'T23:59:59.999Z')>horizon}));
+ const intentions=report.intentions.map(row=>({date:row.date,title:row.title,outcome:row.outcome,state:row.state,stateLabel:INTENTION_STATE[row.state].label,tone:INTENTION_STATE[row.state].tone,sourceLabel:row.source==='cloud'&&row.cloudProvider?`a ${row.cloudProvider==='claude-cloud'?'Claude Code':'Codex'} cloud chat`:INTENTION_SOURCE[row.source],areaId:row.area,areaName:row.area?names.get(row.area)??null:null,bend:row.bend,evidence:row.evidence,isNew:horizon!==null&&row.date!==null&&Date.parse(row.date+'T23:59:59.999Z')>horizon}));
  return {intentions,areas,links:report.links,aimArea:report.aimArea,newSince,bends:intentions.filter(row=>row.bend).length};
 }
 function briefingView(project:Project,saved:SavedProjectBriefing[],localReports:SavedReportLike<LocalAnalysisReport>[],connector:PersonalConnectorView|null,connectorState:ConnectorStatus['state']):BriefingView{

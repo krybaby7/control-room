@@ -41,9 +41,24 @@ test('project tiles show live agent progress, briefing with chats, tokens and ne
  const brief=b.briefing;assert.equal(brief.state,'ready');assert.equal(brief.source,'saved');assert.equal(brief.version,1);assert.equal(brief.status.label,'On track');assert.equal(brief.status.tone,'good');
  assert.deepEqual(brief.ledger.intentions.map(row=>[row.stateLabel,row.sourceLabel,row.date,row.areaName,row.isNew]),[['Reached','a Codex chat on your PC','2026-10-21','Order placement',true],['In progress','cloud work on GitHub','2026-10-20','Reconciliation',true],['Changed by you','a Claude Code chat on your PC','2026-10-14','Reconciliation',false]]);assert.equal(brief.ledger.bends,1);assert.equal(brief.ledger.newSince,'2026-10-18T11:50:00.000Z');assert.deepEqual(brief.ledger.areas.map(row=>[row.id,row.stateLabel,row.tone,row.isAim]),[['signals','Proven on real data','good',false],['orders','Built, tested on made-up data','live',false],['reconcile','Open: no result yet','warn',true]]);
  assert.equal(brief.freshness.newWork,false);assert.equal(brief.providerLabel,'Claude Code');assert.equal(brief.originLabel,'on your request');
- assert.equal(brief.evidenceLine,'12 local commits on 3 branches and 2 uncommitted files · 9 cloud commits on 4 GitHub branches, 1 open of 3 pull requests · 3 Codex chats and 2 Claude Code chats · 23 messages of your own across 4 chats · 4 milestones and 17 tasks from your plan · carried forward from the briefing of 2026-10-18');
+ assert.equal(brief.evidenceLine,'12 local commits on 3 branches and 2 uncommitted files · 9 cloud commits on 4 GitHub branches, 1 open of 3 pull requests · 3 Codex chats and 2 Claude Code chats · 23 messages of your own across 4 chats · cloud chat coverage was not recorded in this saved briefing · 4 milestones and 17 tasks from your plan · carried forward from the briefing of 2026-10-18');
  assert.deepEqual(brief.policy,{repositoryKey:'repo-b',provider:'claude',enabled:true,minIntervalMinutes:120,lastBriefAt:'2026-10-21T11:05:00.000Z'});assert.equal(brief.repositoryName,'trade-graph');assert.equal(brief.canRequest,true);assert.equal(brief.unsaved,null);
  assert.deepEqual(b.tokens,{input:0,output:0,runs:0,reported:0});
+});
+
+test('cloud intentions name their assistant and the evidence line reports coverage or absence',async()=>{
+ const base=await inputs();
+ const report=base.briefings[0].briefing;
+ report.intentions[1].cloudProvider='claude-cloud';
+ report.evidence.cloudTurns=[{provider:'claude-cloud',status:'included',sessions:1,turns:2},{provider:'codex-cloud',status:'not-found',sessions:0,turns:0}];
+ let brief=buildDashboardModel(base).projects[1].briefing;
+ assert.equal(brief.ledger.intentions[1].sourceLabel,'a Claude Code cloud chat');
+ assert.match(brief.evidenceLine,/2 owner turns across 1 Claude Code cloud session/);
+ assert.match(brief.evidenceLine,/no Codex cloud sessions were available/);
+ report.evidence.cloudTurns=[{provider:'claude-cloud',status:'unavailable',sessions:0,turns:0},{provider:'codex-cloud',status:'not-found',sessions:0,turns:0}];
+ brief=buildDashboardModel(base).projects[1].briefing;
+ assert.match(brief.evidenceLine,/no Claude Code cloud sessions were available/);
+ assert.match(brief.evidenceLine,/no Codex cloud sessions were available/);
 });
 test('briefing folder defaults require a project association even with one registered folder',async()=>{
  const base=await inputs(),projectA=base.workspace.projects[0].id;

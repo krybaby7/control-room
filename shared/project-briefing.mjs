@@ -23,9 +23,11 @@ export const BRIEFING_AREA_STATES=Object.freeze(['proven','built','partial','ope
 export const BRIEFING_INTENTION_STATES=Object.freeze(['reached','negative','changed','paused','not-reached','in-progress','open']);
 /** Where the intention was read from. */
 export const BRIEFING_INTENTION_SOURCES=Object.freeze(['local-codex','local-claude','cloud','plan','repository','unknown']);
+export const BRIEFING_CLOUD_PROVIDERS=Object.freeze(['claude-cloud','codex-cloud']);
 const str=(maxLength,minLength=1)=>({type:'string',minLength,maxLength});
 const integer=(minimum,maximum)=>({type:'integer',minimum,maximum});
 const object=properties=>({type:'object',properties,required:Object.keys(properties),additionalProperties:false});
+const withOptional=(schema,properties)=>({...schema,properties:{...schema.properties,...properties}});
 const array=(items,maxItems)=>({type:'array',items,maxItems});
 const nullable=schema=>({anyOf:[schema,{const:null}]});
 const enumeration=values=>({enum:[...values]});
@@ -56,7 +58,7 @@ export const briefingContentSchema=object({
  areas:array(object({id:slug,name:str(60),state:enumeration(BRIEFING_AREA_STATES),done:integer(0,999),total:integer(0,999),note:str(90)}),12),
  links:array(object({from:slug,to:slug}),24),
  aimArea:nullable(slug),
- intentions:array(object({date:nullable(isoDate),title:str(160),outcome:str(320),state:enumeration(BRIEFING_INTENTION_STATES),source:enumeration(BRIEFING_INTENTION_SOURCES),area:nullable(slug),bend:nullable(object({from:str(200),to:str(200),why:str(240)})),evidence:array(str(60),3)}),24),
+ intentions:array(withOptional(object({date:nullable(isoDate),title:str(160),outcome:str(320),state:enumeration(BRIEFING_INTENTION_STATES),source:enumeration(BRIEFING_INTENTION_SOURCES),area:nullable(slug),bend:nullable(object({from:str(200),to:str(200),why:str(240)})),evidence:array(str(60),3)}),{cloudProvider:enumeration(BRIEFING_CLOUD_PROVIDERS)}),24),
  open:array(str(240),6),
  needsYou:array(str(240),5),
  tried:array(str(200),8),
@@ -76,11 +78,11 @@ const evidenceProperties={
 };
 export const briefingEvidenceSchemaV1=object(evidenceProperties);
 /** Version 2 adds the owner's own chat turns and the previous briefing the ledger was carried forward from. */
-export const briefingEvidenceSchema=object({
+export const briefingEvidenceSchema=withOptional(object({
  ...evidenceProperties,
  ownerTurns:object({sessions:integer(0,64),turns:integer(0,1000),characters:integer(0,200000),earliestAt:nullable(stamp),latestAt:nullable(stamp)}),
  previous:nullable(object({runId:uuid,until:stamp,intentions:integer(0,24)})),
-});
+}),{cloudTurns:array(object({provider:enumeration(BRIEFING_CLOUD_PROVIDERS),status:enumeration(['included','not-found','unavailable']),sessions:integer(0,24),turns:integer(0,960)}),2)});
 const identityProperties={
  project:object({id:{...str(128),pattern:'^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$'},name:str(200)}),
  repository:object({key:{...str(128),pattern:'^[a-zA-Z0-9_-]+$'},name:str(100),head:{...str(64,40),pattern:'^(?:[a-f0-9]{40}|[a-f0-9]{64})$'},branch:nullable(str(200)),dirty:{type:'boolean'}}),
@@ -140,7 +142,10 @@ function checkMap(value,path){
  for(const [i,row] of value.intentions.entries())if(row.area!==null&&!known.has(row.area))invalid(`${path}intentions.${i}.area`);
 }
 function checkIntentionDates(value,path){
- for(const [i,row] of value.intentions.entries())if(!validDate(row.date))invalid(`${path}intentions.${i}.date`);
+ for(const [i,row] of value.intentions.entries()){
+  if(!validDate(row.date))invalid(`${path}intentions.${i}.date`);
+  if(Object.hasOwn(row,'cloudProvider')&&row.source!=='cloud')invalid(`${path}intentions.${i}.cloudProvider`);
+ }
 }
 /** Validates what the model returned (version 2); the companion adds identity and evidence around it. */
 export function validateBriefingContent(value){
@@ -168,6 +173,12 @@ export function validateBriefingEvidence(value){
  const turns=value.ownerTurns;
  for(const time of [turns.earliestAt,turns.latestAt])if(time!==null&&!validTime(time))invalid('evidence owner turns');
  if(turns.turns===0?(turns.sessions!==0||turns.characters!==0||turns.earliestAt!==null||turns.latestAt!==null):(turns.sessions===0||turns.characters===0||turns.latestAt===null||turns.earliestAt===null||Date.parse(turns.latestAt)<Date.parse(turns.earliestAt)))invalid('evidence owner turns');
+ if(value.cloudTurns!==undefined){
+  const cloud=value.cloudTurns;
+  if(cloud.length!==2||new Set(cloud.map(row=>row.provider)).size!==2)invalid('evidence cloud turns providers');
+  for(const row of cloud)if(row.status==='included'?(row.sessions===0||row.turns<row.sessions):(row.sessions!==0||row.turns!==0))invalid('evidence cloud turns coverage');
+  if(cloud.reduce((sum,row)=>sum+row.sessions,0)>turns.sessions||cloud.reduce((sum,row)=>sum+row.turns,0)>turns.turns)invalid('evidence cloud turns totals');
+ }
  if(value.previous!==null&&(!validTime(value.previous.until)||Date.parse(value.previous.until)>Date.parse(value.window.until)))invalid('evidence previous');
  return clone(value);
 }

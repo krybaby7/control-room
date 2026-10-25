@@ -9,6 +9,7 @@ import {promisify} from 'node:util';
 import {repositoryIdentity,digest,forbiddenPath,snapshotRepository} from './snapshot.mjs';
 import {readCodexChatContext} from './codex-chat-context.mjs';
 import {chatTextHasSecret,redactChatText} from './chat-context.mjs';
+import {readCloudOwnerTurns,CLOUD_OWNER_LIMITS} from './cloud-owner-turns.mjs';
 const exec=promisify(execFile);
 export const EVIDENCE_LIMITS=Object.freeze({days:14,branches:24,commitsPerBranch:10,commits:160,pullRequests:25,sessionsPerProvider:5,messagesPerSession:10,charactersPerMessage:1200,charactersPerSession:2800,chatCharacters:16000,ownerSessions:24,readMessages:60,ownerTurnsPerSession:40,charactersPerTurn:700,ownerCharacters:28000,uncommittedPaths:40,bundleBytes:160000,fetchMs:60000,ghMs:20000});
 const secretText=/(?:-----BEGIN .*PRIVATE KEY-----|\b(?:api[_-]?key|access[_-]?token|refresh[_-]?token|password|client[_-]?secret)\s*[=:]\s*["']?[^\s"']{8,}|\b(?:sk-|ghp_|github_pat_|xox[baprs]-)[A-Za-z0-9_-]{8,}|Bearer\s+[A-Za-z0-9._-]{12,}|\bAKIA[0-9A-Z]{16}\b)/i;
@@ -41,6 +42,7 @@ async function readPullRequests(remote,signal,{ghMs=EVIDENCE_LIMITS.ghMs}={}){
  }catch{return null;}
 }
 const omission='[… omitted …]';
+const cloudProviders=Object.freeze(['claude-cloud','codex-cloud']);
 function shorten(text,limit){if(text.length<=limit)return text;const available=limit-omission.length,head=Math.ceil(available/2);return text.slice(0,head)+omission+text.slice(-(available-head));}
 /** Whole messages that look like credentials are dropped; local paths are redacted. */
 export function sanitizeSessions(raw,provider){
@@ -67,16 +69,21 @@ export function ownerTurnsFrom(raw,provider){
  const kept=[];
  for(const session of sessions.slice(0,EVIDENCE_LIMITS.ownerSessions)){
   const latestAt=typeof session.latestAt==='string'&&Number.isFinite(Date.parse(session.latestAt))?new Date(session.latestAt).toISOString():null;
-  const turns=[];let truncated=!!session.truncated;
+  const turns=[],turnTimestamps=[];let truncated=!!session.truncated;
   for(const row of (Array.isArray(session.messages)?session.messages:[])){
    if(row?.role!=='user'||typeof row.text!=='string')continue;
    if(Buffer.byteLength(row.text)>65536||chatTextHasSecret(row.text)){truncated=true;continue;}
    const text=shorten(redactChatText(row.text).trim(),EVIDENCE_LIMITS.charactersPerTurn);if(!text){truncated=true;continue;}
-   if(text!==row.text)truncated=true;turns.push(text);
+   if(text!==row.text)truncated=true;turns.push(text);turnTimestamps.push(typeof row.timestamp==='string'&&Number.isFinite(Date.parse(row.timestamp))?new Date(row.timestamp).toISOString():null);
   }
   if(!turns.length)continue;
-  if(turns.length>EVIDENCE_LIMITS.ownerTurnsPerSession){truncated=true;turns.splice(0,turns.length-EVIDENCE_LIMITS.ownerTurnsPerSession);}
-  kept.push({provider,latestAt,turns,truncated});
+  if(turns.length>EVIDENCE_LIMITS.ownerTurnsPerSession){truncated=true;const excess=turns.length-EVIDENCE_LIMITS.ownerTurnsPerSession;turns.splice(0,excess);turnTimestamps.splice(0,excess);}
+  const metadata={};
+  if(cloudProviders.includes(provider)){
+   metadata.source='cloud';metadata.origin='repository-handoff';metadata.turnTimestamps=turnTimestamps;
+   for(const [key,limit] of [['sessionId',128],['title',200]])if(typeof session[key]==='string'&&!chatTextHasSecret(session[key])){const value=clean(redactChatText(session[key]),limit);if(value)metadata[key]=value;}
+  }
+  kept.push({provider,latestAt,turns,truncated,...metadata});
  }
  return kept;
 }
@@ -90,25 +97,30 @@ export function selectOwnerSessions(sessions,{previousUntil=null,budget=EVIDENCE
  const picked=[];let used=0;
  for(const session of ordered){
   if(picked.length>=EVIDENCE_LIMITS.ownerSessions)break;
-  const turns=[...session.turns];let truncated=session.truncated;
-  while(turns.length&&used+turns.reduce((sum,text)=>sum+text.length,0)>budget){turns.shift();truncated=true;}
+  const turns=[...session.turns],turnTimestamps=session.turnTimestamps?[...session.turnTimestamps]:null;let truncated=session.truncated;
+  while(turns.length&&used+turns.reduce((sum,text)=>sum+text.length,0)>budget){turns.shift();turnTimestamps?.shift();truncated=true;}
   if(!turns.length)break;
   used+=turns.reduce((sum,text)=>sum+text.length,0);
-  picked.push({provider:session.provider,latestAt:session.latestAt,turns,truncated,sinceLastBriefing:since!==null&&at(session)>since});
+  picked.push({...session,turns,...(turnTimestamps?{turnTimestamps}:{}),truncated,sinceLastBriefing:since!==null&&at(session)>since});
  }
  const stamps=picked.map(row=>row.latestAt).filter(Boolean).sort();
  const summary={sessions:picked.length,turns:picked.reduce((sum,row)=>sum+row.turns.length,0),characters:used,earliestAt:stamps[0]??null,latestAt:stamps.at(-1)??null};
  return {sessions:picked,summary};
 }
-async function readChats(root,{signal,codexHome,claudeHome,previousUntil=null}){
+async function readChats(root,{signal,codexHome,claudeHome,previousUntil=null,refs=[]}){
  const codex=await readCodexChatContext({repositoryRoot:root,signal,configRoot:codexHome,maxSessions:EVIDENCE_LIMITS.ownerSessions,maxMessages:EVIDENCE_LIMITS.readMessages}).catch(()=>{signal?.throwIfAborted();return {provider:'codex',status:'unavailable',messages:[]};});
  const claude=await import('./claude-chat-context.mjs').then(m=>m.readClaudeChatContext({repositoryRoot:root,signal,configRoot:claudeHome,maxSessions:EVIDENCE_LIMITS.ownerSessions,maxMessages:EVIDENCE_LIMITS.readMessages})).catch(()=>{signal?.throwIfAborted();return {provider:'claude',status:'unavailable',messages:[]};});
+ const cloud=await readCloudOwnerTurns({repositoryRoot:root,signal,refs:refs.slice(0,CLOUD_OWNER_LIMITS.refs)}).catch(()=>{signal?.throwIfAborted();return {status:'unavailable',sessions:[]};});
  const clean=[sanitizeSessions(codex,'codex'),sanitizeSessions(claude,'claude')];
  let characters=clean.reduce((sum,row)=>sum+row.characters,0);
  // Trim the oldest sessions first until the chat budget holds.
  while(characters>EVIDENCE_LIMITS.chatCharacters){const longest=clean.filter(row=>row.sessions.length).sort((a,b)=>b.sessions.length-a.sessions.length)[0];if(!longest)break;const dropped=longest.sessions.pop();longest.summary.sessions=longest.sessions.length;longest.summary.messages-=dropped.messages.length;longest.characters-=dropped.messages.reduce((sum,row)=>sum+row.text.length,0);if(!longest.sessions.length)longest.summary.status='unavailable';characters=clean.reduce((sum,row)=>sum+row.characters,0);}
- const owner=selectOwnerSessions([...ownerTurnsFrom(codex,'codex'),...ownerTurnsFrom(claude,'claude')],{previousUntil});
- return {chats:clean,owner};
+ const cloudSessions=cloudProviders.flatMap(provider=>ownerTurnsFrom({...cloud,sessions:cloud.sessions.filter(row=>row.provider===provider)},provider));
+ const owner=selectOwnerSessions([...ownerTurnsFrom(codex,'codex'),...ownerTurnsFrom(claude,'claude'),...cloudSessions.slice(0,CLOUD_OWNER_LIMITS.sessions)],{previousUntil});
+ // Only sanitized cloud content participates in this local digest. It is independent of
+ // the previous ledger and final pack trimming, so a new safe turn triggers refresh.
+ const cloudOwnerSha256=digest(JSON.stringify({status:cloud.status,truncated:cloud.truncated===true,sessions:cloudSessions}));
+ return {chats:clean,owner,cloud,cloudOwnerSha256};
 }
 /** Collect the evidence pack. `fetchRemote=false` skips the network read (stale remote refs are still used). */
 export async function collectBriefingEvidence(root,{signal,now=()=>new Date().toISOString(),days=EVIDENCE_LIMITS.days,fetchRemote=true,codexHome,claudeHome,pullRequests=readPullRequests,previous=null}={}){
@@ -127,20 +139,24 @@ export async function collectBriefingEvidence(root,{signal,now=()=>new Date().to
  const localBranches=await describe(locals,'local'),cloudBranches=await describe(remotes,'cloud');
  const uncommitted=await readUncommitted(identity.root,signal);
  const prs=remote&&/^github\.com\//.test(remote)?await pullRequests(remote,signal):null;
- const {chats,owner}=await readChats(identity.root,{signal,codexHome,claudeHome,previousUntil:previous?.until??null});
+ const {chats,owner,cloud,cloudOwnerSha256}=await readChats(identity.root,{signal,codexHome,claudeHome,previousUntil:previous?.until??null,refs:remotes.map(ref=>ref.sha)});
  const latest=rows=>rows.map(row=>row.lastCommitAt).filter(Boolean).sort().at(-1)??null;
  const bundle={repository:{name:identity.name,branch,head:identity.head,dirty:identity.dirty,defaultBranch:base,remote,cloudStatus,fetchError},window:{since,until},localBranches,cloudBranches,uncommitted,pullRequests:prs,chats:chats.map(row=>({provider:row.summary.provider,status:row.summary.status,sessions:row.sessions})),ownerTurns:owner.sessions,previous};
- while(Buffer.byteLength(JSON.stringify(bundle))>EVIDENCE_LIMITS.bundleBytes){const longest=[...bundle.localBranches,...bundle.cloudBranches].sort((a,b)=>b.commits.length-a.commits.length)[0];if(longest?.commits.length)longest.commits.pop();else{const chat=bundle.chats.find(row=>row.sessions.length);if(chat)chat.sessions.pop();else if(bundle.ownerTurns.length){const dropped=bundle.ownerTurns.pop();owner.summary.sessions=bundle.ownerTurns.length;owner.summary.turns-=dropped.turns.length;owner.summary.characters-=dropped.turns.reduce((sum,text)=>sum+text.length,0);const stamps=bundle.ownerTurns.map(row=>row.latestAt).filter(Boolean).sort();owner.summary.earliestAt=stamps[0]??null;owner.summary.latestAt=stamps.at(-1)??null;}else break;}}
- const summary={window:{since,until},local:{branch,commits:localBranches.reduce((sum,row)=>sum+row.commits.length,0),branches:localBranches.length,latestCommitAt:latest(localBranches),uncommittedFiles:uncommitted.files},cloud:{status:cloudStatus,remote,branches:cloudBranches.length,commits:cloudBranches.reduce((sum,row)=>sum+row.commits.length,0),latestCommitAt:latest(cloudBranches),pullRequests:prs?prs.length:null,openPullRequests:prs?prs.filter(row=>row.state==='open').length:null,fetchedAt},chats:chats.map(row=>row.summary),plan:null,ownerTurns:owner.summary,previous:previous?{runId:previous.runId,until:previous.until,intentions:previous.intentions.length}:null,inputSha256:digest(JSON.stringify(bundle))};
- return {identity,branch,bundle,summary,fingerprint:workFingerprint({head:identity.head,uncommitted,locals,remotes,chats:chats.map(row=>row.summary.latestAt)})};
+ while(Buffer.byteLength(JSON.stringify(bundle))>EVIDENCE_LIMITS.bundleBytes){const longest=[...bundle.localBranches,...bundle.cloudBranches].sort((a,b)=>b.commits.length-a.commits.length)[0];if(longest?.commits.length)longest.commits.pop();else{const chat=bundle.chats.filter(row=>row.sessions.length).sort((a,b)=>Date.parse(a.sessions.at(-1).latestAt??0)-Date.parse(b.sessions.at(-1).latestAt??0))[0];if(chat)chat.sessions.pop();else if(bundle.ownerTurns.length)bundle.ownerTurns.pop();else throw new Error('Briefing evidence exceeds the finite bundle bound.');}}
+ // Coverage describes the final retained pack, including any byte-budget omissions.
+ const ownerSummary=selectOwnerSessions(bundle.ownerTurns,{previousUntil:previous?.until??null}).summary;
+ const chatSummaries=bundle.chats.map(row=>({provider:row.provider,status:row.sessions.length?'included':row.status==='not-found'?'not-found':'unavailable',sessions:row.sessions.length,messages:row.sessions.reduce((sum,session)=>sum+session.messages.length,0),latestAt:row.sessions[0]?.latestAt??null}));
+ const cloudTurns=cloudProviders.map(provider=>{const retained=bundle.ownerTurns.filter(row=>row.provider===provider),available=cloud.sessions.some(row=>row.provider===provider);return {provider,status:retained.length?'included':cloud.status==='unavailable'||cloud.truncated||available?'unavailable':'not-found',sessions:retained.length,turns:retained.reduce((sum,row)=>sum+row.turns.length,0)};});
+ const summary={window:{since,until},local:{branch,commits:localBranches.reduce((sum,row)=>sum+row.commits.length,0),branches:localBranches.length,latestCommitAt:latest(localBranches),uncommittedFiles:uncommitted.files},cloud:{status:cloudStatus,remote,branches:cloudBranches.length,commits:cloudBranches.reduce((sum,row)=>sum+row.commits.length,0),latestCommitAt:latest(cloudBranches),pullRequests:prs?prs.length:null,openPullRequests:prs?prs.filter(row=>row.state==='open').length:null,fetchedAt},chats:chatSummaries,cloudTurns,plan:null,ownerTurns:ownerSummary,previous:previous?{runId:previous.runId,until:previous.until,intentions:previous.intentions.length}:null,inputSha256:digest(JSON.stringify(bundle))};
+ return {identity,branch,bundle,summary,fingerprint:workFingerprint({head:identity.head,uncommitted,locals,remotes,chats:chats.map(row=>row.summary.latestAt),cloudOwnerSha256})};
 }
-function workFingerprint({head,uncommitted,locals,remotes,chats}){return digest(JSON.stringify({head,uncommitted:uncommitted.paths,contentFingerprint:uncommitted.contentFingerprint??null,locals:locals.map(ref=>[ref.name,ref.sha]),remotes:remotes.map(ref=>[ref.name,ref.sha]),chats}));}
+function workFingerprint({head,uncommitted,locals,remotes,chats,cloudOwnerSha256}){return digest(JSON.stringify({head,uncommitted:uncommitted.paths,contentFingerprint:uncommitted.contentFingerprint??null,locals:locals.map(ref=>[ref.name,ref.sha]),remotes:remotes.map(ref=>[ref.name,ref.sha]),chats,cloudOwnerSha256}));}
 /** Bounded change detector: heads, safe source content, remote refs and chat recency. */
 export async function computeWorkFingerprint(root,{signal,fetchRemote=true,codexHome,claudeHome}={}){
  signal?.throwIfAborted();const identity=await repositoryIdentity(root,{signal});
  const remoteUrl=(await git(identity.root,['config','--local','--get','remote.origin.url'],{signal}).catch(()=>'')).trim(),remote=remoteIdentity(remoteUrl);
  if(remote&&fetchRemote)await git(identity.root,['fetch','--prune','--no-recurse-submodules','--quiet','origin'],{signal,timeout:EVIDENCE_LIMITS.fetchMs,network:true}).catch(error=>{if(signal?.aborted)throw error;});
- const locals=await readRefs(identity.root,'refs/heads',signal),remotes=remote?await readRefs(identity.root,'refs/remotes/origin',signal):[];
- const uncommitted=await readUncommitted(identity.root,signal),{chats}=await readChats(identity.root,{signal,codexHome,claudeHome});
- return workFingerprint({head:identity.head,uncommitted,locals,remotes,chats:chats.map(row=>row.summary.latestAt)});
+ const locals=(await readRefs(identity.root,'refs/heads',signal)).slice(0,EVIDENCE_LIMITS.branches),remotes=remote?(await readRefs(identity.root,'refs/remotes/origin',signal)).slice(0,EVIDENCE_LIMITS.branches):[];
+ const uncommitted=await readUncommitted(identity.root,signal),{chats,cloudOwnerSha256}=await readChats(identity.root,{signal,codexHome,claudeHome,refs:remotes.map(ref=>ref.sha)});
+ return workFingerprint({head:identity.head,uncommitted,locals,remotes,chats:chats.map(row=>row.summary.latestAt),cloudOwnerSha256});
 }
