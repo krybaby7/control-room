@@ -1,4 +1,14 @@
 {
+  "cloudChatIntentions": {
+    "date": "2026-10-25",
+    "status": "synthetic_verified_source_committed_trade_graph_export_unavailable_and_owner_yes_pending",
+    "branch": "feat/cloud-chat-intentions",
+    "baseCommit": "3c2b94f298a57c5fe5a2a939417348cf8e009963",
+    "checks": {"companionPassed": 133, "briefingAppPassed": 50, "typecheck": "passed", "lint": "zero errors, 17 existing warnings", "build": "passed"},
+    "directCloudTranscriptReaders": "No complete documented noninteractive read-only subscription route found for either installed CLI; both use repository handoffs",
+    "verification": "docs/superpowers/verification/2026-10-25-cloud-chat-intentions.md",
+    "publication": "authorized follow-up; existing private Site only; pending handoff export and approval; no merge"
+  },
   "briefingFolderSelection": {
     "date": "2026-10-24",
     "status": "focused_verified_pending_private_publication_and_requested_retry",

@@ -1,0 +1,57 @@
+# Cloud chat intentions verification — 2026-10-25
+
+Cloud owner messages now enter the intention ledger through repository handoffs. Implementation and synthetic verification are complete. **Real Trade Graph acceptance is blocked on access to the owner's 23-session export and approval of the exact handoff files.** This is not a live release or a verified real cloud briefing.
+
+Started at `3c2b94f298a57c5fe5a2a939417348cf8e009963` on `claude/wizardly-hawking-4ez6q8`. Created and pushed `feat/cloud-chat-intentions` before implementation. A fresh checkout preserves the pre-existing folder's uncommitted work.
+
+## What changed
+
+- **Reader and convention**: `companion/cloud-owner-turns.mjs` reads the checkout and fetched origin branch objects under `planning/handoffs/owner-turns/`. Sessions retain provider, title, individual timestamps and `origin: repository-handoff`. Newer copies replace older versions of the same session; identical branch blobs are read once. Root `AGENTS.md` and [the format/privacy convention](../../operations/cloud-owner-turns.md) tell cloud agents to record original messages as the session progresses and commit them with the work.
+- **Bounds and safety**: 24 fetched refs, 256 inventory entries per source, 64 content files, 65,536 bytes per file, 524,288 total content bytes, 24 cloud sessions and a 20-second reader deadline. Inventoried filenames use latest-turn dates, newest first, before content budgets. File/link/ancestry/stability checks and the snapshot forbidden-path rule apply. Git object reads disable hooks, fsmonitor, lazy fetch, replacement objects, network protocols and inherited credential helpers. The reader fetches nothing, executes no repository content and uses no cloud credentials.
+- **Privacy**: every cloud turn passes `chatTextHasSecret` and `redactChatText` in the reader and again in the existing owner-turn pack path. Credentials drop the whole turn; local paths are redacted. Titles and session identifiers are checked. Only synthetic messages/credentials are in the fixtures. The convention refuses private/secret-bearing messages rather than publishing redacted reconstructions as verbatim.
+- **Evidence**: `claude-cloud` and `codex-cloud` sessions join local turns through `ownerTurnsFrom` / `selectOwnerSessions`, using the existing character limits, newest-first order and previous-briefing horizon. Per-turn timestamps stay aligned through filtering/trimming. Per-provider counts describe the final retained pack. Rejected/bounded evidence cannot establish definitive absence. The pack stays within 160,000 bytes; the prompt stays within 240,000 bytes. Change detection includes only the sanitized cloud session digest, so safe edits in a mixed credential/safe file remain detectable; rejected credential-only edits do not affect that digest. Collector/detector use the same bounded ref window. The previous ledger does not affect the fingerprint.
+- **Contract and runner**: version 2 gains optional `evidence.cloudTurns` provider/status/session/turn coverage and optional intention `cloudProvider`. Existing version 2 reports round-trip unchanged; version 1 projects as before. Provider labels on non-cloud intentions and inconsistent counts are rejected. A new cloud intention requires retained cloud owner turns for that provider, or an exact previous cloud ledger row. A carried legacy row without an assistant label gets an explicit limitation.
+- **Prompt/card/package**: cloud owner messages use source `cloud`; commit/PR-only evidence uses `repository`. Handoffs are lower-weight agent-recorded claims than transcript reads and never become instructions. The card names Claude Code cloud or Codex cloud in “Said in …”; the basis fold reports per-assistant sessions/turns or explicit unavailability. Old reports say cloud coverage was not recorded. The companion archive includes the reader.
+
+The implementation introduces no database migration, paid inference activation or trading effect. On 25 October the owner additionally authorized publication to the existing private Site and replacement of the companion from the published package. No merge is authorized. Publication and real acceptance remain separate from the synthetic checks below.
+
+## Supported direct read route audit
+
+Read-only version/help commands identified **Claude Code 2.1.302** and **Codex CLI 0.125.0**. No complete documented route was found for noninteractive, read-only repository cloud-session discovery plus original user-message retrieval using the existing subscription sign-in. No direct transcript reader was invented.
+
+| Assistant | Documented capability found | Implemented route |
+|---|---|---|
+| Claude Code | Teleport resumes history while fetching/checking out the cloud branch. No suitable cloud transcript list/read command was found. | Repository handoff |
+| Codex | Cloud list returns task metadata/summaries with environment filtering and pagination; no original user-message transcript or repository filter is documented. | Repository handoff |
+
+Primary sources checked on 25 October: [OpenAI CLI cloud reference](https://learn.chatgpt.com/docs/developer-commands?surface=cli#codex-cloud), [Claude CLI reference](https://code.claude.com/docs/en/cli-reference), [Claude cloud/teleport reference](https://code.claude.com/docs/en/claude-code-on-the-web). This is a documented-capability finding, not a claim about private or future APIs. No scraping, browser automation, undocumented cache/private endpoint, token export, account-session listing or sign-in change was used. Existing local readers keep their existing scope.
+
+## Automated checks (Windows PC, Node 24.14.1, npm 11.11.0)
+
+- `npm run install:ci`: passed; `package-lock.json` unchanged.
+- `npm run test:companion`: **133 passed, 0 failed, 0 skipped**, final integrator run 46.6 seconds. Native supervisor cases use finite Windows fixtures, not a real model call.
+- Reader subset: **12 passed**. Synthetic Git repositories cover uncommitted/local and fetched cloud-only files without checkout, session versions/deduplication, exact fences/whitespace, timestamps, secret/path filtering, malformed/unknown providers, file/session/ref/content bounds, newer cloud files before old checkout saturation, absence, cancellation, hardlinks, junctions and Git symlink objects. Windows denied local file-symlink creation (`EPERM`); that exact case was not exercised, and the test emits a diagnostic.
+- Evidence/prompt/runner fixtures prove an actual synthetic cloud-only handoff reaches the pack and prompt with source `cloud`. A separate injected model stub returns a validated cloud intention/assistant label in one invocation. Fixtures cover prior-horizon ordering, aligned timestamps, excluded-provider status, character/UTF-8 byte trimming, retained counts, missing-source rejection, legacy carry-forward, safe mixed-credential edits, credential-only digest stability and the matching 24-ref detector window. These are synthetic proofs, not inference.
+- Briefing-related app tests: **50 passed, 0 failed**, via `node --experimental-strip-types --test` on all `tests/*.test.ts` files containing “briefing”, case-insensitively. Includes contract compatibility, persistence/refresh, dashboard model/feed, actual React card/basis rendering, request capacity and related presentation checks. No real owner-card screenshot is claimed.
+- `npm run typecheck`: passed. `npm run lint`: **0 errors, 17 existing warnings**. `npm run build`: passed, including the **32-file**, 227,488-byte companion archive, SHA-256 `6fda68713946fc1c88c14ca3abedb18505264b630a8afd723621193ebd94cf6f`.
+- `git diff --check` passed. Changed source/documents and deliberately fake credential fixtures were reviewed before staging/push. No real secret, owner transcript or runtime state is included; heuristic scanning cannot prove recognition of every secret format.
+
+## Independent review
+
+Explicit runtime `model: gpt-6.1-sol` requests were accepted for `/root/cloud_route_audit`, `/root/handoff_reader`, `/root/evidence_prompt` and `/root/cloud_intentions_review`. The integrator owned shared contract/dashboard work. One review turn hit capacity, then resumed successfully on the same model; no substitution occurred. Spec review preceded quality review. Verified fixes addressed newest fetched-file priority and an excluded provider incorrectly reported absent. Runtime provenance enforcement and the sanitized fingerprint correction received follow-up review. Worker checks do not replace integrator checks.
+
+## Not verified / owner follow-up
+
+- **Git identity resolved.** The owner supplied an exact repository-only author identity, now configured locally. The reader/convention and integration/card changes are separate reviewable commits; application code is at `5111d4a403a2e92d7273b10979be33b90188eac9`. GitHub push and draft PR creation follow the verification/checkpoint commit.
+- **Trade Graph export is not accessible yet.** The owner identifies `trade-graph-owner-turns.md` as containing their verbatim messages from 23 Claude Code cloud sessions, including UTC times, session identifiers, titles and partial-coverage notes. No attachment resource was delivered in the task, and the named file was not found in Downloads, Documents or the usual task/temp directories. The owner was asked for its local path. No summary or older intention ledger may substitute for the original text. No command has touched Trade Graph. The required file-list/example review and explicit yes are still pending.
+- Once originals are available: announce every command touching Trade Graph, prepare/show the exact public-safe handoff, wait for the owner's explicit yes before committing there, then run one real subscription-backed briefing with this build and inspect the card for cloud intention/coverage. Stop on private/secret-bearing messages rather than publish them or mislabel redacted text. Keep real prompt/report artifacts private, outside this public repository.
+- No real briefing model call was run; actual CLI acceptance of the optional structured-output field remains unverified. Stubs do not prove it. No installed companion was replaced, hosted Site changed or production report saved. Real card acceptance remains outstanding.
+- The full unrelated app suite, Linux packaging job, hosted reload/device acceptance and cloud-history completeness were not run/claimed. Finite discovery can omit history; handoffs remain agent-recorded claims.
+
+## Future cloud sessions
+
+Control Room agents now receive the handoff instruction from `AGENTS.md`. At session start, tell the assistant: **“Read AGENTS.md and record my original messages with timestamps in the owner-turn handoff; commit it with your work.”** Other repositories need the convention in their own AGENTS.md. Missing historical messages cannot be recovered retroactively. Both current assistants rely on handoffs; neither has a direct transcript reader here. A different assistant needs an explicit truthful provider-label extension rather than impersonating Claude or Codex.
+
+## Resumed handoff — 25 October
+
+The unchanged application source passed a fresh 12-reader-test run, 50 briefing app tests and six prompt/runner tests before committing. Independent follow-up review passed six runtime provenance/fingerprint cases with no remaining actionable finding. Existing private Site metadata still reports version23, owner access, one allowed user, no allowed groups and no external visitors. No publication has occurred in this resumed step.

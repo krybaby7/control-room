@@ -1,5 +1,9 @@
 # Control Room Audit Gap Coverage
 
+## Cloud owner intentions — 2026-10-25
+
+Bounded handoffs now supply cloud owner messages from the checkout and fetched branches to the intention ledger with assistant labels and explicit coverage. Neither installed CLI offers a documented complete noninteractive read-only transcript route. Companion 133/133, briefing app 50/50, typecheck, lint and build pass on Node 24 Windows. The original Trade Graph cloud messages and the owner's yes for its exact handoff remain required before real briefing/card acceptance. No Trade Graph command, installation or publication is claimed. See [verification](../../verification/2026-10-25-cloud-chat-intentions.md).
+
 ## Explicit briefing folder selection — 2026-10-24
 
 Unmapped projects previously inherited the PC's sole registered folder, regardless of which project it belonged to. The fallback is removed; project-linked briefing, policy and local-analysis defaults remain. An explicit folder choice is required for unmapped projects, and the UI can now enable the request after selection. Thirty-six focused checks and independent review cover this change. Private publication and the owner-requested retry are tracked in [the folder-selection record](../2026-10-24-briefing-folder-selection.md).
