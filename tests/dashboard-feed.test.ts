@@ -1,3 +1,4 @@
+import {personalConnectorViewSchema} from '../lib/dashboard/contracts.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {canonical,contentHash} from '../lib/canonical-json.ts';
@@ -7,6 +8,13 @@ import {dashboardFixture,NOW} from './fixtures/dashboard.ts';
 
 class FakeClock {now=0;timers:{id:number;at:number;callback:()=>void}[]=[];private seq=0;set=(callback:()=>void,ms:number)=>{const id=++this.seq;this.timers.push({id,at:this.now+ms,callback});return id;};clear=(handle:unknown)=>{this.timers=this.timers.filter(timer=>timer.id!==handle);};async advance(ms:number){this.now+=ms;for(;;){const due=this.timers.filter(timer=>timer.at<=this.now).sort((a,b)=>a.at-b.at)[0];if(!due)break;this.timers=this.timers.filter(timer=>timer!==due);due.callback();await new Promise(resolve=>setImmediate(resolve));await new Promise(resolve=>setImmediate(resolve));}}next(){return this.timers.length?Math.min(...this.timers.map(timer=>timer.at))-this.now:null;}}
 async function flush(){for(let i=0;i<4;i++)await new Promise(resolve=>setImmediate(resolve));}
+
+test('the owner view still parses when the PC record holds more finished requests than the queue admits',async()=>{
+ const fixture=await dashboardFixture();const base=fixture.connector!;
+ const jobs=Array.from({length:22},(_,i)=>({id:'00000000-0000-4000-8000-'+String(i).padStart(12,'0'),kind:'browse' as const,status:'failed' as const,createdAt:NOW,expiresAt:NOW,claimedAt:null,error:'folder_unavailable'}));
+ const parsed=personalConnectorViewSchema.parse({...base,jobs});assert.equal(parsed.jobs.length,22);
+ assert.throws(()=>personalConnectorViewSchema.parse({...base,jobs:Array.from({length:81},(_,i)=>({...jobs[0],id:'00000000-0000-4000-8000-'+String(i).padStart(12,'0')}))}));
+});
 
 test('scheduler reads slow feeds first, then paces fast while agents work and slow otherwise',async()=>{
  const clock=new FakeClock(),reads:boolean[]=[];
