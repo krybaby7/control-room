@@ -2,7 +2,7 @@
 
 ## Cloud owner intentions — 2026-10-25
 
-Bounded handoffs now supply cloud owner messages from the checkout and fetched branches to the intention ledger with assistant labels and explicit coverage. Neither installed CLI offers a documented complete noninteractive read-only transcript route. Companion144/144, the existing briefing app50/50 and fresh typecheck/lint pass on Node24 Windows. All23 Trade Graph handoffs and the pinned source are prepared with129 available owner turns and preserved partial notes; the owner's yes is required before commit/push. A new pushed-source build, publication, installation and real briefing/card acceptance remain pending. See [verification](../../verification/2026-10-25-cloud-chat-intentions.md).
+Bounded handoffs now supply cloud owner messages from the checkout and fetched branches to the intention ledger with assistant labels and explicit coverage. Neither installed CLI offers a documented complete noninteractive read-only transcript route. Companion 144/144, briefing app 50/50 and fresh typecheck/lint pass on Node 24 Windows. The owner-approved 23 Trade Graph handoffs and pinned source are committed and pushed on its existing non-main branch. A fresh build from pushed commit `112c0b7` is published as private Site version 24. The browser blocked downloading its companion ZIP; installation and real briefing/card acceptance remain pending. Version 23 and the recovery ZIP are retained. See [verification](../../verification/2026-10-25-cloud-chat-intentions.md).
 
 ## Explicit briefing folder selection — 2026-10-24
 

@@ -1,14 +1,16 @@
 {
   "cloudChatIntentions": {
     "date": "2026-10-25",
-    "status": "handoff_23_files_and_source_prepared_owner_yes_pending_draft_pr_7_release_pending",
+    "status": "handoff_committed_pushed_private_site_v24_companion_download_blocked_real_acceptance_pending",
     "branch": "feat/cloud-chat-intentions",
     "baseCommit": "3c2b94f298a57c5fe5a2a939417348cf8e009963",
-    "checks": {"companionPassed": 144, "briefingAppPassed": 50, "typecheck": "passed", "lint": "zero errors, 17 existing warnings", "build": "initial implementation passed; extension requires pushed-source release build"},
+    "checks": {"companionPassed": 144, "briefingAppPassed": 50, "typecheck": "passed", "lint": "zero errors, 17 existing warnings", "build": "fresh pushed-source Sites helper build passed; 32-file companion, 231563 bytes"},
     "sourceHeadingAudit": {"levelThreeHeadings": 146, "datedOwnerEntriesRetained": 129, "internalSubheadingsRetained": 14, "assistantFinalsExcludedFromOwnerTurns": 3, "ownerEntriesRemoved": 0, "sessionCoverageNotes": 2},
     "directCloudTranscriptReaders": "No complete documented noninteractive read-only subscription route found for either installed CLI; both use repository handoffs",
     "verification": "docs/superpowers/verification/2026-10-25-cloud-chat-intentions.md",
-    "publication": "authorized follow-up; existing private Site only; pending handoff approval; no merge"
+    "publication": "private Site version 24 deployed successfully from 112c0b71fb083d3addd5c09f448e6b51a4f0c043; version 23 and recovery ZIP retained; no merge",
+    "tradeGraphHandoffCommit": "c9d3bcaec3b3879495b5dae4dba6784d0fa42d93",
+    "remaining": "browser blocked published companion ZIP download; owner download requested; existing companion remains running; updated companion and real Claude cloud card/count unverified"
   },
   "briefingFolderSelection": {
     "date": "2026-10-24",
