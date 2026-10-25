@@ -11,7 +11,7 @@ import {readCodexChatContext} from './codex-chat-context.mjs';
 import {chatTextHasSecret,redactChatText} from './chat-context.mjs';
 import {readCloudOwnerTurns,CLOUD_OWNER_LIMITS} from './cloud-owner-turns.mjs';
 const exec=promisify(execFile);
-export const EVIDENCE_LIMITS=Object.freeze({days:14,branches:24,commitsPerBranch:10,commits:160,pullRequests:25,sessionsPerProvider:5,messagesPerSession:10,charactersPerMessage:1200,charactersPerSession:2800,chatCharacters:16000,ownerSessions:24,readMessages:60,ownerTurnsPerSession:40,charactersPerTurn:700,ownerCharacters:28000,uncommittedPaths:40,bundleBytes:160000,fetchMs:60000,ghMs:20000});
+export const EVIDENCE_LIMITS=Object.freeze({days:14,branches:24,commitsPerBranch:10,commits:160,pullRequests:25,sessionsPerProvider:5,messagesPerSession:10,charactersPerMessage:1200,charactersPerSession:2800,chatCharacters:16000,ownerSessions:24,readMessages:60,ownerTurnsPerSession:40,charactersPerTurn:700,ownerCharacters:28000,coverageNotesCharacters:6000,coverageOnlySessions:4,uncommittedPaths:40,bundleBytes:160000,fetchMs:60000,ghMs:20000});
 const secretText=/(?:-----BEGIN .*PRIVATE KEY-----|\b(?:api[_-]?key|access[_-]?token|refresh[_-]?token|password|client[_-]?secret)\s*[=:]\s*["']?[^\s"']{8,}|\b(?:sk-|ghp_|github_pat_|xox[baprs]-)[A-Za-z0-9_-]{8,}|Bearer\s+[A-Za-z0-9._-]{12,}|\bAKIA[0-9A-Z]{16}\b)/i;
 const clean=(text,max)=>{const value=String(text??'').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/gu,'').trim();if(secretText.test(value))return '[filtered]';return value.length>max?value.slice(0,max-1)+'…':value;};
 function gitEnvironment(network){const env={};for(const key of ['SystemRoot','WINDIR','COMSPEC','PATH','PATHEXT','TEMP','TMP','USERPROFILE','HOME','LOCALAPPDATA','APPDATA','SSH_AUTH_SOCK'])if(process.env[key])env[key]=process.env[key];
@@ -62,6 +62,13 @@ export function sanitizeSessions(raw,provider){
  const status=kept.length?'included':raw?.status==='not-found'?'not-found':'unavailable';
  return {summary:{provider,status,sessions:kept.length,messages,latestAt:kept[0]?.latestAt??null},sessions:kept,characters};
 }
+function cloudSessionMetadata(session){
+ const metadata={source:'cloud',origin:'repository-handoff'};
+ for(const [key,output,limit] of [['sessionId','sessionId',128],['title','title',200],['assistant','assistant',80],['source','handoffSource',500]])if(typeof session[key]==='string'&&!chatTextHasSecret(session[key])){const value=clean(redactChatText(session[key]),limit);if(value)metadata[output]=value;}
+ if(typeof session.createdAt==='string'&&/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,6})?Z$/u.test(session.createdAt)&&Number.isFinite(Date.parse(session.createdAt)))metadata.createdAt=session.createdAt;
+ if(typeof session.coverageNotes==='string')metadata.coverageNotes=Buffer.byteLength(session.coverageNotes)>65536||chatTextHasSecret(session.coverageNotes)?'[coverage notes filtered]':shorten(redactChatText(session.coverageNotes),EVIDENCE_LIMITS.coverageNotesCharacters)||'[coverage notes unavailable]';
+ return metadata;
+}
 /** The owner's own turns, kept apart from the clipped conversation excerpts: these are where the owner's
  * intentions are stated. Whole turns that look like credentials are dropped; local paths are redacted. */
 export function ownerTurnsFrom(raw,provider){
@@ -80,8 +87,8 @@ export function ownerTurnsFrom(raw,provider){
   if(turns.length>EVIDENCE_LIMITS.ownerTurnsPerSession){truncated=true;const excess=turns.length-EVIDENCE_LIMITS.ownerTurnsPerSession;turns.splice(0,excess);turnTimestamps.splice(0,excess);}
   const metadata={};
   if(cloudProviders.includes(provider)){
-   metadata.source='cloud';metadata.origin='repository-handoff';metadata.turnTimestamps=turnTimestamps;
-   for(const [key,limit] of [['sessionId',128],['title',200]])if(typeof session[key]==='string'&&!chatTextHasSecret(session[key])){const value=clean(redactChatText(session[key]),limit);if(value)metadata[key]=value;}
+   Object.assign(metadata,cloudSessionMetadata(session),{turnTimestamps});
+   if(typeof session.coverageNotes==='string')truncated=true;
   }
   kept.push({provider,latestAt,turns,truncated,...metadata});
  }
@@ -116,11 +123,18 @@ async function readChats(root,{signal,codexHome,claudeHome,previousUntil=null,re
  // Trim the oldest sessions first until the chat budget holds.
  while(characters>EVIDENCE_LIMITS.chatCharacters){const longest=clean.filter(row=>row.sessions.length).sort((a,b)=>b.sessions.length-a.sessions.length)[0];if(!longest)break;const dropped=longest.sessions.pop();longest.summary.sessions=longest.sessions.length;longest.summary.messages-=dropped.messages.length;longest.characters-=dropped.messages.reduce((sum,row)=>sum+row.text.length,0);if(!longest.sessions.length)longest.summary.status='unavailable';characters=clean.reduce((sum,row)=>sum+row.characters,0);}
  const cloudSessions=cloudProviders.flatMap(provider=>ownerTurnsFrom({...cloud,sessions:cloud.sessions.filter(row=>row.provider===provider)},provider));
+ const cloudCoverageNotes=[];let coverageCharacters=0;
+ for(const session of cloud.sessions){
+  if(!cloudProviders.includes(session.provider)||session.messages.length||typeof session.coverageNotes!=='string')continue;
+  const remaining=EVIDENCE_LIMITS.coverageNotesCharacters-coverageCharacters;if(cloudCoverageNotes.length>=EVIDENCE_LIMITS.coverageOnlySessions||remaining<omission.length+2)break;
+  const metadata=cloudSessionMetadata(session);metadata.coverageNotes=shorten(metadata.coverageNotes,remaining);coverageCharacters+=metadata.coverageNotes.length;
+  cloudCoverageNotes.push({provider:session.provider,...metadata,hasOwnerTurns:false,truncated:true});
+ }
  const owner=selectOwnerSessions([...ownerTurnsFrom(codex,'codex'),...ownerTurnsFrom(claude,'claude'),...cloudSessions.slice(0,CLOUD_OWNER_LIMITS.sessions)],{previousUntil});
  // Only sanitized cloud content participates in this local digest. It is independent of
  // the previous ledger and final pack trimming, so a new safe turn triggers refresh.
- const cloudOwnerSha256=digest(JSON.stringify({status:cloud.status,truncated:cloud.truncated===true,sessions:cloudSessions}));
- return {chats:clean,owner,cloud,cloudOwnerSha256};
+ const cloudOwnerSha256=digest(JSON.stringify({status:cloud.status,truncated:cloud.truncated===true,sessions:cloudSessions,cloudCoverageNotes}));
+ return {chats:clean,owner,cloud,cloudOwnerSha256,cloudCoverageNotes};
 }
 /** Collect the evidence pack. `fetchRemote=false` skips the network read (stale remote refs are still used). */
 export async function collectBriefingEvidence(root,{signal,now=()=>new Date().toISOString(),days=EVIDENCE_LIMITS.days,fetchRemote=true,codexHome,claudeHome,pullRequests=readPullRequests,previous=null}={}){
@@ -139,9 +153,9 @@ export async function collectBriefingEvidence(root,{signal,now=()=>new Date().to
  const localBranches=await describe(locals,'local'),cloudBranches=await describe(remotes,'cloud');
  const uncommitted=await readUncommitted(identity.root,signal);
  const prs=remote&&/^github\.com\//.test(remote)?await pullRequests(remote,signal):null;
- const {chats,owner,cloud,cloudOwnerSha256}=await readChats(identity.root,{signal,codexHome,claudeHome,previousUntil:previous?.until??null,refs:remotes.map(ref=>ref.sha)});
+ const {chats,owner,cloud,cloudOwnerSha256,cloudCoverageNotes}=await readChats(identity.root,{signal,codexHome,claudeHome,previousUntil:previous?.until??null,refs:remotes.map(ref=>ref.sha)});
  const latest=rows=>rows.map(row=>row.lastCommitAt).filter(Boolean).sort().at(-1)??null;
- const bundle={repository:{name:identity.name,branch,head:identity.head,dirty:identity.dirty,defaultBranch:base,remote,cloudStatus,fetchError},window:{since,until},localBranches,cloudBranches,uncommitted,pullRequests:prs,chats:chats.map(row=>({provider:row.summary.provider,status:row.summary.status,sessions:row.sessions})),ownerTurns:owner.sessions,previous};
+ const bundle={repository:{name:identity.name,branch,head:identity.head,dirty:identity.dirty,defaultBranch:base,remote,cloudStatus,fetchError},window:{since,until},localBranches,cloudBranches,uncommitted,pullRequests:prs,chats:chats.map(row=>({provider:row.summary.provider,status:row.summary.status,sessions:row.sessions})),ownerTurns:owner.sessions,cloudCoverageNotes,previous};
  while(Buffer.byteLength(JSON.stringify(bundle))>EVIDENCE_LIMITS.bundleBytes){const longest=[...bundle.localBranches,...bundle.cloudBranches].sort((a,b)=>b.commits.length-a.commits.length)[0];if(longest?.commits.length)longest.commits.pop();else{const chat=bundle.chats.filter(row=>row.sessions.length).sort((a,b)=>Date.parse(a.sessions.at(-1).latestAt??0)-Date.parse(b.sessions.at(-1).latestAt??0))[0];if(chat)chat.sessions.pop();else if(bundle.ownerTurns.length)bundle.ownerTurns.pop();else throw new Error('Briefing evidence exceeds the finite bundle bound.');}}
  // Coverage describes the final retained pack, including any byte-budget omissions.
  const ownerSummary=selectOwnerSessions(bundle.ownerTurns,{previousUntil:previous?.until??null}).summary;

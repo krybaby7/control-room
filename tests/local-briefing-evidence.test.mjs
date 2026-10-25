@@ -27,9 +27,11 @@ async function fixture(){
 }
 async function addCodexChat(f,id,updated,messages){const rollout=join(f.codexHome,'sessions',id+'.jsonl');await writeFile(rollout,JSON.stringify({type:'session_meta',payload:{id,cwd:f.root,thread_source:'user'}})+'\n');const db=new DatabaseSync(join(f.codexHome,'state_5.sqlite'));db.prepare('INSERT INTO threads VALUES(?,?,?,?,?,?,?,?,?)').run(id,rollout,f.root,updated,0,'user',null,null,null);db.close();const history=new DatabaseSync(join(f.codexHome,'thread_history_1.sqlite'));for(const [i,m] of messages.entries()){const item=m.role==='user'?{type:'userMessage',content:[{type:'text',text:m.text}]}:{type:'agentMessage',phase:'final_answer',text:m.text};history.prepare('INSERT INTO thread_items VALUES(?,?,?,?,?)').run(id,item.type,i,updated+i,JSON.stringify(item));}history.close();}
 async function addClaudeChat(f,sessionId,time,messages){const folder=join(f.claudeHome,'projects',f.root.replace(/[^a-zA-Z0-9]/gu,'-').toLowerCase());await mkdir(folder,{recursive:true});let parent=null;const rows=messages.map((m,i)=>{const row={type:m.role,cwd:f.root,sessionId,uuid:`${sessionId}-${i}`,parentUuid:parent,isSidechain:false,timestamp:new Date(Date.parse(time)+i*1000).toISOString(),message:{role:m.role,content:m.role==='assistant'?[{type:'text',text:m.text}]:m.text}};parent=row.uuid;return row;});await writeFile(join(folder,sessionId+'.jsonl'),rows.map(r=>JSON.stringify(r)).join('\n')+'\n');}
-async function addHandoff(root,{provider='claude-cloud',sessionId='cloud-session',at=stamp,title='Cloud aim',turns=['Reconcile the results.']}={}){
+async function addHandoff(root,{provider='claude-cloud',sessionId='cloud-session',at=stamp,title='Cloud aim',turns=['Reconcile the results.'],assistant,createdAt,source,coverageNotes}={}){
  const folder=join(root,'planning','handoffs','owner-turns');await mkdir(folder,{recursive:true});
- await writeFile(join(folder,`2026-10-21-${sessionId}.md`),`# Owner turns\nProvider: ${provider}\nSession: ${sessionId}\nTitle: ${title}\n\n`+turns.map(text=>`## ${at}\n\x60\x60\x60text\n${text}\n\x60\x60\x60\n`).join('\n'));
+ const metadata=[['Assistant',assistant],['Created',createdAt],['Source',source]].filter(([,value])=>value!==undefined).map(([label,value])=>`${label}: ${value}\n`).join('');
+ const coverage=coverageNotes===undefined?'':`## Coverage notes\n\x60\x60\x60text\n${coverageNotes}\n\x60\x60\x60\n\n`;
+ await writeFile(join(folder,`2026-10-21-${sessionId}.md`),`# Owner turns\nProvider: ${provider}\nSession: ${sessionId}\nTitle: ${title}\n${metadata}\n`+coverage+turns.map(text=>`## ${at}\n\x60\x60\x60text\n${text}\n\x60\x60\x60\n`).join('\n'));
 }
 
 test('cloud-only fetched handoffs join local intentions, retain provenance and report exact coverage',async()=>{
@@ -84,6 +86,31 @@ test('mixed safe and malformed cloud handoffs do not claim a provider is absent'
   await addHandoff(f.root,{provider:'codex-cloud',sessionId:'rejected',turns:['api_key=abcdefghijklmnop']});
   const {summary}=await collectBriefingEvidence(f.root,{fetchRemote:false,codexHome:f.codexHome,claudeHome:f.claudeHome});
   assert.deepEqual(summary.cloudTurns,[{provider:'claude-cloud',status:'included',sessions:1,turns:1},{provider:'codex-cloud',status:'unavailable',sessions:0,turns:0}]);
+ }finally{await f.close();}
+});
+test('collected export coverage notes reach the prompt and count toward the serialized byte budget',async()=>{
+ const f=await fixture();try{
+  const coverageNotes='Coverage: partial readback; research clipped; key redacted.\n'+'意'.repeat(5800),source='example/project@'+'b'.repeat(40)+':exports/session.md',createdAt='2026-10-18T08:00:00.123456Z';
+  for(let i=0;i<12;i++)await addHandoff(f.root,{provider:i%2?'codex-cloud':'claude-cloud',sessionId:`coverage-${i}`,assistant:i%2?'Codex (cloud)':'Claude Code (cloud)',createdAt,source,coverageNotes,at:new Date(Date.parse(stamp)-i*1000).toISOString(),turns:['Keep the original scope.']});
+  const {bundle,summary}=await collectBriefingEvidence(f.root,{fetchRemote:false,codexHome:f.codexHome,claudeHome:f.claudeHome});
+  assert.ok(bundle.ownerTurns.length>0&&bundle.ownerTurns.length<12,'coverage note bytes participate in pack trimming');
+  for(const session of bundle.ownerTurns){assert.equal(session.coverageNotes,coverageNotes);assert.equal(session.handoffSource,source);assert.equal(session.createdAt,createdAt);assert.equal(session.truncated,true);assert.deepEqual(session.turns,['Keep the original scope.']);}
+  assert.equal(summary.ownerTurns.turns,bundle.ownerTurns.length);for(const row of summary.cloudTurns){const retained=bundle.ownerTurns.filter(session=>session.provider===row.provider);assert.equal(row.sessions,retained.length);assert.equal(row.turns,retained.length);}
+  const prompt=buildBriefingPrompt({bundle,plan:null,projectName:'Synthetic fixture'});assert.ok(prompt.includes('Coverage: partial readback; research clipped; key redacted.'));assert.ok(Buffer.byteLength(prompt)<=BRIEFING_PROMPT_BYTES);assert.ok(Buffer.byteLength(JSON.stringify(bundle))<=EVIDENCE_LIMITS.bundleBytes);
+ }finally{await f.close();}
+});
+test('coverage-only exports keep their missing-turn note without inventing owner activity or coverage counts',async()=>{
+ const f=await fixture();try{
+  const notes='No original opening messages were extracted during the partial readback.',source='example/project@'+'c'.repeat(40)+':exports/partial.md';
+  await addHandoff(f.root,{sessionId:'coverage-only',assistant:'Claude Code (cloud)',source,createdAt:'2026-10-18T08:00:00.123456Z',coverageNotes:notes,turns:[]});
+  const options={fetchRemote:false,codexHome:f.codexHome,claudeHome:f.claudeHome},{bundle,summary,fingerprint}=await collectBriefingEvidence(f.root,options);
+  assert.deepEqual(bundle.ownerTurns,[]);assert.equal(summary.ownerTurns.sessions,0);assert.equal(summary.ownerTurns.turns,0);assert.ok(summary.cloudTurns.every(row=>row.sessions===0&&row.turns===0));
+  assert.ok(Array.isArray(bundle.cloudCoverageNotes),'coverage-only export notes remain in bounded evidence');assert.equal(bundle.cloudCoverageNotes.length,1);assert.equal(bundle.cloudCoverageNotes[0].coverageNotes,notes);assert.equal(bundle.cloudCoverageNotes[0].hasOwnerTurns,false);assert.equal(bundle.cloudCoverageNotes[0].handoffSource,source);assert.equal(bundle.cloudCoverageNotes[0].latestAt,undefined);
+  const prompt=buildBriefingPrompt({bundle,plan:null,projectName:'Synthetic fixture'});assert.ok(prompt.includes(notes));assert.ok(prompt.includes('never infer missing owner turns'));
+  assert.equal(await computeWorkFingerprint(f.root,options),fingerprint);
+  for(let i=0;i<6;i++)await addHandoff(f.root,{sessionId:`missing-${i}`,coverageNotes:'Partial readback. '+('Detail '.repeat(500)),turns:[]});
+  const bounded=(await collectBriefingEvidence(f.root,options)).bundle.cloudCoverageNotes;
+  assert.ok(bounded.length<=EVIDENCE_LIMITS.coverageOnlySessions);assert.ok(bounded.reduce((sum,row)=>sum+row.coverageNotes.length,0)<=EVIDENCE_LIMITS.coverageNotesCharacters);assert.ok(bounded.some(row=>row.coverageNotes.includes('[… omitted …]')));
  }finally{await f.close();}
 });
 test('evidence pack sees local, cloud and uncommitted work, several chats per provider, and filters secrets',async()=>{
@@ -146,6 +173,18 @@ test('cloud turn timestamps remain aligned after secret filtering and oldest-tur
  const sessions=ownerTurnsFrom({sessions:[{latestAt:last,sessionId:'dates',title:'Dates',messages:[{role:'user',text:'Old request',timestamp:first},{role:'user',text:'api_key=abcdefghijklmnop',timestamp:first},{role:'user',text:'New request',timestamp:last}]}]},'codex-cloud');
  assert.deepEqual(sessions[0].turnTimestamps,[first,last]);
  const retained=selectOwnerSessions(sessions,{budget:11}).sessions[0];assert.deepEqual(retained.turns,['New request']);assert.deepEqual(retained.turnTimestamps,[last]);
+});
+test('cloud evidence keeps bounded sanitized export metadata and coverage notes outside owner turns',()=>{
+ const source='example/project@'+'a'.repeat(40)+':exports/session.md',createdAt='2026-10-18T08:00:00.123456Z';
+ const notes='This session was partially read back. Long research was clipped; a key was redacted. '+('Details '.repeat(900))+' End of coverage notes.';
+ const raw={sessions:[{sessionId:'notes-fixture',title:'Synthetic export',assistant:'Claude Code (cloud)',createdAt,source,coverageNotes:notes,latestAt:stamp,messages:[{role:'user',text:'Keep the original scope.',timestamp:stamp}],truncated:false},{sessionId:'notes-only',coverageNotes:'No owner turn is present.',messages:[]}]};
+ const sessions=ownerTurnsFrom(raw,'claude-cloud');assert.equal(sessions.length,1);
+ const session=selectOwnerSessions(sessions).sessions[0];
+ assert.equal(session.source,'cloud');assert.equal(session.handoffSource,source);assert.equal(session.assistant,'Claude Code (cloud)');assert.equal(session.createdAt,createdAt);assert.equal(session.truncated,true);
+ assert.deepEqual(session.turns,['Keep the original scope.']);assert.equal(session.coverageNotes.length,EVIDENCE_LIMITS.coverageNotesCharacters);assert.ok(session.coverageNotes.includes('[… omitted …]'));assert.ok(session.coverageNotes.endsWith('End of coverage notes.'));
+ const unsafe=ownerTurnsFrom({sessions:[{...raw.sessions[0],source:'api_key=abcdefghijklmnop',coverageNotes:'Read from C:\\Users\\owner\\private-export.'}]},'claude-cloud')[0];
+ assert.equal(unsafe.handoffSource,undefined);assert.ok(!JSON.stringify(unsafe).includes('abcdefghijklmnop'));assert.equal(unsafe.coverageNotes,'Read from [local path]');
+ const secret=ownerTurnsFrom({sessions:[{...raw.sessions[0],coverageNotes:'api_key=abcdefghijklmnop'}]},'claude-cloud')[0];assert.ok(!JSON.stringify(secret).includes('abcdefghijklmnop'));assert.equal(secret.coverageNotes,'[coverage notes filtered]');assert.equal(secret.truncated,true);
 });
 test('session sanitizer bounds sessions, drops credential messages and reports coverage',()=>{
  const sessions=Array.from({length:7},(_,i)=>({latestAt:new Date(Date.parse(stamp)-i*1000).toISOString(),messages:[{role:'user',text:'ok '+'x'.repeat(2000)},{role:'assistant',text:'Bearer abcdefghijklmnopqrstuvwxyz'},{role:'assistant',text:'done'}],truncated:false}));

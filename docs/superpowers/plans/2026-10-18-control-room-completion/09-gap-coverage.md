@@ -2,7 +2,7 @@
 
 ## Cloud owner intentions — 2026-10-25
 
-Bounded handoffs now supply cloud owner messages from the checkout and fetched branches to the intention ledger with assistant labels and explicit coverage. Neither installed CLI offers a documented complete noninteractive read-only transcript route. Companion 133/133, briefing app 50/50, typecheck, lint and build pass on Node 24 Windows. The original Trade Graph cloud messages and the owner's yes for its exact handoff remain required before real briefing/card acceptance. No Trade Graph command, installation or publication is claimed. See [verification](../../verification/2026-10-25-cloud-chat-intentions.md).
+Bounded handoffs now supply cloud owner messages from the checkout and fetched branches to the intention ledger with assistant labels and explicit coverage. Neither installed CLI offers a documented complete noninteractive read-only transcript route. Companion144/144, the existing briefing app50/50 and fresh typecheck/lint pass on Node24 Windows. All23 Trade Graph handoffs and the pinned source are prepared with129 available owner turns and preserved partial notes; the owner's yes is required before commit/push. A new pushed-source build, publication, installation and real briefing/card acceptance remain pending. See [verification](../../verification/2026-10-25-cloud-chat-intentions.md).
 
 ## Explicit briefing folder selection — 2026-10-24
 
