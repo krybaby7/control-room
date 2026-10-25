@@ -5,7 +5,7 @@ import {mkdtemp,mkdir,writeFile,realpath,rm} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {execFileSync} from 'node:child_process';
-import {collectBriefingEvidence,computeWorkFingerprint,sanitizeSessions,ownerTurnsFrom,selectOwnerSessions,remoteIdentity,EVIDENCE_LIMITS} from '../companion/briefing-evidence.mjs';
+import {collectBriefingEvidence,computeWorkFingerprint,sanitizeSessions,ownerTurnsFrom,selectOwnerSessions,isPastedBrief,remoteIdentity,EVIDENCE_LIMITS} from '../companion/briefing-evidence.mjs';
 import {validateBriefingEvidence,validatePreviousLedger} from '../shared/project-briefing.mjs';
 import {buildBriefingPrompt,BRIEFING_PROMPT_BYTES} from '../companion/briefing-prompt.mjs';
 const stamp='2026-10-21T10:00:00.000Z';
@@ -240,4 +240,16 @@ test('collector and change detector fingerprint the same bounded local and fetch
   const options={fetchRemote:false,codexHome:f.codexHome,claudeHome:f.claudeHome};
   assert.equal((await collectBriefingEvidence(f.root,options)).fingerprint,await computeWorkFingerprint(f.root,options));
  }finally{await f.close();}
+});
+
+test('pasted handoff briefs are left out of the owner\'s turns while the owner\'s own short and bulleted messages stay',()=>{
+ const brief='You\'re continuing work on Trade Graph, an AI paper-trading system I own. I\'m not a coding or trading expert.\n\n## Where things are\n- Work in the worktree.\n## Background\nThe first run made no trades.\n## Task\n'+'Build the data foundation. '.repeat(30);
+ const pasted='<pasted_content id="0687">\nYou are taking over as orchestrator.\n</pasted_content>';
+ const headed='# Plan\n'+'detail '.repeat(60)+'\n## Step one\n'+'detail '.repeat(60)+'\n## Step two\n'+'detail '.repeat(60);
+ for(const text of [brief,pasted,headed])assert.equal(isPastedBrief(text),true,text.slice(0,30));
+ for(const text of ['ok about the coins and trading:\n1. yes\n2. so long as it is not riba im okay',' - choose when to wait\n - buy the dips\n - follow the trends','how far are we from finishing?','You are right, lets do that.','# Automated Trading Venues\nshort'])assert.equal(isPastedBrief(text),false,text.slice(0,30));
+ const raw={status:'included',sessions:[{latestAt:'2026-10-13T12:00:00.000Z',messages:[{role:'user',text:brief},{role:'user',text:'how far is it now ?'},{role:'user',text:'Okay, for the decisions: one, yes. Two, go with your recommendation.'}],truncated:false},{latestAt:'2026-10-12T12:00:00.000Z',messages:[{role:'user',text:pasted}],truncated:false}]};
+ const sessions=ownerTurnsFrom(raw,'claude');
+ assert.deepEqual(sessions.map(row=>[row.turns.length,row.pastedBriefs??0]),[[2,1]],'a session left with only a pasted brief is skipped; the others keep the owner\'s own words');
+ assert.equal(sessions[0].turns[0],'how far is it now ?');
 });

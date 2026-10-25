@@ -11,7 +11,7 @@ import {readCodexChatContext} from './codex-chat-context.mjs';
 import {chatTextHasSecret,redactChatText} from './chat-context.mjs';
 import {readCloudOwnerTurns,CLOUD_OWNER_LIMITS} from './cloud-owner-turns.mjs';
 const exec=promisify(execFile);
-export const EVIDENCE_LIMITS=Object.freeze({days:14,branches:24,commitsPerBranch:10,commits:160,pullRequests:25,sessionsPerProvider:5,messagesPerSession:10,charactersPerMessage:1200,charactersPerSession:2800,chatCharacters:16000,ownerSessions:24,readMessages:60,ownerTurnsPerSession:40,charactersPerTurn:700,ownerCharacters:28000,coverageNotesCharacters:6000,coverageOnlySessions:4,uncommittedPaths:40,bundleBytes:160000,fetchMs:60000,ghMs:20000});
+export const EVIDENCE_LIMITS=Object.freeze({days:14,branches:24,commitsPerBranch:10,commits:160,pullRequests:25,sessionsPerProvider:5,messagesPerSession:10,charactersPerMessage:1200,charactersPerSession:2800,chatCharacters:16000,ownerSessions:24,readMessages:60,ownerTurnsPerSession:60,charactersPerTurn:700,ownerCharacters:60000,coverageNotesCharacters:6000,coverageOnlySessions:4,uncommittedPaths:40,bundleBytes:160000,fetchMs:60000,ghMs:20000});
 const secretText=/(?:-----BEGIN .*PRIVATE KEY-----|\b(?:api[_-]?key|access[_-]?token|refresh[_-]?token|password|client[_-]?secret)\s*[=:]\s*["']?[^\s"']{8,}|\b(?:sk-|ghp_|github_pat_|xox[baprs]-)[A-Za-z0-9_-]{8,}|Bearer\s+[A-Za-z0-9._-]{12,}|\bAKIA[0-9A-Z]{16}\b)/i;
 const clean=(text,max)=>{const value=String(text??'').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/gu,'').trim();if(secretText.test(value))return '[filtered]';return value.length>max?value.slice(0,max-1)+'…':value;};
 function gitEnvironment(network){const env={};for(const key of ['SystemRoot','WINDIR','COMSPEC','PATH','PATHEXT','TEMP','TMP','USERPROFILE','HOME','LOCALAPPDATA','APPDATA','SSH_AUTH_SOCK'])if(process.env[key])env[key]=process.env[key];
@@ -71,15 +71,29 @@ function cloudSessionMetadata(session){
 }
 /** The owner's own turns, kept apart from the clipped conversation excerpts: these are where the owner's
  * intentions are stated. Whole turns that look like credentials are dropped; local paths are redacted. */
+/** A turn the owner pasted from another assistant rather than wrote: a handoff brief carried into a new
+ * session. Its intentions were already stated, in the owner's own words, in the conversation that produced
+ * it, so it is left out of the owner's turns. The owner's own style (short lines, at most bullet points)
+ * never matches: the test needs the paste marker, an assistant-written opener, or a long text organised
+ * under several headings. */
+export function isPastedBrief(text){
+ if(typeof text!=='string')return false;
+ if(/<pasted_content\b/u.test(text))return true;
+ const head=text.trimStart().slice(0,160);
+ if(/^(You are |You're |You’re |Background \(from the session|# [A-Z])/u.test(head)&&text.length>=600)return true;
+ const headings=(text.match(/^#{1,4} \S/gmu)??[]).length;
+ return text.length>=800&&headings>=3;
+}
 export function ownerTurnsFrom(raw,provider){
  const sessions=Array.isArray(raw?.sessions)?raw.sessions:[];
  const kept=[];
  for(const session of sessions.slice(0,EVIDENCE_LIMITS.ownerSessions)){
   const latestAt=typeof session.latestAt==='string'&&Number.isFinite(Date.parse(session.latestAt))?new Date(session.latestAt).toISOString():null;
-  const turns=[],turnTimestamps=[];let truncated=!!session.truncated;
+  const turns=[],turnTimestamps=[];let truncated=!!session.truncated,pastedBriefs=0;
   for(const row of (Array.isArray(session.messages)?session.messages:[])){
    if(row?.role!=='user'||typeof row.text!=='string')continue;
    if(Buffer.byteLength(row.text)>65536||chatTextHasSecret(row.text)){truncated=true;continue;}
+   if(isPastedBrief(row.text)){pastedBriefs++;continue;}
    const text=shorten(redactChatText(row.text).trim(),EVIDENCE_LIMITS.charactersPerTurn);if(!text){truncated=true;continue;}
    if(text!==row.text)truncated=true;turns.push(text);turnTimestamps.push(typeof row.timestamp==='string'&&Number.isFinite(Date.parse(row.timestamp))?new Date(row.timestamp).toISOString():null);
   }
@@ -90,7 +104,7 @@ export function ownerTurnsFrom(raw,provider){
    Object.assign(metadata,cloudSessionMetadata(session),{turnTimestamps});
    if(typeof session.coverageNotes==='string')truncated=true;
   }
-  kept.push({provider,latestAt,turns,truncated,...metadata});
+  kept.push({provider,latestAt,turns,truncated,...(pastedBriefs?{pastedBriefs}:{}),...metadata});
  }
  return kept;
 }
