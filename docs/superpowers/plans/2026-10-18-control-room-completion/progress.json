@@ -5,6 +5,7 @@
     "branch": "feat/cloud-chat-intentions",
     "baseCommit": "3c2b94f298a57c5fe5a2a939417348cf8e009963",
     "checks": {"companionPassed": 144, "briefingAppPassed": 50, "typecheck": "passed", "lint": "zero errors, 17 existing warnings", "build": "initial implementation passed; extension requires pushed-source release build"},
+    "sourceHeadingAudit": {"levelThreeHeadings": 146, "datedOwnerEntriesRetained": 129, "internalSubheadingsRetained": 14, "assistantFinalsExcludedFromOwnerTurns": 3, "ownerEntriesRemoved": 0, "sessionCoverageNotes": 2},
     "directCloudTranscriptReaders": "No complete documented noninteractive read-only subscription route found for either installed CLI; both use repository handoffs",
     "verification": "docs/superpowers/verification/2026-10-25-cloud-chat-intentions.md",
     "publication": "authorized follow-up; existing private Site only; pending handoff approval; no merge"
