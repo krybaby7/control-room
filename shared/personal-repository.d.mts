@@ -16,4 +16,5 @@ export function parseRepositories(value:unknown):PersonalRepository[];
 export function parsePolicies(value:unknown):PersonalPolicy[];
 export function initialPersonalState(deviceId:string):PersonalState;
 export function validatePersonalState(value:unknown):PersonalState;
+export function prunePersonalRequests(state:PersonalState):PersonalState;
 export function transitionPersonalState(state:PersonalState,action:PersonalOwnerAction|PersonalDeviceAction,now:string,actor:'owner'|'device',context?:{plan?:CompactPlan}):PersonalState;
