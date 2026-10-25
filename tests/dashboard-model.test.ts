@@ -29,7 +29,7 @@ test('project tiles show live agent progress, briefing with chats, tokens and ne
  assert.deepEqual(a.analysis?.chats?.map(chat=>[chat.provider,chat.status,chat.messages]),[['codex','included',4],['claude','not-found',0]]);
  assert.ok(a.analysis!.excerpt.startsWith('The last chats focused'));assert.ok(a.analysis!.excerpt.length<=224);
  // Project A has no briefing yet; the PC knows one folder, so it is offered but not assumed.
- assert.equal(a.briefing.state,'none');assert.equal(a.briefing.report,null);assert.equal(a.briefing.status.label,'No briefing yet');assert.equal(a.briefing.repositoryKey,'repo-b');assert.equal(a.briefing.canRequest,true);assert.equal(a.briefing.policy,null);
+ assert.equal(a.briefing.state,'none');assert.equal(a.briefing.report,null);assert.equal(a.briefing.status.label,'No briefing yet');assert.equal(a.briefing.repositoryKey,null);assert.equal(a.briefing.canRequest,true);assert.equal(a.briefing.policy,null);
  assert.deepEqual(a.tokens,{input:12400,output:3100,runs:1,reported:1});assert.equal(a.lastRunAt,'2026-10-21T11:59:00.000Z');
  assert.equal(a.progress.milestonesDone,1);assert.equal(a.progress.milestonesTotal,5);assert.equal(a.progress.tasksDone,1);assert.equal(a.progress.inReview,1);assert.equal(a.progress.inProgress,1);assert.equal(a.progress.overdue,1);assert.equal(a.progress.weeklyPinned,1);assert.equal(a.progress.blocked,1);
  assert.equal(a.level,2);assert.equal(a.milestone?.status,'active');
@@ -45,6 +45,31 @@ test('project tiles show live agent progress, briefing with chats, tokens and ne
  assert.deepEqual(brief.policy,{repositoryKey:'repo-b',provider:'claude',enabled:true,minIntervalMinutes:120,lastBriefAt:'2026-10-21T11:05:00.000Z'});assert.equal(brief.repositoryName,'trade-graph');assert.equal(brief.canRequest,true);assert.equal(brief.unsaved,null);
  assert.deepEqual(b.tokens,{input:0,output:0,runs:0,reported:0});
 });
+test('briefing folder defaults require a project association even with one registered folder',async()=>{
+ const base=await inputs(),projectA=base.workspace.projects[0].id;
+ const unmapped=buildDashboardModel(base).projects[0].briefing;
+ assert.equal(unmapped.repositoryKey,null,'another project’s saved briefing and policy must not supply the sole folder');
+ assert.equal(unmapped.policy,null);assert.equal(unmapped.canRequest,true);assert.match(unmapped.requestHint!,/Choose which folder/);
+ const local={...base.localReports[0],report:{...base.localReports[0].report,repository:{...base.localReports[0].report.repository,key:'repo-b'}}};
+ assert.equal(buildDashboardModel({...base,localReports:[local]}).projects[0].briefing.repositoryKey,'repo-b');
+ const policy={...base.connector!.policies![0],projectId:projectA};
+ assert.equal(buildDashboardModel({...base,localReports:[],connector:{...base.connector!,policies:[policy]}}).projects[0].briefing.repositoryKey,'repo-b');
+ assert.equal(buildDashboardModel(base).projects[1].briefing.repositoryKey,'repo-b','the saved project briefing keeps its mapped folder');
+ const foreignLocal={...local,projectId:base.workspace.projects[1].id};
+ assert.equal(buildDashboardModel({...base,localReports:[foreignLocal]}).projects[0].briefing.repositoryKey,null);
+});
+
+test('briefing request availability requires an online ready assistant and no active briefing',async()=>{
+ const base=await inputs();
+ for(const connector of [{...base.connector!,online:false},{...base.connector!,connected:false},{...base.connector!,providers:{codex:{ready:false,detail:'auth_required' as const},claude:{ready:false,detail:'auth_required' as const}}}]){
+  assert.equal(buildDashboardModel({...base,connector}).projects[0].briefing.canRequest,false);
+ }
+ for(const status of ['queued','claimed'] as const){
+  const job={id:'active-brief',kind:'brief',status,createdAt:NOW,projectId:base.workspace.projects[0].id,repositoryKey:'repo-b',provider:'codex' as const};
+  assert.equal(buildDashboardModel({...base,connector:{...base.connector!,jobs:[job]}}).projects[0].briefing.canRequest,false);
+ }
+});
+
 test('operations list active work first and summarise recent runs with recorded usage',async()=>{
  const model=buildDashboardModel(await inputs());
  assert.deepEqual(model.operations.active.map(job=>job.id),['job-running']);

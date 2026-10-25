@@ -199,7 +199,7 @@ function briefingView(project:Project,saved:SavedProjectBriefing[],localReports:
  const choices=(connector?.repositories??[]).map(({key,name})=>({key,name}));
  const known=(key:string|null|undefined)=>key&&choices.some(row=>row.key===key)?key:null;
  const policy=policies.find(row=>row.repositoryKey===(report?.repository.key??row.repositoryKey))??policies[0]??null;
- const repositoryKey=known(report?.repository.key)??known(policy?.repositoryKey)??known(localRepository)??(choices.length===1?choices[0].key:null);
+ const repositoryKey=known(report?.repository.key)??known(policy?.repositoryKey)??known(localRepository);
  const repositoryName=choices.find(row=>row.key===repositoryKey)?.name??report?.repository.name??null;
  const providers=(['codex','claude'] as const).map(id=>({id,label:PROVIDER_LABELS[id],ready:connector?.providers[id].ready??false}));
  const liveRepository=report?connector?.repositories.find(row=>row.key===report.repository.key)??null:null;
@@ -213,7 +213,7 @@ function briefingView(project:Project,saved:SavedProjectBriefing[],localReports:
   freshness:{newWork,detail:newWork?(liveRepository!.head!==report!.repository.head?'New commits have landed since this briefing.':'There are uncommitted changes since this briefing.'):null,basedOnAt:report?.evidence.window.until??null},
   evidenceLine:report?evidenceLine(report):'',providerLabel:report?PROVIDER_LABELS[report.run.provider]:null,originLabel:report?(report.run.origin==='auto'?'kept current automatically':'on your request'):null,
   repositoryKey,repositoryName,repositoryChoices:choices,policy:policy?{repositoryKey:policy.repositoryKey,provider:policy.provider,enabled:policy.enabled,minIntervalMinutes:policy.minIntervalMinutes,lastBriefAt:policy.lastBriefAt}:null,
-  providers,connector:connectorState,canRequest:requestHint===null&&!active,requestHint,
+  providers,connector:connectorState,canRequest:connectorState==='online'&&providers.some(row=>row.ready)&&!active,requestHint,
   activeJob:active?{id:active.id,status:active.status as 'queued'|'claimed',providerLabel:active.provider?PROVIDER_LABELS[active.provider]:'Assistant',origin:active.origin??'owner',createdAt:active.createdAt,claimedAt:active.claimedAt??null}:null,
   lastFailure:failed?{at:failed.claimedAt??failed.createdAt,providerLabel:failed.provider?PROVIDER_LABELS[failed.provider]:'Assistant',reason:BRIEF_FAILURES[failed.error??'']??'it did not finish'}:null};
 }

@@ -109,12 +109,13 @@ function BriefingControls({tile,actions}:{tile:ProjectTileModel;actions:Dashboar
  const ready=view.providers.find(row=>row.id===provider)?.ready??false;
  const canRequest=view.canRequest&&Boolean(repositoryKey)&&ready&&!working&&!actions.busy;
  const keepCurrent=view.policy?.enabled??false;
+ const requestHint=!view.repositoryKey&&repositoryKey&&view.connector==='online'&&ready?null:view.requestHint;
  return <div className="mc-brief-controls">
   {!view.repositoryKey&&view.repositoryChoices.length>0&&<label className="mc-brief-pick">Folder on your PC<select value={repository} onChange={event=>setRepository(event.target.value)} disabled={working}><option value="">Choose a folder</option>{view.repositoryChoices.map(row=><option key={row.key} value={row.key}>{row.name}</option>)}</select></label>}
   <label className="mc-brief-pick">Assistant<select value={provider} onChange={event=>setProvider(event.target.value as 'codex'|'claude')} disabled={working}>{view.providers.map(row=><option key={row.id} value={row.id}>{row.label}{row.ready?'':' (not signed in)'}</option>)}</select></label>
   <button type="button" className="button secondary" disabled={!canRequest} onClick={()=>actions.onBrief(id,repositoryKey,provider)}><RefreshCw size={13}/>{view.report?'Refresh briefing':'Brief this project'}</button>
   {repositoryKey&&<label className="mc-brief-toggle"><input type="checkbox" checked={keepCurrent} disabled={working||actions.busy||view.connector!=='online'&&!keepCurrent} onChange={event=>actions.onKeepCurrent(id,repositoryKey,provider,event.target.checked)}/><span>Keep current{keepCurrent&&view.policy?` · ${view.policy.provider==='codex'?'Codex':'Claude Code'}, at most every ${view.policy.minIntervalMinutes>=120?`${Math.round(view.policy.minIntervalMinutes/60)} h`:`${view.policy.minIntervalMinutes} min`}`:''}</span></label>}
-  {view.requestHint&&!view.activeJob&&<p className="mc-brief-hint">{view.requestHint}</p>}
+  {requestHint&&!view.activeJob&&<p className="mc-brief-hint">{requestHint}</p>}
   {notice&&<p className={`mc-brief-notice tone-${notice.tone}`} role={notice.tone==='bad'?'alert':'status'}>{notice.message}{notice.retry&&<button type="button" className="text-button" disabled={working||actions.busy} onClick={()=>actions.onRetrySave(id)}>Retry save</button>}</p>}
  </div>;
 }

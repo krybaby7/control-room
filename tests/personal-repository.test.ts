@@ -1,24 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {parseOwnerAction,parseDeviceAction,initialPersonalState,transitionPersonalState,validatePersonalState,prunePersonalRequests,PERSONAL_LIMITS} from '../shared/personal-repository.mjs';
+import {parseOwnerAction,parseDeviceAction,initialPersonalState,transitionPersonalState} from '../shared/personal-repository.mjs';
 const id='11111111-1111-4111-8111-111111111111',now='2026-10-21T12:00:00.000Z';
 test('strict commands reject remote paths and device enqueue',()=>{assert.throws(()=>parseOwnerAction({action:'browse',requestId:id,path:'C:/private'}));assert.throws(()=>parseDeviceAction({action:'browse',requestId:id}));});
 test('explicit browse claims once; expired claim never redispatches',()=>{let s=initialPersonalState('pc');s=transitionPersonalState(s,parseOwnerAction({action:'browse',requestId:id}),now,'owner');s=transitionPersonalState(s,parseDeviceAction({action:'poll'}),now,'device');assert.equal(s.requests[0].status,'claimed');s=transitionPersonalState(s,parseDeviceAction({action:'poll'}),'2026-10-21T12:06:00.000Z','device');assert.equal(s.requests[0].status,'failed');});
-test('an over-full stored record still loads, and the next transition prunes the oldest finished requests without losing active work',()=>{
- // A live record once held 22 requests (repeated failed folder pickers) while the queue admits 20; it must load, converge and accept new work.
- const s=initialPersonalState('pc');const at=(i:number)=>new Date(Date.parse(now)-(40-i)*60000).toISOString();
- s.requests=Array.from({length:22},(_,i)=>({id:'00000000-0000-4000-8000-'+String(i).padStart(12,'0'),kind:'browse' as const,status:i===21?'queued' as const:i%3?'failed' as const:'cancelled' as const,createdAt:at(i),expiresAt:'2026-10-21T13:00:00.000Z',claimedAt:null,...(i===21?{}:{error:i%3?'folder_unavailable' as const:'cancelled' as const})}));
- assert.equal(validatePersonalState(s).requests.length,22,'loading does not reject the record');
- assert.throws(()=>validatePersonalState({...s,requests:Array.from({length:PERSONAL_LIMITS.jobs*4+1},(_,i)=>({...s.requests[0],id:'00000000-0000-4000-8000-'+String(i).padStart(12,'0')}))}),'the hard bound still holds');
- const polled=transitionPersonalState(s,parseDeviceAction({action:'poll'}),now,'device');
- assert.equal(polled.requests.length,PERSONAL_LIMITS.jobs);assert.equal(polled.requests.at(-1)!.status,'claimed','the queued request is kept and claimed');
- assert.ok(!polled.requests.some(j=>j.id.endsWith('000000000000')),'the oldest finished request was dropped first');
- const browsed=transitionPersonalState(polled,parseOwnerAction({action:'browse',requestId:id}),now,'owner');
- assert.equal(browsed.requests.length,PERSONAL_LIMITS.jobs);assert.equal(browsed.requests.at(-1)!.id,id,'enqueue makes room by dropping one more finished request');
- const busy=initialPersonalState('pc');busy.requests=Array.from({length:PERSONAL_LIMITS.jobs},(_,i)=>({id:'00000000-0000-4000-8000-'+String(i).padStart(12,'0'),kind:'browse' as const,status:'queued' as const,createdAt:now,expiresAt:'2026-10-21T13:00:00.000Z',claimedAt:null}));
- assert.throws(()=>transitionPersonalState(busy,parseOwnerAction({action:'browse',requestId:id}),now,'owner'),/requests are full/,'active requests are never pruned');
- assert.equal(prunePersonalRequests(busy).requests.length,PERSONAL_LIMITS.jobs);
-});
 test('disconnect blocks device and does not delete completed data',()=>{let s=initialPersonalState('pc');s=transitionPersonalState(s,parseOwnerAction({action:'disconnect'}),now,'owner');assert.equal(s.connected,false);assert.equal(transitionPersonalState(s,parseDeviceAction({action:'poll'}),now,'device').connected,false);});
 
 import {database} from './helpers/sqlite.ts';

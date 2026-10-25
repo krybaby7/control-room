@@ -9,6 +9,7 @@ import {weeklyCompletionCount} from '@/lib/weekly-summary';
 import {archivedEntity} from '@/lib/entity-links';
 import {TaskContext,dateLabel,ProjectIcon} from './ui';
 import {BriefingCard} from './briefing-card';
+export {BriefingCard};
 
 export interface DashboardActions {
  onProject:(project:Project)=>void;onTask:(task:Task)=>void;onTaskId:(taskId:string)=>void;onPin:(task:Task)=>void;onProjects:()=>void;onAgents:()=>void;onRuntime:()=>void;

@@ -92,7 +92,7 @@ export function MissionControl({workspace,revision,busy,onProject,onTask,onPin,o
  useEffect(()=>{if(busy||expired||snapshot.feeds.briefings.status!=='ok')return;for(const tile of model.projects){const unsaved=tile.briefing.unsaved;if(unsaved&&!saveAttempts.current.has(unsaved.requestId)&&!briefingWorking[tile.project.id])void saveCompleted(tile.project.id,false);}},[model,busy,expired,snapshot.feeds.briefings.status,briefingWorking,saveCompleted]);
  const brief=useCallback(async(projectId:string,repositoryKey:string,provider:'codex'|'claude')=>{
   setWorking(projectId,true);
-  try{await sender.current(briefingRequest(projectId,repositoryKey,provider));notify(projectId,{message:`Briefing requested. ${provider==='codex'?'Codex':'Claude Code'} on your PC will write it in a few minutes.`,tone:'good'});refreshSoon();}
+  try{await sender.current(briefingRequest(projectId,repositoryKey,provider));notify(projectId,{message:`Briefing requested. Waiting for ${provider==='codex'?'Codex':'Claude Code'} on your PC to start.`,tone:'good'});refreshSoon();}
   catch(error){notify(projectId,{message:error instanceof Error?error.message:'The briefing request could not be confirmed.',tone:'bad'});}
   finally{setWorking(projectId,false);}
  },[notify,setWorking,refreshSoon]);
