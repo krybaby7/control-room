@@ -1,5 +1,5 @@
 import type {Project,TaskInput,Workspace} from './types.ts';
-export interface ProjectInput {name:string;description:string;goal:string;color:Project['color'];repositories:Project['repositories'];}
+export interface ProjectInput {name:string;description:string;goal:string;framing?:string;includeTaskPlanInBriefings?:boolean;personalRepositoryKey?:string|null;color:Project['color'];repositories:Project['repositories'];}
 export type BulkTaskPatch=Partial<Pick<TaskInput,'status'|'priority'|'horizon'|'dueDate'|'milestoneId'|'areaId'|'workType'>>;
 export type PlanningWorkflowCommand=
  |{type:'project.create';project:ProjectInput}|{type:'project.edit';id:string;patch:Partial<ProjectInput>}

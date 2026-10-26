@@ -18,7 +18,7 @@ export function migratePlanningV2ToV3(source: Workspace): Workspace {
 function withoutGeneratedDefaults(workspace:Workspace):unknown {
  const positions=new Map<string,number>();
  const base={...workspace};if(!base.areas?.length)delete base.areas;
- return {...base,projects:workspace.projects.map(project=>{const {archivedAt,...rest}=project;return archivedAt===null?rest:project;}),milestones:workspace.milestones.map(milestone=>{const next=positions.get(milestone.projectId)??0;positions.set(milestone.projectId,next+1);const copy:Partial<typeof milestone>={...milestone};if(copy.archivedAt===null)delete copy.archivedAt;if(copy.sortKey===next)delete copy.sortKey;return copy;}),tasks:workspace.tasks.map(task=>{const copy:Partial<typeof task>={...task};if(copy.weeklyWeek===null)delete copy.weeklyWeek;if(copy.archivedFromStatus===null)delete copy.archivedFromStatus;if(copy.estimateMinutes===null)delete copy.estimateMinutes;if(copy.areaId===null)delete copy.areaId;if(copy.workType==='other')delete copy.workType;return copy;})};
+ return {...base,projects:workspace.projects.map(project=>{const copy:Partial<typeof project>={...project};if(copy.archivedAt===null)delete copy.archivedAt;if(copy.framing==='')delete copy.framing;if(copy.includeTaskPlanInBriefings===false)delete copy.includeTaskPlanInBriefings;if(copy.personalRepositoryKey===null)delete copy.personalRepositoryKey;return copy;}),milestones:workspace.milestones.map(milestone=>{const next=positions.get(milestone.projectId)??0;positions.set(milestone.projectId,next+1);const copy:Partial<typeof milestone>={...milestone};if(copy.archivedAt===null)delete copy.archivedAt;if(copy.sortKey===next)delete copy.sortKey;return copy;}),tasks:workspace.tasks.map(task=>{const copy:Partial<typeof task>={...task};if(copy.weeklyWeek===null)delete copy.weeklyWeek;if(copy.archivedFromStatus===null)delete copy.archivedFromStatus;if(copy.estimateMinutes===null)delete copy.estimateMinutes;if(copy.areaId===null)delete copy.areaId;if(copy.workType==='other')delete copy.workType;return copy;})};
 }
 export function compactPlanning(workspace:Workspace):unknown{return withoutGeneratedDefaults(workspace);}
 const bytes = (value: unknown) => new TextEncoder().encode(JSON.stringify(value)).byteLength;
@@ -46,6 +46,9 @@ export function measureValidatedPlanning(workspace:Workspace):{contentBytes:numb
  let common=(!workspace.areas?.length?propertyBytes(workspace,'areas',workspace.areas):0),serializedGenerated=0,contentGenerated=propertyBytes(workspace,'schemaVersion',workspace.schemaVersion);
  for(const project of workspace.projects){
   if(project.archivedAt===null&&enumerable.call(project,'archivedAt'))common+=generatedNullBytes.archivedAt;
+  if(project.framing==='')common+=propertyBytes(project,'framing',project.framing);
+  if(project.includeTaskPlanInBriefings===false)common+=propertyBytes(project,'includeTaskPlanInBriefings',project.includeTaskPlanInBriefings);
+  if(project.personalRepositoryKey===null)common+=propertyBytes(project,'personalRepositoryKey',project.personalRepositoryKey);
  }
  const positions=new Map<string,number>();
  for(const milestone of workspace.milestones){
