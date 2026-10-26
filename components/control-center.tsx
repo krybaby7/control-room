@@ -14,6 +14,7 @@ import type { Capture, Command, Milestone, Project, Task, Workspace, WorkspaceEn
 import { isCurrentWeek } from '@/lib/calendar';
 import { readWorkspaceResponse, SessionExpiredError, WorkspaceRequestError, isConclusiveWorkspaceRejection, submissionFor, type Submission } from '@/lib/workspace-client';
 import { boundedRequest, issueSubmissionId, sendCommand, reconcileSubmission, SaveSessionGeneration, StaleSessionError } from '@/lib/save-controller';
+import { takeBootWorkspaceRead } from '@/lib/workspace-boot-read';
 import { DurableDraftProvider, type DurableDraftController, type RecoveredSubmission } from './durable-draft';
 import type { RecurrenceRule } from '@/lib/recurrence';
 import { WorkspacePolling } from '@/lib/workspace-polling';
@@ -180,7 +181,7 @@ export default function ControlCenter({ userName }: { userName: string }) {
   const requestCurrent=useCallback(async()=>{
     if(expiredRef.current)throw new SessionExpiredError();
     if(readFlight.current)return readFlight.current;
-    const flight=boundedRequest('/api/workspace',{credentials:'same-origin',cache:'no-store'},readWorkspaceResponse,{session:sessionGeneration.current});readFlight.current=flight;
+    const flight=boundedRequest('/api/workspace',{credentials:'same-origin',cache:'no-store'},readWorkspaceResponse,{session:sessionGeneration.current,fetch:(input,init)=>takeBootWorkspaceRead()??fetch(input,init)});readFlight.current=flight;
     try{return await flight;}finally{if(readFlight.current===flight)readFlight.current=null;}
   },[]);
   const read=useCallback(async(forceAfterFlight=false)=>{
