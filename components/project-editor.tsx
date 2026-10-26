@@ -9,7 +9,7 @@ import {useDurableDraft} from './durable-draft';
 import {Field,FormDialog} from './form-dialog';
 
 export function PortfolioProjectEditor({project,onSave,onClose}:{project?:Project;onSave:(command:PlanningWorkflowCommand)=>Promise<void>;onClose:()=>void}){
- const initial:ProjectInput={name:project?.name??'',description:project?.description??'',goal:project?.goal??'',color:project?.color??'orange',repositories:project?.repositories.map(repository=>({...repository}))??[]};
+ const initial:ProjectInput={name:project?.name??'',description:project?.description??'',goal:project?.goal??'',framing:project?.framing??'',includeTaskPlanInBriefings:project?.includeTaskPlanInBriefings??false,color:project?.color??'orange',repositories:project?.repositories.map(repository=>({...repository}))??[]};
  const {baseline,draft,setDraft,saved,notice}=useDurableDraft('portfolio-project',project?.id??'new',initial);
  const set=<K extends keyof ProjectInput>(key:K,value:ProjectInput[K])=>setDraft(current=>({...current,[key]:value}));
  const repository=(index:number,key:'name'|'url',value:string)=>setDraft(current=>({...current,repositories:current.repositories.map((row,i)=>i===index?{...row,[key]:value}:row)}));
@@ -17,6 +17,8 @@ export function PortfolioProjectEditor({project,onSave,onClose}:{project?:Projec
   {notice}
   {project&&<p><SubjectReviewLink subject={{type:'project',id:project.id}}/></p>}
   <Field label="Project name"><input autoFocus required maxLength={200} value={draft.name} onChange={event=>set('name',event.target.value)}/></Field>
+  <Field label="What this project is and why" hint="Briefings measure your intentions against this framing."><textarea rows={5} maxLength={2500} value={draft.framing??''} onChange={event=>set('framing',event.target.value)}/></Field>
+  <label className="check-card"><input type="checkbox" aria-label="Include my task plan in briefings" checked={draft.includeTaskPlanInBriefings??false} onChange={event=>set('includeTaskPlanInBriefings',event.target.checked)}/><span>Include my task plan in briefings</span></label>
   <Field label="Goal" hint="Describe the outcome and constraints that matter."><textarea rows={4} maxLength={5000} value={draft.goal} onChange={event=>set('goal',event.target.value)}/></Field>
   <Field label="Description"><textarea rows={3} maxLength={5000} value={draft.description} onChange={event=>set('description',event.target.value)}/></Field>
   <Field label="Project color"><select value={draft.color} onChange={event=>set('color',event.target.value as Project['color'])}><option value="orange">Orange</option><option value="teal">Teal</option></select></Field>

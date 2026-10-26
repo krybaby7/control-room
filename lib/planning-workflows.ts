@@ -8,7 +8,7 @@ const id=z.string().trim().min(1).max(128);
 const text=(max:number,required=false)=>z.string().trim().max(max).refine(value=>!required||Boolean(value));
 const date=z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value=>{try{return new Date(`${value}T00:00:00Z`).toISOString().slice(0,10)===value;}catch{return false;}});
 const url=text(2048,true).transform((value,ctx)=>{try{const parsed=new URL(value);if(!['https:','http:'].includes(parsed.protocol)||parsed.username||parsed.password||/[\u0000-\u0020\u007f]/.test(value))throw new Error();parsed.pathname=parsed.pathname.replace(/\/+$/,'')||'/';return parsed.toString();}catch{ctx.addIssue({code:z.ZodIssueCode.custom,message:'Repository URL must be HTTP or HTTPS without credentials.'});return z.NEVER;}});
-const projectFields={name:text(200,true),description:text(5000),goal:text(5000),color:z.enum(['orange','teal']),repositories:z.array(z.object({name:text(200,true),url}).strict()).max(100)};
+const projectFields={name:text(200,true),description:text(5000),goal:text(5000),framing:z.string().max(2500).regex(/^[^\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]*$/u).optional(),includeTaskPlanInBriefings:z.boolean().optional(),personalRepositoryKey:z.string().min(1).max(128).regex(/^[a-zA-Z0-9_-]+$/u).nullable().optional(),color:z.enum(['orange','teal']),repositories:z.array(z.object({name:text(200,true),url}).strict()).max(100)};
 const ids=z.array(id).min(1).max(100).refine(values=>new Set(values).size===values.length,'Selection IDs must be unique.');
 const horizon=z.enum(['now','next','later']);
 const schema=z.discriminatedUnion('type',[

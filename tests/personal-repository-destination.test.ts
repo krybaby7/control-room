@@ -4,6 +4,15 @@ import {repositoryDestination} from '../lib/personal-repository-destination.ts';
 const reports=[{projectId:'saved-project',report:{repository:{key:'existing'}}}];
 const projects=[{id:'saved-project',archivedAt:null},{id:'other',archivedAt:null},{id:'archived',archivedAt:'2026-01-01'}];
 test('refresh uses the repository saved project rather than creating duplicate projects',()=>assert.equal(repositoryDestination('existing',{},reports,projects),'saved-project'));
+test('durable folder binding wins over reports and navigation context after reload',()=>{
+ const mapped=[...projects,{id:'folder-project',archivedAt:null,personalRepositoryKey:'existing'}];
+ assert.equal(repositoryDestination('existing',{},reports,mapped,true,'other'),'folder-project');
+ assert.equal(repositoryDestination('existing',{existing:'other'},reports,mapped),'folder-project');
+ assert.equal(repositoryDestination('existing',{existing:'new'},reports,mapped),'folder-project');
+ assert.equal(repositoryDestination('new-folder',{},reports,[...mapped,{id:'old',archivedAt:'2026-01-01',personalRepositoryKey:'new-folder'}]),null);
+ assert.equal(repositoryDestination('new-folder',{'new-folder':'other'},reports,[...mapped,{id:'old',archivedAt:'2026-01-01',personalRepositoryKey:'new-folder'}]),null);
+ assert.equal(repositoryDestination('new-folder',{'new-folder':'new'},reports,[...mapped,{id:'old',archivedAt:'2026-01-01',personalRepositoryKey:'new-folder'}]),null);
+});
 test('a new folder defaults to its own new project',()=>assert.equal(repositoryDestination('new-folder',{},reports,projects),'new'));
 test('analysis cannot select a destination before saved reports have loaded',()=>assert.equal(repositoryDestination('existing',{},[],projects,false),null));
 test('new repository opened from an existing project uses that active project',()=>assert.equal(repositoryDestination('new-folder',{},reports,projects,true,'other'),'other'));

@@ -6,6 +6,33 @@ async function inputs(overrides:Partial<DashboardInputs>={}):Promise<DashboardIn
  const fixture=await dashboardFixture();
  return {now:NOW,workspace:fixture.workspace,jobs:fixture.jobs,jobDetails:{'job-running':{provider:'codex',events:fixture.events['job-running']}},runtime:fixture.runtime,connector:fixture.connector,localReports:fixture.localReports,cloudReports:fixture.cloudReports,briefings:fixture.briefings,feeds:okFeeds(),...overrides};
 }
+
+test('durable folder association takes precedence over an older briefing repository',async()=>{
+ const value=await inputs();
+ value.workspace.projects[1].personalRepositoryKey='bound-folder';
+ value.connector!.repositories.push({key:'bound-folder',name:'Bound folder',head:'a'.repeat(40),dirty:false,hasPreviousAnalysis:false});
+ assert.equal(buildDashboardModel(value).projects[1].briefing.repositoryKey,'bound-folder');
+ value.connector!.repositories=value.connector!.repositories.filter(row=>row.key!=='bound-folder');
+ const unavailable=buildDashboardModel(value).projects[1].briefing;
+ assert.equal(unavailable.repositoryKey,null,'an unavailable durable folder must not silently fall back to an older folder');
+ assert.deepEqual(unavailable.repositoryChoices,[]);assert.equal(unavailable.canRequest,false);assert.match(unavailable.requestHint!,/linked folder is unavailable/i);
+});
+
+test('briefing basis uses captured framing and plan coverage rather than current project edits',async()=>{
+ const value=await inputs(),brief=value.briefings[0].briefing;
+ brief.version=3;brief.fitOrDrift='Recent intentions fit the stated purpose.';
+ brief.evidence.framing={workspaceRevision:7,characters:90,includeTaskPlan:false,totalMilestones:8,totalTasks:120,includedMilestones:0,includedTasks:0};
+ value.workspace.projects[1].framing='The framing was edited since this briefing.';
+ value.workspace.projects[1].includeTaskPlanInBriefings=true;
+ let line=buildDashboardModel(value).projects[1].briefing.evidenceLine;
+ assert.match(line,/Measured against your framing/);assert.match(line,/Task plan excluded/);
+ brief.evidence.framing={workspaceRevision:8,characters:0,includeTaskPlan:true,totalMilestones:8,totalTasks:120,includedMilestones:4,includedTasks:60};
+ line=buildDashboardModel(value).projects[1].briefing.evidenceLine;
+ assert.match(line,/No framing written yet/);assert.match(line,/Task plan included/);assert.match(line,/4 of 8 milestones/);assert.match(line,/60 of 120 tasks/);
+ brief.evidence.framing=null;
+ line=buildDashboardModel(value).projects[1].briefing.evidenceLine;
+ assert.doesNotMatch(line,/Measured against your framing|No framing written yet|Task plan excluded|Task plan included/);
+});
 test('HUD reflects PC heartbeat, personal app readiness, agent counts and attention',async()=>{
  const model=buildDashboardModel(await inputs());
  assert.equal(model.hud.pc.state,'online');assert.equal(model.hud.pc.deviceLabel,'Workstation');assert.equal(model.hud.pc.metrics?.cpu,31.4);assert.equal(model.hud.pc.metricsAgeSeconds,16);assert.equal(model.hud.pc.tone,'good');
@@ -41,7 +68,7 @@ test('project tiles show live agent progress, briefing with chats, tokens and ne
  const brief=b.briefing;assert.equal(brief.state,'ready');assert.equal(brief.source,'saved');assert.equal(brief.version,1);assert.equal(brief.status.label,'On track');assert.equal(brief.status.tone,'good');
  assert.deepEqual(brief.ledger.intentions.map(row=>[row.stateLabel,row.sourceLabel,row.date,row.areaName,row.isNew]),[['Reached','a Codex chat on your PC','2026-10-21','Order placement',true],['In progress','cloud work on GitHub','2026-10-20','Reconciliation',true],['Changed by you','a Claude Code chat on your PC','2026-10-14','Reconciliation',false]]);assert.equal(brief.ledger.bends,1);assert.equal(brief.ledger.newSince,'2026-10-18T11:50:00.000Z');assert.deepEqual(brief.ledger.areas.map(row=>[row.id,row.stateLabel,row.tone,row.isAim]),[['signals','Proven on real data','good',false],['orders','Built, tested on made-up data','live',false],['reconcile','Open: no result yet','warn',true]]);
  assert.equal(brief.freshness.newWork,false);assert.equal(brief.providerLabel,'Claude Code');assert.equal(brief.originLabel,'on your request');
- assert.equal(brief.evidenceLine,'12 local commits on 3 branches and 2 uncommitted files · 9 cloud commits on 4 GitHub branches, 1 open of 3 pull requests · 3 Codex chats and 2 Claude Code chats · 23 messages of your own across 4 chats · cloud chat coverage was not recorded in this saved briefing · 4 milestones and 17 tasks from your plan · carried forward from the briefing of 2026-10-18');
+ assert.equal(brief.evidenceLine,'12 local commits on 3 branches and 2 uncommitted files · 9 cloud commits on 4 GitHub branches, 1 open of 3 pull requests · 3 Codex chats and 2 Claude Code chats · 23 messages of your own across 4 chats · cloud chat coverage was not recorded in this saved briefing · Measured against your framing · Task plan excluded · carried forward from the briefing of 2026-10-18');
  assert.deepEqual(brief.policy,{repositoryKey:'repo-b',provider:'claude',enabled:true,minIntervalMinutes:120,lastBriefAt:'2026-10-21T11:05:00.000Z'});assert.equal(brief.repositoryName,'trade-graph');assert.equal(brief.canRequest,true);assert.equal(brief.unsaved,null);
  assert.deepEqual(b.tokens,{input:0,output:0,runs:0,reported:0});
 });

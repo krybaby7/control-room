@@ -2,7 +2,7 @@ import type { Project, Milestone, MilestoneInput, Task, TaskInput, Workspace } f
 import { createSeedWorkspace } from '../../lib/seed.ts';
 export const FIXTURE_AT='2026-10-17T12:00:00.000Z';
 export function projectFixture(patch:Partial<Project>={}):Project {
- return {id:'p1',name:'Project',description:'',goal:'',color:'orange',priority:'equal',repositories:[],archivedAt:null,...patch};
+ return {id:'p1',name:'Project',description:'',goal:'',framing:'',includeTaskPlanInBriefings:false,personalRepositoryKey:null,color:'orange',priority:'equal',repositories:[],archivedAt:null,...patch};
 }
 export function taskInputFixture(patch:Partial<TaskInput>={}):TaskInput {
  return {projectId:'p1',milestoneId:null,title:'Review acceptance criteria',notes:'',status:'todo',horizon:'now',priority:'normal',dueDate:null,weekly:false,dependsOn:[],blocker:'',sourceUrl:null,evidence:'',estimateMinutes:null,...patch};
@@ -29,7 +29,7 @@ export function legacyWorkspaceFixture(version:1|2|3,at=FIXTURE_AT):Workspace {
 export function legacyPlanningFixture(workspace:Workspace,version:1|2|3):Workspace {
  const raw=JSON.parse(JSON.stringify(workspace)) as Record<string,unknown>;
  raw.schemaVersion=version;delete raw.areas;
- for(const project of raw.projects as Record<string,unknown>[])delete project.archivedAt;
+ for(const project of raw.projects as Record<string,unknown>[]){delete project.archivedAt;delete project.framing;delete project.includeTaskPlanInBriefings;delete project.personalRepositoryKey;}
  for(const milestone of raw.milestones as Record<string,unknown>[]){delete milestone.archivedAt;delete milestone.sortKey;}
  for(const task of raw.tasks as Record<string,unknown>[]){delete task.areaId;delete task.workType;delete task.estimateMinutes;if(version===1){delete task.weeklyWeek;delete task.archivedFromStatus;}}
  return raw as unknown as Workspace;

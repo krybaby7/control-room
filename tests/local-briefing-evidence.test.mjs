@@ -61,7 +61,7 @@ test('multibyte cloud turns and previous ledger stay inside evidence and prompt 
   for(const coverage of summary.cloudTurns){const retained=bundle.ownerTurns.filter(row=>row.provider===coverage.provider);assert.equal(coverage.sessions,retained.length);assert.equal(coverage.turns,retained.reduce((sum,row)=>sum+row.turns.length,0));}
   assert.equal(summary.ownerTurns.sessions,bundle.ownerTurns.length);assert.equal(summary.ownerTurns.turns,bundle.ownerTurns.reduce((sum,row)=>sum+row.turns.length,0));
   for(const chat of summary.chats){const retained=bundle.chats.find(row=>row.provider===chat.provider).sessions;assert.equal(chat.sessions,retained.length);assert.equal(chat.messages,retained.reduce((sum,row)=>sum+row.messages.length,0));}
-  assert.ok(Buffer.byteLength(buildBriefingPrompt({bundle,plan:null,projectName:'Fixture',previous}))<=BRIEFING_PROMPT_BYTES);assert.equal(JSON.stringify(previous),before);
+  assert.ok(Buffer.byteLength(buildBriefingPrompt({bundle,framing:null,projectName:'Fixture',previous}))<=BRIEFING_PROMPT_BYTES);assert.equal(JSON.stringify(previous),before);
  }finally{await f.close();}
 });
 
@@ -77,7 +77,7 @@ test('byte trimming removes the oldest cloud sessions and coverage counts the re
   assert.ok(Buffer.byteLength(JSON.stringify(bundle))<=EVIDENCE_LIMITS.bundleBytes);
   for(const coverage of summary.cloudTurns){const retained=bundle.ownerTurns.filter(row=>row.provider===coverage.provider);assert.equal(coverage.sessions,retained.length);assert.equal(coverage.turns,retained.reduce((sum,row)=>sum+row.turns.length,0));}
   assert.equal(summary.ownerTurns.turns,bundle.ownerTurns.length*40);
-  assert.ok(Buffer.byteLength(buildBriefingPrompt({bundle,plan:null,projectName:'Fixture',previous}))<=BRIEFING_PROMPT_BYTES);
+  assert.ok(Buffer.byteLength(buildBriefingPrompt({bundle,framing:null,projectName:'Fixture',previous}))<=BRIEFING_PROMPT_BYTES);
  }finally{await f.close();}
 });
 test('mixed safe and malformed cloud handoffs do not claim a provider is absent',async()=>{
@@ -96,7 +96,7 @@ test('collected export coverage notes reach the prompt and count toward the seri
   assert.ok(bundle.ownerTurns.length>0&&bundle.ownerTurns.length<12,'coverage note bytes participate in pack trimming');
   for(const session of bundle.ownerTurns){assert.equal(session.coverageNotes,coverageNotes);assert.equal(session.handoffSource,source);assert.equal(session.createdAt,createdAt);assert.equal(session.truncated,true);assert.deepEqual(session.turns,['Keep the original scope.']);}
   assert.equal(summary.ownerTurns.turns,bundle.ownerTurns.length);for(const row of summary.cloudTurns){const retained=bundle.ownerTurns.filter(session=>session.provider===row.provider);assert.equal(row.sessions,retained.length);assert.equal(row.turns,retained.length);}
-  const prompt=buildBriefingPrompt({bundle,plan:null,projectName:'Synthetic fixture'});assert.ok(prompt.includes('Coverage: partial readback; research clipped; key redacted.'));assert.ok(Buffer.byteLength(prompt)<=BRIEFING_PROMPT_BYTES);assert.ok(Buffer.byteLength(JSON.stringify(bundle))<=EVIDENCE_LIMITS.bundleBytes);
+  const prompt=buildBriefingPrompt({bundle,framing:null,projectName:'Synthetic fixture'});assert.ok(prompt.includes('Coverage: partial readback; research clipped; key redacted.'));assert.ok(Buffer.byteLength(prompt)<=BRIEFING_PROMPT_BYTES);assert.ok(Buffer.byteLength(JSON.stringify(bundle))<=EVIDENCE_LIMITS.bundleBytes);
  }finally{await f.close();}
 });
 test('coverage-only exports keep their missing-turn note without inventing owner activity or coverage counts',async()=>{
@@ -106,7 +106,7 @@ test('coverage-only exports keep their missing-turn note without inventing owner
   const options={fetchRemote:false,codexHome:f.codexHome,claudeHome:f.claudeHome},{bundle,summary,fingerprint}=await collectBriefingEvidence(f.root,options);
   assert.deepEqual(bundle.ownerTurns,[]);assert.equal(summary.ownerTurns.sessions,0);assert.equal(summary.ownerTurns.turns,0);assert.ok(summary.cloudTurns.every(row=>row.sessions===0&&row.turns===0));
   assert.ok(Array.isArray(bundle.cloudCoverageNotes),'coverage-only export notes remain in bounded evidence');assert.equal(bundle.cloudCoverageNotes.length,1);assert.equal(bundle.cloudCoverageNotes[0].coverageNotes,notes);assert.equal(bundle.cloudCoverageNotes[0].hasOwnerTurns,false);assert.equal(bundle.cloudCoverageNotes[0].handoffSource,source);assert.equal(bundle.cloudCoverageNotes[0].latestAt,undefined);
-  const prompt=buildBriefingPrompt({bundle,plan:null,projectName:'Synthetic fixture'});assert.ok(prompt.includes(notes));assert.ok(prompt.includes('never infer missing owner turns'));
+  const prompt=buildBriefingPrompt({bundle,framing:null,projectName:'Synthetic fixture'});assert.ok(prompt.includes(notes));assert.ok(prompt.includes('never infer missing owner turns'));
   assert.equal(await computeWorkFingerprint(f.root,options),fingerprint);
   for(let i=0;i<6;i++)await addHandoff(f.root,{sessionId:`missing-${i}`,coverageNotes:'Partial readback. '+('Detail '.repeat(500)),turns:[]});
   const bounded=(await collectBriefingEvidence(f.root,options)).bundle.cloudCoverageNotes;
@@ -128,7 +128,7 @@ test('evidence pack sees local, cloud and uncommitted work, several chats per pr
   assert.ok(!JSON.stringify(bundle.ownerTurns).includes('Reconciliation remains'));
   assert.equal(summary.cloud.status,'fetched');assert.equal(summary.cloud.remote,'local-remote');assert.equal(summary.cloud.pullRequests,null);assert.equal(summary.cloud.branches,2);assert.equal(summary.local.branches,2);assert.equal(summary.local.branch,'main');assert.equal(summary.local.uncommittedFiles,1);
   assert.deepEqual(summary.chats.map(row=>[row.provider,row.status,row.sessions,row.messages]),[['codex','included',2,3],['claude','included',1,2]]);
-  assert.deepEqual(validateBriefingEvidence({...summary,plan:null}),{...summary,plan:null});
+  assert.deepEqual(validateBriefingEvidence({...summary,framing:null}),{...summary,framing:null});
   const cloud=bundle.cloudBranches.find(row=>row.name==='origin/claude/reconcile');assert.ok(cloud);assert.equal(cloud.scope,'cloud');assert.equal(cloud.merged,false);assert.equal(cloud.ahead,1);assert.equal(cloud.commits[0].subject,'Draft reconciliation of results');
   const local=bundle.localBranches.find(row=>row.name==='feature/signals');assert.ok(local);assert.equal(local.commits[0].subject,'[filtered]');
   assert.ok(bundle.localBranches.find(row=>row.name==='main').isDefault===false||bundle.repository.defaultBranch==='origin/main');

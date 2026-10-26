@@ -5,6 +5,7 @@ import {SessionExpiredError} from '../lib/workspace-client.ts';
 import {emptyFeedSnapshot,FEED_LIMITS,LiveFeedScheduler,readFeedSnapshot,readJobDetailFeed} from '../lib/dashboard/feed.ts';
 import {dashboardFixture,NOW} from './fixtures/dashboard.ts';
 import {buildDashboardModel} from '../lib/dashboard/model.ts';
+import {briefingFixtureV1,briefingFixtureV2} from './fixtures/briefing.ts';
 
 class FakeClock {now=0;timers:{id:number;at:number;callback:()=>void}[]=[];private seq=0;set=(callback:()=>void,ms:number)=>{const id=++this.seq;this.timers.push({id,at:this.now+ms,callback});return id;};clear=(handle:unknown)=>{this.timers=this.timers.filter(timer=>timer.id!==handle);};async advance(ms:number){this.now+=ms;for(;;){const due=this.timers.filter(timer=>timer.at<=this.now).sort((a,b)=>a.at-b.at)[0];if(!due)break;this.timers=this.timers.filter(timer=>timer!==due);due.callback();await new Promise(resolve=>setImmediate(resolve));await new Promise(resolve=>setImmediate(resolve));}}next(){return this.timers.length?Math.min(...this.timers.map(timer=>timer.at))-this.now:null;}}
 async function flush(){for(let i=0;i<4;i++)await new Promise(resolve=>setImmediate(resolve));}
@@ -88,6 +89,17 @@ test('an unconfigured personal connector is a state, not an error; 401 expires t
  assert.equal(snapshot.connector,null);assert.equal(snapshot.feeds.connector.status,'unconfigured');
  const expired=await fixtureFetch({'/api/jobs':()=>json({error:'Sign in again.'},401)});
  await assert.rejects(readFeedSnapshot(emptyFeedSnapshot(),{includeSlow:false,fetch:expired.fetcher,now:()=>NOW}),SessionExpiredError);
+});
+
+test('saved legacy briefings remain readable without claiming framing or task-plan coverage',async()=>{
+ for(const legacy of [briefingFixtureV1(),briefingFixtureV2()]){
+  const fixture=await dashboardFixture(),row={...fixture.briefings[0],briefing:{...legacy,project:{id:fixture.projectB,name:'Trade Graph'}}};
+  const {fetcher}=await fixtureFetch({'/api/project-briefings':()=>json({revision:3,asOf:NOW,briefings:[row]})});
+  const snapshot=await readFeedSnapshot(emptyFeedSnapshot(),{includeSlow:true,fetch:fetcher,now:()=>NOW});
+  assert.equal(snapshot.feeds.briefings.status,'ok');assert.equal(snapshot.briefings[0].briefing.evidence.framing,null);
+  const view=buildDashboardModel({now:NOW,workspace:fixture.workspace,...snapshot}).projects[1].briefing;
+  assert.equal(view.state,'ready');assert.doesNotMatch(view.evidenceLine,/Measured against your framing|No framing written yet|Task plan included|Task plan excluded/);
+ }
 });
 
 for(const count of [21,101])for(const status of ['claimed','failed'] as const){

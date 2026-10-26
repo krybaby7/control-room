@@ -1,12 +1,12 @@
 import {validateLocalAnalysis} from './local-analysis.mjs';
-import {validateProjectBriefing,validateCompactPlan,BRIEFING_MODELS} from './project-briefing.mjs';
+import {validateProjectBriefing,validateCompactPlan,validateProjectFraming,BRIEFING_MODELS} from './project-briefing.mjs';
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/u;
 const ID=/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u,KEY=/^[A-Za-z0-9_-]{1,128}$/u,HASH=/^[a-f0-9]{64}$/u,HEAD=/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u;
 const statuses=['queued','claimed','completed','failed','cancelled'],providers=['codex','claude'],kinds=['browse','analyze','brief'];
 /** briefMs bounds one claimed briefing (fetch, chats and one model call); policies are per repository. */
 export const PERSONAL_LIMITS=Object.freeze({repositories:16,claimMs:300000,briefMs:600000,queueMs:600000,bodyBytes:65536,stateBytes:500000,policies:16,minIntervalMinutes:30,maxIntervalMinutes:1440,defaultIntervalMinutes:120});
-const requestKeys=['id','kind','status','createdAt','expiresAt','claimedAt','projectId','repositoryKey','provider','requestedModel','report','reportSha256','error','consumedAt','origin','plan','briefing','fingerprint'];
-const briefOnly=['origin','plan','briefing','fingerprint'];
+const requestKeys=['id','kind','status','createdAt','expiresAt','claimedAt','projectId','repositoryKey','provider','requestedModel','report','reportSha256','error','consumedAt','origin','plan','framing','briefing','fingerprint'];
+const briefOnly=['origin','plan','framing','briefing','fingerprint'];
 function fail(){throw new Error('Personal repository request is invalid.');}
 function obj(v,keys,required=keys){if(!v||typeof v!=='object'||Array.isArray(v)||Object.keys(v).some(k=>!keys.includes(k))||required.some(k=>!Object.hasOwn(v,k)))fail();return v;}
 function text(v,max,pattern){if(typeof v!=='string'||!v.trim()||v.length>max||/[\x00-\x1f\x7f]/u.test(v)||pattern&&!pattern.test(v))fail();return v;}
@@ -48,11 +48,20 @@ export function parseDeviceAction(v){
  return structuredClone(v);
 }
 export function initialPersonalState(deviceId){text(deviceId,128,ID);return {version:1,deviceId,connected:true,epoch:0,lastSeenAt:null,providers:{codex:{ready:false,detail:'unavailable'},claude:{ready:false,detail:'unavailable'}},repositories:[],requests:[],policies:[]};}
+/** New reports must describe the exact immutable framing admitted by the server.
+ * Historical plan jobs retain their original validation and serialized bytes. */
+function matchBriefingFraming(job,rawBriefing,briefing){
+ if(!Object.hasOwn(job,'framing'))return;
+ const framing=validateProjectFraming(job.framing),coverage=briefing.evidence.framing;
+ if(rawBriefing.version!==3||!coverage||briefing.project.name!==framing.projectName)fail();
+ const expected={workspaceRevision:framing.workspaceRevision,characters:framing.framing.length,includeTaskPlan:framing.includeTaskPlan,totalMilestones:framing.totalMilestones,totalTasks:framing.totalTasks,includedMilestones:framing.milestones.length,includedTasks:framing.tasks.length};
+ if(Object.entries(expected).some(([key,value])=>coverage[key]!==value))fail();
+}
 function validateRequest(j){
  obj(j,requestKeys,['id','kind','status','createdAt','expiresAt','claimedAt']);
  text(j.id,36,UUID);if(!kinds.includes(j.kind)||!statuses.includes(j.status))fail();stamp(j.createdAt);stamp(j.expiresAt);if(j.claimedAt!==null)stamp(j.claimedAt);
  const model=j.kind==='browse'?[]:['projectId','repositoryKey','provider','requestedModel'];
- if(j.kind==='browse'&&['projectId','repositoryKey','provider','requestedModel','report','briefing','reportSha256','consumedAt','plan','origin','fingerprint'].some(k=>Object.hasOwn(j,k)))fail();
+ if(j.kind==='browse'&&['projectId','repositoryKey','provider','requestedModel','report','briefing','reportSha256','consumedAt','plan','framing','origin','fingerprint'].some(k=>Object.hasOwn(j,k)))fail();
  if(model.length){text(j.projectId,128,ID);text(j.repositoryKey,128,KEY);if(!providers.includes(j.provider)||j.requestedModel!==modelFor(j.provider))fail();}
  if(j.kind==='analyze'){
   if(briefOnly.some(k=>Object.hasOwn(j,k)))fail();
@@ -61,9 +70,11 @@ function validateRequest(j){
  }
  if(j.kind==='brief'){
   if(Object.hasOwn(j,'report')||!['owner','auto'].includes(j.origin))fail();
-  const plan=validateCompactPlan(j.plan);if(plan.project.id!==j.projectId)fail();
+  // Legacy plans remain unchanged so historical state and export digests stay verifiable.
+  if(Object.hasOwn(j,'framing')){if(Object.hasOwn(j,'plan')||validateProjectFraming(j.framing).projectId!==j.projectId)fail();}
+  else if(validateCompactPlan(j.plan).project.id!==j.projectId)fail();
   if(Object.hasOwn(j,'fingerprint'))text(j.fingerprint,64,HASH);
-  if(Object.hasOwn(j,'briefing')){const b=validateProjectBriefing(j.briefing);text(j.reportSha256,64,HASH);if(j.status!=='completed'||b.run.id!==j.id||b.repository.key!==j.repositoryKey||b.run.provider!==j.provider||b.run.requestedModel!==j.requestedModel||b.run.origin!==j.origin||b.project.id!==j.projectId)fail();}
+  if(Object.hasOwn(j,'briefing')){const b=validateProjectBriefing(j.briefing);text(j.reportSha256,64,HASH);if(j.status!=='completed'||b.run.id!==j.id||b.repository.key!==j.repositoryKey||b.run.provider!==j.provider||b.run.requestedModel!==j.requestedModel||b.run.origin!==j.origin||b.project.id!==j.projectId)fail();matchBriefingFraming(j,j.briefing,b);}
   else if(j.reportSha256||j.consumedAt||j.status==='completed')fail();
  }
  if(j.consumedAt)stamp(j.consumedAt);
@@ -78,13 +89,13 @@ export function validatePersonalState(v){
  if(new TextEncoder().encode(JSON.stringify(v)).byteLength>PERSONAL_LIMITS.stateBytes)fail();
  return structuredClone(v);
 }
-/** Only the server can supply a plan: it reads the owner's workspace in the same request. */
-function requirePlan(context,projectId){const plan=context?.plan;if(!plan)fail();const checked=validateCompactPlan(plan);if(checked.project.id!==projectId)fail();return checked;}
+/** Only the server supplies framing from the owner's workspace at admission. */
+function requireProjectFraming(context,projectId){const framing=context?.framing;if(!framing)fail();const checked=validateProjectFraming(framing);if(checked.projectId!==projectId)fail();return checked;}
 const hasResult=j=>Boolean(j.report||j.briefing);
 /** Queue history has no request-count cap. Repeated claims never repeat a model call; delivery retries are handled by the store. */
 export function transitionPersonalState(raw,action,now,actor,context={}){
   const s=validatePersonalState(raw);if(!Object.hasOwn(s,'policies'))s.policies=[];stamp(now);const a=actor==='owner'?parseOwnerAction(action):parseDeviceAction(action);
- for(const j of s.requests)if(['queued','claimed'].includes(j.status)&&Date.parse(j.expiresAt)<=Date.parse(now)){j.status='failed';j.error='deadline_exceeded';}
+ for(const j of s.requests)if(['queued','claimed'].includes(j.status)){if(j.kind==='brief'&&!j.framing){j.status='failed';j.error='interrupted';}else if(Date.parse(j.expiresAt)<=Date.parse(now)){j.status='failed';j.error='deadline_exceeded';}}
  const claimWindow=kind=>new Date(Date.parse(now)+(kind==='brief'?PERSONAL_LIMITS.briefMs:PERSONAL_LIMITS.claimMs)).toISOString();
  if(actor==='owner'){
   if(a.action==='clear-finished'){s.requests=s.requests.filter(j=>['queued','claimed'].includes(j.status)||j.status==='completed'&&hasResult(j)&&!j.consumedAt);return s;}
@@ -104,8 +115,8 @@ export function transitionPersonalState(raw,action,now,actor,context={}){
   if(!s.connected)fail();
   if(job){if(job.kind!==a.action||a.action!=='browse'&&(job.projectId!==a.projectId||job.repositoryKey!==a.repositoryKey||job.provider!==a.provider))fail();return s;}
   if(a.action!=='browse'&&!s.repositories.some(r=>r.key===a.repositoryKey))fail();
-  const plan=a.action==='brief'?requirePlan(context,a.projectId):null;
-  s.requests.push({id:a.requestId,kind:a.action,status:'queued',createdAt:now,expiresAt:new Date(Date.parse(now)+PERSONAL_LIMITS.queueMs).toISOString(),claimedAt:null,...(a.action==='browse'?{}:{projectId:a.projectId,repositoryKey:a.repositoryKey,provider:a.provider,requestedModel:modelFor(a.provider)}),...(a.action==='brief'?{origin:'owner',plan}:{})});
+  const framing=a.action==='brief'?requireProjectFraming(context,a.projectId):null;
+  s.requests.push({id:a.requestId,kind:a.action,status:'queued',createdAt:now,expiresAt:new Date(Date.parse(now)+PERSONAL_LIMITS.queueMs).toISOString(),claimedAt:null,...(a.action==='browse'?{}:{projectId:a.projectId,repositoryKey:a.repositoryKey,provider:a.provider,requestedModel:modelFor(a.provider)}),...(a.action==='brief'?{origin:'owner',framing}:{})});
   return s;
  }
  if(!['poll','auto-brief'].includes(a.action)){const terminal=s.requests.find(j=>j.id===a.requestId);if(terminal&&['failed','cancelled'].includes(terminal.status))return s;}
@@ -118,9 +129,9 @@ export function transitionPersonalState(raw,action,now,actor,context={}){
   if(!policy||!s.repositories.some(r=>r.key===a.repositoryKey)||s.requests.some(j=>['queued','claimed'].includes(j.status)))throw new Error('Automatic briefing is not admitted right now.');
   const interval=policy.minIntervalMinutes*60000,recent=time=>time!==null&&Date.parse(now)-Date.parse(time)<interval;
   if(recent(policy.lastBriefAt)||recent(policy.lastAttemptAt)||policy.lastFingerprint===a.fingerprint)throw new Error('Automatic briefing is not due.');
-  const plan=requirePlan(context,policy.projectId);
+  const framing=requireProjectFraming(context,policy.projectId);
   policy.lastAttemptAt=now;
-  s.requests.push({id:a.requestId,kind:'brief',status:'claimed',createdAt:now,expiresAt:claimWindow('brief'),claimedAt:now,projectId:policy.projectId,repositoryKey:a.repositoryKey,provider:policy.provider,requestedModel:modelFor(policy.provider),origin:'auto',plan,fingerprint:a.fingerprint});
+  s.requests.push({id:a.requestId,kind:'brief',status:'claimed',createdAt:now,expiresAt:claimWindow('brief'),claimedAt:now,projectId:policy.projectId,repositoryKey:a.repositoryKey,provider:policy.provider,requestedModel:modelFor(policy.provider),origin:'auto',framing,fingerprint:a.fingerprint});
   return s;
  }
  const job=s.requests.find(j=>j.id===a.requestId);if(!job||job.status!=='claimed')fail();
@@ -132,7 +143,7 @@ export function transitionPersonalState(raw,action,now,actor,context={}){
  }else{
   const b=a.briefing;
   if(!b||a.report||a.repositories||b.run.id!==job.id||b.repository.key!==job.repositoryKey||b.run.provider!==job.provider||b.run.requestedModel!==job.requestedModel||b.run.source!=='personal-pc-connector'||b.run.origin!==job.origin||b.project.id!==job.projectId)fail();
-  job.briefing=validateProjectBriefing(b);if(a.fingerprint)job.fingerprint=a.fingerprint;
+  const briefing=validateProjectBriefing(b);matchBriefingFraming(job,b,briefing);job.briefing=briefing;if(a.fingerprint)job.fingerprint=a.fingerprint;
   const repository=s.repositories.find(r=>r.key===job.repositoryKey);if(repository){repository.head=b.repository.head;repository.dirty=b.repository.dirty;}
   const policy=s.policies.find(p=>p.repositoryKey===job.repositoryKey);if(policy){policy.lastBriefAt=now;if(job.fingerprint)policy.lastFingerprint=job.fingerprint;}
  }
