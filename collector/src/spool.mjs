@@ -1,6 +1,4 @@
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
-import { fileURLToPath } from 'node:url';
+import {checkWindowsPrivatePath as assertWindowsPrivate} from './windows-private-path.mjs';
 import { open, mkdir, rename, readdir, rm, lstat, realpath } from 'node:fs/promises';
 import { join, resolve, dirname } from 'node:path';
 import { constants } from 'node:fs';
@@ -16,12 +14,6 @@ export const canonical = value => {
     throw Error('Non-JSON collector data');
 };
 export const digest = value => createHash('sha256').update(typeof value === 'string' || value instanceof Uint8Array ? value : canonical(value)).digest('hex');
-async function assertWindowsPrivate(path) {
-    if (process.platform === 'win32')
-        await promisify(execFile)('powershell.exe', ['-NoProfile', '-NonInteractive', '-File', fileURLToPath(new URL('../windows/check-private-path.ps1', import.meta.url)), '-Path', path], {
-            windowsHide: true, maxBuffer: 1024, timeout: 5000
-        });
-}
 export async function privateDirectory(path) {
     await mkdir(path, { recursive: true, mode: 0o700 });
     const stat = await lstat(path);
@@ -125,7 +117,7 @@ export async function acquireSingleInstance(directory) {
     await privateDirectory(directory);
     const physical = await realpath(directory), identity = digest(process.platform === 'win32' ? physical.toLowerCase() : physical);
     if (!['linux', 'win32'].includes(process.platform)) throw Object.assign(Error('Collector instance lock platform unsupported'), { code: 'ENOTSUP' });
-    const path = process.platform === 'linux' ? '\0control-room-history-' + identity : '\\\\pipe\\control-room-history-' + identity;
+    const path = process.platform === 'linux' ? '\0control-room-history-' + identity : '\\\\.\\pipe\\control-room-history-' + identity;
     const server = createServer(socket => socket.destroy());
     await new Promise((ok, no) => {
         server.once('error', error => {

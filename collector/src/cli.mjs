@@ -8,6 +8,7 @@ import { openCheckpoints } from './checkpoints.mjs';
 import { createTransport, retryDelay } from './transport.mjs';
 import { readCredential } from './credentials.mjs';
 import { watchRoots } from './watch.mjs';
+import {withWindowsPrivateChecks} from './windows-private-path.mjs';
 export function createAssetStager({ maxBytes = 32 * 1024 * 1024 } = {}) {
     let total = 0;
     const assets = new Map();
@@ -57,7 +58,10 @@ export async function collectorStatus(config, spool) {
     };
 }
 const backpressure = error => /Spool full|index full|mapping cache full|budget exhausted/.test(String(error.message ?? '')) || error.code === 'ENOSPC';
-export async function runCollector(config, { once = false, signal, adapterFactory, transport, now = Date.now } = {}) {
+export async function runCollector(config,options={}) {
+    return await withWindowsPrivateChecks(()=>runCollectorScoped(config,options),{signal:options.signal,independent:true});
+}
+async function runCollectorScoped(config, { once = false, signal, adapterFactory, transport, now = Date.now } = {}) {
     const release = await acquireSingleInstance(config.stateDirectory);
     let closeWatch = () => {
     };
@@ -169,7 +173,7 @@ export async function runCollector(config, { once = false, signal, adapterFactor
                 signal?.addEventListener('abort', aborted, { once: true });
             });
         } while (!signal?.aborted);
-        return collectorStatus(config, spool);
+        return await collectorStatus(config, spool);
     }
     finally {
         closeWatch();

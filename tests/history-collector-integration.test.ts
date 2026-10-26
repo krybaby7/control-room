@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import {mkdtemp,mkdir,writeFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
+import {execFile,spawn} from 'node:child_process';
+import {promisify} from 'node:util';
 import {database} from './helpers/sqlite.ts';
 import {workspaceFixture} from './helpers/workspace.ts';
 import {loadWorkspace} from '../lib/workspace-store.ts';
@@ -15,13 +17,34 @@ import type {PrivateHistoryBucket} from '../lib/history/object-store.ts';
 import type {PrivateIngressVerifier} from '../lib/devices/contracts.ts';
 import {createTransport} from '../collector/src/transport.mjs';
 import {runCollector} from '../collector/src/cli.mjs';
+import {acquireSingleInstance} from '../collector/src/spool.mjs';
 const owner='synthetic-collector-http-owner',sourceId='synthetic-source',origin='https://example.invalid';
+const execFileAsync=promisify(execFile);
+function nativePowerShellEnvironment(){
+ const env={...process.env};
+ for(const key of Object.keys(env))if(key.toLowerCase()==='psmodulepath')delete env[key];
+ env.PSModulePath=join(process.env.SystemRoot??'C:\\Windows','System32','WindowsPowerShell','v1.0','Modules');
+ return env;
+}
+// Only this fixture's newly-created temporary state receives owner-only ACLs.
+// mode:0700 alone does not remove inherited Windows access rules.
+async function privateTestState(directory:string){
+ const state=join(directory,'state');await mkdir(state,{mode:0o700});
+ if(process.platform==='win32')await execFileAsync('powershell.exe',['-NoProfile','-NonInteractive','-Command',`$ErrorActionPreference='Stop'
+$sid=[Security.Principal.WindowsIdentity]::GetCurrent().User
+$acl=New-Object Security.AccessControl.DirectorySecurity
+$acl.SetOwner($sid);$acl.SetAccessRuleProtection($true,$false)
+$acl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($sid,'FullControl','ContainerInherit,ObjectInherit','None','Allow')))
+Set-Acl -LiteralPath $env:CONTROL_ROOM_SYNTHETIC_STATE -AclObject $acl`],{windowsHide:true,timeout:5000,env:{...nativePowerShellEnvironment(),CONTROL_ROOM_SYNTHETIC_STATE:state}});
+ return state;
+}
 /** Actual reader, CLI, durable spool, client transport and server HTTP/store paths.
  * Memory bucket and private-ingress verifier are synthetic ports: no R2, hosted
  * ingress, physical device, provider authentication or owner roots are verified. */
 async function fixture(messageCount=251){
- const directory=await mkdtemp(join(tmpdir(),'synthetic-collector-integration-')),{db,sqlite}=database(),now=()=>new Date().toISOString(),root=join(directory,'root'),state=join(directory,'state');
+ const directory=await mkdtemp(join(tmpdir(),'synthetic-collector-integration-')),{db,sqlite}=database(),now=()=>new Date().toISOString(),root=join(directory,'root');
  try{
+  const state=await privateTestState(directory);
   await mkdir(root,{mode:0o700});
   const records:unknown[]=[{type:'session_meta',payload:{id:'synthetic-thread'}}];
   for(let i=0;i<messageCount;i++)records.push({type:'response_item',payload:{type:'message',id:'synthetic-'+i,role:'user',content:[{type:'input_text',text:'synthetic retained content '+i}]}});
@@ -45,6 +68,46 @@ async function fixture(messageCount=251){
   return {db,sqlite,objects,counts,run,revokeDuringPut:()=>{revokeOnPut=true;},cleanup:async()=>{sqlite.close();await rm(directory,{recursive:true,force:true});}};
  }catch(error){sqlite.close();await rm(directory,{recursive:true,force:true});throw error;}
 }
+test('native Windows collector ACL check ignores a poisoned inherited PowerShell module path',{skip:process.platform!=='win32',timeout:30000},async()=>{
+ const directory=await mkdtemp(join(tmpdir(),'synthetic-collector-module-path-'));
+ try{
+  const state=await privateTestState(directory),modules=join(directory,'modules'),security=join(modules,'Microsoft.PowerShell.Security');
+  await mkdir(security,{recursive:true});
+  await writeFile(join(security,'Microsoft.PowerShell.Security.psd1'),"@{RootModule='Microsoft.PowerShell.Security.psm1';ModuleVersion='1.0.0';FunctionsToExport=@('Get-Acl');CmdletsToExport=@()}");
+  await writeFile(join(security,'Microsoft.PowerShell.Security.psm1'),"function Get-Acl { throw 'Synthetic poisoned inherited module path' }; Export-ModuleMember -Function Get-Acl");
+  const env={...nativePowerShellEnvironment(),PSModulePath:modules+';'+nativePowerShellEnvironment().PSModulePath,CONTROL_ROOM_SYNTHETIC_STATE:state};
+  // The shadow module must actually break an unprotected native child first.
+  await assert.rejects(execFileAsync('powershell.exe',['-NoProfile','-NonInteractive','-Command',"$ErrorActionPreference='Stop'; Get-Acl -LiteralPath $env:CONTROL_ROOM_SYNTHETIC_STATE | Out-Null"],{windowsHide:true,timeout:5000,env}),/Synthetic poisoned inherited module path/);
+  const moduleUrl=new URL('../collector/src/spool.mjs',import.meta.url).href;
+  await execFileAsync(process.execPath,['--input-type=module','-e',`import {privateDirectory} from ${JSON.stringify(moduleUrl)};await privateDirectory(process.argv[1]);`,state],{windowsHide:true,timeout:10000,env});
+ }finally{await rm(directory,{recursive:true,force:true});}
+});
+test('native Windows collector lock excludes contenders and releases after close or process death',{skip:process.platform!=='win32',timeout:30000},async()=>{
+ const directory=await mkdtemp(join(tmpdir(),'synthetic-collector-instance-'));let release,child,childClosed:Promise<void>|undefined;
+ try{
+  const state=await privateTestState(directory),other=join(directory,'other');await mkdir(other);
+  const otherState=await privateTestState(other);
+  release=await acquireSingleInstance(state);
+  await assert.rejects(acquireSingleInstance(state),{code:'EADDRINUSE'});
+  const releaseOther=await acquireSingleInstance(otherState);await releaseOther();
+  await release();release=undefined;
+  const moduleUrl=new URL('../collector/src/spool.mjs',import.meta.url).href;
+  child=spawn(process.execPath,['--input-type=module','-e',`import {acquireSingleInstance} from ${JSON.stringify(moduleUrl)};await acquireSingleInstance(process.argv[1]);process.stdout.write('locked');`,state],{windowsHide:true,stdio:['ignore','pipe','pipe']});
+  const activeChild=child;
+  childClosed=new Promise<void>(resolve=>{activeChild.once('close',()=>resolve());});
+  await new Promise<void>((resolve,reject)=>{
+   let stderr='';activeChild.stderr.on('data',bytes=>{stderr+=bytes;});
+   activeChild.once('error',reject);activeChild.once('exit',()=>reject(Error('Synthetic lock holder exited: '+stderr)));
+   activeChild.stdout.once('data',bytes=>{try{assert.equal(bytes.toString(),'locked');resolve();}catch(error){reject(error);}});
+  });
+  await assert.rejects(acquireSingleInstance(state),{code:'EADDRINUSE'});
+  if(child.exitCode===null&&child.signalCode===null)child.kill('SIGKILL');await childClosed;child=undefined;
+  release=await acquireSingleInstance(state);
+ }finally{
+  if(child){if(child.exitCode===null&&child.signalCode===null)child.kill('SIGKILL');await childClosed;}
+  await release?.();await rm(directory,{recursive:true,force:true});
+ }
+});
 test('synthetic CLI through actual history HTTP and SQLite imports 251 messages, repeats without uploads and retains first immutable metadata',{timeout:120000},async()=>{
  const f=await fixture();try{
   assert.equal((await f.run()).pending,0);

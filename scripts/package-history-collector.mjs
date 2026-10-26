@@ -9,8 +9,8 @@ export const HISTORY_COLLECTOR_PATHS=Object.freeze([
  'README.md','package.json','src/adapters/claude-code-local.mjs','src/adapters/codex-local.mjs',
  'src/checkpoints.mjs','src/cli.mjs','src/config.mjs','src/credentials.mjs',
  'src/readers/compressed-jsonl.mjs','src/readers/jsonl.mjs','src/readers/normalize.mjs',
- 'src/reconcile.mjs','src/spool.mjs','src/transport.mjs','src/watch.mjs',
- 'windows/check-private-path.ps1','windows/install-task.ps1','windows/protect-credential.ps1','windows/uninstall-task.ps1'
+ 'src/reconcile.mjs','src/spool.mjs','src/transport.mjs','src/watch.mjs','src/windows-private-path.mjs',
+ 'windows/check-private-path.ps1','windows/private-path-helper.ps1','windows/install-task.ps1','windows/protect-credential.ps1','windows/uninstall-task.ps1'
 ]);
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const git=(root,args)=>execFileSync('git',args,{cwd:root,timeout:10000,maxBuffer:8*1024*1024,stdio:['ignore','pipe','pipe']});

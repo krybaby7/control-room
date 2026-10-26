@@ -11,7 +11,8 @@ const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 async function fixture(){
  const root=await mkdtemp(join(tmpdir(),'collector-package-'));
  for(const path of HISTORY_COLLECTOR_PATHS){await mkdir(dirname(join(root,'collector',path)),{recursive:true});await writeFile(join(root,'collector',path),await readFile(new URL('../collector/'+path,import.meta.url)));}
- for(const args of [['init','-q'],['add','.'],['-c','user.name=Fixture','-c','user.email=fixture@example.invalid','commit','-qm','synthetic package fixture']])execFileSync('git',args,{cwd:root});
+ // This fixture must commit its exact source bytes regardless of host Git EOL settings.
+ for(const args of [['init','-q'],['config','core.autocrlf','false'],['add','.'],['-c','user.name=Fixture','-c','user.email=fixture@example.invalid','commit','-qm','synthetic package fixture']])execFileSync('git',args,{cwd:root});
  return root;
 }
 function unzip(bytes){
