@@ -130,6 +130,7 @@ export function BriefingCard({tile,now,actions}:{tile:ProjectTileModel;now:strin
   {report?<>
    <p className="mc-brief-reason">{report.status.reason}</p>
    <div className="mc-brief-aim"><span>The aim right now</span><p className="mc-brief-headline">{report.aim}</p></div>
+   {report.fitOrDrift&&<p className="mc-brief-leftoff mc-brief-fit">{report.fitOrDrift}</p>}
    {report.leftOff.map((text,index)=><p key={index} className="mc-brief-leftoff">{text}</p>)}
    {view.freshness.newWork&&<p className="mc-brief-flag tone-warn"><AlertTriangle size={13}/>{view.freshness.detail} {view.policy?.enabled?'A refresh is scheduled the next time your PC is on.':'Refresh to catch up.'}</p>}
    {ledger.areas.length>0&&<section className="mc-brief-section" aria-label="Project map"><div className="mc-brief-sechead"><strong>Where the project stands</strong><p>Each area, how far it is proven, and what feeds what. Tap an area to see only its intentions below.</p></div><ProjectMap ledger={ledger} selected={selected} onSelect={setArea}/></section>}
@@ -142,7 +143,7 @@ export function BriefingCard({tile,now,actions}:{tile:ProjectTileModel;now:strin
    {report.tried.length>0&&<details className="mc-brief-fold"><summary>What was tried and did not work</summary><ul>{report.tried.map((text,index)=><li key={index}>{text}</li>)}</ul></details>}
    <details className="mc-brief-fold"><summary>Done and not yet done</summary><div className="mc-brief-columns"><div><strong><CheckCheck size={12}/>Done</strong>{report.done.length?<ul>{report.done.map((text,index)=><li key={index}>{text}</li>)}</ul>:<p>Nothing recorded as done yet.</p>}</div><div><strong><CircleDashed size={12}/>Not yet</strong>{report.notDone.length?<ul>{report.notDone.map((text,index)=><li key={index}>{text}</li>)}</ul>:<p>Nothing outstanding was identified.</p>}</div></div></details>
    <details className="mc-brief-basis"><summary>How this briefing was put together</summary><p>Based on work up to {relativeTime(view.freshness.basedOnAt,now)}: {view.evidenceLine}. Written by {view.providerLabel} on your PC{report.run.observedModel?` (${report.run.observedModel})`:''}; chat text and code never leave your PC except inside that one request.</p>{ledger.intentions.some(row=>row.evidence.length>0)&&<p className="mc-brief-refs">References for your engineers: {ledger.intentions.flatMap(row=>row.evidence).join(', ')}</p>}<ul>{report.limitations.map((text,index)=><li key={index}>{text}</li>)}</ul></details>
-  </>:!view.activeJob&&<div className="mc-brief-empty"><p>No briefing yet. Your PC can write one from your own messages in Codex and Claude Code, the latest commits, GitHub branches and pull requests, and your plan.</p></div>}
+  </>:!view.activeJob&&<div className="mc-brief-empty"><p>No briefing yet. Your PC can measure your intentions against your project framing using your own messages in Codex and Claude Code, the latest commits, and GitHub branches and pull requests. Your task plan is included only when you enable it in the project editor.</p></div>}
   <BriefingControls tile={tile} actions={actions}/>
  </section>;
 }

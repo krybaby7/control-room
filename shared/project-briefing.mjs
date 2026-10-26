@@ -1,16 +1,16 @@
-/** Shared browser/server/companion contract for a project briefing: a plain-language
- * status report written for the owner from bounded evidence (recent local and cloud
- * repository work, the owner's own chat turns, recent local chats, the owner's own plan
- * and the previous briefing). Version 2 is an intention ledger: what the owner set out
- * to do, whether each aim was reached, where the plan bent, and a map of the project's
- * areas. The report carries no execution authority: nothing in it accepts, completes,
- * approves or spends. Version 1 reports still validate and are projected to version 2. */
+/** Shared browser/server/companion contract for a project briefing. Version 3 adds a
+ * fit-or-drift assessment against the owner's explicit project framing. Optional task
+ * records are supplementary context and carry no execution authority. Saved version 1
+ * and 2 reports validate against their historical schemas and project purely to v3. */
 export const PROJECT_BRIEFING_MARKER='control-room-project-briefing-v1';
-export const PROJECT_BRIEFING_VERSION=2;
+export const PROJECT_BRIEFING_VERSION=3;
+export const PROJECT_FRAMING_MAX_CHARACTERS=10000;
+export const LEGACY_FIT_OR_DRIFT="This earlier briefing did not assess whether the work fits your project framing.";
 /** Briefing statements may exceed the ordinary evidence statement bound; the evidence
  * validator allows this many characters for the briefing marker only. The companion and
  * the personal channel keep the stricter 55,000-byte delivery bound. */
-export const PROJECT_BRIEFING_MAX_CHARACTERS=26000;
+export const PROJECT_BRIEFING_MAX_CHARACTERS=26200;
+const LEGACY_REPORT_MAX_CHARACTERS=26000;
 export const COMPACT_PLAN_MAX_CHARACTERS=6000;
 export const BRIEFING_PROVIDERS=Object.freeze(['codex','claude']);
 export const BRIEFING_MODELS=Object.freeze({codex:'gpt-6.1-sol',claude:'claude-code-default'});
@@ -51,7 +51,7 @@ export const briefingContentSchemaV1=object({
 /** The part the model writes (version 2). Everything here is owner-facing prose plus bounded evidence refs.
  * `areas` and `links` draw the project map; `intentions` is the ledger, newest first; a `bend` marks a
  * point where the owner changed the plan. */
-export const briefingContentSchema=object({
+export const briefingContentSchemaV2=object({
  aim:str(240),
  status:object({level:enumeration(BRIEFING_STATUS_LEVELS),reason:str(240)}),
  leftOff:array(str(420),4),
@@ -67,6 +67,7 @@ export const briefingContentSchema=object({
  nextSteps:array(str(160),5),
  limitations:array(str(200),5),
 });
+export const briefingContentSchema=object({...briefingContentSchemaV2.properties,fitOrDrift:str(480)});
 const chatProvider=enumeration(BRIEFING_PROVIDERS);
 const evidenceProperties={
  window:object({since:stamp,until:stamp}),
@@ -78,18 +79,22 @@ const evidenceProperties={
 };
 export const briefingEvidenceSchemaV1=object(evidenceProperties);
 /** Version 2 adds the owner's own chat turns and the previous briefing the ledger was carried forward from. */
-export const briefingEvidenceSchema=withOptional(object({
+export const briefingEvidenceSchemaV2=withOptional(object({
  ...evidenceProperties,
  ownerTurns:object({sessions:integer(0,64),turns:integer(0,1000),characters:integer(0,200000),earliestAt:nullable(stamp),latestAt:nullable(stamp)}),
  previous:nullable(object({runId:uuid,until:stamp,intentions:integer(0,24)})),
 }),{cloudTurns:array(object({provider:enumeration(BRIEFING_CLOUD_PROVIDERS),status:enumeration(['included','not-found','unavailable']),sessions:integer(0,24),turns:integer(0,960)}),2)});
+const currentEvidenceProperties=Object.fromEntries(Object.entries(evidenceProperties).filter(([key])=>key!=='plan'));
+const framingEvidence=nullable(object({workspaceRevision:integer(0,Number.MAX_SAFE_INTEGER),characters:integer(0,2500),includeTaskPlan:{type:'boolean'},totalMilestones:integer(0,100000),totalTasks:integer(0,100000),includedMilestones:integer(0,12),includedTasks:integer(0,40)}));
+export const briefingEvidenceSchema=withOptional(object({...currentEvidenceProperties,framing:framingEvidence,ownerTurns:briefingEvidenceSchemaV2.properties.ownerTurns,previous:briefingEvidenceSchemaV2.properties.previous}),{cloudTurns:briefingEvidenceSchemaV2.properties.cloudTurns});
 const identityProperties={
  project:object({id:{...str(128),pattern:'^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$'},name:str(200)}),
  repository:object({key:{...str(128),pattern:'^[a-zA-Z0-9_-]+$'},name:str(100),head:{...str(64,40),pattern:'^(?:[a-f0-9]{40}|[a-f0-9]{64})$'},branch:nullable(str(200)),dirty:{type:'boolean'}}),
  run:object({id:uuid,provider:chatProvider,requestedModel:enumeration(Object.values(BRIEFING_MODELS)),observedModel:nullable({...str(120),pattern:'^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$'}),startedAt:stamp,completedAt:stamp,mode:{const:'read-only'},source:{const:'personal-pc-connector'},origin:enumeration(['owner','auto'])}),
 };
 export const projectBriefingSchemaV1=object({format:{const:'control-room-project-briefing'},version:{const:1},...identityProperties,evidence:briefingEvidenceSchemaV1,...briefingContentSchemaV1.properties});
-export const projectBriefingSchema=object({format:{const:'control-room-project-briefing'},version:{const:2},...identityProperties,evidence:briefingEvidenceSchema,...briefingContentSchema.properties});
+export const projectBriefingSchemaV2=object({format:{const:'control-room-project-briefing'},version:{const:2},...identityProperties,evidence:briefingEvidenceSchemaV2,...briefingContentSchemaV2.properties});
+export const projectBriefingSchema=object({format:{const:'control-room-project-briefing'},version:{const:3},...identityProperties,evidence:briefingEvidenceSchema,...briefingContentSchema.properties});
 /** Bounded projection of the owner's own plan that travels with a briefing request. */
 export const compactPlanSchema=object({
  revision:integer(0,Number.MAX_SAFE_INTEGER),
@@ -98,14 +103,17 @@ export const compactPlanSchema=object({
  tasks:array(object({title:str(120),status:enumeration(['proposed','todo','doing','review','done']),horizon:enumeration(['now','next','later']),dueDate:nullable(isoDate),milestone:nullable(integer(0,11)),blocked:{type:'boolean'},completedAt:nullable(isoDate)}),40),
  totals:object({tasks:integer(0,100000),open:integer(0,100000),done:integer(0,100000),omitted:integer(0,100000)}),
 });
+/** The owner's reference frame; task records travel only with explicit opt-in. */
+export const projectFramingSchema=object({projectId:identityProperties.project.properties.id,projectName:str(200),framing:str(2500,0),includeTaskPlan:{type:'boolean'},milestones:compactPlanSchema.properties.milestones,tasks:compactPlanSchema.properties.tasks,totalMilestones:integer(0,100000),totalTasks:integer(0,100000),workspaceRevision:integer(0,Number.MAX_SAFE_INTEGER)});
 /** The bounded slice of a previous briefing that rides into the next run so the ledger carries forward. */
 export const PREVIOUS_LEDGER_MAX_CHARACTERS=14000;
 export const previousLedgerSchema=object({
- runId:uuid,until:stamp,aim:str(240),
+ runId:uuid,until:stamp,aim:str(240),fitOrDrift:str(480),
  areas:briefingContentSchema.properties.areas,links:briefingContentSchema.properties.links,aimArea:nullable(slug),
  intentions:briefingContentSchema.properties.intentions,
  open:briefingContentSchema.properties.open,needsYou:briefingContentSchema.properties.needsYou,
 });
+const previousLedgerSchemaV2=object(Object.fromEntries(Object.entries(previousLedgerSchema.properties).filter(([key])=>key!=='fitOrDrift')));
 function invalid(path){throw new Error(`Invalid project briefing${path?` at ${path}`:''}.`);}
 function check(schema,value,path=''){
  if(schema.anyOf){if(!schema.anyOf.some(option=>{try{check(option,value,path);return true;}catch{return false;}}))invalid(path);return;}
@@ -147,7 +155,7 @@ function checkIntentionDates(value,path){
   if(Object.hasOwn(row,'cloudProvider')&&row.source!=='cloud')invalid(`${path}intentions.${i}.cloudProvider`);
  }
 }
-/** Validates what the model returned (version 2); the companion adds identity and evidence around it. */
+/** Validates what the model returned (version 3); the companion adds identity and evidence around it. */
 export function validateBriefingContent(value){
  check(briefingContentSchema,value);
  checkMap(value,'');checkIntentionDates(value,'');
@@ -158,6 +166,9 @@ export function validateBriefingContentV1(value){
  for(const row of value.recentWork)if(!validDate(row.when))invalid('recentWork.when');
  return clone(value);
 }
+export function validateBriefingContentV2(value){
+ check(briefingContentSchemaV2,value);checkMap(value,'');checkIntentionDates(value,'');return clone(value);
+}
 function checkEvidenceTimes(e){
  for(const time of [e.window.since,e.window.until,e.local.latestCommitAt,e.cloud.latestCommitAt,e.cloud.fetchedAt,...e.chats.map(chat=>chat.latestAt)])if(time!==null&&!validTime(time))invalid('evidence time');
  if(Date.parse(e.window.until)<Date.parse(e.window.since))invalid('evidence window');
@@ -167,8 +178,8 @@ function checkEvidenceTimes(e){
  if(e.cloud.status==='fetched'&&e.cloud.fetchedAt===null)invalid('evidence cloud fetch');
  if(e.cloud.openPullRequests!==null&&(e.cloud.pullRequests===null||e.cloud.openPullRequests>e.cloud.pullRequests))invalid('evidence pull requests');
 }
-export function validateBriefingEvidence(value){
- check(briefingEvidenceSchema,value);
+function validateEvidence(value,schema){
+ check(schema,value);
  checkEvidenceTimes(value);
  const turns=value.ownerTurns;
  for(const time of [turns.earliestAt,turns.latestAt])if(time!==null&&!validTime(time))invalid('evidence owner turns');
@@ -182,6 +193,12 @@ export function validateBriefingEvidence(value){
  if(value.previous!==null&&(!validTime(value.previous.until)||Date.parse(value.previous.until)>Date.parse(value.window.until)))invalid('evidence previous');
  return clone(value);
 }
+export function validateBriefingEvidence(value){
+ const checked=validateEvidence(value,briefingEvidenceSchema),f=checked.framing;
+ if(f&&(f.includedMilestones>f.totalMilestones||f.includedTasks>f.totalTasks||!f.includeTaskPlan&&(f.includedMilestones||f.includedTasks)))invalid('evidence framing coverage');
+ return checked;
+}
+export function validateBriefingEvidenceV2(value){return validateEvidence(value,briefingEvidenceSchemaV2);}
 export function validateBriefingEvidenceV1(value){
  check(briefingEvidenceSchemaV1,value);
  checkEvidenceTimes(value);
@@ -190,7 +207,7 @@ export function validateBriefingEvidenceV1(value){
 const V1_STATE={finished:'reached',unfinished:'in-progress',unclear:'open'};
 const V1_SOURCE={local:'repository',cloud:'repository',both:'repository',chat:'unknown'};
 const cut=(text,max)=>text.length>max?text.slice(0,max-1).trimEnd()+'…':text;
-/** A saved version 1 report shown through the version 2 shape: the headline becomes the aim, recent work
+/** A saved version 1 report shown through the version 3 shape: the headline becomes the aim, recent work
  * becomes the ledger, decisions become what needs the owner. The map stays empty because version 1 never
  * described areas. The projection is pure and is not written back. */
 export function upgradeBriefing(v1){
@@ -202,7 +219,43 @@ export function upgradeBriefing(v1){
   done:v1.done,notDone:v1.notDone,nextSteps:v1.nextSteps,limitations:v1.limitations,
  };
  const evidence={...v1.evidence,ownerTurns:{sessions:0,turns:0,characters:0,earliestAt:null,latestAt:null},previous:null};
- return {format:v1.format,version:2,project:v1.project,repository:v1.repository,run:v1.run,evidence,...content};
+ const retainedEvidence=Object.fromEntries(Object.entries(evidence).filter(([key])=>key!=='plan'));
+ return boundLegacyProjection({format:v1.format,version:3,project:v1.project,repository:v1.repository,run:v1.run,evidence:{...retainedEvidence,framing:null},...content,fitOrDrift:LEGACY_FIT_OR_DRIFT});
+}
+export function upgradeBriefingV2(v2){
+ const evidence=Object.fromEntries(Object.entries(v2.evidence).filter(([key])=>key!=='plan'));
+ return boundLegacyProjection({...clone(v2),version:3,evidence:{...clone(evidence),framing:null},fitOrDrift:LEGACY_FIT_OR_DRIFT});
+}
+/** Adding the honest assessment placeholder can push a historical report over the
+ * delivery byte bound. Trim limitations from the last row first, then intentions
+ * oldest first (outcome, bend reason/from/to, title), then other owner-facing
+ * lists from their last row. Remove final Unicode code points only as needed;
+ * if that would remove the last substantive character, remove leading whitespace
+ * instead. Retain substantive fields and every row, identity, date, status and provenance.
+ * Disclose shortening in fitOrDrift and never mutate the stored original. */
+function boundLegacyProjection(value){
+ const report=clone(value),bytes=()=>new TextEncoder().encode(JSON.stringify(report)).length;
+ if(bytes()<=55000)return report;
+ report.fitOrDrift=LEGACY_FIT_OR_DRIFT+' Some inherited text was shortened to fit the display limit.';
+ const targets=[];
+ for(let i=report.limitations.length-1;i>=0;i--)targets.push([report.limitations,i]);
+ for(const row of [...report.intentions].reverse()){
+  targets.push([row,'outcome']);
+  if(row.bend)for(const key of ['why','from','to'])targets.push([row.bend,key]);
+  targets.push([row,'title']);
+ }
+ for(const key of ['nextSteps','notDone','done','tried','needsYou','open','leftOff'])for(let i=report[key].length-1;i>=0;i--)targets.push([report[key],i]);
+ for(const [target,key] of targets){
+  const characters=Array.from(target[key]);
+  while(characters.length>1&&bytes()>55000){
+   if(characters.slice(0,-1).join('').trim())characters.pop();
+   else if(!characters[0].trim())characters.shift();
+   else break;
+   target[key]=characters.join('');
+  }
+  if(bytes()<=55000)return report;
+ }
+ invalid('legacy projection size');
 }
 function checkRun(value){
  if(value.run.requestedModel!==BRIEFING_MODELS[value.run.provider])invalid('run provider model');
@@ -211,7 +264,7 @@ function checkRun(value){
  if(Date.parse(value.run.completedAt)<Date.parse(value.run.startedAt))invalid('run time order');
 }
 const contentOf=(schema,value)=>Object.fromEntries(Object.keys(schema.properties).map(key=>[key,value[key]]));
-/** Validates a complete report of either version and returns it in the version 2 shape. */
+/** Validates a complete report of any supported version and returns the version 3 shape. */
 export function validateProjectBriefing(value){
  if(value&&typeof value==='object'&&value.version===1){
   check(projectBriefingSchemaV1,value);
@@ -219,8 +272,14 @@ export function validateProjectBriefing(value){
   validateBriefingEvidenceV1(value.evidence);
   validateBriefingContentV1(contentOf(briefingContentSchemaV1,value));
   const serialized=JSON.stringify(value);
-  if(serialized.length>PROJECT_BRIEFING_MAX_CHARACTERS||new TextEncoder().encode(serialized).length>55000)invalid('report size');
+  if(serialized.length>LEGACY_REPORT_MAX_CHARACTERS||new TextEncoder().encode(serialized).length>55000)invalid('report size');
   return upgradeBriefing(JSON.parse(serialized));
+ }
+ if(value&&typeof value==='object'&&value.version===2){
+  check(projectBriefingSchemaV2,value);checkRun(value);validateBriefingEvidenceV2(value.evidence);validateBriefingContentV2(contentOf(briefingContentSchemaV2,value));
+  if(value.evidence.previous!==null&&value.evidence.previous.runId===value.run.id)invalid('evidence previous run');
+  const serialized=JSON.stringify(value);if(serialized.length>LEGACY_REPORT_MAX_CHARACTERS||new TextEncoder().encode(serialized).length>55000)invalid('report size');
+  return validateProjectBriefing(upgradeBriefingV2(value));
  }
  check(projectBriefingSchema,value);
  checkRun(value);
@@ -235,11 +294,12 @@ export function validateProjectBriefing(value){
  * oldest first until the slice fits. */
 export function previousLedger(briefing){
  const report=validateProjectBriefing(briefing);
- const slice={runId:report.run.id,until:report.evidence.window.until,aim:report.aim,areas:report.areas,links:report.links,aimArea:report.aimArea,intentions:report.intentions,open:report.open,needsYou:report.needsYou};
+ const slice={runId:report.run.id,until:report.evidence.window.until,aim:report.aim,fitOrDrift:report.fitOrDrift,areas:report.areas,links:report.links,aimArea:report.aimArea,intentions:report.intentions,open:report.open,needsYou:report.needsYou};
  while(JSON.stringify(slice).length>PREVIOUS_LEDGER_MAX_CHARACTERS&&slice.intentions.length)slice.intentions=slice.intentions.slice(0,-1);
  return validatePreviousLedger(slice);
 }
 export function validatePreviousLedger(value){
+ if(value&&typeof value==='object'&&!Object.hasOwn(value,'fitOrDrift')){check(previousLedgerSchemaV2,value);value={...value,fitOrDrift:LEGACY_FIT_OR_DRIFT};}
  check(previousLedgerSchema,value);
  if(!validTime(value.until))invalid('previous until');
  checkMap(value,'previous.');checkIntentionDates(value,'previous.');
@@ -275,4 +335,24 @@ export function compactPlan(workspace,projectId,revision){
  while(JSON.stringify(plan).length>COMPACT_PLAN_MAX_CHARACTERS&&plan.tasks.length)plan.tasks.pop();
  plan.totals.omitted=tasks.length-plan.tasks.length;
  return validateCompactPlan(plan);
+}
+
+export function validateProjectFraming(value){
+ check(projectFramingSchema,value);
+ // Blank transport framing is absent; preserve every character of substantive owner text.
+ if(!value.framing.trim())value={...value,framing:''};
+ if(!value.includeTaskPlan&&(value.milestones.length||value.tasks.length))invalid('framing task plan opt-in');
+ if(value.totalMilestones<value.milestones.length||value.totalTasks<value.tasks.length)invalid('framing totals');
+ for(const row of value.milestones)if(!validDate(row.targetDate))invalid('framing milestone date');
+ for(const row of value.tasks){if(!validDate(row.dueDate)||!validDate(row.completedAt))invalid('framing task date');if(row.milestone!==null&&row.milestone>=value.milestones.length)invalid('framing task milestone');}
+ if(JSON.stringify(value).length>PROJECT_FRAMING_MAX_CHARACTERS)invalid('framing size');
+ return clone(value);
+}
+export function projectFraming(workspace,projectId,workspaceRevision){
+ const project=workspace.projects.find(row=>row.id===projectId&&!row.archivedAt);if(!project)throw new Error('Choose an active project.');
+ const includeTaskPlan=project.includeTaskPlanInBriefings===true;
+ const value={projectId:project.id,projectName:trim(project.name,200)||'Project',framing:project.framing??'',includeTaskPlan,milestones:[],tasks:[],totalMilestones:workspace.milestones.filter(row=>row.projectId===projectId&&!row.archivedAt).length,totalTasks:workspace.tasks.filter(row=>row.projectId===projectId&&row.status!=='archived').length,workspaceRevision};
+ if(includeTaskPlan){const plan=compactPlan(workspace,projectId,workspaceRevision);value.milestones=plan.milestones;value.tasks=plan.tasks;}
+ while(JSON.stringify(value).length>PROJECT_FRAMING_MAX_CHARACTERS&&value.tasks.length)value.tasks.pop();
+ return validateProjectFraming(value);
 }

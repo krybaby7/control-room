@@ -41,6 +41,7 @@ for(const count of [20,100])for(const action of ['browse','analyze','brief'] as 
    assert.deepEqual(stored.requests.slice(0,count),state.requests);
    assert.equal(stored.requests.length,count+1);
    assert.equal(stored.requests.at(-1).id,requestId);
+   if(action==='brief'){assert.equal(stored.requests.at(-1).framing.projectId,'p1');assert.equal(stored.requests.at(-1).framing.includeTaskPlan,false);assert.equal(Object.hasOwn(stored.requests.at(-1),'plan'),false);}
    assert.deepEqual((await personalOwnerView(f.db,configuration,now)).completedBriefing?.briefing,briefing);
    assert.equal((await handlePersonalRepositoryHttp(post(command),'owner',deps)).status,200);
    const polled=await changePersonalState(f.db,configuration,{action:'poll'},'device',now);

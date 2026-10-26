@@ -262,9 +262,9 @@ export default function ControlCenter({ userName }: { userName: string }) {
     try{await mutate(command as Command);return true;}catch(cause){setError(cause instanceof Error?cause.message:'The report save is unconfirmed.');if(['github-analysis.save','local-analysis.save','project-briefing.save'].includes(command.type)&&isConclusiveWorkspaceRejection(cause)){const key=submissionFor(null,command).key;setUnresolved(items=>items.filter(item=>item.submission.key!==key));throw cause;}return false;}
   }
   function retainedLocalAnalysisSave(runId:string):import('@/lib/workspace-protocol').WorkspaceCommand|undefined{const retained=unresolved.find(item=>{const command=item.command as unknown as {type:string;report?:{run?:{id?:unknown}}};return command.type==='local-analysis.save'&&command.report?.run?.id===runId;});return retained?.command as unknown as import('@/lib/workspace-protocol').WorkspaceCommand|undefined;}
-  async function createLocalAnalysisProject(name:string):Promise<string|null>{
+  async function createLocalAnalysisProject(name:string,repositoryKey?:string):Promise<string|null>{
     const original=new Set(envelopeRef.current?.workspace.projects.map(project=>project.id));
-    try{await mutate({type:'project.create',project:{name,description:'',goal:'',color:'teal',repositories:[]}} as Command);return envelopeRef.current?.workspace.projects.find(project=>!original.has(project.id))?.id??null;}catch(cause){setError(cause instanceof Error?cause.message:'The project save is unconfirmed.');return null;}
+    try{await mutate({type:'project.create',project:{name,description:'',goal:'',framing:'',includeTaskPlanInBriefings:false,...(repositoryKey?{personalRepositoryKey:repositoryKey}:{}),color:'teal',repositories:[]}} as Command);return envelopeRef.current?.workspace.projects.find(project=>!original.has(project.id))?.id??null;}catch(cause){setError(cause instanceof Error?cause.message:'The project save is unconfirmed.');return null;}
   }
   async function enrollRuntimeDevice(input:GenericDeviceEnrollmentInput):Promise<RuntimeEnrollmentResult>{
     if(expiredRef.current)throw new SessionExpiredError();

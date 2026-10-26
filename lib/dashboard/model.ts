@@ -177,7 +177,10 @@ function evidenceLine(report:ProjectBriefing):string{
   const label=provider==='claude-cloud'?'Claude Code':'Codex',coverage=e.cloudTurns.find(row=>row.provider===provider);
   parts.push(coverage?.status==='included'?`${plural(coverage.turns,'owner turn')} across ${plural(coverage.sessions,`${label} cloud session`)}`:`no ${label} cloud sessions were available${coverage?.status==='unavailable'?' (unreadable or excluded)':''}`);
  }else parts.push('cloud chat coverage was not recorded in this saved briefing');
- if(e.plan)parts.push(`${plural(e.plan.milestones,'milestone')} and ${plural(e.plan.tasks,'task')} from your plan`);
+ if(e.framing){
+  parts.push(e.framing.characters>0?'Measured against your framing':'No framing written yet');
+  parts.push(e.framing.includeTaskPlan?`Task plan included: ${e.framing.includedMilestones} of ${plural(e.framing.totalMilestones,'milestone')} and ${e.framing.includedTasks} of ${plural(e.framing.totalTasks,'task')}`:'Task plan excluded');
+ }
  if(e.previous)parts.push(`carried forward from the briefing of ${e.previous.until.slice(0,10)}`);
  return parts.join(' · ');
 }
@@ -202,22 +205,23 @@ function briefingView(project:Project,saved:SavedProjectBriefing[],localReports:
  const localRepository=localReports.filter(row=>row.projectId===project.id).sort((a,b)=>Date.parse(b.recordedAt)-Date.parse(a.recordedAt))[0]?.report.repository.key??null;
  const choices=(connector?.repositories??[]).map(({key,name})=>({key,name}));
  const known=(key:string|null|undefined)=>key&&choices.some(row=>row.key===key)?key:null;
- const policy=policies.find(row=>row.repositoryKey===(report?.repository.key??row.repositoryKey))??policies[0]??null;
- const repositoryKey=known(report?.repository.key)??known(policy?.repositoryKey)??known(localRepository);
+ const boundFolderUnavailable=Boolean(project.personalRepositoryKey&&!known(project.personalRepositoryKey));
+ const policy=project.personalRepositoryKey?policies.find(row=>row.repositoryKey===project.personalRepositoryKey)??null:policies.find(row=>row.repositoryKey===(report?.repository.key??row.repositoryKey))??policies[0]??null;
+ const repositoryKey=project.personalRepositoryKey?known(project.personalRepositoryKey):known(report?.repository.key)??known(policy?.repositoryKey)??known(localRepository);
  const repositoryName=choices.find(row=>row.key===repositoryKey)?.name??report?.repository.name??null;
  const providers=(['codex','claude'] as const).map(id=>({id,label:PROVIDER_LABELS[id],ready:connector?.providers[id].ready??false}));
  const liveRepository=report?connector?.repositories.find(row=>row.key===report.repository.key)??null:null;
  const newWork=Boolean(liveRepository&&(liveRepository.head!==report!.repository.head||liveRepository.dirty!==report!.repository.dirty));
  const state:BriefingView['state']=active?(active.status==='claimed'?'running':'queued'):report?'ready':'none';
- const requestHint=active?null:connectorState!=='online'?(connectorState==='unconfigured'?'Connect your PC under Repositories to brief this project.':connectorState==='disconnected'?'Reconnect your PC under Repositories to brief this project.':'Start Control Room on your PC to brief this project.'):!repositoryKey?(choices.length?'Choose which folder on your PC holds this project.':'Choose this project\'s folder under Repositories first.'):!providers.some(row=>row.ready)?'Sign in to Codex or Claude Code on your PC first.':null;
+ const requestHint=active?null:boundFolderUnavailable?'The linked folder is unavailable on your PC. Restore it under Repositories before requesting a briefing.':connectorState!=='online'?(connectorState==='unconfigured'?'Connect your PC under Repositories to brief this project.':connectorState==='disconnected'?'Reconnect your PC under Repositories to brief this project.':'Start Control Room on your PC to brief this project.'):!repositoryKey?(choices.length?'Choose which folder on your PC holds this project.':'Choose this project\'s folder under Repositories first.'):!providers.some(row=>row.ready)?'Sign in to Codex or Claude Code on your PC first.':null;
  return {state,report,source:report?(useCompleted?'completed':'saved'):null,recordedAt:report?(useCompleted?report.run.completedAt:latestSaved!.recordedAt):null,version:useCompleted?null:latestSaved?.version??null,evidenceId:useCompleted?null:latestSaved?.evidenceId??null,
   unsaved:useCompleted?{requestId:completed!.requestId,briefingSha256:completed!.briefingSha256}:null,
   status:report?{level:report.status.level,...BRIEFING_STATUS[report.status.level]}:{level:null,label:state==='none'?'No briefing yet':'Briefing in progress',tone:state==='none'?'idle':'live'},
   ledger:ledgerOf(report),
   freshness:{newWork,detail:newWork?(liveRepository!.head!==report!.repository.head?'New commits have landed since this briefing.':'There are uncommitted changes since this briefing.'):null,basedOnAt:report?.evidence.window.until??null},
   evidenceLine:report?evidenceLine(report):'',providerLabel:report?PROVIDER_LABELS[report.run.provider]:null,originLabel:report?(report.run.origin==='auto'?'kept current automatically':'on your request'):null,
-  repositoryKey,repositoryName,repositoryChoices:choices,policy:policy?{repositoryKey:policy.repositoryKey,provider:policy.provider,enabled:policy.enabled,minIntervalMinutes:policy.minIntervalMinutes,lastBriefAt:policy.lastBriefAt}:null,
-  providers,connector:connectorState,canRequest:connectorState==='online'&&providers.some(row=>row.ready)&&!active,requestHint,
+  repositoryKey,repositoryName,repositoryChoices:boundFolderUnavailable?[]:choices,policy:policy?{repositoryKey:policy.repositoryKey,provider:policy.provider,enabled:policy.enabled,minIntervalMinutes:policy.minIntervalMinutes,lastBriefAt:policy.lastBriefAt}:null,
+  providers,connector:connectorState,canRequest:!boundFolderUnavailable&&connectorState==='online'&&providers.some(row=>row.ready)&&!active,requestHint,
   activeJob:active?{id:active.id,status:active.status as 'queued'|'claimed',providerLabel:active.provider?PROVIDER_LABELS[active.provider]:'Assistant',origin:active.origin??'owner',createdAt:active.createdAt,claimedAt:active.claimedAt??null}:null,
   lastFailure:failed?{at:failed.claimedAt??failed.createdAt,providerLabel:failed.provider?PROVIDER_LABELS[failed.provider]:'Assistant',reason:BRIEF_FAILURES[failed.error??'']??'it did not finish'}:null};
 }

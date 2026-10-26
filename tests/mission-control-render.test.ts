@@ -61,6 +61,22 @@ test('an unmapped project offers the registered folder without selecting it or e
  assert.match(html,/<button[^>]*disabled=""[^>]*>[\s\S]*?Brief this project<\/button>/);
 });
 
+test('v3 shows fit or drift immediately below the aim and captured framing provenance',async()=>{
+ const {model:value}=await model(),tile=value.projects[1],report=tile.briefing.report!;
+ report.version=3;report.fitOrDrift='The latest intentions fit your purpose; no drift was identified.';
+ tile.briefing.evidenceLine+=' · Measured against your framing · Task plan excluded';
+ const html=renderToStaticMarkup(createElement(panels.BriefingCard,{tile,now:NOW,actions}));
+ assert.ok(html.includes(report.fitOrDrift));
+ assert.ok(html.indexOf(report.fitOrDrift)>html.indexOf(report.aim));
+ assert.ok(html.indexOf(report.fitOrDrift)<html.indexOf(report.leftOff[0]));
+ assert.ok(html.includes('Measured against your framing'));assert.ok(html.includes('Task plan excluded'));
+ report.evidence.framing=null;
+ report.fitOrDrift='This earlier briefing did not assess whether the work fits your project framing. Some inherited text was shortened to fit the display limit.';
+ tile.briefing.evidenceLine='Legacy source coverage';
+ const legacy=renderToStaticMarkup(createElement(panels.BriefingCard,{tile,now:NOW,actions}));
+ assert.ok(legacy.includes(report.fitOrDrift));assert.ok(!legacy.includes('Measured against your framing'));assert.ok(!legacy.includes('Task plan excluded'));
+});
+
 test('the briefing card identifies a cloud assistant and states cloud coverage in its basis fold',async()=>{
  const {fixture}=await model();
  const report=fixture.briefings[0].briefing;
