@@ -25,7 +25,7 @@ The starting content is editable. User goals are confirmed; task suggestions and
 
 The implementation branch adds reviewed planning/evidence/history workflows, bounded source adapters, reviews and automation, the installable Windows bridge, guarded agent coordination, and complete recovery tooling. [Progress and checkpoints](docs/superpowers/plans/2026-10-18-control-room-completion/progress.json) and the [gap ledger](docs/superpowers/plans/2026-10-18-control-room-completion/09-gap-coverage.md) distinguish implemented source, exact automated evidence and external acceptance.
 
-The private hosted version 24 (25 October 2026) is published from this branch; `main` is the source of what runs, and anything published must be on GitHub first. The finite manual Sites service adapter and private runtime/Windows invocation integration are implemented with default-disabled configuration. Native private ingress, provider connections, actual Windows installation, physical-device/passkey acceptance and hosted scheduling require their own observed checks; unattended renewal remains unsupported. Paid inference and operational/trading effects remain disabled. A fixture or saved schedule does not prove external execution. See the [release runbook](docs/operations/release.md).
+The private hosted version 25 (26 October 2026) runs GitHub `main` source `bdd4ac97325d71e7daeebc8f798d81f2c192bdd0`. The project-framing increment is a pull request and has not been published; anything published must be on GitHub first. The finite manual Sites service adapter and private runtime/Windows invocation integration are implemented with default-disabled configuration. Native private ingress, provider connections, actual Windows installation, physical-device/passkey acceptance and hosted scheduling require their own observed checks; unattended renewal remains unsupported. Paid inference and operational/trading effects remain disabled. A fixture or saved schedule does not prove external execution. See the [release runbook](docs/operations/release.md).
 
 ## Local development
 
@@ -72,7 +72,7 @@ The approved scope and implementation checklist are under `docs/superpowers/`. T
 
 ## Completion implementation status
 
-Cloud implementation is in progress on the completion branch. The existing deployed version has not been replaced by this checkpoint. See [progress](docs/superpowers/plans/2026-10-18-control-room-completion/progress.json) and the [cloud verification checkpoint](docs/superpowers/verification/2026-10-18-cloud-foundation.md) for implemented slices, exact checks and remaining acceptance gates.
+The historical 18 October checkpoint recorded cloud implementation in progress on the completion branch; it is not the current hosted release record. See [progress](docs/superpowers/plans/2026-10-18-control-room-completion/progress.json) and the [cloud verification checkpoint](docs/superpowers/verification/2026-10-18-cloud-foundation.md) for implemented slices, exact checks and remaining acceptance gates.
 
 ## Planning completion branch
 
@@ -84,4 +84,4 @@ Search query,filters and page can be copied in the URL; treat such links as priv
 
 Run the full regression gate with `npm test`,`npm run typecheck`,`npm run lint`,`npm run build`,`npm run test:fixture` and `npm run test:e2e`. The latter two use an isolated synthetic worker/database; they do not prove hosted identity,physical devices,provider execution or deployment. See [planning verification](docs/verification/planning-workflows.md) for the actual source version and cloud results.
 
-The completion branch also contains structured evidence and decision history, explicit owner assessments, subject review context, private staged attachments, and reviewed native ZIP recovery. File availability is verified through the private server adapter; imported metadata and model/provider text do not establish acceptance. Private R2 provisioning, hosted owner-session checks and background-runner activation remain release gates. See `docs/verification/evidence-history.md` and the completion plan's `progress.json` for exact source and CI evidence. The existing private Site has not been redeployed from this branch.
+The completion branch also contains structured evidence and decision history, explicit owner assessments, subject review context, private staged attachments, and reviewed native ZIP recovery. File availability is verified through the private server adapter; imported metadata and model/provider text do not establish acceptance. Private R2 provisioning, hosted owner-session checks and background-runner activation remain release gates. See `docs/verification/evidence-history.md` and the completion plan's `progress.json` for exact source and CI evidence.
