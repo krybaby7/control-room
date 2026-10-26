@@ -7,7 +7,7 @@ export type Horizon = 'now' | 'next' | 'later';
 export type Priority = 'high' | 'normal' | 'low';
 export type MilestoneStatus = 'planned' | 'active' | 'achieved';
 export type CaptureKind = 'idea' | 'task' | 'decision';
-export interface Project { id: string; name: string; description: string; goal: string; framing?:string; includeTaskPlanInBriefings?:boolean; personalRepositoryKey?:string|null; color: 'orange' | 'teal'; priority: 'equal'; archivedAt: string | null; repositories: { name: string; url: string }[]; }
+export interface Project { id: string; name: string; description: string; goal: string; framing?:string; includeTaskPlanInBriefings?:boolean; personalRepositoryKeys?:string[]; /** Historical imports only. */ personalRepositoryKey?:string|null; color: 'orange' | 'teal'; priority: 'equal'; archivedAt: string | null; repositories: { name: string; url: string }[]; }
 export interface MilestoneInput { projectId: string; title: string; description: string; acceptance: string; status: MilestoneStatus; targetDate: string | null; evidence: string; }
 export interface Milestone extends MilestoneInput { id: string; updatedAt: string; archivedAt: string | null; sortKey: number; }
 export interface TaskInput { areaId?:string|null; workType?:WorkType; estimateMinutes: number | null; projectId: string; milestoneId: string | null; title: string; notes: string; status: TaskStatus; horizon: Horizon; priority: Priority; dueDate: string | null; weekly: boolean; dependsOn: string[]; blocker: string; sourceUrl: string | null; evidence: string; }

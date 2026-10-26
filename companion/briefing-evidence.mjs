@@ -176,15 +176,49 @@ export async function collectBriefingEvidence(root,{signal,now=()=>new Date().to
  const chatSummaries=bundle.chats.map(row=>({provider:row.provider,status:row.sessions.length?'included':row.status==='not-found'?'not-found':'unavailable',sessions:row.sessions.length,messages:row.sessions.reduce((sum,session)=>sum+session.messages.length,0),latestAt:row.sessions[0]?.latestAt??null}));
  const cloudTurns=cloudProviders.map(provider=>{const retained=bundle.ownerTurns.filter(row=>row.provider===provider),available=cloud.sessions.some(row=>row.provider===provider);return {provider,status:retained.length?'included':cloud.status==='unavailable'||cloud.truncated||available?'unavailable':'not-found',sessions:retained.length,turns:retained.reduce((sum,row)=>sum+row.turns.length,0)};});
  const summary={window:{since,until},local:{branch,commits:localBranches.reduce((sum,row)=>sum+row.commits.length,0),branches:localBranches.length,latestCommitAt:latest(localBranches),uncommittedFiles:uncommitted.files},cloud:{status:cloudStatus,remote,branches:cloudBranches.length,commits:cloudBranches.reduce((sum,row)=>sum+row.commits.length,0),latestCommitAt:latest(cloudBranches),pullRequests:prs?prs.length:null,openPullRequests:prs?prs.filter(row=>row.state==='open').length:null,fetchedAt},chats:chatSummaries,cloudTurns,framing:null,ownerTurns:ownerSummary,previous:previous?{runId:previous.runId,until:previous.until,intentions:previous.intentions.length}:null,inputSha256:digest(JSON.stringify(bundle))};
+ summary.repositories=[{key:identity.key,name:identity.name,...Object.fromEntries(['local','cloud','chats','ownerTurns','cloudTurns'].map(key=>[key,summary[key]]))}];
  return {identity,branch,bundle,summary,fingerprint:workFingerprint({head:identity.head,uncommitted,locals,remotes,chats:chats.map(row=>row.summary.latestAt),cloudOwnerSha256})};
 }
 function workFingerprint({head,uncommitted,locals,remotes,chats,cloudOwnerSha256}){return digest(JSON.stringify({head,uncommitted:uncommitted.paths,contentFingerprint:uncommitted.contentFingerprint??null,locals:locals.map(ref=>[ref.name,ref.sha]),remotes:remotes.map(ref=>[ref.name,ref.sha]),chats,cloudOwnerSha256}));}
 /** Bounded change detector: heads, safe source content, remote refs and chat recency. */
 export async function computeWorkFingerprint(root,{signal,fetchRemote=true,codexHome,claudeHome}={}){
+ if(Array.isArray(root))return computeProjectWorkFingerprint(root,{signal,fetchRemote,codexHome,claudeHome});
  signal?.throwIfAborted();const identity=await repositoryIdentity(root,{signal});
  const remoteUrl=(await git(identity.root,['config','--local','--get','remote.origin.url'],{signal}).catch(()=>'')).trim(),remote=remoteIdentity(remoteUrl);
  if(remote&&fetchRemote)await git(identity.root,['fetch','--prune','--no-recurse-submodules','--quiet','origin'],{signal,timeout:EVIDENCE_LIMITS.fetchMs,network:true}).catch(error=>{if(signal?.aborted)throw error;});
  const locals=(await readRefs(identity.root,'refs/heads',signal)).slice(0,EVIDENCE_LIMITS.branches),remotes=remote?(await readRefs(identity.root,'refs/remotes/origin',signal)).slice(0,EVIDENCE_LIMITS.branches):[];
  const uncommitted=await readUncommitted(identity.root,signal),{chats,cloudOwnerSha256}=await readChats(identity.root,{signal,codexHome,claudeHome,refs:remotes.map(ref=>ref.sha)});
  return workFingerprint({head:identity.head,uncommitted,locals,remotes,chats:chats.map(row=>row.summary.latestAt),cloudOwnerSha256});
+}
+
+/** Project readers preserve the bounded, repository-scoped readers and merge only safe evidence. */
+function projectRepositories(repositories){
+ if(!Array.isArray(repositories)||!repositories.length||repositories.length>4||repositories.some(row=>!row||typeof row.key!=='string'||typeof row.root!=='string')||new Set(repositories.map(row=>row.key)).size!==repositories.length)throw new Error('Invalid project repositories.');
+ return repositories;
+}
+export function combineProjectWorkFingerprints(parts){return digest(JSON.stringify([...parts].sort((a,b)=>a[0].localeCompare(b[0]))));}
+export async function computeProjectWorkFingerprint(repositories,options={}){
+ const parts=await Promise.all(projectRepositories(repositories).map(async row=>{const identity=await repositoryIdentity(row.root,{signal:options.signal});if(identity.key!==row.key)throw new Error('Project repository identity differs.');return [row.key,await computeWorkFingerprint(row.root,options)];}));
+ return combineProjectWorkFingerprints(parts);
+}
+export async function collectProjectBriefingEvidence(repositories,options={}){
+ const packs=await Promise.all(projectRepositories(repositories).map(async row=>{const pack=await collectBriefingEvidence(row.root,options);if(pack.identity.key!==row.key)throw new Error('Project repository identity differs.');return pack;}));
+ const first=packs[0],previous=options.previous??null;
+ const owner=selectOwnerSessions(packs.flatMap(pack=>pack.bundle.ownerTurns.map(row=>({...row,repositoryKey:pack.identity.key}))),{previousUntil:previous?.until??null});
+ const sections=packs.map(pack=>({repositoryKey:pack.identity.key,name:pack.identity.name,...pack.bundle,previous:undefined,ownerTurns:undefined}));
+ const bundle={window:first.bundle.window,repositories:sections,ownerTurns:owner.sessions,previous};
+ // All folders share the original byte bound. Commits and chat excerpts are expendable before owner turns.
+ while(Buffer.byteLength(JSON.stringify(bundle))>EVIDENCE_LIMITS.bundleBytes){
+  const branches=sections.flatMap(row=>[...row.localBranches,...row.cloudBranches]),branch=branches.filter(row=>row.commits.length).sort((a,b)=>Date.parse(a.commits.at(-1)?.at??0)-Date.parse(b.commits.at(-1)?.at??0))[0];
+  if(branch){branch.commits.pop();continue;}
+  const chats=sections.flatMap(row=>row.chats).filter(row=>row.sessions.length),chat=chats.sort((a,b)=>Date.parse(a.sessions.at(-1)?.latestAt??0)-Date.parse(b.sessions.at(-1)?.latestAt??0))[0];
+  if(chat){chat.sessions.pop();continue;}
+  if(bundle.ownerTurns.length){bundle.ownerTurns.pop();continue;}
+  const notes=sections.filter(row=>row.cloudCoverageNotes?.length).sort((a,b)=>Date.parse(a.cloudCoverageNotes.at(-1)?.latestAt??0)-Date.parse(b.cloudCoverageNotes.at(-1)?.latestAt??0))[0];
+  if(notes){notes.cloudCoverageNotes.pop();continue;}
+  throw new Error('Briefing evidence exceeds the finite bundle bound.');
+ }
+ const repositoriesSummary=packs.map((pack,index)=>{const section=sections[index],turns=bundle.ownerTurns.filter(row=>row.repositoryKey===pack.identity.key);return {key:pack.identity.key,name:pack.identity.name,local:{...pack.summary.local,commits:section.localBranches.reduce((sum,row)=>sum+row.commits.length,0)},cloud:{...pack.summary.cloud,commits:section.cloudBranches.reduce((sum,row)=>sum+row.commits.length,0)},chats:section.chats.map(row=>({provider:row.provider,status:row.sessions.length?'included':row.status==='not-found'?'not-found':'unavailable',sessions:row.sessions.length,messages:row.sessions.reduce((sum,session)=>sum+session.messages.length,0),latestAt:row.sessions[0]?.latestAt??null})),ownerTurns:selectOwnerSessions(turns).summary,cloudTurns:pack.summary.cloudTurns.map(row=>{const retained=turns.filter(session=>session.provider===row.provider);return {...row,status:retained.length?'included':row.status==='not-found'?'not-found':'unavailable',sessions:retained.length,turns:retained.reduce((sum,session)=>sum+session.turns.length,0)};})};});
+ const summary={...first.summary,...repositoriesSummary[0],repositories:repositoriesSummary,ownerTurns:selectOwnerSessions(bundle.ownerTurns).summary,inputSha256:digest(JSON.stringify(bundle))};delete summary.key;delete summary.name;
+ return {...first,identities:packs.map(pack=>({...pack.identity,branch:pack.branch})),bundle,summary,fingerprint:combineProjectWorkFingerprints(packs.map(pack=>[pack.identity.key,pack.fingerprint]))};
 }

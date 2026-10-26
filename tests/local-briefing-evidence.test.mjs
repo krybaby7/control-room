@@ -253,3 +253,46 @@ test('pasted handoff briefs are left out of the owner\'s turns while the owner\'
  assert.deepEqual(sessions.map(row=>[row.turns.length,row.pastedBriefs??0]),[[2,1]],'a session left with only a pasted brief is skipped; the others keep the owner\'s own words');
  assert.equal(sessions[0].turns[0],'how far is it now ?');
 });
+
+test('project evidence merges two folders globally and fingerprints folder membership and work',async()=>{
+ const a=await fixture(),b=await fixture();try{
+  git(a.root,'remote','remove','origin');git(b.root,'remote','remove','origin');
+  await addCodexChat(a,'older',Date.parse('2026-10-20T10:00:00Z'),[{role:'user',text:'Keep the first capability.'}]);
+  await addHandoff(b.root,{sessionId:'newer',at:'2026-10-22T10:00:00Z',turns:['Connect the second capability.']});
+  const {collectProjectBriefingEvidence,computeProjectWorkFingerprint}=await import('../companion/briefing-evidence.mjs');
+  assert.equal(typeof collectProjectBriefingEvidence,'function');
+  const {repositoryIdentity}=await import('../companion/snapshot.mjs');
+  const ai=await repositoryIdentity(a.root),bi=await repositoryIdentity(b.root),repos=[{key:ai.key,root:a.root},{key:bi.key,root:b.root}];
+  const options={fetchRemote:false,codexHome:a.codexHome,claudeHome:a.claudeHome};
+  const pack=await collectProjectBriefingEvidence(repos,options);
+  assert.deepEqual(pack.bundle.ownerTurns.map(row=>row.repositoryKey),[bi.key,ai.key]);
+  assert.equal(pack.summary.repositories.length,2);assert.equal(pack.identities.length,2);
+  assert.equal(pack.summary.ownerTurns.turns,2);
+  const before=await computeProjectWorkFingerprint(repos,options);
+  assert.equal(before,await computeProjectWorkFingerprint([...repos].reverse(),options));
+  assert.notEqual(before,await computeProjectWorkFingerprint(repos.slice(0,1),options));
+  await writeFile(join(b.root,'second.js'),'changed');
+  assert.notEqual(before,await computeProjectWorkFingerprint(repos,options));
+ }finally{await a.close();await b.close();}
+});
+
+test('merged folder byte budget drops globally oldest sessions and reports exact retained coverage',async()=>{
+ const a=await fixture(),b=await fixture();try{
+  const {collectProjectBriefingEvidence}=await import('../companion/briefing-evidence.mjs');const {repositoryIdentity}=await import('../companion/snapshot.mjs');
+  const ai=await repositoryIdentity(a.root),bi=await repositoryIdentity(b.root);
+  for(let i=0;i<8;i++){const root=i%2?a.root:b.root;await addHandoff(root,{sessionId:`merged-${i}`,at:new Date(Date.parse(stamp)+i*1000).toISOString(),coverageNotes:'Partial readback. '+'意'.repeat(5900),turns:Array(20).fill('意'.repeat(100))});}
+  const previous={runId:'33333333-3333-4333-8333-333333333333',until:stamp,aim:'Earlier aim',areas:[],links:[],aimArea:null,intentions:[],open:[],needsYou:[]};
+  const pack=await collectProjectBriefingEvidence([{key:ai.key,root:a.root},{key:bi.key,root:b.root}],{fetchRemote:false,codexHome:a.codexHome,claudeHome:a.claudeHome,previous});
+  const retained=pack.bundle.ownerTurns;assert.ok(retained.length>0&&retained.length<8);assert.equal(retained[0].sessionId,'merged-7');
+  assert.ok(retained.every((row,i)=>!i||Date.parse(retained[i-1].latestAt)>=Date.parse(row.latestAt)));assert.ok(retained.every(row=>row.sinceLastBriefing));
+  assert.ok(Buffer.byteLength(JSON.stringify(pack.bundle))<=EVIDENCE_LIMITS.bundleBytes);assert.ok(Buffer.byteLength(buildBriefingPrompt({bundle:pack.bundle,projectName:'Both folders',previous}))<=BRIEFING_PROMPT_BYTES);
+  for(const row of pack.summary.repositories){const sessions=retained.filter(session=>session.repositoryKey===row.key);assert.equal(row.ownerTurns.sessions,sessions.length);assert.equal(row.ownerTurns.turns,sessions.reduce((sum,session)=>sum+session.turns.length,0));}
+  assert.equal(pack.summary.ownerTurns.sessions,retained.length);
+ }finally{await a.close();await b.close();}
+});
+
+test('combined project fingerprint is stable across folder order and changes with membership or either folder',async()=>{
+ const {combineProjectWorkFingerprints}=await import('../companion/briefing-evidence.mjs');const parts=[['app','a'.repeat(64)],['lab','b'.repeat(64)]];const original=combineProjectWorkFingerprints(parts);
+ assert.equal(original,combineProjectWorkFingerprints([...parts].reverse()));assert.notEqual(original,combineProjectWorkFingerprints(parts.slice(0,1)));
+ for(let i=0;i<2;i++){const changed=structuredClone(parts);changed[i][1]='c'.repeat(64);assert.notEqual(original,combineProjectWorkFingerprints(changed));}
+});

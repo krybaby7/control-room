@@ -7,9 +7,9 @@ const providerStateSchema=z.object({ready:z.boolean(),detail:z.enum(['ready','no
 export const personalConnectorJobSchema=z.object({
  id:z.string().min(1).max(64),kind:z.enum(['browse','analyze','cancel','ack']).or(z.string().min(1).max(32)),status:z.enum(['queued','claimed','completed','failed','cancelled']),
  createdAt:stamp,claimedAt:stamp.nullable().optional(),completedAt:stamp.nullable().optional(),expiresAt:stamp.optional(),
- projectId:z.string().min(1).max(128).optional(),repositoryKey:z.string().min(1).max(128).optional(),provider:z.enum(['codex','claude']).optional(),requestedModel:z.string().max(128).optional(),origin:z.enum(['owner','auto']).optional(),error:z.string().max(64).optional(),
+ projectId:z.string().min(1).max(128).optional(),repositoryKey:z.string().min(1).max(128).optional(),repositoryKeys:z.array(z.string().min(1).max(128)).max(4).optional(),provider:z.enum(['codex','claude']).optional(),requestedModel:z.string().max(128).optional(),origin:z.enum(['owner','auto']).optional(),error:z.string().max(64).optional(),
 }).passthrough();
-export const personalPolicySchema=z.object({repositoryKey:z.string().min(1).max(128),projectId:z.string().min(1).max(128),provider:z.enum(['codex','claude']),enabled:z.boolean(),minIntervalMinutes:z.number().int().min(1).max(10080),updatedAt:stamp,lastBriefAt:stamp.nullable(),lastAttemptAt:stamp.nullable().optional()}).passthrough();
+export const personalPolicySchema=z.object({repositoryKey:z.string().min(1).max(128),repositoryKeys:z.array(z.string().min(1).max(128)).max(4).optional(),projectId:z.string().min(1).max(128),provider:z.enum(['codex','claude']),enabled:z.boolean(),minIntervalMinutes:z.number().int().min(1).max(10080),updatedAt:stamp,lastBriefAt:stamp.nullable(),lastAttemptAt:stamp.nullable().optional()}).passthrough();
 const completedBriefingSchema=z.object({requestId:z.string().min(1).max(64),projectId:z.string().min(1).max(128),briefing:z.unknown(),briefingSha256:z.string().regex(/^[a-f0-9]{64}$/u)}).passthrough();
 export const personalConnectorViewSchema=z.object({
  configured:z.literal(true),deviceId:z.string().min(1).max(128),connected:z.boolean(),online:z.boolean(),lastSeenAt:stamp.nullable(),

@@ -24,7 +24,7 @@ function layoutMap(areas:BriefingAreaRow[],links:{from:string;to:string}[]){
  const columns=new Map<number,BriefingAreaRow[]>();
  for(const area of areas){const column=depth.get(area.id)??0;if(!columns.has(column))columns.set(column,[]);columns.get(column)!.push(area);}
  const keys=[...columns.keys()].sort((a,b)=>a-b);
- const W=176,H=64,GX=46,GY=18,PAD=14,TAG=16;
+ const W=176,H=82,GX=46,GY=18,PAD=14,TAG=16;
  const rows=Math.max(1,...keys.map(key=>columns.get(key)!.length));
  const width=PAD*2+keys.length*W+Math.max(0,keys.length-1)*GX,height=PAD*2+TAG+rows*H+(rows-1)*GY;
  const position=new Map<string,{x:number;y:number}>();
@@ -54,8 +54,9 @@ export function ProjectMap({ledger,selected,onSelect}:{ledger:BriefingLedger;sel
       <AreaGlyph state={area.state} tone={area.tone} x={p.x+W-26} y={p.y+8}/>
       <text className="mc-map-name" x={p.x+12} y={p.y+22}>{area.name}</text>
       <text className="mc-map-note" x={p.x+12} y={p.y+38}>{area.note}</text>
-      <rect className="mc-map-track" x={p.x+12} y={p.y+48} width={bar} height="5" rx="2.5"/>
-      {fraction>0&&<rect className="mc-map-fill" x={p.x+12} y={p.y+48} width={Math.max(6,bar*fraction)} height="5" rx="2.5"/>}
+      {area.repositoryName&&<text className="mc-map-note" x={p.x+12} y={p.y+54}>Folder: {area.repositoryName}</text>}
+      <rect className="mc-map-track" x={p.x+12} y={p.y+66} width={bar} height="5" rx="2.5"/>
+      {fraction>0&&<rect className="mc-map-fill" x={p.x+12} y={p.y+66} width={Math.max(6,bar*fraction)} height="5" rx="2.5"/>}
      </g>;})}
    </svg>
   </div>
@@ -104,14 +105,13 @@ function PlanChanges({ledger}:{ledger:BriefingLedger}){
 function BriefingControls({tile,actions}:{tile:ProjectTileModel;actions:DashboardActions}){
  const view=tile.briefing,id=tile.project.id,working=actions.briefingWorking[id]??false,notice=actions.briefingNotices[id]??null;
  const [provider,setProvider]=useState<'codex'|'claude'>(view.policy?.provider??view.report?.run.provider??(view.providers.find(row=>row.ready)?.id??'codex'));
- const [repository,setRepository]=useState<string>(view.repositoryKey??'');
- const repositoryKey=view.repositoryKey??(view.repositoryChoices.some(row=>row.key===repository)?repository:'');
+ const repositoryKey=view.repositoryKey??'';
  const ready=view.providers.find(row=>row.id===provider)?.ready??false;
  const canRequest=view.canRequest&&Boolean(repositoryKey)&&ready&&!working&&!actions.busy;
  const keepCurrent=view.policy?.enabled??false;
  const requestHint=!view.repositoryKey&&repositoryKey&&view.connector==='online'&&ready?null:view.requestHint;
  return <div className="mc-brief-controls">
-  {!view.repositoryKey&&view.repositoryChoices.length>0&&<label className="mc-brief-pick">Folder on your PC<select value={repository} onChange={event=>setRepository(event.target.value)} disabled={working}><option value="">Choose a folder</option>{view.repositoryChoices.map(row=><option key={row.key} value={row.key}>{row.name}</option>)}</select></label>}
+  <div className="mc-brief-folders" aria-label="Project folders"><strong>Folders on your PC</strong>{view.repositories.length?<ul>{view.repositories.map(row=><li key={row.key}>{row.name}</li>)}</ul>:<p>No folders added yet.</p>}<button type="button" className="text-button" disabled={working||actions.busy||view.repositories.length>=4} onClick={()=>actions.onAddFolder?.(id)}>Add folder</button></div>
   <label className="mc-brief-pick">Assistant<select value={provider} onChange={event=>setProvider(event.target.value as 'codex'|'claude')} disabled={working}>{view.providers.map(row=><option key={row.id} value={row.id}>{row.label}{row.ready?'':' (not signed in)'}</option>)}</select></label>
   <button type="button" className="button secondary" disabled={!canRequest} onClick={()=>actions.onBrief(id,repositoryKey,provider)}><RefreshCw size={13}/>{view.report?'Refresh briefing':'Brief this project'}</button>
   {repositoryKey&&<label className="mc-brief-toggle"><input type="checkbox" checked={keepCurrent} disabled={working||actions.busy||view.connector!=='online'&&!keepCurrent} onChange={event=>actions.onKeepCurrent(id,repositoryKey,provider,event.target.checked)}/><span>Keep current{keepCurrent&&view.policy?` · ${view.policy.provider==='codex'?'Codex':'Claude Code'}, at most every ${view.policy.minIntervalMinutes>=120?`${Math.round(view.policy.minIntervalMinutes/60)} h`:`${view.policy.minIntervalMinutes} min`}`:''}</span></label>}
@@ -142,7 +142,7 @@ export function BriefingCard({tile,now,actions}:{tile:ProjectTileModel;now:strin
    </div>
    {report.tried.length>0&&<details className="mc-brief-fold"><summary>What was tried and did not work</summary><ul>{report.tried.map((text,index)=><li key={index}>{text}</li>)}</ul></details>}
    <details className="mc-brief-fold"><summary>Done and not yet done</summary><div className="mc-brief-columns"><div><strong><CheckCheck size={12}/>Done</strong>{report.done.length?<ul>{report.done.map((text,index)=><li key={index}>{text}</li>)}</ul>:<p>Nothing recorded as done yet.</p>}</div><div><strong><CircleDashed size={12}/>Not yet</strong>{report.notDone.length?<ul>{report.notDone.map((text,index)=><li key={index}>{text}</li>)}</ul>:<p>Nothing outstanding was identified.</p>}</div></div></details>
-   <details className="mc-brief-basis"><summary>How this briefing was put together</summary><p>Based on work up to {relativeTime(view.freshness.basedOnAt,now)}: {view.evidenceLine}. Written by {view.providerLabel} on your PC{report.run.observedModel?` (${report.run.observedModel})`:''}; chat text and code never leave your PC except inside that one request.</p>{ledger.intentions.some(row=>row.evidence.length>0)&&<p className="mc-brief-refs">References for your engineers: {ledger.intentions.flatMap(row=>row.evidence).join(', ')}</p>}<ul>{report.limitations.map((text,index)=><li key={index}>{text}</li>)}</ul></details>
+   <details className="mc-brief-basis"><summary>How this briefing was put together</summary><p>Based on work up to {relativeTime(view.freshness.basedOnAt,now)}: {view.evidenceLine}. Written by {view.providerLabel} on your PC{report.run.observedModel?` (${report.run.observedModel})`:''}; chat text and code never leave your PC except inside that one request.</p>{view.evidenceCoverage.length>0&&<ul aria-label="Coverage by folder">{view.evidenceCoverage.map(row=><li key={row.key}><strong>{row.name}</strong>: {row.line}</li>)}</ul>}{ledger.intentions.some(row=>row.evidence.length>0)&&<p className="mc-brief-refs">References for your engineers: {ledger.intentions.flatMap(row=>row.evidence).map(ref=>typeof ref==='string'?ref:`${report.repositories.find(folder=>folder.key===ref.repositoryKey)?.name??ref.repositoryKey}: ${ref.ref}`).join(', ')}</p>}<ul>{report.limitations.map((text,index)=><li key={index}>{text}</li>)}</ul></details>
   </>:!view.activeJob&&<div className="mc-brief-empty"><p>No briefing yet. Your PC can measure your intentions against your project framing using your own messages in Codex and Claude Code, the latest commits, and GitHub branches and pull requests. Your task plan is included only when you enable it in the project editor.</p></div>}
   <BriefingControls tile={tile} actions={actions}/>
  </section>;

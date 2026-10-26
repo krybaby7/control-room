@@ -1,3 +1,4 @@
+import {upgradeBriefing} from '../shared/project-briefing.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp,rm,writeFile,readFile,realpath} from 'node:fs/promises';
@@ -18,7 +19,8 @@ test('synthetic origin requires fixed policy identity and injected transport; pr
 });
 const framing={projectId:'p1',projectName:'Trade Graph',framing:'Owner framing.',includeTaskPlan:false,milestones:[],tasks:[],totalMilestones:0,totalTasks:0,workspaceRevision:3};
 const plan={revision:3,project:{id:'p1',name:'Trade Graph',goal:'',description:''},milestones:[],tasks:[],totals:{tasks:0,open:0,done:0,omitted:0}};
-const briefingFor=(id,key,provider,origin)=>({format:'control-room-project-briefing',version:1,project:{id:'p1',name:'Trade Graph'},repository:{key,name:'repo',head:'a'.repeat(40),branch:'main',dirty:false},run:{id,provider,requestedModel:provider==='codex'?'gpt-6.1-sol':'claude-code-default',observedModel:null,startedAt:'2026-10-21T00:00:00.000Z',completedAt:'2026-10-21T00:00:01.000Z',mode:'read-only',source:'personal-pc-connector',origin},evidence:{window:{since:'2026-10-07T00:00:00.000Z',until:'2026-10-21T00:00:00.000Z'},local:{branch:'main',commits:1,branches:1,latestCommitAt:null,uncommittedFiles:0},cloud:{status:'no-remote',remote:null,branches:0,commits:0,latestCommitAt:null,pullRequests:null,openPullRequests:null,fetchedAt:null},chats:[],plan:{revision:3,milestones:0,tasks:0},inputSha256:'1'.repeat(64)},headline:'Synthetic.',status:{level:'unclear',reason:'Synthetic.'},recentWork:[],unfinished:[],done:[],notDone:[],decisionsNeeded:[],nextSteps:[],limitations:[]});
+const legacyBriefingFor=(id,key,provider,origin)=>({format:'control-room-project-briefing',version:1,project:{id:'p1',name:'Trade Graph'},repository:{key,name:'repo',head:'a'.repeat(40),branch:'main',dirty:false},run:{id,provider,requestedModel:provider==='codex'?'gpt-6.1-sol':'claude-code-default',observedModel:null,startedAt:'2026-10-21T00:00:00.000Z',completedAt:'2026-10-21T00:00:01.000Z',mode:'read-only',source:'personal-pc-connector',origin},evidence:{window:{since:'2026-10-07T00:00:00.000Z',until:'2026-10-21T00:00:00.000Z'},local:{branch:'main',commits:1,branches:1,latestCommitAt:null,uncommittedFiles:0},cloud:{status:'no-remote',remote:null,branches:0,commits:0,latestCommitAt:null,pullRequests:null,openPullRequests:null,fetchedAt:null},chats:[],plan:{revision:3,milestones:0,tasks:0},inputSha256:'1'.repeat(64)},headline:'Synthetic.',status:{level:'unclear',reason:'Synthetic.'},recentWork:[],unfinished:[],done:[],notDone:[],decisionsNeeded:[],nextSteps:[],limitations:[]});
+const briefingFor=(...args)=>{const report=upgradeBriefing(legacyBriefingFor(...args));report.evidence.framing={workspaceRevision:3,characters:framing.framing.length,includeTaskPlan:false,totalMilestones:0,totalTasks:0,includedMilestones:0,includedTasks:0};return report;};
 async function repo(){const root=await realpath(await mkdtemp(join(tmpdir(),'briefing-repo-')));execFileSync('git',['init','-q',root]);await writeFile(join(root,'main.js'),'export const x=1;');execFileSync('git',['-C',root,'add','.']);execFileSync('git',['-C',root,'-c','user.name=Fixture','-c','user.email=fixture@example.invalid','commit','-q','-m','fixture']);return root;}
 test('an owner briefing job runs once, delivers the briefing with its fingerprint and keeps a private backup',async()=>{
  const dir=await mkdtemp(join(tmpdir(),'connector-brief-')),root=await repo();const sent=[];let calls=0;
@@ -82,4 +84,18 @@ test('an automatic admission with foreign framing is rejected before receipt or 
  const connector=await createPersonalConnector({config,stateDirectory:dir,autoCheckMs:0,fingerprint:async()=>'e'.repeat(64),readiness:async()=>({codex:{ready:true,detail:'ready'},claude:{ready:false,detail:'unavailable'}}),brief:async()=>{calls++;throw Error('Must not execute');},fetch:async(url,options)=>{const body=JSON.parse(options.body);if(body.action==='poll')return new Response(JSON.stringify({job:null,policies:[policy]}));return new Response(JSON.stringify({job:{id:body.requestId,kind:'brief',status:'claimed',repositoryKey:repository.key,projectId:'p1',provider:'codex',requestedModel:'gpt-6.1-sol',origin:'auto',framing:{...framing,projectId:'p2'},expiresAt:new Date(Date.now()+600000).toISOString()}}));}});
  await assert.rejects(connector.tick(),/Invalid personal job/);await connector.close();assert.equal(calls,0);assert.deepEqual(JSON.parse(await readFile(join(dir,'personal-job-receipts.json'),'utf8')),{});
  }finally{await rm(dir,{recursive:true,force:true});await rm(root,{recursive:true,force:true});}
+});
+
+
+test('two-folder jobs bind every folder and carry the newest project ledger across folder changes',async()=>{
+ const dir=await mkdtemp(join(tmpdir(),'connector-project-')),a=await repo(),b=await repo();const sent=[];let calls=0;
+ try{
+  const ai=await repositoryIdentity(a),bi=await repositoryIdentity(b);await writeFile(join(dir,'repositories.json'),JSON.stringify([a,b]));
+  const olderId='11111111-1111-4111-8111-111111111111',old=briefingFor(olderId,ai.key,'claude','owner');
+  await writeFile(join(dir,olderId+'.json'),JSON.stringify({kind:'brief',status:'completed',repositoryKey:ai.key,report:old}));
+  const job={id:'77777777-7777-4777-8777-777777777777',kind:'brief',status:'claimed',repositoryKey:bi.key,repositoryKeys:[bi.key,ai.key],projectId:'p1',provider:'claude',requestedModel:'claude-code-default',origin:'owner',framing,expiresAt:new Date(Date.now()+600000).toISOString()};
+  const connector=await createPersonalConnector({config,stateDirectory:dir,readiness:async()=>({claude:{ready:true,detail:'ready'}}),brief:async(input)=>{calls++;assert.deepEqual(input.repositories,[{key:bi.key,root:b},{key:ai.key,root:a}]);assert.equal(input.previous.runId,olderId);const report=briefingFor(input.requestId,bi.key,'claude','owner');report.repositories.push({...report.repository,key:ai.key});report.evidence.repositories.push({...report.evidence.repositories[0],key:ai.key});return {briefing:report,fingerprint:'9'.repeat(64)};},fetch:async(url,options)=>{const body=JSON.parse(options.body);if(body.action==='poll')return new Response(JSON.stringify({job}));sent.push(body);return new Response(JSON.stringify({ok:true}));}});
+  await connector.tick();await connector.tick();await connector.close();assert.equal(calls,1);assert.equal(sent.filter(row=>row.action==='complete').length,1);
+  const backup=JSON.parse(await readFile(join(dir,job.id+'.json'),'utf8'));assert.deepEqual(backup.repositoryKeys,job.repositoryKeys);assert.equal(backup.projectId,'p1');
+ }finally{await rm(dir,{recursive:true,force:true});await rm(a,{recursive:true,force:true});await rm(b,{recursive:true,force:true});}
 });

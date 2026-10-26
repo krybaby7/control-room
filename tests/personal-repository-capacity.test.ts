@@ -23,7 +23,7 @@ function history(count:number):PersonalState {
 async function seed(db:SqlDatabase,state:PersonalState){
  const payload=canonical(state);
  await db.prepare('INSERT INTO personal_repository_state(user_id,id,row_revision,payload_json,content_hash) VALUES(?,?,1,?,?)').bind(configuration.ownerId,configuration.deviceId,payload,await contentHash(payload)).run();
- await loadWorkspace(db,configuration.ownerId,()=>workspaceFixture(),now);
+ await loadWorkspace(db,configuration.ownerId,()=>{const workspace=workspaceFixture();workspace.projects[0].personalRepositoryKeys=['repo-b'];return workspace;},now);
 }
 const post=(action:unknown)=>new Request(origin+'/api/personal-repositories',{method:'POST',headers:{origin,'content-type':'application/json'},body:JSON.stringify(action)});
 

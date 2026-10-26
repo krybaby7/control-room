@@ -16,7 +16,7 @@ const framingFixture=()=>({projectId:'p1',projectName:'Trade Graph',framing:'Own
 function stampFraming(briefing:ReturnType<typeof briefingFixture>,framing:ProjectFraming){return {...briefing,evidence:{...briefing.evidence,framing:{workspaceRevision:framing.workspaceRevision,characters:framing.framing.trim()?framing.framing.length:0,includeTaskPlan:framing.includeTaskPlan,totalMilestones:framing.totalMilestones,totalTasks:framing.totalTasks,includedMilestones:framing.milestones.length,includedTasks:framing.tasks.length}}};}
 const later=(minutes:number)=>new Date(Date.parse(now)+minutes*60000).toISOString();
 const repo={key:'repo-b',name:'trade-graph',head:'c'.repeat(40),dirty:false,hasPreviousAnalysis:false};
-async function setup(){const {db,sqlite}=database();for(const owner of ['owner-a','owner-b'])await loadWorkspace(db,owner,()=>workspaceFixture({projects:[projectFixture({name:'Trade Graph',framing:'Owner framing.'}),projectFixture({id:'p2'})],tasks:[taskFixture('t1',{status:'doing'})]}),FIXTURE_AT);let serial=0;const save=(owner:string,revision:number,command:unknown)=>executeWorkspaceCommand(owner,{protocolVersion:1,expectedRevision:revision,mutationId:'briefing-mutation-'+String(++serial).padStart(4,'0'),command},{db,now:()=>FIXTURE_AT,handlers:projectBriefingCommandHandlers});return{db,sqlite,save};}
+async function setup(){const {db,sqlite}=database();for(const owner of ['owner-a','owner-b'])await loadWorkspace(db,owner,()=>workspaceFixture({projects:[projectFixture({name:'Trade Graph',framing:'Owner framing.',personalRepositoryKeys:['repo-b']}),projectFixture({id:'p2'})],tasks:[taskFixture('t1',{status:'doing'})]}),FIXTURE_AT);let serial=0;const save=(owner:string,revision:number,command:unknown)=>executeWorkspaceCommand(owner,{protocolVersion:1,expectedRevision:revision,mutationId:'briefing-mutation-'+String(++serial).padStart(4,'0'),command},{db,now:()=>FIXTURE_AT,handlers:projectBriefingCommandHandlers});return{db,sqlite,save};}
 test('a briefing is private immutable evidence per project and repository; refresh appends a version',async()=>{
  const {db,sqlite,save}=await setup();
  await save('owner-a',1,{type:'project-briefing.save',projectId:'p1',briefing:briefingFixture()});
@@ -29,7 +29,7 @@ test('a briefing is private immutable evidence per project and repository; refre
  assert.equal(JSON.parse(String(sqlite.prepare("select content from workspaces where user_id='owner-a'").get()!.content)).tasks.length,1);
  await assert.rejects(save('owner-a',3,{type:'project-briefing.save',projectId:'p1',evidenceId:first.briefings[0].evidenceId,expectedVersion:2,briefing:briefingFixture({},other)}),/already saved/);
  await assert.rejects(save('owner-a',3,{type:'project-briefing.save',projectId:'p2',briefing:briefingFixture({},'33333333-3333-4333-8333-333333333333')}),/another project/);
- await assert.rejects(save('owner-a',3,{type:'project-briefing.save',projectId:'p1',evidenceId:first.briefings[0].evidenceId,expectedVersion:2,briefing:briefingFixture({repository:{...briefingFixture().repository,key:'other-repo'}},'33333333-3333-4333-8333-333333333333')}),/repository identity/);
+ await assert.rejects(save('owner-a',3,{type:'project-briefing.save',projectId:'p1',evidenceId:first.briefings[0].evidenceId,expectedVersion:2,briefing:briefingFixture({repository:{...briefingFixture().repository,key:'other-repo'}},'33333333-3333-4333-8333-333333333333')}),/repository identity|Invalid project briefing/);
  assert.equal((await readProjectBriefings(db,'owner-a')).briefings[0].version,2);
 });
 test('owner briefing request carries server-projected framing; the device completes it and acknowledgment needs a saved copy',async()=>{
@@ -59,7 +59,7 @@ test('keep-current policies admit device briefings only when due, changed and id
  const framing=framingFixture();
  assert.throws(()=>transitionPersonalState(s,parseOwnerAction({action:'keep-current',repositoryKey:'unknown',projectId:'p1',provider:'codex',enabled:true}),now,'owner'));
  s=transitionPersonalState(s,parseOwnerAction({action:'keep-current',repositoryKey:'repo-b',projectId:'p1',provider:'codex',enabled:true}),now,'owner');
- assert.deepEqual(s.policies,[{repositoryKey:'repo-b',projectId:'p1',provider:'codex',enabled:true,minIntervalMinutes:PERSONAL_LIMITS.defaultIntervalMinutes,updatedAt:now,lastBriefAt:null,lastAttemptAt:null,lastFingerprint:null}]);
+ assert.deepEqual(s.policies,[{repositoryKey:'repo-b',repositoryKeys:['repo-b'],projectId:'p1',provider:'codex',enabled:true,minIntervalMinutes:PERSONAL_LIMITS.defaultIntervalMinutes,updatedAt:now,lastBriefAt:null,lastAttemptAt:null,lastFingerprint:null}]);
  const auto=parseDeviceAction({action:'auto-brief',requestId:id,repositoryKey:'repo-b',fingerprint:'1'.repeat(64)});
  assert.throws(()=>transitionPersonalState(s,auto,now,'device'),/invalid/u);
  s=transitionPersonalState(s,auto,now,'device',{framing});
@@ -148,7 +148,7 @@ test('legacy briefing state remains hash-stable while active legacy jobs fail be
 test('server admissions preserve archived folder associations until the owner restores the mapped project',async()=>{
  const f=database();try{
   const c={version:1 as const,ownerId:'archived-mapping-owner',deviceId:'mapping-pc',keyHash:'a'.repeat(64),siteOrigin:'https://example.chatgpt.site'};
-  await loadWorkspace(f.db,c.ownerId,()=>workspaceFixture({projects:[projectFixture({personalRepositoryKey:'repo-b',archivedAt:now}),projectFixture({id:'p2'})]}),now);
+  await loadWorkspace(f.db,c.ownerId,()=>workspaceFixture({projects:[projectFixture({personalRepositoryKeys:['repo-b'],archivedAt:now}),projectFixture({id:'p2'})]}),now);
   await changePersonalState(f.db,c,{action:'poll',repositories:[repo]},'device',now);
   for(const action of ['brief','analyze','keep-current']){
    const command=action==='keep-current'?{action,projectId:'p2',repositoryKey:'repo-b',provider:'codex',enabled:true}:{action,requestId:id,projectId:'p2',repositoryKey:'repo-b',provider:'codex'};
@@ -160,7 +160,7 @@ test('server admissions preserve archived folder associations until the owner re
 test('server admissions respect durable folder associations for manual and automatic briefing',async()=>{
  const f=database();try{
  const c={version:1 as const,ownerId:'mapping-owner',deviceId:'mapping-pc',keyHash:'a'.repeat(64),siteOrigin:'https://example.chatgpt.site'};
- await loadWorkspace(f.db,c.ownerId,()=>workspaceFixture({projects:[projectFixture({personalRepositoryKey:'repo-b'}),projectFixture({id:'p2'})]}),now);
+ await loadWorkspace(f.db,c.ownerId,()=>workspaceFixture({projects:[projectFixture({personalRepositoryKeys:['repo-b']}),projectFixture({id:'p2'})]}),now);
  await changePersonalState(f.db,c,{action:'poll',repositories:[repo,{...repo,key:'other'}]},'device',now);
  for(const action of ['brief','analyze','keep-current']){
  const command=action==='keep-current'?{action,projectId:'p1',repositoryKey:'other',provider:'codex',enabled:true}:{action,requestId:id,projectId:'p1',repositoryKey:'other',provider:'codex'};
@@ -168,7 +168,7 @@ test('server admissions respect durable folder associations for manual and autom
  }
  await assert.rejects(changePersonalState(f.db,c,{action:'brief',requestId:id,projectId:'p2',repositoryKey:'repo-b',provider:'codex'},'owner',now),/associated/);
  await changePersonalState(f.db,c,{action:'keep-current',projectId:'p1',repositoryKey:'repo-b',provider:'codex',enabled:true},'owner',now);
- f.sqlite.prepare("UPDATE workspaces SET revision=revision+1,content=json_set(content,'$.projects[0].personalRepositoryKey','other') WHERE user_id=?").run(c.ownerId);
+ f.sqlite.prepare("UPDATE workspaces SET revision=revision+1,content=json_set(content,'$.projects[0].personalRepositoryKeys',json_array('other')) WHERE user_id=?").run(c.ownerId);
  await assert.rejects(changePersonalState(f.db,c,{action:'auto-brief',requestId:id,repositoryKey:'repo-b',fingerprint:'1'.repeat(64)},'device',now),/associated/);
  }finally{f.sqlite.close();}
 });
@@ -189,10 +189,38 @@ test('historical personal briefing digests remain acknowledgeable after their va
 test('a briefing admission retries the workspace fence and projects the latest framing',async()=>{
  const f=database();try{
  const c={version:1 as const,ownerId:'framing-race',deviceId:'race-pc',keyHash:'a'.repeat(64),siteOrigin:'https://example.chatgpt.site'};
- await loadWorkspace(f.db,c.ownerId,()=>workspaceFixture({projects:[projectFixture({framing:'Old framing.'})]}),now);
+ await loadWorkspace(f.db,c.ownerId,()=>workspaceFixture({projects:[projectFixture({framing:'Old framing.',personalRepositoryKeys:['repo-b']})]}),now);
  await changePersonalState(f.db,c,{action:'poll',repositories:[repo]},'device',now);
  let raced=false;const db:SqlDatabase={prepare(sql){const statement=f.db.prepare(sql);const wrap:SqlStatement={bind(...values){statement.bind(...values);return wrap;},first:()=>statement.first(),all:()=>statement.all(),async run(){if(!raced&&sql.startsWith('UPDATE personal_repository_state SET row_revision')){raced=true;f.sqlite.prepare("UPDATE workspaces SET revision=revision+1,content=json_set(content,'$.projects[0].framing','New framing.') WHERE user_id=?").run(c.ownerId);}return statement.run();}};return wrap;},batch:statements=>f.db.batch(statements)};
  const admitted=await changePersonalState(db,c,{action:'brief',requestId:id,projectId:'p1',repositoryKey:'repo-b',provider:'codex'},'owner',now);
  assert.equal(raced,true);assert.equal(admitted.requests[0].framing?.workspaceRevision,2);assert.equal(admitted.requests[0].framing?.framing,'New framing.');
  }finally{f.sqlite.close();}
+});
+
+test('legacy folder heads become one project ledger on first refresh',async()=>{
+ const {db,sqlite,save}=await setup();try{
+ await save('owner-a',1,{type:'project-briefing.save',projectId:'p1',briefing:briefingFixture()});
+ await save('owner-a',2,{type:'project-briefing.save',projectId:'p2',briefing:briefingFixture({project:{id:'p2',name:'Other'}},other)});
+ // Synthetic pre-migration shape: two active folder reports linked to the same project.
+ for(const table of ['evidence_versions','evidence_links'] as const){for(const row of sqlite.prepare(`SELECT id,payload_json FROM ${table} WHERE user_id=?`).all('owner-a')){
+ const value=JSON.parse(String(row.payload_json));if(table==='evidence_links'&&value.subject.id==='p2')value.subject.id='p1';
+ if(table==='evidence_versions'){const report=JSON.parse(value.statement);if(report.project.id==='p2'){report.project={id:'p1',name:'Trade Graph'};value.statement=JSON.stringify(report);}}
+ const payload=canonical(value);sqlite.prepare(`UPDATE ${table} SET payload_json=?,content_hash=? WHERE user_id=? AND id=?`).run(payload,await contentHash(payload),'owner-a',String(row.id));
+ }}
+ const prior=await readProjectBriefings(db,'owner-a','p1');assert.equal(prior.briefings.length,1);
+ await save('owner-a',3,{type:'project-briefing.save',projectId:'p1',evidenceId:prior.briefings[0].evidenceId,expectedVersion:1,briefing:briefingFixture({},'33333333-3333-4333-8333-333333333333')});
+ assert.equal((await readProjectBriefings(db,'owner-a','p1')).briefings.length,1);
+ const heads=sqlite.prepare('SELECT payload_json FROM evidence_records WHERE user_id=?').all('owner-a').map(row=>JSON.parse(String(row.payload_json)));
+ assert.equal(heads.filter(head=>head.archivedAt===null).length,1);
+ }finally{sqlite.close();}
+});
+
+test('saving an admitted report preserves folders added after admission',async()=>{
+ const {db,sqlite,save}=await setup();try{
+ const report=briefingFixture();
+ sqlite.prepare("UPDATE workspaces SET revision=revision+1,content=json_set(content,'$.projects[0].personalRepositoryKeys',json_array('repo-b','map')) WHERE user_id=?").run('owner-a');
+ await save('owner-a',2,{type:'project-briefing.save',projectId:'p1',briefing:report});
+ const saved=await readProjectBriefings(db,'owner-a','p1');assert.deepEqual(saved.briefings[0].briefing.repositories.map(row=>row.key),['repo-b']);
+ const workspace=JSON.parse(String(sqlite.prepare('SELECT content FROM workspaces WHERE user_id=?').get('owner-a')!.content));assert.deepEqual(workspace.projects[0].personalRepositoryKeys,['repo-b','map']);
+ }finally{sqlite.close();}
 });

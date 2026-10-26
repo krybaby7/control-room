@@ -1,15 +1,15 @@
-/** Shared browser/server/companion contract for a project briefing. Version 3 adds a
+/** Shared browser/server/companion contract for a project briefing. Version 4 adds project-wide folder identities and coverage. Version 3 added a
  * fit-or-drift assessment against the owner's explicit project framing. Optional task
  * records are supplementary context and carry no execution authority. Saved version 1
- * and 2 reports validate against their historical schemas and project purely to v3. */
+ * through 3 reports validate against their historical schemas and project purely to v4. */
 export const PROJECT_BRIEFING_MARKER='control-room-project-briefing-v1';
-export const PROJECT_BRIEFING_VERSION=3;
+export const PROJECT_BRIEFING_VERSION=4;
 export const PROJECT_FRAMING_MAX_CHARACTERS=10000;
 export const LEGACY_FIT_OR_DRIFT="This earlier briefing did not assess whether the work fits your project framing.";
 /** Briefing statements may exceed the ordinary evidence statement bound; the evidence
  * validator allows this many characters for the briefing marker only. The companion and
  * the personal channel keep the stricter 55,000-byte delivery bound. */
-export const PROJECT_BRIEFING_MAX_CHARACTERS=26200;
+export const PROJECT_BRIEFING_MAX_CHARACTERS=32200;
 const LEGACY_REPORT_MAX_CHARACTERS=26000;
 export const COMPACT_PLAN_MAX_CHARACTERS=6000;
 export const BRIEFING_PROVIDERS=Object.freeze(['codex','claude']);
@@ -67,7 +67,12 @@ export const briefingContentSchemaV2=object({
  nextSteps:array(str(160),5),
  limitations:array(str(200),5),
 });
-export const briefingContentSchema=object({...briefingContentSchemaV2.properties,fitOrDrift:str(480)});
+export const briefingContentSchemaV3=object({...briefingContentSchemaV2.properties,fitOrDrift:str(480)});
+const repositoryKey={...str(128),pattern:'^[a-zA-Z0-9_-]+$'};
+export const briefingContentSchema=object({...briefingContentSchemaV3.properties,
+ areas:array(withOptional(briefingContentSchemaV2.properties.areas.items,{repositoryKey}),12),
+ intentions:array({...withOptional(briefingContentSchemaV2.properties.intentions.items,{repositoryKey}),properties:{...briefingContentSchemaV2.properties.intentions.items.properties,repositoryKey,evidence:array({anyOf:[str(60),object({repositoryKey,ref:str(60)})]},3)}},24),
+});
 const chatProvider=enumeration(BRIEFING_PROVIDERS);
 const evidenceProperties={
  window:object({since:stamp,until:stamp}),
@@ -86,7 +91,10 @@ export const briefingEvidenceSchemaV2=withOptional(object({
 }),{cloudTurns:array(object({provider:enumeration(BRIEFING_CLOUD_PROVIDERS),status:enumeration(['included','not-found','unavailable']),sessions:integer(0,24),turns:integer(0,960)}),2)});
 const currentEvidenceProperties=Object.fromEntries(Object.entries(evidenceProperties).filter(([key])=>key!=='plan'));
 const framingEvidence=nullable(object({workspaceRevision:integer(0,Number.MAX_SAFE_INTEGER),characters:integer(0,2500),includeTaskPlan:{type:'boolean'},totalMilestones:integer(0,100000),totalTasks:integer(0,100000),includedMilestones:integer(0,12),includedTasks:integer(0,40)}));
-export const briefingEvidenceSchema=withOptional(object({...currentEvidenceProperties,framing:framingEvidence,ownerTurns:briefingEvidenceSchemaV2.properties.ownerTurns,previous:briefingEvidenceSchemaV2.properties.previous}),{cloudTurns:briefingEvidenceSchemaV2.properties.cloudTurns});
+export const briefingEvidenceSchemaV3=withOptional(object({...currentEvidenceProperties,framing:framingEvidence,ownerTurns:briefingEvidenceSchemaV2.properties.ownerTurns,previous:briefingEvidenceSchemaV2.properties.previous}),{cloudTurns:briefingEvidenceSchemaV2.properties.cloudTurns});
+export const briefingRepositoryCoverageSchema=withOptional(object({key:repositoryKey,name:str(100),local:evidenceProperties.local,cloud:evidenceProperties.cloud,chats:evidenceProperties.chats,ownerTurns:briefingEvidenceSchemaV2.properties.ownerTurns}),{cloudTurns:briefingEvidenceSchemaV2.properties.cloudTurns});
+export const briefingEvidenceSchema=withOptional(object({...briefingEvidenceSchemaV3.properties,repositories:array(briefingRepositoryCoverageSchema,4)}),{});
+briefingEvidenceSchema.required=briefingEvidenceSchemaV3.required.concat('repositories');
 const identityProperties={
  project:object({id:{...str(128),pattern:'^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$'},name:str(200)}),
  repository:object({key:{...str(128),pattern:'^[a-zA-Z0-9_-]+$'},name:str(100),head:{...str(64,40),pattern:'^(?:[a-f0-9]{40}|[a-f0-9]{64})$'},branch:nullable(str(200)),dirty:{type:'boolean'}}),
@@ -94,7 +102,8 @@ const identityProperties={
 };
 export const projectBriefingSchemaV1=object({format:{const:'control-room-project-briefing'},version:{const:1},...identityProperties,evidence:briefingEvidenceSchemaV1,...briefingContentSchemaV1.properties});
 export const projectBriefingSchemaV2=object({format:{const:'control-room-project-briefing'},version:{const:2},...identityProperties,evidence:briefingEvidenceSchemaV2,...briefingContentSchemaV2.properties});
-export const projectBriefingSchema=object({format:{const:'control-room-project-briefing'},version:{const:3},...identityProperties,evidence:briefingEvidenceSchema,...briefingContentSchema.properties});
+export const projectBriefingSchemaV3=object({format:{const:'control-room-project-briefing'},version:{const:3},...identityProperties,evidence:briefingEvidenceSchemaV3,...briefingContentSchemaV3.properties});
+export const projectBriefingSchema=object({format:{const:'control-room-project-briefing'},version:{const:4},...identityProperties,repositories:array(identityProperties.repository,4),evidence:briefingEvidenceSchema,...briefingContentSchema.properties});
 /** Bounded projection of the owner's own plan that travels with a briefing request. */
 export const compactPlanSchema=object({
  revision:integer(0,Number.MAX_SAFE_INTEGER),
@@ -155,7 +164,7 @@ function checkIntentionDates(value,path){
   if(Object.hasOwn(row,'cloudProvider')&&row.source!=='cloud')invalid(`${path}intentions.${i}.cloudProvider`);
  }
 }
-/** Validates what the model returned (version 3); the companion adds identity and evidence around it. */
+/** Validates what the model returned (version 4); the companion adds identity and evidence around it. */
 export function validateBriefingContent(value){
  check(briefingContentSchema,value);
  checkMap(value,'');checkIntentionDates(value,'');
@@ -196,6 +205,8 @@ function validateEvidence(value,schema){
 export function validateBriefingEvidence(value){
  const checked=validateEvidence(value,briefingEvidenceSchema),f=checked.framing;
  if(f&&(f.includedMilestones>f.totalMilestones||f.includedTasks>f.totalTasks||!f.includeTaskPlan&&(f.includedMilestones||f.includedTasks)))invalid('evidence framing coverage');
+ if(!checked.repositories.length||new Set(checked.repositories.map(row=>row.key)).size!==checked.repositories.length)invalid('evidence repositories');
+ for(const row of checked.repositories)validateEvidence({...row,window:checked.window,previous:null}, {...briefingRepositoryCoverageSchema,properties:{...briefingRepositoryCoverageSchema.properties,window:evidenceProperties.window,previous:briefingEvidenceSchemaV2.properties.previous},required:[...briefingRepositoryCoverageSchema.required,'window','previous']});
  return checked;
 }
 export function validateBriefingEvidenceV2(value){return validateEvidence(value,briefingEvidenceSchemaV2);}
@@ -220,11 +231,18 @@ export function upgradeBriefing(v1){
  };
  const evidence={...v1.evidence,ownerTurns:{sessions:0,turns:0,characters:0,earliestAt:null,latestAt:null},previous:null};
  const retainedEvidence=Object.fromEntries(Object.entries(evidence).filter(([key])=>key!=='plan'));
- return boundLegacyProjection({format:v1.format,version:3,project:v1.project,repository:v1.repository,run:v1.run,evidence:{...retainedEvidence,framing:null},...content,fitOrDrift:LEGACY_FIT_OR_DRIFT});
+ return upgradeBriefingV3(boundLegacyProjection({format:v1.format,version:3,project:v1.project,repository:v1.repository,run:v1.run,evidence:{...retainedEvidence,framing:null},...content,fitOrDrift:LEGACY_FIT_OR_DRIFT}));
 }
 export function upgradeBriefingV2(v2){
  const evidence=Object.fromEntries(Object.entries(v2.evidence).filter(([key])=>key!=='plan'));
- return boundLegacyProjection({...clone(v2),version:3,evidence:{...clone(evidence),framing:null},fitOrDrift:LEGACY_FIT_OR_DRIFT});
+ return upgradeBriefingV3(boundLegacyProjection({...clone(v2),version:3,evidence:{...clone(evidence),framing:null},fitOrDrift:LEGACY_FIT_OR_DRIFT}));
+}
+/** Older reports covered exactly one folder. Preserve their original coverage and bytes on storage;
+ * only the returned view gains the explicit folder identity and coverage list. */
+export function upgradeBriefingV3(value){
+ const v3=clone(value),e=v3.evidence;
+ const coverage={key:v3.repository.key,name:v3.repository.name,local:e.local,cloud:e.cloud,chats:e.chats,ownerTurns:e.ownerTurns,...(e.cloudTurns?{cloudTurns:e.cloudTurns}:{})};
+ return boundLegacyProjection({...v3,version:4,repositories:[clone(v3.repository)],evidence:{...e,repositories:[clone(coverage)]}});
 }
 /** Adding the honest assessment placeholder can push a historical report over the
  * delivery byte bound. Trim limitations from the last row first, then intentions
@@ -264,7 +282,7 @@ function checkRun(value){
  if(Date.parse(value.run.completedAt)<Date.parse(value.run.startedAt))invalid('run time order');
 }
 const contentOf=(schema,value)=>Object.fromEntries(Object.keys(schema.properties).map(key=>[key,value[key]]));
-/** Validates a complete report of any supported version and returns the version 3 shape. */
+/** Validates a complete report of any supported version and returns the version 4 shape. */
 export function validateProjectBriefing(value){
  if(value&&typeof value==='object'&&value.version===1){
   check(projectBriefingSchemaV1,value);
@@ -281,10 +299,25 @@ export function validateProjectBriefing(value){
   const serialized=JSON.stringify(value);if(serialized.length>LEGACY_REPORT_MAX_CHARACTERS||new TextEncoder().encode(serialized).length>55000)invalid('report size');
   return validateProjectBriefing(upgradeBriefingV2(value));
  }
+ if(value&&typeof value==='object'&&value.version===3){
+  check(projectBriefingSchemaV3,value);checkRun(value);
+  const e=validateEvidence(value.evidence,briefingEvidenceSchemaV3),f=e.framing;
+  if(f&&(f.includedMilestones>f.totalMilestones||f.includedTasks>f.totalTasks||!f.includeTaskPlan&&(f.includedMilestones||f.includedTasks)))invalid('evidence framing coverage');
+  check(briefingContentSchemaV3,contentOf(briefingContentSchemaV3,value));checkMap(value,'');checkIntentionDates(value,'');
+  if(e.previous?.runId===value.run.id)invalid('evidence previous run');
+  const serialized=JSON.stringify(value);if(serialized.length>26200||new TextEncoder().encode(serialized).length>55000)invalid('report size');
+  return validateProjectBriefing(upgradeBriefingV3(value));
+ }
  check(projectBriefingSchema,value);
  checkRun(value);
  validateBriefingEvidence(value.evidence);
  validateBriefingContent(contentOf(briefingContentSchema,value));
+ if(!value.repositories.length||new Set(value.repositories.map(row=>row.key)).size!==value.repositories.length)invalid('repositories');
+ const first=value.repositories[0];if(Object.keys(identityProperties.repository.properties).some(key=>first[key]!==value.repository[key]))invalid('repository identity');
+ if(value.evidence.repositories.length!==value.repositories.length)invalid('evidence repositories');
+ for(const repository of value.repositories){const coverage=value.evidence.repositories.find(row=>row.key===repository.key);if(!coverage||coverage.name!==repository.name)invalid('evidence repository identity');}
+ for(const row of [...value.areas,...value.intentions])if(row.repositoryKey!==undefined&&!value.repositories.some(repository=>repository.key===row.repositoryKey))invalid('repository reference');
+ for(const row of value.intentions)for(const ref of row.evidence)if(typeof ref==='object'&&!value.repositories.some(repository=>repository.key===ref.repositoryKey))invalid('evidence repository reference');
  if(value.evidence.previous!==null&&value.evidence.previous.runId===value.run.id)invalid('evidence previous run');
  const serialized=JSON.stringify(value);
  if(serialized.length>PROJECT_BRIEFING_MAX_CHARACTERS||new TextEncoder().encode(serialized).length>55000)invalid('report size');

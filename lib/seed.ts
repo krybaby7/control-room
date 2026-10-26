@@ -79,11 +79,11 @@ export function createSeedWorkspace(now?: string): Workspace {
   return {
     schemaVersion: 5, areas: [],
     projects: [
-      { id: tamenni, name: 'TAMENNI', color: 'orange', priority: 'equal', archivedAt:null,framing:'',includeTaskPlanInBriefings:false,personalRepositoryKey:null,
+      { id: tamenni, name: 'TAMENNI', color: 'orange', priority: 'equal', archivedAt:null,framing:'',includeTaskPlanInBriefings:false,personalRepositoryKeys:[],
         description: 'Android product and map experience, with explicit acceptance for reliability, launch coverage, integration, scaling and economics.',
         goal: 'Deliver an Android experience with accepted map coverage, a verified map-to-app integration, demonstrated scaling readiness and a validated viable profit structure.',
         repositories: [{ name: 'Application', url: 'https://github.com/krybaby7/TMNI' }, { name: 'Map lab', url: 'https://github.com/krybaby7/tameni-map-lab' }] },
-      { id: tradeGraph, name: 'Trade Graph', color: 'teal', priority: 'equal', archivedAt:null,framing:'',includeTaskPlanInBriefings:false,personalRepositoryKey:null,
+      { id: tradeGraph, name: 'Trade Graph', color: 'teal', priority: 'equal', archivedAt:null,framing:'',includeTaskPlanInBriefings:false,personalRepositoryKeys:[],
         description: 'Establish coherent operation first, then refine the graph toward demonstrated profitability after trading and operating costs.',
         goal: 'Refine a coherent trading graph toward demonstrated profitability, supported by an accepted operating cycle and reproducible evidence that accounts for fees, costs and risk.',
         repositories: [{ name: 'Trade Graph', url: 'https://github.com/krybaby7/trade-graph' }] },

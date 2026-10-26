@@ -11,7 +11,7 @@ function reference(workspace:Workspace){
  const positions=new Map<string,number>();
  const base={...workspace};if(!base.areas?.length)delete base.areas;
  const compact={...base,
-  projects:workspace.projects.map(project=>Object.fromEntries(Object.entries(project).filter(([key,value])=>!((key==='archivedAt'||key==='personalRepositoryKey')&&value===null||key==='framing'&&value===''||key==='includeTaskPlanInBriefings'&&value===false)))),
+  projects:workspace.projects.map(project=>Object.fromEntries(Object.entries(project).filter(([key,value])=>!((key==='archivedAt'||key==='personalRepositoryKey')&&value===null||key==='personalRepositoryKeys'&&Array.isArray(value)&&value.length===0||key==='framing'&&value===''||key==='includeTaskPlanInBriefings'&&value===false)))),
   milestones:workspace.milestones.map(milestone=>{const next=positions.get(milestone.projectId)??0;positions.set(milestone.projectId,next+1);const copy:Partial<typeof milestone>={...milestone};if(copy.archivedAt===null)delete copy.archivedAt;if(copy.sortKey===next)delete copy.sortKey;return copy;}),
   tasks:workspace.tasks.map(task=>{const copy:Partial<typeof task>={...task};if(copy.weeklyWeek===null)delete copy.weeklyWeek;if(copy.archivedFromStatus===null)delete copy.archivedFromStatus;if(copy.estimateMinutes===null)delete copy.estimateMinutes;if(copy.areaId===null)delete copy.areaId;if(copy.workType==='other')delete copy.workType;return copy;})};
  const {schemaVersion:_version,...content}=compact;void _version;
@@ -116,8 +116,8 @@ test('v5 serialized 1.875 MB ceiling neighbors retain exact counts and content-f
 
 test('framing and folder mapping count owner bytes while generated framing defaults retain historical storage',()=>{
  const w=parseWorkspaceExport(fixture());const before=reference(w);check(w);
- w.projects[0].framing='  Purpose ع😀\nStanding rules.  ';w.projects[0].includeTaskPlanInBriefings=true;w.projects[0].personalRepositoryKey='folder_key';
+ w.projects[0].framing='  Purpose ع😀\nStanding rules.  ';w.projects[0].includeTaskPlanInBriefings=true;w.projects[0].personalRepositoryKeys=['folder_key'];
  const after=reference(w);assert.ok(after.contentBytes>before.contentBytes);check(w);check(parseWorkspaceExport(w));
- const raw=structuredClone(w);for(const p of raw.projects){delete p.framing;delete p.includeTaskPlanInBriefings;delete p.personalRepositoryKey;}
+ const raw=structuredClone(w);for(const p of raw.projects){delete p.framing;delete p.includeTaskPlanInBriefings;delete p.personalRepositoryKey;delete p.personalRepositoryKeys;}
  assert.equal(JSON.stringify(compactPlanning(parseWorkspaceExport(raw))),JSON.stringify(compactPlanning(raw)));
 });

@@ -14,8 +14,8 @@ let panels:typeof import('../components/mission-control-panels');
 try{await build({entryPoints:['components/mission-control-panels.tsx'],outfile:join(directory,'panels.cjs'),bundle:true,platform:'node',format:'cjs',packages:'external',jsx:'automatic',logLevel:'silent'});panels=createRequire(import.meta.url)(join(directory,'panels.cjs'));}
 finally{await rm(directory,{recursive:true,force:true});}
 const noop=()=>{};
-const actions={onProject:noop,onTask:noop,onTaskId:noop,onPin:noop,onProjects:noop,onAgents:noop,onRuntime:noop,onRepositories:noop,onInbox:noop,onAttention:noop,onWeekly:noop,busy:false,onBrief:noop,onKeepCurrent:noop,onRetrySave:noop,briefingNotices:{},briefingWorking:{}};
-async function model(){const fixture=await dashboardFixture();return {fixture,model:buildDashboardModel({now:NOW,workspace:fixture.workspace,jobs:fixture.jobs,jobDetails:{'job-running':{provider:'codex',events:fixture.events['job-running']}},runtime:fixture.runtime,connector:fixture.connector,localReports:fixture.localReports,cloudReports:fixture.cloudReports,briefings:fixture.briefings,feeds:okFeeds()})};}
+const actions={onProject:noop,onTask:noop,onTaskId:noop,onPin:noop,onProjects:noop,onAgents:noop,onRuntime:noop,onRepositories:noop,onInbox:noop,onAttention:noop,onWeekly:noop,busy:false,onBrief:noop,onKeepCurrent:noop,onAddFolder:noop,onRetrySave:noop,briefingNotices:{},briefingWorking:{}};
+async function model(){const fixture=await dashboardFixture();fixture.workspace.projects[1].personalRepositoryKeys=['repo-b'];return {fixture,model:buildDashboardModel({now:NOW,workspace:fixture.workspace,jobs:fixture.jobs,jobDetails:{'job-running':{provider:'codex',events:fixture.events['job-running']}},runtime:fixture.runtime,connector:fixture.connector,localReports:fixture.localReports,cloudReports:fixture.cloudReports,briefings:fixture.briefings,feeds:okFeeds()})};}
 test('HUD renders device, app readiness, agent and attention lights with plain-language detail',async()=>{
  const {model:value}=await model();
  const html=renderToStaticMarkup(createElement(panels.HudStrip,{model:value,actions}));
@@ -55,15 +55,16 @@ test('an unmapped project offers the registered folder without selecting it or e
  const tile=value.projects[0];
  assert.equal(tile.briefing.repositoryKey,null);
  const html=renderToStaticMarkup(createElement(panels.BriefingCard,{tile,now:NOW,actions}));
- assert.ok(html.includes('Folder on your PC'));
- assert.ok(html.includes('<option value="" selected="">Choose a folder</option>'));
- assert.ok(html.includes('<option value="repo-b">trade-graph</option>'));
+ assert.ok(html.includes('Folders on your PC'));
+ assert.ok(html.includes('No folders added yet.'));
+ assert.ok(html.includes('Add folder'));
+ assert.ok(!html.includes('Choose a folder</option>'));
  assert.match(html,/<button[^>]*disabled=""[^>]*>[\s\S]*?Brief this project<\/button>/);
 });
 
 test('v3 shows fit or drift immediately below the aim and captured framing provenance',async()=>{
  const {model:value}=await model(),tile=value.projects[1],report=tile.briefing.report!;
- report.version=3;report.fitOrDrift='The latest intentions fit your purpose; no drift was identified.';
+ report.version=4;report.fitOrDrift='The latest intentions fit your purpose; no drift was identified.';
  tile.briefing.evidenceLine+=' · Measured against your framing · Task plan excluded';
  const html=renderToStaticMarkup(createElement(panels.BriefingCard,{tile,now:NOW,actions}));
  assert.ok(html.includes(report.fitOrDrift));
@@ -72,7 +73,7 @@ test('v3 shows fit or drift immediately below the aim and captured framing prove
  assert.ok(html.includes('Measured against your framing'));assert.ok(html.includes('Task plan excluded'));
  report.evidence.framing=null;
  report.fitOrDrift='This earlier briefing did not assess whether the work fits your project framing. Some inherited text was shortened to fit the display limit.';
- tile.briefing.evidenceLine='Legacy source coverage';
+ tile.briefing.evidenceLine='Legacy source coverage';tile.briefing.evidenceCoverage=[];
  const legacy=renderToStaticMarkup(createElement(panels.BriefingCard,{tile,now:NOW,actions}));
  assert.ok(legacy.includes(report.fitOrDrift));assert.ok(!legacy.includes('Measured against your framing'));assert.ok(!legacy.includes('Task plan excluded'));
 });
@@ -87,4 +88,17 @@ test('the briefing card identifies a cloud assistant and states cloud coverage i
  assert.ok(html.includes('Said in a Codex cloud chat'));
  assert.ok(html.includes('no Claude Code cloud sessions were available'));
  assert.ok(html.indexOf('1 owner turn across 1 Codex cloud session')>html.indexOf('How this briefing was put together'));
+});
+
+
+test('multi-folder briefing renders folder map tags, coverage and the changed folder',async()=>{
+ const {model:value}=await model(),tile=value.projects[1];
+ tile.briefing.repositories=[{key:'app',name:'The app'},{key:'map',name:'Map lab'}];
+ tile.briefing.ledger.areas[0].repositoryName='Map lab';
+ tile.briefing.report!.repositories.push({...tile.briefing.report!.repository,key:'map',name:'Map lab'});
+ tile.briefing.ledger.intentions[0].evidence=[{repositoryKey:'map',ref:'PR #12'}];
+ tile.briefing.evidenceCoverage=[{key:'app',name:'The app',line:'2 local commits on 1 branch'},{key:'map',name:'Map lab',line:'3 local commits on 2 branches'}];
+ tile.briefing.freshness={...tile.briefing.freshness,newWork:true,detail:'New commits in Map lab since this briefing.'};
+ const html=renderToStaticMarkup(createElement(panels.BriefingCard,{tile,now:NOW,actions}));
+ for(const text of ['Folder: Map lab','Coverage by folder','2 local commits on 1 branch','3 local commits on 2 branches','New commits in Map lab','Add folder','Map lab: PR #12'])assert.ok(html.includes(text),text);
 });

@@ -38,8 +38,8 @@ export interface ProjectAnalysis {kind:'local'|'cloud';kindLabel:string;provider
 export interface ProjectProgress {milestonesDone:number;milestonesTotal:number;milestonePercent:number;tasksDone:number;tasksOpen:number;tasksTotal:number;taskPercent:number;inProgress:number;inReview:number;proposed:number;blocked:number;weeklyPinned:number;overdue:number}
 export type ProjectAgentState='running'|'cancelling'|'queued'|'reconcile'|'awaiting_approval'|'idle';
 /** One of the owner's intentions as the card shows it: labelled, toned, tied to an area and marked when it is newer than the previous briefing. */
-export interface BriefingIntentionRow {date:string|null;title:string;outcome:string;state:BriefingIntentionState;stateLabel:string;tone:SignalTone;sourceLabel:string;areaId:string|null;areaName:string|null;bend:BriefingBend|null;evidence:string[];isNew:boolean}
-export interface BriefingAreaRow {id:string;name:string;state:BriefingAreaState;stateLabel:string;tone:SignalTone;done:number;total:number;note:string;isAim:boolean}
+export interface BriefingIntentionRow {date:string|null;title:string;outcome:string;state:BriefingIntentionState;stateLabel:string;tone:SignalTone;sourceLabel:string;areaId:string|null;areaName:string|null;bend:BriefingBend|null;evidence:ProjectBriefing['intentions'][number]['evidence'];isNew:boolean}
+export interface BriefingAreaRow {id:string;name:string;state:BriefingAreaState;stateLabel:string;tone:SignalTone;done:number;total:number;note:string;isAim:boolean;repositoryName?:string|null}
 /** The ledger and the map, ready to draw. `newSince` is the previous briefing's horizon when one was carried forward. */
 export interface BriefingLedger {intentions:BriefingIntentionRow[];areas:BriefingAreaRow[];links:{from:string;to:string}[];aimArea:string|null;newSince:string|null;bends:number}
 /** The owner-facing briefing for one project: the freshest of the saved copy and a completed-but-unsaved
@@ -50,6 +50,7 @@ export interface BriefingView {
  unsaved:{requestId:string;briefingSha256:string}|null;
  status:{level:BriefingStatusLevel|null;label:string;tone:SignalTone};ledger:BriefingLedger;
  freshness:{newWork:boolean;detail:string|null;basedOnAt:string|null};evidenceLine:string;
+ repositories:{key:string;name:string}[];changedFolderNames:string[];evidenceCoverage:{key:string;name:string;line:string}[];
  providerLabel:string|null;originLabel:string|null;
  repositoryKey:string|null;repositoryName:string|null;repositoryChoices:{key:string;name:string}[];
  policy:{repositoryKey:string;provider:'codex'|'claude';enabled:boolean;minIntervalMinutes:number;lastBriefAt:string|null}|null;
@@ -187,12 +188,12 @@ function evidenceLine(report:ProjectBriefing):string{
 function ledgerOf(report:ProjectBriefing|null):BriefingLedger{
  if(!report)return {intentions:[],areas:[],links:[],aimArea:null,newSince:null,bends:0};
  const newSince=report.evidence.previous?.until??null,horizon=newSince?Date.parse(newSince):null;
- const areas=report.areas.map(area=>({id:area.id,name:area.name,state:area.state,stateLabel:AREA_STATE[area.state].label,tone:AREA_STATE[area.state].tone,done:area.done,total:area.total,note:area.note,isAim:report.aimArea===area.id}));
+ const areas=report.areas.map(area=>({id:area.id,name:area.name,state:area.state,stateLabel:AREA_STATE[area.state].label,tone:AREA_STATE[area.state].tone,done:area.done,total:area.total,note:area.note,isAim:report.aimArea===area.id,repositoryName:area.repositoryKey?report.repositories?.find(row=>row.key===area.repositoryKey)?.name??null:null}));
  const names=new Map(areas.map(area=>[area.id,area.name]));
  const intentions=report.intentions.map(row=>({date:row.date,title:row.title,outcome:row.outcome,state:row.state,stateLabel:INTENTION_STATE[row.state].label,tone:INTENTION_STATE[row.state].tone,sourceLabel:row.source==='cloud'&&row.cloudProvider?`a ${row.cloudProvider==='claude-cloud'?'Claude Code':'Codex'} cloud chat`:INTENTION_SOURCE[row.source],areaId:row.area,areaName:row.area?names.get(row.area)??null:null,bend:row.bend,evidence:row.evidence,isNew:horizon!==null&&row.date!==null&&Date.parse(row.date+'T23:59:59.999Z')>horizon}));
  return {intentions,areas,links:report.links,aimArea:report.aimArea,newSince,bends:intentions.filter(row=>row.bend).length};
 }
-function briefingView(project:Project,saved:SavedProjectBriefing[],localReports:SavedReportLike<LocalAnalysisReport>[],connector:PersonalConnectorView|null,connectorState:ConnectorStatus['state']):BriefingView{
+function briefingView(project:Project,saved:SavedProjectBriefing[],_localReports:SavedReportLike<LocalAnalysisReport>[],connector:PersonalConnectorView|null,connectorState:ConnectorStatus['state']):BriefingView{
  const rows=saved.filter(row=>row.projectId===project.id).sort((a,b)=>Date.parse(b.recordedAt)-Date.parse(a.recordedAt)),latestSaved=rows[0]??null;
  let completed:{requestId:string;briefingSha256:string;briefing:ProjectBriefing}|null=null;
  if(connector?.completedBriefing&&connector.completedBriefing.projectId===project.id){try{completed={requestId:connector.completedBriefing.requestId,briefingSha256:connector.completedBriefing.briefingSha256,briefing:validateProjectBriefing(connector.completedBriefing.briefing)};}catch{completed=null;}}
@@ -202,26 +203,30 @@ function briefingView(project:Project,saved:SavedProjectBriefing[],localReports:
  const active=jobs.find(job=>job.status==='queued'||job.status==='claimed')??null;
  const failed=jobs[0]&&jobs[0].status==='failed'&&(!report||Date.parse(jobs[0].createdAt)>Date.parse(report.run.completedAt))?jobs[0]:null;
  const policies=(connector?.policies??[]).filter(policy=>policy.projectId===project.id);
- const localRepository=localReports.filter(row=>row.projectId===project.id).sort((a,b)=>Date.parse(b.recordedAt)-Date.parse(a.recordedAt))[0]?.report.repository.key??null;
  const choices=(connector?.repositories??[]).map(({key,name})=>({key,name}));
  const known=(key:string|null|undefined)=>key&&choices.some(row=>row.key===key)?key:null;
- const boundFolderUnavailable=Boolean(project.personalRepositoryKey&&!known(project.personalRepositoryKey));
- const policy=project.personalRepositoryKey?policies.find(row=>row.repositoryKey===project.personalRepositoryKey)??null:policies.find(row=>row.repositoryKey===(report?.repository.key??row.repositoryKey))??policies[0]??null;
- const repositoryKey=project.personalRepositoryKey?known(project.personalRepositoryKey):known(report?.repository.key)??known(policy?.repositoryKey)??known(localRepository);
- const repositoryName=choices.find(row=>row.key===repositoryKey)?.name??report?.repository.name??null;
+ const boundKeys=project.personalRepositoryKeys??(project.personalRepositoryKey?[project.personalRepositoryKey]:[]);
+ const boundFolderUnavailable=Boolean(connector)&&boundKeys.some(key=>!known(key));
+ const policy=policies[0]??null;
+ const repositoryKey=boundKeys.length?known(boundKeys[0]):null;
+ const repositories=boundKeys.map(key=>({key,name:choices.find(row=>row.key===key)?.name??report?.repositories?.find(row=>row.key===key)?.name??key}));
+ const repositoryName=repositories[0]?.name??report?.repository.name??null;
  const providers=(['codex','claude'] as const).map(id=>({id,label:PROVIDER_LABELS[id],ready:connector?.providers[id].ready??false}));
- const liveRepository=report?connector?.repositories.find(row=>row.key===report.repository.key)??null:null;
- const newWork=Boolean(liveRepository&&(liveRepository.head!==report!.repository.head||liveRepository.dirty!==report!.repository.dirty));
+ const reportedRepositories=report?.repositories??(report?[report.repository]:[]);
+ const changedFolderNames=report?repositories.filter(repository=>{const previous=reportedRepositories.find(row=>row.key===repository.key),live=connector?.repositories.find(row=>row.key===repository.key);return !previous||live&&(live.head!==previous.head||live.dirty!==previous.dirty);}).map(repository=>repository.name):[];
+ const addedFolderNames=report?repositories.filter(repository=>!reportedRepositories.some(row=>row.key===repository.key)).map(row=>row.name):[];
+ const newWork=changedFolderNames.length>0;
  const state:BriefingView['state']=active?(active.status==='claimed'?'running':'queued'):report?'ready':'none';
- const requestHint=active?null:boundFolderUnavailable?'The linked folder is unavailable on your PC. Restore it under Repositories before requesting a briefing.':connectorState!=='online'?(connectorState==='unconfigured'?'Connect your PC under Repositories to brief this project.':connectorState==='disconnected'?'Reconnect your PC under Repositories to brief this project.':'Start Control Room on your PC to brief this project.'):!repositoryKey?(choices.length?'Choose which folder on your PC holds this project.':'Choose this project\'s folder under Repositories first.'):!providers.some(row=>row.ready)?'Sign in to Codex or Claude Code on your PC first.':null;
+ const requestHint=active?null:boundFolderUnavailable?'The linked folder is unavailable on your PC. Restore it under Repositories before requesting a briefing.':connectorState!=='online'?(connectorState==='unconfigured'?'Connect your PC under Repositories to brief this project.':connectorState==='disconnected'?'Reconnect your PC under Repositories to brief this project.':'Start Control Room on your PC to brief this project.'):!repositoryKey?(choices.length?'Add the folders on your PC that belong to this project.':'Choose this project\'s folder under Repositories first.'):!providers.some(row=>row.ready)?'Sign in to Codex or Claude Code on your PC first.':null;
  return {state,report,source:report?(useCompleted?'completed':'saved'):null,recordedAt:report?(useCompleted?report.run.completedAt:latestSaved!.recordedAt):null,version:useCompleted?null:latestSaved?.version??null,evidenceId:useCompleted?null:latestSaved?.evidenceId??null,
   unsaved:useCompleted?{requestId:completed!.requestId,briefingSha256:completed!.briefingSha256}:null,
   status:report?{level:report.status.level,...BRIEFING_STATUS[report.status.level]}:{level:null,label:state==='none'?'No briefing yet':'Briefing in progress',tone:state==='none'?'idle':'live'},
   ledger:ledgerOf(report),
-  freshness:{newWork,detail:newWork?(liveRepository!.head!==report!.repository.head?'New commits have landed since this briefing.':'There are uncommitted changes since this briefing.'):null,basedOnAt:report?.evidence.window.until??null},
+  freshness:{newWork,detail:newWork?`New commits, uncommitted changes or folders awaiting coverage: ${changedFolderNames.join(', ')}.${addedFolderNames.length?` Added since this briefing: ${addedFolderNames.join(', ')}.`:''}`:null,basedOnAt:report?.evidence.window.until??null},
+  repositories,changedFolderNames,evidenceCoverage:(report?.evidence.repositories??[]).map(row=>({key:row.key,name:row.name,line:evidenceLine({...report!,evidence:{...report!.evidence,...row,repositories:[row]}})})),
   evidenceLine:report?evidenceLine(report):'',providerLabel:report?PROVIDER_LABELS[report.run.provider]:null,originLabel:report?(report.run.origin==='auto'?'kept current automatically':'on your request'):null,
   repositoryKey,repositoryName,repositoryChoices:boundFolderUnavailable?[]:choices,policy:policy?{repositoryKey:policy.repositoryKey,provider:policy.provider,enabled:policy.enabled,minIntervalMinutes:policy.minIntervalMinutes,lastBriefAt:policy.lastBriefAt}:null,
-  providers,connector:connectorState,canRequest:!boundFolderUnavailable&&connectorState==='online'&&providers.some(row=>row.ready)&&!active,requestHint,
+  providers,connector:connectorState,canRequest:boundKeys.length>0&&!boundFolderUnavailable&&connectorState==='online'&&providers.some(row=>row.ready)&&!active,requestHint,
   activeJob:active?{id:active.id,status:active.status as 'queued'|'claimed',providerLabel:active.provider?PROVIDER_LABELS[active.provider]:'Assistant',origin:active.origin??'owner',createdAt:active.createdAt,claimedAt:active.claimedAt??null}:null,
   lastFailure:failed?{at:failed.claimedAt??failed.createdAt,providerLabel:failed.provider?PROVIDER_LABELS[failed.provider]:'Assistant',reason:BRIEF_FAILURES[failed.error??'']??'it did not finish'}:null};
 }
