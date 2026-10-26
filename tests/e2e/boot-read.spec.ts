@@ -21,6 +21,23 @@ test('the page starts one workspace read before its code runs and renders from i
   expect(await page.evaluate(() => '__controlRoomBootRead' in window)).toBe(false);
 });
 
+test('a linked project opens without first painting the project lanes', async ({ page }) => {
+  await setFixtureSession(page, 'a');
+  const target = (await (await page.request.get('/api/workspace')).json()).workspace.projects.find((row: { archivedAt: string | null }) => !row.archivedAt);
+  // Every frame before paint records whether the lanes home is on screen.
+  await page.addInitScript(() => {
+    const seen = { lanes: 0, frames: 0 };
+    (window as unknown as { lanesFrames: typeof seen }).lanesFrames = seen;
+    const frame = () => { seen.frames++; if (document.querySelector('.project-lanes')) seen.lanes++; requestAnimationFrame(frame); };
+    requestAnimationFrame(frame);
+  });
+  await page.goto(`/?view=projects&entity=project&id=${target.id}`);
+  await expect(page.getByRole('button', { name: 'Edit project', exact: true })).toBeVisible();
+  const seen = await page.evaluate(() => (window as unknown as { lanesFrames: { lanes: number; frames: number } }).lanesFrames);
+  expect(seen.frames).toBeGreaterThan(0);
+  expect(seen.lanes).toBe(0);
+});
+
 test('a lost early read leaves the ordinary read to load the workspace', async ({ page }) => {
   await setFixtureSession(page, 'a');
   let reads = 0;
