@@ -11,14 +11,14 @@ test('framing run omits task records by default and records exactly what evidenc
  const framing={projectId:'p1',projectName:'Trade Graph',framing:'Serve independent shops.',includeTaskPlan:false,milestones:[],tasks:[],totalMilestones:3,totalTasks:9,workspaceRevision:4};
  let calls=0;
  const result=await runProjectBriefing({root:'/tmp/repo',requestId:id,provider:'claude',framing},{collect:async()=>evidence,runners:{claude:async({prompt})=>{calls++;assert.ok(prompt.includes(framing.framing));return {content:{...content(),fitOrDrift:'The visible work fits the stated purpose.'}};}},now:()=>'2026-10-21T12:00:00.000Z'});
- assert.equal(calls,1);assert.equal(result.briefing.version,3);assert.deepEqual(result.briefing.evidence.framing,{workspaceRevision:4,characters:24,includeTaskPlan:false,totalMilestones:3,totalTasks:9,includedMilestones:0,includedTasks:0});assert.ok(!Object.hasOwn(result.briefing.evidence,'plan'));
- let collected=0;await assert.rejects(runProjectBriefing({root:'/tmp/repo',requestId:id,provider:'claude',framing:{...framing,framing:'x'.repeat(2501)}},{collect:async()=>{collected++;return evidence;}}));assert.equal(collected,0);
+ assert.equal(calls,1);assert.equal(result.briefing.version,4);assert.deepEqual(result.briefing.evidence.framing,{workspaceRevision:4,characters:24,includeTaskPlan:false,totalMilestones:3,totalTasks:9,includedMilestones:0,includedTasks:0});assert.ok(!Object.hasOwn(result.briefing.evidence,'plan'));
+ let collected=0;await assert.rejects(runProjectBriefing({root:'/tmp/repo',requestId:id,provider:'claude',framing:{...framing,framing:'x'.repeat(10001)}},{collect:async()=>{collected++;return evidence;}}));assert.equal(collected,0);
 });
 test('a briefing run packs evidence once, calls one provider and returns a validated briefing with its fingerprint',async()=>{
  let collected=0,prompts=[],seenPrevious=[];const now=()=>'2026-10-21T12:00:00.000Z';
  const result=await runProjectBriefing({root:'/tmp/repo',requestId:id,provider:'claude',framing,origin:'auto',previous},{now,collect:async(root,options)=>{collected++;seenPrevious.push(options.previous);return {...evidence,summary:{...evidence.summary,previous:{runId:previous.runId,until:previous.until,intentions:previous.intentions.length}}};},runners:{claude:async({prompt})=>{prompts.push(prompt);return {content:content(),observedModel:'claude-opus-5-5'};}}});
  assert.equal(collected,1);assert.equal(prompts.length,1);assert.ok(prompts[0].includes('Reconcile results'));assert.ok(prompts[0].includes('Earlier intention'),'the previous ledger reaches the model');assert.deepEqual(seenPrevious,[{...previous,fitOrDrift:'This earlier briefing did not assess whether the work fits your project framing.'}]);
- assert.equal(result.briefing.version,3);assert.deepEqual(result.briefing.evidence.previous,{runId:previous.runId,until:previous.until,intentions:1});
+ assert.equal(result.briefing.version,4);assert.deepEqual(result.briefing.evidence.previous,{runId:previous.runId,until:previous.until,intentions:1});
  assert.deepEqual(validateProjectBriefing(result.briefing),result.briefing);assert.equal(result.fingerprint,'8'.repeat(64));
  assert.equal(result.briefing.run.origin,'auto');assert.equal(result.briefing.run.observedModel,'claude-opus-5-5');assert.equal(result.briefing.project.name,'Trade Graph');assert.equal(result.briefing.repository.key,'repo-b');
  assert.deepEqual(result.briefing.evidence.framing,{workspaceRevision:3,characters:16,includeTaskPlan:true,totalMilestones:1,totalTasks:1,includedMilestones:1,includedTasks:1});assert.equal(result.briefing.limitations.length,3);assert.match(result.briefing.limitations[1],/nothing was run or tested/);
@@ -60,4 +60,18 @@ test('task records cannot create intentions and historical plan rows retain thei
  const carried={...previous,areas:generated.areas,links:generated.links,intentions:generated.intentions};
  assert.equal((await run(generated,carried)).briefing.intentions[0].source,'plan');
  const missing=content();delete missing.fitOrDrift;await assert.rejects(run(missing),/Invalid project briefing/);
+});
+
+test('two folders produce one project report and one model call with folder provenance',async()=>{
+ const repositories=[{key:'repo-b',root:'/tmp/one'},{key:'repo-c',root:'/tmp/two'}];let collected=0,calls=0;
+ const coverage=key=>({key,name:key==='repo-b'?evidence.identity.name:key,local:evidence.summary.local,cloud:evidence.summary.cloud,chats:evidence.summary.chats,ownerTurns:evidence.summary.ownerTurns});
+ const pack={...evidence,identities:repositories.map(row=>({...evidence.identity,key:row.key,name:row.key==='repo-b'?evidence.identity.name:row.key,branch:'main'})),bundle:{repositories:repositories.map(row=>({repositoryKey:row.key,name:row.key,chats:[],localBranches:[],cloudBranches:[]})),ownerTurns:[]},summary:{...evidence.summary,repositories:repositories.map(row=>coverage(row.key))}};
+ const result=await runProjectBriefing({repositories,requestId:id,provider:'claude',framing},{collectProject:async(rows)=>{collected++;assert.deepEqual(rows,repositories);return pack;},runners:{claude:async({prompt})=>{calls++;assert.ok(prompt.includes('repo-b')&&prompt.includes('repo-c'));const generated=content();generated.areas[0].repositoryKey='repo-c';generated.intentions[0].repositoryKey='repo-c';return {content:generated};}}});
+ assert.equal(collected,1);assert.equal(calls,1);assert.deepEqual(result.briefing.repositories.map(row=>row.key),['repo-b','repo-c']);assert.equal(result.briefing.intentions[0].repositoryKey,'repo-c');
+});
+
+test('cloud ledger from a removed folder carries as historical project scope',async()=>{
+ const old={...previous,intentions:[{...content().intentions[0],source:'cloud',cloudProvider:'codex-cloud',repositoryKey:'removed-folder',area:null}]};
+ let calls=0;const result=await runProjectBriefing({root:'/tmp/repo',requestId:id,provider:'claude',framing,previous:old},{collect:async()=>structuredClone(evidence),runners:{claude:async()=>{calls++;const generated=content();generated.intentions=[{...old.intentions[0]}];delete generated.intentions[0].repositoryKey;return {content:generated};}}});
+ assert.equal(calls,1);assert.equal(result.briefing.intentions[0].cloudProvider,'codex-cloud');assert.equal(result.briefing.intentions[0].repositoryKey,undefined);
 });

@@ -8,5 +8,5 @@ export function migratePlanningV3ToV4(input:Workspace):Workspace {
 
 export function migratePlanningV4ToV5(input:Workspace):Workspace {
  if(input.schemaVersion!==4)throw new Error('Expected planning schema version 4.');
- const source=structuredClone(input);return {...source,schemaVersion:5,areas:[],projects:source.projects.map(project=>({...project,framing:project.framing??'',includeTaskPlanInBriefings:project.includeTaskPlanInBriefings??false,personalRepositoryKey:project.personalRepositoryKey??null})),tasks:source.tasks.map(task=>({...task,areaId:null,workType:'other'}))};
+ const source=structuredClone(input);return {...source,schemaVersion:5,areas:[],projects:source.projects.map(project=>{const {personalRepositoryKey,...current}=project;return {...current,framing:project.framing??'',includeTaskPlanInBriefings:project.includeTaskPlanInBriefings??false,personalRepositoryKeys:project.personalRepositoryKeys??(personalRepositoryKey?[personalRepositoryKey]:[])};}),tasks:source.tasks.map(task=>({...task,areaId:null,workType:'other'}))};
 }

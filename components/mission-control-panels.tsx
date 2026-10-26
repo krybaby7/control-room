@@ -13,7 +13,7 @@ export {BriefingCard};
 
 export interface DashboardActions {
  onProject:(project:Project)=>void;onTask:(task:Task)=>void;onTaskId:(taskId:string)=>void;onPin:(task:Task)=>void;onProjects:()=>void;onAgents:()=>void;onRuntime:()=>void;
- onRepositories:(projectId?:string)=>void;onInbox:()=>void;onAttention:()=>void;onWeekly:()=>void;busy:boolean;
+ onAddFolder?:(projectId:string)=>void;onRepositories:(projectId?:string)=>void;onInbox:()=>void;onAttention:()=>void;onWeekly:()=>void;busy:boolean;
  onBrief:(projectId:string,repositoryKey:string,provider:'codex'|'claude')=>void;onKeepCurrent:(projectId:string,repositoryKey:string,provider:'codex'|'claude',enabled:boolean)=>void;onRetrySave:(projectId:string)=>void;
  briefingNotices:Record<string,{message:string;tone:SignalTone;retry?:boolean}>;briefingWorking:Record<string,boolean>;
 }

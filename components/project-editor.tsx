@@ -16,8 +16,8 @@ export function PortfolioProjectEditor({project,onSave,onClose}:{project?:Projec
  return <FormDialog title={project?'Edit project':'Create project'} subtitle="Set the outcome and the references you want to keep close." dirty={JSON.stringify(baseline)!==JSON.stringify(draft)} onClose={onClose} submitLabel={project?'Save project':'Create project'} onSave={async()=>{await onSave(project?{type:'project.edit',id:project.id,patch:changedFields(baseline,draft)}:{type:'project.create',project:draft});await saved();}}>
   {notice}
   {project&&<p><SubjectReviewLink subject={{type:'project',id:project.id}}/></p>}
-  <Field label="Project name"><input autoFocus required maxLength={200} value={draft.name} onChange={event=>set('name',event.target.value)}/></Field>
-  <Field label="What this project is and why" hint="Briefings measure your intentions against this framing."><textarea rows={5} maxLength={2500} value={draft.framing??''} onChange={event=>set('framing',event.target.value)}/></Field>
+  <Field label="What this project is and why" hint="Briefings measure your intentions against this framing."><textarea autoFocus rows={5} maxLength={2500} value={draft.framing??''} onChange={event=>set('framing',event.target.value)}/></Field>
+  <Field label="Project name"><input required maxLength={200} value={draft.name} onChange={event=>set('name',event.target.value)}/></Field>
   <label className="check-card"><input type="checkbox" aria-label="Include my task plan in briefings" checked={draft.includeTaskPlanInBriefings??false} onChange={event=>set('includeTaskPlanInBriefings',event.target.checked)}/><span>Include my task plan in briefings</span></label>
   <Field label="Goal" hint="Describe the outcome and constraints that matter."><textarea rows={4} maxLength={5000} value={draft.goal} onChange={event=>set('goal',event.target.value)}/></Field>
   <Field label="Description"><textarea rows={3} maxLength={5000} value={draft.description} onChange={event=>set('description',event.target.value)}/></Field>

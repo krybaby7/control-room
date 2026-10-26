@@ -77,7 +77,7 @@ export function MissionControl({workspace,revision,busy,onProject,onTask,onPin,o
    const saved=snapshotRef.current.briefings,existing=saved.find(row=>row.briefing.run.id===report.run.id);
    // Already saved elsewhere (another tab, an earlier retry): only the acknowledgment is still owed.
    if(!existing){
-    const command=saveRecovery.current.commandFor(requestId,()=>{const previous=saved.find(row=>row.projectId===projectId&&row.briefing.repository.key===report.repository.key);return {type:'project-briefing.save',projectId,...(previous?{evidenceId:previous.evidenceId,expectedVersion:previous.version}:{}),briefing:report as unknown as JsonValue} as unknown as WorkspaceCommand;});
+    const command=saveRecovery.current.commandFor(requestId,()=>{const previous=saved.find(row=>row.projectId===projectId);return {type:'project-briefing.save',projectId,...(previous?{evidenceId:previous.evidenceId,expectedVersion:previous.version}:{}),briefing:report as unknown as JsonValue} as unknown as WorkspaceCommand;});
     const ok=await saver.current(command);
     if(!ok)throw new Error('The briefing could not be saved yet. It stays on your PC; retry the save.');
     saveRecovery.current.markConfirmed(requestId);
@@ -102,7 +102,7 @@ export function MissionControl({workspace,revision,busy,onProject,onTask,onPin,o
   catch(error){notify(projectId,{message:error instanceof Error?error.message:'The change could not be confirmed.',tone:'bad'});}
   finally{setWorking(projectId,false);}
  },[notify,setWorking,refreshSoon]);
- const actions:DashboardActions=useMemo(()=>({onProject,onTask,onTaskId:id=>{const task=workspace.tasks.find(row=>row.id===id);if(task)onTask(task);},onPin,onProjects:()=>onNavigate('projects'),onAgents:()=>onNavigate('agents'),onRuntime:()=>onNavigate('runtime'),onRepositories,onInbox:()=>onNavigate('inbox'),onAttention:()=>onNavigate('attention'),onWeekly:()=>onNavigate('weekly'),busy,
+ const actions:DashboardActions=useMemo(()=>({onProject,onTask,onTaskId:id=>{const task=workspace.tasks.find(row=>row.id===id);if(task)onTask(task);},onPin,onProjects:()=>onNavigate('projects'),onAgents:()=>onNavigate('agents'),onRuntime:()=>onNavigate('runtime'),onRepositories,onAddFolder:projectId=>onRepositories(projectId),onInbox:()=>onNavigate('inbox'),onAttention:()=>onNavigate('attention'),onWeekly:()=>onNavigate('weekly'),busy,
   onBrief:(projectId,repositoryKey,provider)=>void brief(projectId,repositoryKey,provider),onKeepCurrent:(projectId,repositoryKey,provider,enabled)=>void keepCurrent(projectId,repositoryKey,provider,enabled),onRetrySave:projectId=>void saveCompleted(projectId,true),briefingNotices,briefingWorking}),[onProject,onTask,onPin,onNavigate,onRepositories,workspace,busy,brief,keepCurrent,saveCompleted,briefingNotices,briefingWorking]);
  if(expired)return null;
  return <div className="mc-root">

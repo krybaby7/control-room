@@ -22,7 +22,7 @@ test('project framing excludes task records by default and includes them only af
 
 test('version 3 requires fit or drift while legacy reports project without inventing an assessment',()=>{
  const legacy=briefingFixtureV1(),before=JSON.stringify(legacy),shown=validateProjectBriefing(legacy);
- assert.equal(shown.version,3);assert.match(shown.fitOrDrift,/not assess/i);assert.equal(shown.evidence.framing,null);assert.ok(!Object.hasOwn(shown.evidence,'plan'));assert.equal(JSON.stringify(legacy),before);
+ assert.equal(shown.version,4);assert.match(shown.fitOrDrift,/not assess/i);assert.equal(shown.evidence.framing,null);assert.ok(!Object.hasOwn(shown.evidence,'plan'));assert.equal(JSON.stringify(legacy),before);
  const current=briefingFixture();assert.throws(()=>validateProjectBriefing({...current,fitOrDrift:''}));assert.throws(()=>validateProjectBriefing({...current,fitOrDrift:'x'.repeat(481)}));
 });
 test('a complete briefing validates and round-trips without extra fields',()=>{
@@ -36,7 +36,7 @@ test('a complete briefing validates and round-trips without extra fields',()=>{
 });
 test('a saved version 1 briefing still reads and is shown through the version 3 shape',()=>{
  const v1=briefingFixtureV1(),shown=validateProjectBriefing(v1);
- assert.equal(shown.version,3);assert.equal(shown.aim,v1.headline);assert.deepEqual(shown.leftOff,[v1.status.reason]);
+ assert.equal(shown.version,4);assert.equal(shown.aim,v1.headline);assert.deepEqual(shown.leftOff,[v1.status.reason]);
  assert.deepEqual(shown.intentions.map(row=>[row.state,row.source,row.date]),[['reached','repository','2026-10-21'],['in-progress','repository','2026-10-20']]);
  assert.deepEqual(shown.needsYou,v1.decisionsNeeded);assert.deepEqual(shown.open,['Reconciliation of results: Review the cloud draft, then merge it after one more test run.']);
  assert.deepEqual(shown.areas,[]);assert.equal(shown.evidence.previous,null);assert.equal(shown.evidence.ownerTurns.turns,0);
@@ -62,7 +62,7 @@ test('cloud provenance and coverage are additive and reject inconsistent claims'
   (v:typeof value)=>{v.evidence.cloudTurns![0].sessions=3;},
   (v:typeof value)=>{v.evidence.cloudTurns![0].turns=24;},
  ]){const broken=structuredClone(value);edit(broken);assert.throws(()=>validateProjectBriefing(broken));}
- const modelContent=Object.fromEntries(Object.entries(value).filter(([key])=>!['format','version','project','repository','run','evidence'].includes(key)));
+ const modelContent=Object.fromEntries(Object.entries(value).filter(([key])=>!['format','version','project','repository','repositories','run','evidence'].includes(key)));
  assert.equal(validateBriefingContent(modelContent).intentions[1].cloudProvider,'claude-cloud');
 });
 test('the previous ledger is a bounded slice that drops the oldest intentions first',()=>{
@@ -99,7 +99,7 @@ test('compact plan keeps open work first, maps milestones and never exceeds its 
 
 test('saved version 2 projects honestly and strict historical schemas reject modern fields',()=>{
  const old=briefingFixtureV2(),before=JSON.stringify(old),shown=validateProjectBriefing(old);
- assert.equal(shown.version,3);assert.equal(shown.evidence.framing,null);assert.match(shown.fitOrDrift,/not assess/i);assert.deepEqual(shown.intentions,old.intentions);assert.equal(JSON.stringify(old),before);assert.deepEqual(validateProjectBriefing(shown),shown);
+ assert.equal(shown.version,4);assert.equal(shown.evidence.framing,null);assert.match(shown.fitOrDrift,/not assess/i);assert.deepEqual(shown.intentions,old.intentions);assert.equal(JSON.stringify(old),before);assert.deepEqual(validateProjectBriefing(shown),shown);
  assert.throws(()=>validateProjectBriefing({...old,fitOrDrift:'Invented.'}));
  const slice=previousLedger(shown),historical=Object.fromEntries(Object.entries(slice).filter(([key])=>key!=='fitOrDrift'));
  assert.deepEqual(validatePreviousLedger(historical),slice);

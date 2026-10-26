@@ -213,3 +213,7 @@ Installed acceptance completed one read-only refresh with bounded matching local
 ## Concise user chat selection — 2026-10-21
 
 The approved refinement ranks already sanitized concise user messages before the same model call. Long templates and code blocks defer behind direct intent. Only context-dependent short instructions can retain an adjacent preceding safe answer; unused budget stays unused. This is a length/format heuristic, not proof of personal authorship or pasting. New optional selection provenance distinguishes this policy while preserving old report bytes. The existing project match, bounded discovery, secret/link filtering, read-only model and cloud-history boundaries are unchanged. Synthetic selection, privacy, contract, persistence and package checks passed; exact installed acceptance is retained privately. No extra AI triage call or token-free inference is claimed.
+
+## Multi-folder increment — 2026-10-26
+
+Project folder ownership, project-wide briefing admission/ledger, merged bounded PC evidence, per-folder coverage and framing-first creation are implemented on `feat/multi-folder-projects` from `f43db3a`. See [the verification record](../../verification/2026-10-26-multi-folder-projects.md). Local checks and synthetic integration are distinct from full Linux PR gates, owner merge, private publication and companion installation. No real project briefing or paid inference is part of this increment.

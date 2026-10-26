@@ -1,4 +1,5 @@
-import type {ProjectBriefing,ProjectBriefingV1,ProjectBriefingV2,CompactPlan,ProjectFraming} from '../../shared/project-briefing.mjs';
+import {validateProjectBriefing} from '../../shared/project-briefing.mjs';
+import type {ProjectBriefing,ProjectBriefingV1,ProjectBriefingV2,ProjectBriefingV3,CompactPlan,ProjectFraming} from '../../shared/project-briefing.mjs';
 /** Synthetic briefing and plan. Names, dates and text are invented; nothing here is owner data. */
 export const BRIEFING_AT='2026-10-21T12:00:00.000Z';
 const identity=(runId:string)=>({
@@ -8,7 +9,7 @@ const identity=(runId:string)=>({
 });
 const evidenceV1=()=>({window:{since:'2026-10-07T11:50:00.000Z',until:'2026-10-21T11:50:00.000Z'},local:{branch:'main',commits:12,branches:3,latestCommitAt:'2026-10-21T09:00:00.000Z',uncommittedFiles:2},cloud:{status:'fetched' as const,remote:'github.com/example/trade-graph',branches:4,commits:9,latestCommitAt:'2026-10-20T22:10:00.000Z',pullRequests:3,openPullRequests:1,fetchedAt:'2026-10-21T11:50:10.000Z'},chats:[{provider:'codex' as const,status:'included' as const,sessions:3,messages:18,latestAt:'2026-10-21T08:30:00.000Z'},{provider:'claude' as const,status:'included' as const,sessions:2,messages:11,latestAt:'2026-10-20T21:00:00.000Z'}],plan:{revision:3,milestones:4,tasks:17},inputSha256:'5'.repeat(64)});
 /** A version 3 report: the intention ledger with a map of two areas and one bend. */
-export function briefingFixture(patch:Partial<ProjectBriefing>={},runId='44444444-4444-4444-8444-444444444444'):ProjectBriefing{
+export function briefingFixtureV3(patch:Partial<ProjectBriefingV3>={},runId='44444444-4444-4444-8444-444444444444'):ProjectBriefingV3{
  return {format:'control-room-project-briefing',version:3,...identity(runId),
   evidence:{...Object.fromEntries(Object.entries(evidenceV1()).filter(([key])=>key!=='plan')) as Omit<ReturnType<typeof evidenceV1>,'plan'>,framing:{workspaceRevision:3,characters:37,includeTaskPlan:false,totalMilestones:4,totalTasks:17,includedMilestones:0,includedTasks:0},ownerTurns:{sessions:4,turns:23,characters:6100,earliestAt:'2026-10-12T09:00:00.000Z',latestAt:'2026-10-21T08:30:00.000Z'},previous:{runId:'00000000-0000-4000-8000-000000000003',until:'2026-10-18T11:50:00.000Z',intentions:3}},
   fitOrDrift:'The cycle fits the project purpose; reconciliation remains open.',
@@ -31,6 +32,7 @@ export function briefingFixture(patch:Partial<ProjectBriefing>={},runId='4444444
   ...patch};
 }
 /** The version 1 shape, kept to prove that saved reports still read. */
+export function briefingFixture(patch:Partial<ProjectBriefing>={},runId='44444444-4444-4444-8444-444444444444'):ProjectBriefing{return {...validateProjectBriefing(briefingFixtureV3({},runId)),...patch};}
 export function briefingFixtureV1(patch:Partial<ProjectBriefingV1>={},runId='44444444-4444-4444-8444-444444444444'):ProjectBriefingV1{
  return {format:'control-room-project-briefing',version:1,...identity(runId),evidence:evidenceV1(),
   headline:'The trading graph can now run a full cycle end to end; reconciliation of results is the last piece before the first live trial.',
@@ -47,7 +49,7 @@ export function planFixture(patch:Partial<CompactPlan>={}):CompactPlan{
 }
 
 export function briefingFixtureV2(patch:Partial<ProjectBriefingV2>={}):ProjectBriefingV2{
- const current=briefingFixture(),content=Object.fromEntries(Object.entries(current).filter(([key])=>key!=='fitOrDrift')) as Omit<ProjectBriefing,'fitOrDrift'>,evidence=Object.fromEntries(Object.entries(content.evidence).filter(([key])=>key!=='framing')) as Omit<ProjectBriefing['evidence'],'framing'>;
+ const current=briefingFixtureV3(),content=Object.fromEntries(Object.entries(current).filter(([key])=>key!=='fitOrDrift')) as Omit<ProjectBriefing,'fitOrDrift'>,evidence=Object.fromEntries(Object.entries(content.evidence).filter(([key])=>key!=='framing')) as Omit<ProjectBriefing['evidence'],'framing'>;
  return {...content,version:2,evidence:{...evidence,plan:{revision:3,milestones:4,tasks:17}},...patch};
 }
 export function framingFixture(patch:Partial<ProjectFraming>={}):ProjectFraming{

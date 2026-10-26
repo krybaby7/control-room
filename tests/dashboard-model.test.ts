@@ -3,13 +3,13 @@ import assert from 'node:assert/strict';
 import {buildDashboardModel,providerForModel,type DashboardInputs} from '../lib/dashboard/model.ts';
 import {dashboardFixture,NOW,okFeeds} from './fixtures/dashboard.ts';
 async function inputs(overrides:Partial<DashboardInputs>={}):Promise<DashboardInputs>{
- const fixture=await dashboardFixture();
+ const fixture=await dashboardFixture();fixture.workspace.projects[1].personalRepositoryKeys=['repo-b'];
  return {now:NOW,workspace:fixture.workspace,jobs:fixture.jobs,jobDetails:{'job-running':{provider:'codex',events:fixture.events['job-running']}},runtime:fixture.runtime,connector:fixture.connector,localReports:fixture.localReports,cloudReports:fixture.cloudReports,briefings:fixture.briefings,feeds:okFeeds(),...overrides};
 }
 
 test('durable folder association takes precedence over an older briefing repository',async()=>{
  const value=await inputs();
- value.workspace.projects[1].personalRepositoryKey='bound-folder';
+ value.workspace.projects[1].personalRepositoryKeys=['bound-folder'];
  value.connector!.repositories.push({key:'bound-folder',name:'Bound folder',head:'a'.repeat(40),dirty:false,hasPreviousAnalysis:false});
  assert.equal(buildDashboardModel(value).projects[1].briefing.repositoryKey,'bound-folder');
  value.connector!.repositories=value.connector!.repositories.filter(row=>row.key!=='bound-folder');
@@ -20,7 +20,7 @@ test('durable folder association takes precedence over an older briefing reposit
 
 test('briefing basis uses captured framing and plan coverage rather than current project edits',async()=>{
  const value=await inputs(),brief=value.briefings[0].briefing;
- brief.version=3;brief.fitOrDrift='Recent intentions fit the stated purpose.';
+ brief.version=4;brief.fitOrDrift='Recent intentions fit the stated purpose.';
  brief.evidence.framing={workspaceRevision:7,characters:90,includeTaskPlan:false,totalMilestones:8,totalTasks:120,includedMilestones:0,includedTasks:0};
  value.workspace.projects[1].framing='The framing was edited since this briefing.';
  value.workspace.projects[1].includeTaskPlanInBriefings=true;
@@ -56,7 +56,7 @@ test('project tiles show live agent progress, briefing with chats, tokens and ne
  assert.deepEqual(a.analysis?.chats?.map(chat=>[chat.provider,chat.status,chat.messages]),[['codex','included',4],['claude','not-found',0]]);
  assert.ok(a.analysis!.excerpt.startsWith('The last chats focused'));assert.ok(a.analysis!.excerpt.length<=224);
  // Project A has no briefing yet; the PC knows one folder, so it is offered but not assumed.
- assert.equal(a.briefing.state,'none');assert.equal(a.briefing.report,null);assert.equal(a.briefing.status.label,'No briefing yet');assert.equal(a.briefing.repositoryKey,null);assert.equal(a.briefing.canRequest,true);assert.equal(a.briefing.policy,null);
+ assert.equal(a.briefing.state,'none');assert.equal(a.briefing.report,null);assert.equal(a.briefing.status.label,'No briefing yet');assert.equal(a.briefing.repositoryKey,null);assert.equal(a.briefing.canRequest,false);assert.equal(a.briefing.policy,null);
  assert.deepEqual(a.tokens,{input:12400,output:3100,runs:1,reported:1});assert.equal(a.lastRunAt,'2026-10-21T11:59:00.000Z');
  assert.equal(a.progress.milestonesDone,1);assert.equal(a.progress.milestonesTotal,5);assert.equal(a.progress.tasksDone,1);assert.equal(a.progress.inReview,1);assert.equal(a.progress.inProgress,1);assert.equal(a.progress.overdue,1);assert.equal(a.progress.weeklyPinned,1);assert.equal(a.progress.blocked,1);
  assert.equal(a.level,2);assert.equal(a.milestone?.status,'active');
@@ -91,11 +91,11 @@ test('briefing folder defaults require a project association even with one regis
  const base=await inputs(),projectA=base.workspace.projects[0].id;
  const unmapped=buildDashboardModel(base).projects[0].briefing;
  assert.equal(unmapped.repositoryKey,null,'another project’s saved briefing and policy must not supply the sole folder');
- assert.equal(unmapped.policy,null);assert.equal(unmapped.canRequest,true);assert.match(unmapped.requestHint!,/Choose which folder/);
+ assert.equal(unmapped.policy,null);assert.equal(unmapped.canRequest,false);assert.match(unmapped.requestHint!,/Add the folders/);
  const local={...base.localReports[0],report:{...base.localReports[0].report,repository:{...base.localReports[0].report.repository,key:'repo-b'}}};
- assert.equal(buildDashboardModel({...base,localReports:[local]}).projects[0].briefing.repositoryKey,'repo-b');
+ assert.equal(buildDashboardModel({...base,localReports:[local]}).projects[0].briefing.repositoryKey,null);
  const policy={...base.connector!.policies![0],projectId:projectA};
- assert.equal(buildDashboardModel({...base,localReports:[],connector:{...base.connector!,policies:[policy]}}).projects[0].briefing.repositoryKey,'repo-b');
+ assert.equal(buildDashboardModel({...base,localReports:[],connector:{...base.connector!,policies:[policy]}}).projects[0].briefing.repositoryKey,null);
  assert.equal(buildDashboardModel(base).projects[1].briefing.repositoryKey,'repo-b','the saved project briefing keeps its mapped folder');
  const foreignLocal={...local,projectId:base.workspace.projects[1].id};
  assert.equal(buildDashboardModel({...base,localReports:[foreignLocal]}).projects[0].briefing.repositoryKey,null);
@@ -162,4 +162,31 @@ test('a briefing completed on the PC is shown and marked unsaved; new work and a
  // A tampered completed briefing is ignored rather than displayed.
  const tampered={...connector,completedBriefing:{...connector.completedBriefing,briefing:{...fresh,aim:''}}};
  assert.equal(buildDashboardModel({...base,connector:tampered}).projects[1].briefing.source,'saved');
+});
+
+
+test('project folder list checks every folder for fresh work and labels map areas',async()=>{
+ const base=await inputs(),report=base.briefings[0].briefing,project=base.workspace.projects.find(row=>row.id===base.briefings[0].projectId)!;
+ project.personalRepositoryKeys=['repo-b','map'];
+ report.repositories=[report.repository,{...report.repository,key:'map',name:'Map lab'}];
+ report.areas[0].repositoryKey='map';
+ report.evidence.repositories=report.repositories.map(repository=>({key:repository.key,name:repository.name,local:report.evidence.local,cloud:report.evidence.cloud,chats:report.evidence.chats,ownerTurns:report.evidence.ownerTurns}));
+ base.connector!.repositories.push({...base.connector!.repositories[0],key:'map',name:'Map lab',head:'f'.repeat(40)});
+ const view=buildDashboardModel(base).projects[1].briefing;
+ assert.deepEqual(view.repositories.map(row=>row.name),['trade-graph','Map lab']);
+ assert.deepEqual(view.changedFolderNames,['Map lab']);assert.match(view.freshness.detail!,/Map lab/);
+ assert.equal(view.ledger.areas[0].repositoryName,'Map lab');
+ assert.equal(view.evidenceCoverage[1].name,'Map lab');assert.match(view.evidenceCoverage[1].line,/local commits/);
+});
+
+
+test('saved evidence never authorizes briefing an unbound project, and a newly added folder needs coverage',async()=>{
+ const base=await inputs(),project=base.workspace.projects[1];
+ project.personalRepositoryKeys=[];delete project.personalRepositoryKey;
+ let view=buildDashboardModel(base).projects[1].briefing;
+ assert.equal(view.canRequest,false);assert.equal(view.repositoryKey,null);assert.deepEqual(view.repositories,[]);assert.match(view.requestHint!,/Add/);
+ project.personalRepositoryKeys=['repo-b','new-map'];
+ base.connector!.repositories.push({...base.connector!.repositories[0],key:'new-map',name:'New map'});
+ view=buildDashboardModel(base).projects[1].briefing;
+ assert.equal(view.freshness.newWork,true);assert.deepEqual(view.changedFolderNames,['New map']);assert.match(view.freshness.detail!,/New map/);
 });

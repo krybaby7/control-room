@@ -6,7 +6,7 @@ import {createLocalCompanionClient,LocalCompanionRequestError,parseImportedLocal
 import type {Report} from '../shared/local-analysis.mjs';
 
 export interface LocalRepositoryOnboardingProps {
- envelope:WorkspaceEnvelope;busy:boolean;pending:boolean;onCommand:(command:WorkspaceCommand)=>Promise<boolean>;onCreateProject:(name:string,repositoryKey?:string)=>Promise<string|null>;
+ envelope:WorkspaceEnvelope;busy:boolean;pending:boolean;onCommand:(command:WorkspaceCommand)=>Promise<boolean>;onCreateProject:(name:string,repositoryKey?:string,framing?:string)=>Promise<string|null>;onLinkFolder?:(projectId:string,repositoryKey:string)=>Promise<boolean>;
  onReviewTask?:(projectId:string,suggestion:{title:string;notes:string})=>void;projectId?:string;onSessionExpired?:()=>void;onBusyChange?:(value:boolean)=>void;onDirtyChange?:(value:boolean)=>void;getRetainedSaveCommand?:(runId:string)=>WorkspaceCommand|undefined;
 }
 interface SavedReport {evidenceId:string;version:number;projectId:string;report:Report;recordedAt:string}

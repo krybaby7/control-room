@@ -187,24 +187,28 @@ assembles itself: recent commits on local branches, one `git fetch --prune`
 of `origin` (using this PC's existing Git credentials, never prompting), the
 cloud branches and pull requests that fetch reveals (pull requests only when a
 signed-in GitHub CLI is installed), uncommitted changes, and the last few local
-Codex and Claude Code chats for the repository. The owner's own plan (goal,
-milestones, tasks) is projected by the server and travels with the request;
-the companion never reads workspace data itself.
+Codex and Claude Code chats for each of up to four project folders, including
+the owner's own turns and cloud owner-turn handoffs recorded in those repositories.
+The server projects the project's folder list and verbatim framing. Milestone
+and task records travel only after explicit project opt-in, off by default;
+the companion never reads workspace data itself. One ledger and map cover the
+whole project, with folder-labelled evidence and globally ordered owner sessions.
 
 Evidence is clipped (14 days, 24 branches, 160 commits, 5 chats per provider,
 10 messages per chat, 160 KB in all), credential-looking text is dropped and
 local paths are redacted before the single model call. The model receives no
 tools. Its JSON answer is validated against the shared briefing contract and
-must stay under 9,600 characters. The briefing is delivered through the same
+must stay within 32,200 characters and 55,000 bytes. Version 4 records identities
+and final coverage for every folder; saved versions 1–3 project on read. The briefing is delivered through the same
 personal channel as analyses and saved by the owner's browser as immutable
 evidence; the private backup under the state directory keeps a copy.
 
-**Keep current.** When the owner switches it on for a repository, the server
+**Keep current.** When the owner switches it on for a project, the server
 records a policy (provider, minimum interval). While the companion is idle it
-checks, at most every ten minutes, whether that repository's work fingerprint
+checks, at most every ten minutes, whether the combined folders' work fingerprint
 (heads, remote refs after fetch, uncommitted paths, chat recency) changed.
 Only then, and only after the owner's minimum interval, does it ask the server
 to admit one automatic briefing. The server re-checks the policy, projects the
-plan and claims the request; the companion then runs it like any other job.
+current framing and folder list and claims the request; the companion then runs it like any other job.
 Switching the policy off stops admissions immediately. Nothing in a briefing
 accepts tasks, approves execution or spends.
