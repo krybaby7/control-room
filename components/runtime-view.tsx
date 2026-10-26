@@ -12,10 +12,10 @@ import {WorkspacePolling} from '@/lib/workspace-polling';
 import {SessionExpiredError,isConclusiveWorkspaceRejection} from '@/lib/workspace-client';
 import {SessionExpiredContext} from './session-state';
 import {RuntimeCard,runtimeReadSchema,type RuntimeRead,type RuntimeSourceDisplay} from './runtime-card';
+import {EnrollmentSecretUnavailableError,EnrollmentNotStartedError,type RuntimeEnrollmentResult} from './runtime-enrollment-errors';
+// The control centre imports these without loading this panel.
+export {EnrollmentSecretUnavailableError,EnrollmentNotStartedError,type RuntimeEnrollmentResult};
 export interface RuntimeEnrollmentInput {label:string;deviceId?:string}
-export interface RuntimeEnrollmentResult {deviceId:string;enrollmentId:string;secret:string;expiresAt:string}
-export class EnrollmentSecretUnavailableError extends Error {readonly deviceLabel:string;constructor(deviceLabel='this device'){super('The original enrollment committed, but its one-time secret cannot be recovered.');this.deviceLabel=deviceLabel;}}
-export class EnrollmentNotStartedError extends Error {constructor(message='Enrollment has not been submitted. Review the request and try again.'){super(message);}}
 export interface RuntimeViewProps {envelope:WorkspaceEnvelope;busy:boolean;onCommand:(command:WorkspaceCommand)=>Promise<unknown>;onEnroll:(input:RuntimeEnrollmentInput)=>Promise<RuntimeEnrollmentResult>;onRefreshWorkspace:()=>void;onDirtyChange?:(dirty:boolean)=>void;onPendingChange?:(pending:boolean)=>void}
 const configInputSchema=z.object({deviceId:deviceIdSchema,projectId:deviceIdSchema.nullable(),manifest:runtimeAdapterManifestSchema,selectedGpuAlias:opaqueRuntimeAliasSchema.nullable()}).strict();
 const enrollmentInputSchema=z.object({label:deviceDisplaySchema.shape.label,deviceId:deviceIdSchema.optional()}).strict();
