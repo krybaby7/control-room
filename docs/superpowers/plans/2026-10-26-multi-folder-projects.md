@@ -41,7 +41,7 @@
 
 - [x] Run `npm run test:companion`, focused briefing/workspace/dashboard tests, typecheck, lint and build; inspect a synthetic browser flow.
 - [x] Independently review requirements then code correctness, fix findings and rerun affected checks.
-- [ ] Update README, verification record, current checkpoint and gap ledger. Commit and push reviewable changes; create and attach PR against main.
+- [x] Update README, verification record, current checkpoint and gap ledger. Commit and push reviewable changes; create and attach PR against main.
 - [ ] Inspect full Linux PR gates. If the controlled benchmark alone fails by a few milliseconds without save-path changes, rerun once and disclose it; keep its budget unchanged.
 - [ ] Tell the owner when green and wait for their merge. Deployment uses merged main, preserves previous version/recovery ZIP, updates/reinstalls companion and verifies online/both assistants ready. No project briefing is authorized.
 

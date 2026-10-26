@@ -816,12 +816,17 @@
     "date": "2026-10-26",
     "base": "f43db3a",
     "branch": "feat/multi-folder-projects",
-    "status": "implemented_local_verification_and_pr_gates_in_progress",
+    "status": "implemented_reviewed_local_checks_passed_fresh_pr_gates_running",
     "reportVersion": 4,
     "maximumFolders": 4,
     "ownerMergeRequired": true,
     "deployed": false,
     "realProjectBriefingRun": false,
-    "verification": "docs/superpowers/verification/2026-10-26-multi-folder-projects.md"
+    "verification": "docs/superpowers/verification/2026-10-26-multi-folder-projects.md",
+    "pullRequest": 10,
+    "localCompanionPassed": 158,
+    "localFocusedPassed": 382,
+    "localBrowserPassed": 5,
+    "lazyLoadingCorrection": true
   }
 }

@@ -1,6 +1,5 @@
 'use client';
 import {useEffect,useState} from 'react';
-import {readConnectorFeed} from '@/lib/dashboard/feed';
 import type {Project} from '@/lib/types';
 
 export function ProjectFolderList({keys,repositories,busy,onAdd}:{keys:readonly string[];repositories:readonly {key:string;name:string}[];busy:boolean;onAdd?:()=>void}){
@@ -8,6 +7,6 @@ export function ProjectFolderList({keys,repositories,busy,onAdd}:{keys:readonly 
 }
 export function ProjectFolders({project,busy,onAdd}:{project:Project;busy:boolean;onAdd?:()=>void}){
  const [repositories,setRepositories]=useState<{key:string;name:string}[]>([]);
- useEffect(()=>{const controller=new AbortController();void readConnectorFeed({signal:controller.signal}).then(value=>{if(!controller.signal.aborted)setRepositories(value.repositories);}).catch(()=>{});return()=>controller.abort();},[]);
+ useEffect(()=>{const controller=new AbortController();void import('@/lib/dashboard/feed').then(({readConnectorFeed})=>readConnectorFeed({signal:controller.signal})).then(value=>{if(!controller.signal.aborted)setRepositories(value.repositories);}).catch(()=>{});return()=>controller.abort();},[]);
  return <ProjectFolderList keys={project.personalRepositoryKeys??[]} repositories={repositories} busy={busy||!!project.archivedAt} onAdd={onAdd}/>;
 }
