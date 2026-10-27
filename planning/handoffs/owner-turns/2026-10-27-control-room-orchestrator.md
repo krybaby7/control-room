@@ -52,3 +52,10 @@ The local companion has 0 TAMENNI registrations and no receipt from today. Which
 ```text
 When I brief the project, doesit work with the Claude Opus 5.5 model?
 ```
+
+## 2026-10-27T16:18:49.482430Z
+```text
+I tried to add a project and to brief TAMENNI again, but honestly, the repositories page is confusing. I'm just lost. I want to make it a lot more simple so that I can know how to add a folder to which project and where it is. I'm confused.
+
+When I try to brief TAMENNI again, I try to click the button, but it's unclickable. I want to make these changes that would make the Control Room a lot clearer and more usable, but I want to do this in local agents. Provide me with a prompt to take over your orchestrator work. So that I don't have to come back to you every time and tell you what the agents did or didn't do
+```
