@@ -18,16 +18,18 @@ export async function loseNextWorkspaceResponse(page:Page){
 }
 export async function workspace(page:Page){const response=await page.request.get('/api/workspace');expect(response.ok()).toBeTruthy();return response.json();}
 
-/** Open the actual secondary navigation disclosure; preserve native click/scroll behavior. */
-export async function openFixtureDetails(page:Page){
+/** Open Advanced from the actual main navigation; preserve native click/scroll behavior. */
+export async function openAdvanced(page:Page){
  const navigation=page.getByRole('navigation',{name:'Main navigation',exact:true});
- // Reload initially renders lanes before the saved URL view is applied. Wait for
- // that view before inspecting open, otherwise its restoration can race the click
- // and turn an intended disclosure-open action into a close action.
- const labels:Record<string,string>={lanes:'Project lanes','local-analysis':'Repositories',today:'Today',projects:'Projects',inbox:'Inbox',weekly:'Weekly',search:'Search',attention:'Attention',history:'History',evidence:'Evidence & decisions',sources:'Sources',reviews:'Briefs & automations',runtime:'Runtime',agents:'Agents'};
- const params=new URL(page.url()).searchParams,view=params.get('view')??(!params.has('entity')&&!params.has('subject')&&!params.has('review')?'lanes':null);
- if(view&&labels[view])await expect(navigation.getByRole('button',{name:labels[view],exact:true,includeHidden:true})).toHaveAttribute('aria-current','page');
- const details=navigation.locator('details');if(!await details.evaluate(node=>(node as HTMLDetailsElement).open))await details.locator('summary').click();
- await expect(details).toHaveAttribute('open','');
+ // Reload paints the first screen before the saved URL view is applied. Wait for that
+ // view's section before clicking, otherwise its restoration can race the click and
+ // replace the intended navigation.
+ const sections:Record<string,string>={home:'Home',projects:'Projects',needs:'Needs you'};
+ const params=new URL(page.url()).searchParams,view=params.get('view')??(!params.has('entity')&&!params.has('subject')&&!params.has('review')?'home':null);
+ if(view)await expect(navigation.getByRole('button',{name:sections[view]??'Advanced',exact:true})).toHaveAttribute('aria-current','page');
+ await navigation.getByRole('button',{name:'Advanced',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Advanced',exact:true})).toBeVisible();
 }
-export async function clickFixtureNavigation(page:Page,name:'Agents'|'Runtime'|'Sources'|'Attention'|'History'|'Evidence & decisions'|'Briefs & automations'){await openFixtureDetails(page);await page.getByRole('navigation',{name:'Main navigation',exact:true}).getByRole('button',{name,exact:true}).click();}
+export type AdvancedToolName='Project lanes'|'Mission control'|'Weekly planning'|'Search'|'Attention'|'Inbox'|'Change many tasks at once'|'History'|'Evidence & decisions'|'Sources, export and restore'|'Repositories'|'Briefs & automations'|'Runtime'|'Agents';
+/** Every detailed tool is one click under Advanced. */
+export async function clickFixtureNavigation(page:Page,name:AdvancedToolName){await openAdvanced(page);await page.getByRole('main').getByRole('button',{name,exact:true}).click();}

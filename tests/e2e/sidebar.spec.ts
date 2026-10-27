@@ -1,11 +1,11 @@
 import {expect,test} from '@playwright/test';
-import {openFixture,workspace,openFixtureDetails} from './helpers';
+import {openFixture,workspace} from './helpers';
 import {capturePostResponse} from './server-response';
 import type {WorkspaceEnvelope} from '../../lib/types';
 import type {SavedDraft} from '../../lib/drafts';
 
 for(const height of [720,600])test(`short desktop sidebar keeps Quick capture and account reachable with native scrolling at 1280×${height}`,async({page})=>{
- await page.setViewportSize({width:1280,height});await openFixture(page,'a');await openFixtureDetails(page);const sidebar=page.locator('aside.sidebar'),navigation=sidebar.getByRole('navigation',{name:'Main navigation',exact:true});await expect(navigation.getByRole('button',{name:'Briefs & automations',exact:true})).toBeVisible();
+ await page.setViewportSize({width:1280,height});await openFixture(page,'a');const sidebar=page.locator('aside.sidebar'),navigation=sidebar.getByRole('navigation',{name:'Main navigation',exact:true});for(const name of ['Home','Projects','Needs you','Advanced'])await expect(navigation.getByRole('button',{name,exact:true})).toBeVisible();await expect(navigation.getByRole('button')).toHaveCount(4);
  // Wheel and locator scrolling use the real scroll container; no style/DOM changes or forced clicks.
  await sidebar.hover();await page.mouse.wheel(0,1000);const quick=sidebar.getByRole('button',{name:'Quick capture',exact:true});await quick.scrollIntoViewIfNeeded();await expect(quick).toBeInViewport();const initialDrafts=page.waitForResponse(response=>new URL(response.url()).pathname==='/api/workspace/drafts'&&response.request().method()==='GET');await quick.click();
  const dialog=page.getByRole('dialog',{name:'Get it out of your head',exact:true});await expect(dialog).toBeVisible();const response=await initialDrafts;expect(response.ok()).toBeTruthy();const existing=(await response.json() as {drafts:SavedDraft[]}).drafts.filter(draft=>draft.entityType==='capture'&&draft.entityId===undefined);if(existing.length){expect(existing).toHaveLength(1);expect(existing[0].changedFields.title).toMatch(/^Synthetic durable draft /);expect(existing[0].command).toBeUndefined();expect(existing[0].mutationId).toBeUndefined();await expect(dialog.getByText('A saved draft is available. Recover it to review your earlier changes.',{exact:true})).toBeVisible();await dialog.getByRole('button',{name:'Discard saved draft',exact:true}).click();await expect(dialog.getByText('Draft discarded',{exact:true})).toBeVisible();await expect(dialog.getByRole('button',{name:'Recover draft',exact:true})).toHaveCount(0);}const title=`Synthetic sidebar capture ${height} ${crypto.randomUUID()}`;await dialog.getByRole('textbox',{name:'Title',exact:true}).fill(title);

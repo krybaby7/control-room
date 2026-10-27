@@ -17,6 +17,7 @@ async function createFromFolder(page:Page,name:string){const card=folderCard(pag
 async function openTechnical(page:Page){const details=page.locator('details').filter({has:page.locator(':scope > summary').filter({hasText:/^More: technical analysis$/u})});await expect(details).not.toHaveAttribute('open','');await details.locator(':scope > summary').click();await expect(details).toHaveAttribute('open','');return details;}
 async function expectVisibleReason(page:Page,control:Locator,reason:RegExp){await expect(control).toHaveAccessibleDescription(reason);const ids=(await control.getAttribute('aria-describedby'))?.split(/\s+/).filter(Boolean)??[];expect(ids.length).toBeGreaterThan(0);for(const id of ids)await expect(page.locator(`[id="${id}"]`)).toBeVisible();}
 async function expectVisibleDisabledReason(page:Page,control:Locator,reason:RegExp){await expect(control).toBeDisabled();await expectVisibleReason(page,control,reason);}
+async function openHome(page:Page){await page.getByRole('navigation',{name:'Main navigation',exact:true}).getByRole('button',{name:'Home',exact:true}).click();await expect(page.getByRole('heading',{name:'Home',exact:true})).toBeVisible();}
 
 test('project framing and optional task plan persist through editor save and reload',async({page})=>{
  await openFixture(page);await page.getByRole('button',{name:'Projects',exact:true}).click();await page.getByRole('button',{name:'New project',exact:true}).click();
@@ -28,13 +29,31 @@ test('project framing and optional task plan persist through editor save and rel
  await page.goto(`/?view=projects&entity=project&id=${project.id}`);await page.getByRole('button',{name:'Edit project',exact:true}).click();const edit=page.getByRole('dialog',{name:'Edit project',exact:true});await expect(edit.getByLabel('What this project is and why',{exact:true})).toHaveValue(project.framing);await expect(edit.getByRole('checkbox',{name:'Include my task plan in briefings',exact:true})).toBeChecked();
 });
 
-test('folder creates and maps a blank project without running AI; briefing needs an explicit click after reload',async({page})=>{
+test('folder creates and maps a blank project without running AI; the Home briefing needs an explicit click after reload',async({page})=>{
  const folder=await registeredFolder(page);await openFixture(page);await openRepositories(page);
  const create=await createFromFolder(page,folder.name);await create.getByRole('button',{name:'Create project',exact:true}).click();
  await expect(folderCard(page,folder.name).getByRole('link',{name:folder.name,exact:true})).toBeVisible();expect(folder.actions).toEqual([]);
  const project=(await workspace(page)).workspace.projects.find((row:{personalRepositoryKeys?:string[]})=>row.personalRepositoryKeys?.includes(folder.key));expect(project).toBeTruthy();expect(project.name).toBe(folder.name);expect(project.framing).toBe('');expect(project.includeTaskPlanInBriefings).toBe(false);
  await page.reload();await expect(folderCard(page,folder.name).getByRole('button',{name:'Add to project…',exact:true})).toHaveCount(0);await expect(folderCard(page,folder.name).getByRole('link',{name:project.name,exact:true})).toHaveAttribute('href',`/?view=projects&entity=project&id=${project.id}`);expect(folder.actions).toEqual([]);
- await page.getByRole('button',{name:'Today',exact:true}).click();const tile=page.getByRole('article',{name:`Project ${project.name}`,exact:true}),brief=tile.getByRole('button',{name:'Brief this project',exact:true});await expect(brief).toBeEnabled();expect(folder.actions).toEqual([]);await tile.getByRole('combobox',{name:'Assistant',exact:true}).selectOption('claude');await brief.click();await expect.poll(()=>folder.actions.length).toBe(1);expect(folder.actions[0]).toMatchObject({action:'brief',repositoryKey:folder.key,projectId:project.id,provider:'claude'});
+ await openHome(page);const card=page.getByRole('article',{name:project.name,exact:true}),brief=card.getByRole('button',{name:'Brief this project',exact:true});await expect(brief).toBeEnabled();await page.waitForTimeout(1000);expect(folder.actions).toEqual([]);await brief.click();await expect.poll(()=>folder.actions.length).toBe(1);expect(folder.actions[0]).toMatchObject({action:'brief',repositoryKey:folder.key,projectId:project.id,provider:'codex'});
+ await expect(card.getByRole('status').filter({hasText:'Waiting for your PC to start the briefing…'})).toBeVisible();await expectVisibleDisabledReason(page,brief,/A briefing is already running for this project\./);expect(folder.actions).toHaveLength(1);
+});
+
+test('the project page briefing comes first and uses the assistant chosen in its settings, only on an explicit click',async({page})=>{
+ const folder=await registeredFolder(page);await openFixture(page);await openRepositories(page);
+ const create=await createFromFolder(page,folder.name);await create.getByRole('button',{name:'Create project',exact:true}).click();await expect(folderCard(page,folder.name).getByRole('link',{name:folder.name,exact:true})).toBeVisible();
+ const project=(await workspace(page)).workspace.projects.find((row:{personalRepositoryKeys?:string[]})=>row.personalRepositoryKeys?.includes(folder.key));
+ await page.goto(`/?view=projects&entity=project&id=${project.id}`);const briefing=page.getByRole('region',{name:'Briefing',exact:true}),folders=page.getByRole('region',{name:'Project folders',exact:true});
+ await expect(briefing).toBeVisible();await expect(folders).toBeVisible();
+ // Briefing first, then folders, then the folded plan, then the project details.
+ const order=await page.evaluate(()=>['.project-briefing','#project-folders','details.project-fold','.project-about'].map(selector=>document.querySelector(selector)?.getBoundingClientRect().top??-1));
+ expect(order.every(value=>value>=0)).toBe(true);expect(order).toEqual([...order].sort((a,b)=>a-b));
+ await expect(page.locator('details.project-fold')).not.toHaveAttribute('open','');await expect(page.getByRole('button',{name:'Add milestone',exact:true})).toHaveCount(0);
+ const brief=briefing.getByRole('button',{name:'Brief this project',exact:true});await expect(brief).toBeEnabled();await page.waitForTimeout(1000);expect(folder.actions).toEqual([]);
+ await briefing.locator('details').filter({has:page.locator(':scope > summary').filter({hasText:/^Briefing settings$/u})}).locator(':scope > summary').click();
+ await briefing.getByRole('combobox',{name:'Assistant',exact:true}).selectOption('claude');expect(folder.actions).toEqual([]);
+ await brief.click();await expect.poll(()=>folder.actions.length).toBe(1);expect(folder.actions[0]).toMatchObject({action:'brief',repositoryKey:folder.key,projectId:project.id,provider:'claude'});
+ await expect(briefing.getByRole('status').filter({hasText:'Waiting for your PC to start the briefing…'})).toBeVisible();await expectVisibleDisabledReason(page,brief,/A briefing is already running for this project\./);expect(folder.actions).toHaveLength(1);
 });
 
 test('an uncertain project save prevents duplicate creation until its original outcome is checked',async({page})=>{
@@ -83,12 +102,12 @@ test('project folder chooser adds, removes and re-adds an existing folder withou
  await page.goto(`/?view=projects&entity=project&id=${project.id}`);await page.reload();await expect(page.getByRole('region',{name:'Project folders',exact:true}).getByRole('listitem').filter({hasText:folder.name})).toBeVisible();expect(registered.actions).toEqual([]);
 });
 
-test('offline folder actions and Today briefing explain disabled controls visibly and accessibly',async({page})=>{
+test('offline folder actions and Home and project briefings explain disabled controls visibly and accessibly',async({page})=>{
  const registered=await registeredFolder(page);await openFixture(page);await openRepositories(page);const create=await createFromFolder(page,registered.name);await create.getByRole('button',{name:'Create project',exact:true}).click();await expect(folderCard(page,registered.name).getByRole('link',{name:registered.name,exact:true})).toBeVisible();
  const project=(await workspace(page)).workspace.projects.find((row:{personalRepositoryKeys?:string[]})=>row.personalRepositoryKeys?.includes(registered.key));registered.goOffline();
- await page.goto(`/?view=projects&entity=project&id=${project.id}`);const list=page.getByRole('region',{name:'Project folders',exact:true});await list.getByRole('button',{name:'Add a folder from this PC',exact:true}).click();const chooser=page.getByRole('combobox',{name:'Folder to add',exact:true});await expect(chooser.locator('option[value="__browse__"]')).toHaveJSProperty('disabled',true);await expectVisibleReason(page,chooser,/PC is offline/);await expectVisibleDisabledReason(page,page.getByRole('button',{name:'Brief this project',exact:true}),/PC is offline/);
+ await page.goto(`/?view=projects&entity=project&id=${project.id}`);const list=page.getByRole('region',{name:'Project folders',exact:true});await list.getByRole('button',{name:'Add a folder from this PC',exact:true}).click();const chooser=page.getByRole('combobox',{name:'Folder to add',exact:true});await expect(chooser.locator('option[value="__browse__"]')).toHaveJSProperty('disabled',true);await expectVisibleReason(page,chooser,/PC is offline/);await expectVisibleDisabledReason(page,list.getByRole('button',{name:'Brief this project',exact:true}),/PC is offline/);await expectVisibleDisabledReason(page,page.getByRole('region',{name:'Briefing',exact:true}).getByRole('button',{name:'Brief this project',exact:true}),/PC is offline/);
  await openRepositories(page);await expectVisibleDisabledReason(page,page.getByRole('button',{name:'Add a folder from this PC',exact:true}),/PC is offline/);await openTechnical(page);await expectVisibleDisabledReason(page,page.getByRole('button',{name:'Analyze',exact:true}),/PC is offline/);
- await page.getByRole('button',{name:'Today',exact:true}).click();const tile=page.getByRole('article',{name:`Project ${project.name}`,exact:true});await expectVisibleDisabledReason(page,tile.getByRole('button',{name:'Brief this project',exact:true}),/PC is offline/);expect(registered.actions).toEqual([]);
+ await openHome(page);const card=page.getByRole('article',{name:project.name,exact:true});await expectVisibleDisabledReason(page,card.getByRole('button',{name:'Brief this project',exact:true}),/PC is offline/);expect(registered.actions).toEqual([]);
 });
 
 test('a folder registered by an overlapping PC picker requires one explicit Add folder click',async({page})=>{

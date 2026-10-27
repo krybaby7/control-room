@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { fixtureOrigin, openFixture, workspace } from './helpers';
+import { fixtureOrigin, openFixture, workspace, clickFixtureNavigation } from './helpers';
 import type { Workspace } from '../../lib/types';
 
 async function command(page:Page,value:unknown,endpoint='/api/workspace') {
@@ -19,7 +19,7 @@ test('copyable Unicode search restores all filters and page through reload, hist
   const staged=await page.request.post('/api/workspace/imports',{headers:{Origin:fixtureOrigin,'Content-Type':'application/json'},data:Buffer.from(JSON.stringify(incoming))});expect(staged.ok()).toBeTruthy();const stage=await staged.json();expect(stage.diagnostics).toHaveLength(0);
   await command(page,{type:'workspace.import.commit',importId:stage.id,hash:stage.hash,targetRevision:before.revision,mode:'merge',selection:{projects:[],milestones:[],tasks:ids,captures:[],activity:[]}},`/api/workspace/imports/${stage.id}/commit`);
   await command(page,{type:'task.bulk',ids,patch:{status:'review'}});await page.reload();
-  await page.getByRole('button',{name:'Search',exact:true}).click();const query=`${prefix} مرحبا`;
+  await clickFixtureNavigation(page,'Search');const query=`${prefix} مرحبا`;
   await page.getByLabel('Search text',{exact:true}).fill(query);
   await page.getByLabel('Record type',{exact:true}).selectOption('task');await page.getByLabel('Project',{exact:true}).selectOption(project.id);await page.getByLabel('Saved status',{exact:true}).selectOption('review');await page.getByRole('checkbox',{name:'Include archived records and work in archived projects or milestones',exact:true}).check();
   const navigation=page.getByRole('navigation',{name:'Search result pages'});

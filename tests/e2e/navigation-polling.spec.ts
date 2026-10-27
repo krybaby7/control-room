@@ -149,17 +149,18 @@ for (const checkFirst of [false, true]) test(`an uncorrelated proxy 408 retains 
 });
 
 
-test('secondary navigation remains usable immediately after restoring a secondary URL', async ({ page }) => {
+test('Advanced tools remain usable immediately after restoring an Advanced tool URL', async ({ page }) => {
   await openFixture(page);
   const navigation = page.getByRole('navigation', { name: 'Main navigation', exact: true });
-  for (const name of ['Agents', 'Sources'] as const) {
+  for (const name of ['Agents', 'Sources, export and restore'] as const) {
     await clickFixtureNavigation(page, name);
     await page.reload();
     // Exercise the same immediate reload-to-navigation path as enrollment and
     // encrypted-draft recovery, without waiting for a feature panel first.
     await clickFixtureNavigation(page, name);
-    await expect(navigation.getByRole('button', { name, exact: true })).toHaveAttribute('aria-current', 'page');
-    await expect(navigation.locator('details')).toHaveAttribute('open', '');
+    await expect(navigation.getByRole('button', { name: 'Advanced', exact: true })).toHaveAttribute('aria-current', 'page');
+    await expect(page.locator('.breadcrumb')).toContainText(name);
+    await expect(page.getByRole('button', { name: 'Back to Advanced', exact: true })).toBeVisible();
     if (name === 'Agents') await expect(page.getByRole('heading', { name: 'Agents', exact: true })).toBeVisible();
     else await expect(page.getByRole('region', { name: 'Review an import', exact: true })).toBeVisible();
   }
