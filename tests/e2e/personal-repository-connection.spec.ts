@@ -28,7 +28,7 @@ test('an offline PC shows when it was last seen and Refresh connection visibly r
  await expect(page.getByText('Folders for Synthetic project. Add a folder below, or open the project to request a briefing.')).toBeVisible();
  await expect(page.getByRole('status').filter({hasText:offline})).toBeVisible();
  await expect(page.getByText(/^Checked /u)).toHaveCount(0);const before=pc.reads();
- const technical=page.locator('details').filter({has:page.locator('summary').filter({hasText:'More: technical analysis'})});await expect(technical).not.toHaveAttribute('open','');await technical.locator('summary').click();await page.getByRole('button',{name:'Refresh connection',exact:true}).click();
+ const technical=page.locator('details').filter({has:page.locator(':scope > summary').filter({hasText:/^More: technical analysis$/u})});await expect(technical).not.toHaveAttribute('open','');await technical.locator(':scope > summary').click();await page.getByRole('button',{name:'Refresh connection',exact:true}).click();
  await expect(page.getByText(/^Checked .+\.$/u)).toBeVisible();expect(pc.reads()).toBeGreaterThan(before);
 });
 
@@ -38,7 +38,7 @@ test('an unhandled controlroom link explains how to set up the PC app and clears
  await expect(page.getByRole('status').filter({hasText:'Starting Control Room on your PC…'})).toBeVisible();
  const help=page.getByRole('alert').filter({hasText:'Your PC has not connected.'});
  await expect(help).toBeVisible();await expect(page.getByRole('status').filter({hasText:'Starting Control Room on your PC…'})).toHaveCount(0);
- await page.locator('summary').filter({hasText:'More: technical analysis'}).click();const technical=page.locator('details').filter({has:page.locator('summary').filter({hasText:'More: technical analysis'})});await expect(technical.getByRole('link',{name:'Download the PC app',exact:true})).toHaveAttribute('href','/control-room-companion.zip');
+ const technical=page.locator('details').filter({has:page.locator(':scope > summary').filter({hasText:/^More: technical analysis$/u})});await technical.locator(':scope > summary').click();await expect(technical.getByRole('link',{name:'Download the PC app',exact:true})).toHaveAttribute('href','/control-room-companion.zip');
  await expect(technical).toContainText('install-personal-companion.ps1');
  pc.connect();
  await expect(page.getByRole('status').filter({hasText:'Your PC is connected.'})).toBeVisible();
