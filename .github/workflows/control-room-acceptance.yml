@@ -15,7 +15,7 @@ on:
   pull_request:
   workflow_dispatch:
 concurrency:
-  group: control-room-acceptance-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  group: ${{ github.event_name }}-control-room-acceptance-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 permissions:

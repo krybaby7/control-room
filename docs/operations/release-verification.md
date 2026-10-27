@@ -80,3 +80,5 @@ They remain fixture evidence with the scope of the actual report, never
 hosted/device acceptance. Aggregate status is derived without deleting valid
 observations when another gate is recorded; missing or failed gates still
 block acceptance. No command automatically marks implementation complete.
+
+Main's required checks are `verify`, `benchmark`, `browser-performance`, `native`, `stream-contracts`, and `Native acceptance - chromium`, `Native acceptance - firefox`, and `Native acceptance - webkit`. Workflows that normalize push and pull-request runs to the same head repository and branch include `github.event_name` in their concurrency groups so opening a PR preserves required push checks; newer runs of the same event still cancel older runs.
