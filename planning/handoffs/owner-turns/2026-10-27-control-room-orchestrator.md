@@ -25,3 +25,8 @@ So now what? I don't know. The PC agent, what are you waiting for from my PC age
 ```text
 So should I open it and do the test? Tell me how to open it.
 ```
+
+## 2026-10-27T09:37:52.489412Z
+```text
+I run the briefing, but I forgot to click on edit project and paste my text beforehand. What do we do now?
+```
