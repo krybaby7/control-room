@@ -2,7 +2,7 @@
 import {useEffect,useId,useRef,useState,type ReactNode} from 'react';
 import type {Command,Project} from '@/lib/types';
 import type {PersonalConnectorView} from '@/lib/dashboard/contracts';
-import {availableProjectFolders,firstDisabledReason,projectActionDisabledReason} from '@/lib/project-action-reasons';
+import {availableProjectFolders,firstDisabledReason,projectActionDisabledReason,personalCompanionStatus,personalJobFailureReason,type PersonalCompanionObservation} from '@/lib/project-action-reasons';
 import {briefingRequest,loadSavedProjectBriefings,PersonalActionError,SavedBriefingReadError,sendPersonalAction} from '@/lib/project-briefing-client';
 import {PersonalRequestRecovery} from '@/lib/personal-repository-request-recovery';
 import {chooseProjectFolder,projectFolderEditCommand,type FolderPickerResult} from '@/lib/project-folder-picker';
@@ -11,6 +11,11 @@ import {restoreProjectAssistant} from '@/lib/project-assistant-preference';
 
 const folderKeys=(project:Project)=>project.personalRepositoryKeys??(project.personalRepositoryKey?[project.personalRepositoryKey]:[]);
 const active=(job:{status:string})=>job.status==='queued'||job.status==='claimed';
+
+export function ProjectFolderConnection({connector,projectId}:{connector:{companion?:PersonalCompanionObservation|null;jobs:readonly {id:string;kind:string;projectId?:string;status:string;error?:string}[]}|null;projectId:string}){
+ const status=personalCompanionStatus(connector?.companion),latest=connector?.jobs.filter(job=>job.kind==='brief'&&job.projectId===projectId).at(-1),failure=latest?.status==='failed'?personalJobFailureReason(latest.error,latest.kind):null;
+ return <div><p role="status">{status.label}</p><details><summary>PC app details</summary><p className="field-hint">{status.detail}</p></details>{failure&&<p role="alert">{failure}</p>}</div>;
+}
 
 export function ProjectFolderList({keys,repositories,busy,archived=false,onAdd,onRemove,children}:{keys:readonly string[];repositories:readonly {key:string;name:string}[];busy:boolean;archived?:boolean;onAdd?:()=>void;onRemove?:(key:string)=>void;children?:ReactNode}){
  const id=useId(),addReason=projectActionDisabledReason('add-folder',{saving:busy,folderCount:keys.length}),removeReason=projectActionDisabledReason('remove-folder',{saving:busy});
@@ -58,6 +63,7 @@ export function ProjectFolders({project,projects,busy,onCommand,onToday}:{projec
  async function brief(){const signal=controller.current?.signal;if(!signal||flight.current||briefReason)return;providerPicked.current=true;flight.current=true;setWorking(true);setError('');try{await send(briefingRequest(project.id,keys[0],provider),false,signal);await readConnection(signal);setRequested(true);setNotice('Briefing requested. You can read it on Today when it is ready.');}catch(cause){if(!signal.aborted)setError(cause instanceof Error?cause.message:'The briefing request could not be confirmed.');}finally{flight.current=false;if(!signal.aborted)setWorking(false);}}
  async function retry(){const signal=controller.current?.signal;if(!signal||flight.current||!original||busy)return;flight.current=true;setWorking(true);setError('');try{if(original.action==='browse')picked(await browse(original.requestId,signal,true));else{await send(original,true,signal);await readConnection(signal);setNotice('Original PC request confirmed.');}}catch(cause){if(!signal.aborted)setError(cause instanceof Error?cause.message:'The original request is still unconfirmed.');}finally{flight.current=false;if(!signal.aborted)setWorking(false);}}
  return <ProjectFolderList keys={keys} repositories={connector?.repositories??[]} busy={busy||working} archived={archived} onAdd={()=>setChooser(true)} onRemove={key=>void remove(key)}>
+  <ProjectFolderConnection connector={connector} projectId={project.id}/>
   {!archived&&<div className="panel data-panel" aria-label="Folder and briefing actions">
    {chooser&&<div>
     {confirmationRequired&&<p role="status">Your PC added a folder while another folder window was open. Check the folder below and add it.</p>}

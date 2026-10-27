@@ -24,3 +24,8 @@ test('archived folders are readable with restore guidance and no folder actions'
  assert.ok(html.includes('The app'));assert.ok(html.includes('Restore this project'));
  assert.ok(!html.includes('>Add a folder from this PC</button>'));assert.ok(!html.includes('>Remove</button>'));
 });
+
+test('project folders expose outdated connection and the latest failed briefing reason',()=>{
+ const html=renderToStaticMarkup(createElement(view.ProjectFolderConnection,{projectId:'synthetic',connector:{companion:{protocol:null,kinds:[],legacy:true,lastSeenAt:'2026-10-27T12:00:00Z'},jobs:[{id:'failure',kind:'brief',projectId:'synthetic',status:'failed',error:'companion_outdated'}]}}));
+ assert.match(html,/PC app: out of date — update it/);assert.ok(html.includes("couldn&#x27;t run this briefing"));assert.match(html,/Close the old PC app/);
+});

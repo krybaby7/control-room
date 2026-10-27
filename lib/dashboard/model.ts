@@ -11,6 +11,7 @@ import {getBlockers,getRecommendations} from '../planning.ts';
 import {cairoDate,isCurrentWeek} from '../calendar.ts';
 import {archivedEntity} from '../entity-links.ts';
 import {excerpt,percent,secondsBetween} from './format.ts';
+import {personalCompanionStatus,personalJobFailureReason} from '../project-action-reasons.ts';
 
 /** Pure derivation of the mission-control view model. Every value is computed from saved
  * records plus the supplied clock; nothing here infers execution, acceptance or spending. */
@@ -56,7 +57,7 @@ export interface BriefingView {
  policy:{repositoryKey:string;provider:'codex'|'claude';enabled:boolean;minIntervalMinutes:number;lastBriefAt:string|null}|null;
  providers:{id:'codex'|'claude';label:string;ready:boolean}[];connector:ConnectorStatus['state'];canRequest:boolean;requestHint:string|null;
  activeJob:{id:string;status:'queued'|'claimed';providerLabel:string;origin:'owner'|'auto';createdAt:string;claimedAt:string|null}|null;
- lastFailure:{at:string;providerLabel:string;reason:string}|null;
+ lastFailure:{at:string;providerLabel:string;reason:string;standalone?:boolean}|null;
 }
 export interface ProjectTile {project:Project;progress:ProjectProgress;level:number;milestone:{id:string;title:string;status:MilestoneStatus;targetDate:string|null}|null;agent:{state:ProjectAgentState;label:string;tone:SignalTone;jobs:ActiveJob[];personal:PersonalJob[]};analysis:ProjectAnalysis|null;briefing:BriefingView;activity:LogEntry[];nextAction:{task:Task;reason:string}|null;tokens:{input:number;output:number;runs:number;reported:number};lastRunAt:string|null;lastActivityAt:string|null}
 export interface LogEntry {id:string;text:string;at:string;projectId:string|null;projectName:string|null;projectColor:Project['color']|null}
@@ -119,10 +120,11 @@ function connectorStatus(connector:PersonalConnectorView|null,feed:FeedState,now
   if(feed.status==='unconfigured')return {state:'unconfigured',label:'Personal PC app not configured',detail:'Connect this PC under Repositories to see Codex and Claude readiness.',tone:'idle',lastSeenAt:null,providers:providers(null)};
   return {state:'unknown',label:'Personal PC app status unknown',detail:feed.status==='loading'?'Checking the personal PC connection…':'The personal PC connection could not be read.',tone:'idle',lastSeenAt:null,providers:providers(null)};
  }
- if(!connector.connected)return {state:'disconnected',label:'Personal PC app disconnected',detail:'Reconnect it under Repositories to analyze local folders.',tone:'idle',lastSeenAt:connector.lastSeenAt,providers:providers(connector)};
- if(connector.online)return {state:'online',label:'Personal PC app online',detail:'Polling for your requests right now.',tone:'good',lastSeenAt:connector.lastSeenAt,providers:providers(connector)};
+ const app=personalCompanionStatus(connector.companion),appLabel=app.label+(connector.companion?.release?` (${connector.companion.release})`:'');
+ if(!connector.connected)return {state:'disconnected',label:'Personal PC app disconnected',detail:`${appLabel}. Reconnect it under Repositories to analyze local folders.`,tone:'idle',lastSeenAt:connector.lastSeenAt,providers:providers(connector)};
+ if(connector.online)return {state:'online',label:'Personal PC app online',detail:`${appLabel}. Polling for your requests right now.`,tone:app.state==='outdated'?'warn':'good',lastSeenAt:connector.lastSeenAt,providers:providers(connector)};
  const age=connector.lastSeenAt?secondsBetween(connector.lastSeenAt,now):null;
- return {state:'away',label:'Personal PC app away',detail:age===null?'Connected, but it has not checked in yet.':`Last check-in ${age<120?`${Math.round(age)}s`:`${Math.round(age/60)} min`} ago. Start Control Room on the PC to resume.`,tone:'warn',lastSeenAt:connector.lastSeenAt,providers:providers(connector)};
+ return {state:'away',label:'Personal PC app away',detail:`${appLabel}. `+(age===null?'Connected, but it has not checked in yet.':`Last check-in ${age<120?`${Math.round(age)}s`:`${Math.round(age/60)} min`} ago. Start Control Room on the PC to resume.`),tone:'warn',lastSeenAt:connector.lastSeenAt,providers:providers(connector)};
 }
 function executionStatus(jobs:JobReadModel|null,feed:FeedState):ExecutionStatus{
  if(!jobs)return {enabled:false,diagnostic:feed.status==='loading'?'loading':'unavailable',label:feed.status==='loading'?'Reading execution state…':'Execution state unavailable',tone:'idle'};
@@ -228,7 +230,7 @@ function briefingView(project:Project,saved:SavedProjectBriefing[],_localReports
   repositoryKey,repositoryName,repositoryChoices:boundFolderUnavailable?[]:choices,policy:policy?{repositoryKey:policy.repositoryKey,provider:policy.provider,enabled:policy.enabled,minIntervalMinutes:policy.minIntervalMinutes,lastBriefAt:policy.lastBriefAt}:null,
   providers,connector:connectorState,canRequest:boundKeys.length>0&&!boundFolderUnavailable&&connectorState==='online'&&providers.some(row=>row.ready)&&!active,requestHint,
   activeJob:active?{id:active.id,status:active.status as 'queued'|'claimed',providerLabel:active.provider?PROVIDER_LABELS[active.provider]:'Assistant',origin:active.origin??'owner',createdAt:active.createdAt,claimedAt:active.claimedAt??null}:null,
-  lastFailure:failed?{at:failed.claimedAt??failed.createdAt,providerLabel:failed.provider?PROVIDER_LABELS[failed.provider]:'Assistant',reason:BRIEF_FAILURES[failed.error??'']??'it did not finish'}:null};
+  lastFailure:failed?{at:failed.claimedAt??failed.createdAt,providerLabel:failed.provider?PROVIDER_LABELS[failed.provider]:'Assistant',reason:personalJobFailureReason(failed.error,'brief')??BRIEF_FAILURES[failed.error??'']??'it did not finish',standalone:personalJobFailureReason(failed.error,'brief')!==null}:null};
 }
 function logEntry(entry:Activity,workspace:Workspace):LogEntry{const project=projectOf(workspace,entry.projectId);return {id:entry.id,text:entry.text,at:entry.at,projectId:entry.projectId,projectName:project?.name??null,projectColor:project?.color??null};}
 

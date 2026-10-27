@@ -49,3 +49,13 @@ test('completed analysis explicit save retry stays enabled for an uncertain pend
  const loading=renderToStaticMarkup(createElement(personal.PersonalCompletedSaveButton,{savedLoaded:false,saving:false,busy:false,pending:true,onRetry:()=>{}}));
  assert.match(loading,/<button[^>]*disabled=""[^>]*aria-describedby=/);assert.match(loading,/Load saved reports before saving\./);
 });
+
+test('PC connection renders current and outdated last-poll state without hiding online status',()=>{
+ const companion={protocol:null,kinds:['browse','analyze'],legacy:true,lastSeenAt:'2026-10-27T12:00:00Z'};
+ const html=renderToStaticMarkup(createElement(personal.PersonalCompanionConnection,{companion}));
+ const current=renderToStaticMarkup(createElement(personal.PersonalCompanionConnection,{companion:{...companion,protocol:1,kinds:['brief'],legacy:false,release:'27'}}));
+ assert.match(current,/PC app: current/);assert.match(current,/Release 27/);assert.match(current,/Check-in version 1/);
+ assert.match(html,/PC app: out of date — update it/);assert.match(html,/Last check-in/);
+ const failure=renderToStaticMarkup(createElement(personal.PersonalRepositoryJobFailure,{job:{id:'synthetic',kind:'brief',status:'failed',error:'companion_outdated'}}));
+ assert.ok(failure.includes("Your Control Room PC app is out of date, so it couldn&#x27;t run this briefing."));assert.match(failure,/Close the old PC app/);
+});

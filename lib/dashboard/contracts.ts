@@ -11,8 +11,10 @@ export const personalConnectorJobSchema=z.object({
 }).passthrough();
 export const personalPolicySchema=z.object({repositoryKey:z.string().min(1).max(128),repositoryKeys:z.array(z.string().min(1).max(128)).max(4).optional(),projectId:z.string().min(1).max(128),provider:z.enum(['codex','claude']),enabled:z.boolean(),minIntervalMinutes:z.number().int().min(1).max(10080),updatedAt:stamp,lastBriefAt:stamp.nullable(),lastAttemptAt:stamp.nullable().optional()}).passthrough();
 const completedBriefingSchema=z.object({requestId:z.string().min(1).max(64),projectId:z.string().min(1).max(128),briefing:z.unknown(),briefingSha256:z.string().regex(/^[a-f0-9]{64}$/u)}).passthrough();
+const companionSchema=z.object({protocol:z.number().int().min(0).max(255).nullable(),kinds:z.array(z.enum(['browse','analyze','brief'])).max(3),legacy:z.boolean(),release:z.string().min(1).max(64).regex(/^[A-Za-z0-9][A-Za-z0-9._+-]*$/u).optional(),lastSeenAt:stamp.nullable()}).strict();
 export const personalConnectorViewSchema=z.object({
  configured:z.literal(true),deviceId:z.string().min(1).max(128),connected:z.boolean(),online:z.boolean(),lastSeenAt:stamp.nullable(),
+ companion:companionSchema.nullable().optional(),
  providers:z.object({codex:providerStateSchema,claude:providerStateSchema}).passthrough(),
  repositories:z.array(z.object({key:z.string().min(1).max(128),name:z.string().min(1).max(100),head:z.string().min(1).max(64),dirty:z.boolean(),hasPreviousAnalysis:z.boolean()}).passthrough()).max(16),
  jobs:z.array(personalConnectorJobSchema),

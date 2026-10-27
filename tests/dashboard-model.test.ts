@@ -2,10 +2,23 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {buildDashboardModel,providerForModel,type DashboardInputs} from '../lib/dashboard/model.ts';
 import {dashboardFixture,NOW,okFeeds} from './fixtures/dashboard.ts';
+import {personalConnectorViewSchema} from '../lib/dashboard/contracts.ts';
 async function inputs(overrides:Partial<DashboardInputs>={}):Promise<DashboardInputs>{
  const fixture=await dashboardFixture();fixture.workspace.projects[1].personalRepositoryKeys=['repo-b'];
  return {now:NOW,workspace:fixture.workspace,jobs:fixture.jobs,jobDetails:{'job-running':{provider:'codex',events:fixture.events['job-running']}},runtime:fixture.runtime,connector:fixture.connector,localReports:fixture.localReports,cloudReports:fixture.cloudReports,briefings:fixture.briefings,feeds:okFeeds(),...overrides};
 }
+
+test('dashboard decodes last PC declaration and gives an outdated briefing its plain reason',async()=>{
+ const base=await inputs(),connector={...base.connector!,companion:{protocol:null,kinds:['browse','analyze'],legacy:true,lastSeenAt:NOW},jobs:[{id:'outdated-fixture',kind:'brief',status:'failed' as const,createdAt:NOW,claimedAt:null,projectId:base.workspace.projects[1].id,error:'companion_outdated'}]};
+ const parsed=personalConnectorViewSchema.parse(connector);
+ assert.deepEqual(parsed.companion,connector.companion);
+ const value=buildDashboardModel({...base,connector:parsed});
+ assert.match(value.hud.connector.detail,/PC app: out of date/u);
+ assert.equal(value.projects[1].briefing.lastFailure?.reason,"Your Control Room PC app is out of date, so it couldn't run this briefing. Close the old PC app; if it keeps happening, update the PC app.");
+ const current=personalConnectorViewSchema.parse({...parsed,companion:{protocol:1,kinds:['browse','analyze','brief'],legacy:false,release:'reviewed-20261027',lastSeenAt:NOW}});
+ assert.match(buildDashboardModel({...base,connector:current}).hud.connector.detail,/PC app: current/u);
+ assert.match(buildDashboardModel({...base,connector:current}).hud.connector.detail,/reviewed-20261027/u);
+});
 
 test('durable folder association takes precedence over an older briefing repository',async()=>{
  const value=await inputs();

@@ -31,3 +31,23 @@ test('available folders exclude every active and archived owner',()=>{
  const rows=[{key:'app',name:'App'},{key:'lab',name:'Lab'},{key:'free',name:'Free'}];
  assert.deepEqual(availableProjectFolders(rows,[{personalRepositoryKeys:['app']},{personalRepositoryKeys:['lab']}]),[rows[2]]);
 });
+
+test('last poll controls PC app compatibility including a later legacy poll',async()=>{
+ const {personalCompanionStatus,personalJobFailureReason}=await import('../lib/project-action-reasons.ts');
+ const current={protocol:1,kinds:['brief'],legacy:false,release:'27',lastSeenAt:'2026-10-27T12:00:00Z'};
+ assert.equal(personalCompanionStatus(current).label,'PC app: current');
+ assert.match(personalCompanionStatus(current).detail,/27/);
+ assert.equal(personalCompanionStatus({...current,legacy:true,protocol:null}).label,'PC app: out of date — update it');
+ assert.equal(personalCompanionStatus({...current,kinds:['browse']}).state,'outdated');
+ assert.equal(personalCompanionStatus(null).state,'unknown');
+ assert.equal(personalJobFailureReason('companion_outdated','brief'),"Your Control Room PC app is out of date, so it couldn't run this briefing. Close the old PC app; if it keeps happening, update the PC app.");
+ assert.equal(personalJobFailureReason('unsupported','brief'),personalJobFailureReason('companion_outdated','brief'));
+ assert.equal(personalJobFailureReason('deadline_exceeded','brief'),null);
+});
+
+test('outdated PC app failures explain folder selection and analysis recovery',async()=>{
+ const {personalJobFailureReason}=await import('../lib/project-action-reasons.ts');
+ for(const error of ['companion_outdated','unsupported'])for(const [kind,action] of [['browse',"choose a folder"],['analyze',"analyze this folder"],['other',"run this request"]]){
+  assert.equal(personalJobFailureReason(error,kind),`Your Control Room PC app is out of date, so it couldn't ${action}. Close the old PC app; if it keeps happening, update the PC app.`);
+ }
+});
