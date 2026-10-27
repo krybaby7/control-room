@@ -1,5 +1,9 @@
 # Control Room Audit Gap Coverage
 
+## Simple, briefing-first UI — 2026-10-28
+
+The UI increment on `feat/simple-ui` starts at `main` `7f77a81` (draft pull request [krybaby7/control-room#16](https://github.com/krybaby7/control-room/pull/16)). Navigation becomes Home, Projects, Needs you and Advanced; Home shows one card per active project from its latest briefing; the project page puts the briefing first, then Folders on your PC, the folded plan and the project details. Every earlier view keeps its address and behaviour under Advanced. No data contract, stored format, migration, API route or companion code changed, and no gap's server-side status changes. GPT-6.1 Sol was not selectable in this runtime; the owner authorized direct implementation and review for this task. Exact checks, screenshots and open questions are in [the verification note](../../verification/2026-10-28-simple-ui.md).
+
 ## Simple project folders — 2026-10-27
 
 The bounded UI increment on `feat/simple-folders` starts at `23e9ed3`: project folder management, plain PC folder ownership, technical analysis behind a closed fold and shared visible disabled reasons. Ownership mutations retain `project.edit`; briefing framing and membership remain projected by the existing server contracts. Independent review and **121 affected tests** pass; typecheck and lint pass (0 errors, 15 existing warnings). Twelve browser cases are discovered but execution is blocked. Exact local evidence is tracked in [the verification note](../../verification/2026-10-27-simple-folders.md). Windows subprocess and backing Git-index permissions block local installation/build/default test workers/browser execution and commits. Full Linux CI and browser acceptance remain required; no live provider, device, deployment or owner-data verification is implied.

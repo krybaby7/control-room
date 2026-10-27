@@ -1,4 +1,19 @@
 {
+  "simpleUi": {
+    "date": "2026-10-28",
+    "base": "7f77a81",
+    "branch": "feat/simple-ui",
+    "draftPullRequest": "https://github.com/krybaby7/control-room/pull/16",
+    "status": "implemented_checks_in_progress",
+    "plan": "docs/superpowers/plans/2026-10-28-simple-ui.md",
+    "verification": "docs/superpowers/verification/2026-10-28-simple-ui.md",
+    "scope": "UI and navigation only: Home, Projects, Needs you and Advanced; briefing-first project page. No data contract, stored format, migration, API route/payload or companion change.",
+    "workerModelParameter": "gpt-6.1-sol not selectable in this runtime; owner authorized direct implementation and review for this task",
+    "acceptedWorkers": [],
+    "ownerHandoff": "The session's only incoming message was initiated by the launching Claude session; no original owner turn to record.",
+    "merged": false,
+    "deployed": false
+  },
   "outdatedCompanion": {
     "date": "2026-10-27",
     "base": "3e6e020",
