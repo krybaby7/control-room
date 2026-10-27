@@ -16,6 +16,8 @@ export interface BriefingFeedOptions {
  onCommand?:(command:WorkspaceCommand)=>Promise<boolean>;
  /** Test seams: override the network layer and the personal PC channel. */
  readSnapshot?:typeof readFeedSnapshot;sendAction?:typeof sendPersonalAction;
+ /** Views without technical analysis leave the saved reports unread (they stay lazy until opened). */
+ reports?:boolean;
 }
 export interface BriefingFeed {
  expired:boolean;model:DashboardModel;snapshot:FeedSnapshot;refresh:()=>void;
@@ -27,13 +29,14 @@ export interface BriefingFeed {
 /** The read-only owner feeds behind every briefing view (Home, project pages, Needs you and Mission
  * control). The only commands issued are the owner's own briefing requests, keep-current switches
  * and the save of a briefing the PC completed; nothing approves, completes or spends. */
-export function useBriefingFeed({workspace,revision,busy,onCommand,readSnapshot,sendAction}:BriefingFeedOptions):BriefingFeed{
+export function useBriefingFeed({workspace,revision,busy,onCommand,readSnapshot,sendAction,reports=true}:BriefingFeedOptions):BriefingFeed{
  const expired=useContext(SessionExpiredContext);
  const [snapshot,setSnapshot]=useState<FeedSnapshot>(emptyFeedSnapshot);
  const [now,setNow]=useState(()=>new Date().toISOString());
  const [notices,setNotices]=useState<Record<string,BriefingNotice>>({});
  const [working,setWorkingState]=useState<Record<string,boolean>>({});
  const snapshotRef=useRef(snapshot),scheduler=useRef<LiveFeedScheduler|null>(null),reader=useRef(readSnapshot??readFeedSnapshot),sender=useRef(sendAction??sendPersonalAction),saver=useRef(onCommand);
+ const includeReports=useRef(reports);includeReports.current=reports;
  const saveAttempts=useRef(new Set<string>()),saveRecovery=useRef(new PersonalCompletedSaveRecovery()),mounted=useRef(true);
  useEffect(()=>{reader.current=readSnapshot??readFeedSnapshot;sender.current=sendAction??sendPersonalAction;saver.current=onCommand;},[readSnapshot,sendAction,onCommand]);
  useEffect(()=>{snapshotRef.current=snapshot;},[snapshot]);
@@ -43,7 +46,7 @@ export function useBriefingFeed({workspace,revision,busy,onCommand,readSnapshot,
   if(expired)return;
   const controller=new AbortController();let active=true;
   const loop=new LiveFeedScheduler({visible:document.visibilityState!=='hidden',signedIn:true,read:async includeSlow=>{
-   const next=await reader.current(snapshotRef.current,{includeSlow,signal:controller.signal,runtimeDecode:decodeRuntimeRead});
+   const next=await reader.current(snapshotRef.current,{includeSlow,signal:controller.signal,runtimeDecode:decodeRuntimeRead,reports:includeReports.current});
    if(!active||controller.signal.aborted)return;
    snapshotRef.current=next;setSnapshot(next);setNow(new Date().toISOString());
   },onError:()=>{if(active)setNow(new Date().toISOString());},onExpire:expire});

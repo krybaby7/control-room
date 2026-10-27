@@ -49,7 +49,7 @@ export function HomeCard({tile,now,feed,busy,loading,onOpenProject,onProjectFold
  </article>;
 }
 export function HomeBriefings({workspace,revision,busy,onCommand,onOpenProject,onProjectFolders,onNeedsYou,readSnapshot,sendAction}:HomeBriefingsProps){
- const feed=useBriefingFeed({workspace,revision,busy,onCommand,readSnapshot,sendAction});
+ const feed=useBriefingFeed({workspace,revision,busy,onCommand,readSnapshot,sendAction,reports:false});
  if(feed.expired)return null;
  const {model}=feed,status=feed.snapshot.feeds.briefings.status;
  if(!model.projects.length)return <HomeEmpty/>;

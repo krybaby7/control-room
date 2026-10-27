@@ -83,6 +83,16 @@ test('one snapshot read combines every feed, follows active event pages and tole
  const rejected=await readFeedSnapshot(snapshot,{includeSlow:true,fetch:broken.fetcher,now:()=>NOW});
  assert.equal(rejected.feeds.briefings.status,'failed');assert.equal(rejected.briefings.length,1,'an invalid briefing feed keeps the last good briefings');assert.ok(!calls.slice(calls.length-6).includes('/api/local-analysis')||true);
 });
+test('briefing-only views read saved briefings but leave saved technical reports unread and untouched',async()=>{
+ const {fixture,fetcher,calls}=await fixtureFetch();
+ const snapshot=await readFeedSnapshot(emptyFeedSnapshot(),{includeSlow:true,fetch:fetcher,now:()=>NOW,reports:false});
+ assert.ok(!calls.some(url=>url.startsWith('/api/local-analysis')||url.startsWith('/api/github-analysis')),'technical reports stay lazy');
+ assert.ok(calls.includes('/api/project-briefings'));assert.equal(snapshot.briefings.length,fixture.briefings.length);assert.equal(snapshot.feeds.briefings.status,'ok');
+ assert.deepEqual(snapshot.localReports,[]);assert.deepEqual(snapshot.cloudReports,[]);assert.equal(snapshot.feeds.local.status,'loading');assert.equal(snapshot.feeds.cloud.status,'loading');
+ const kept=await readFeedSnapshot({...snapshot,localReports:fixture.localReports,cloudReports:fixture.cloudReports},{includeSlow:true,fetch:fetcher,now:()=>NOW,reports:false});
+ assert.equal(kept.localReports,fixture.localReports,'earlier reports are kept, not cleared');assert.equal(kept.cloudReports,fixture.cloudReports);
+ const full=await readFeedSnapshot(emptyFeedSnapshot(),{includeSlow:true,fetch:fetcher,now:()=>NOW});assert.equal(full.localReports.length,1);assert.equal(full.feeds.local.status,'ok');
+});
 test('an unconfigured personal connector is a state, not an error; 401 expires the session',async()=>{
  const {fetcher}=await fixtureFetch({'/api/personal-repositories':()=>json({configured:false,error:'Personal PC connection is unavailable.'},503)});
  const snapshot=await readFeedSnapshot(emptyFeedSnapshot(),{includeSlow:false,fetch:fetcher,now:()=>NOW});

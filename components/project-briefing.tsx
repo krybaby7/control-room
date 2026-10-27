@@ -59,7 +59,7 @@ export function ProjectBriefingBody({tile,now,feed,busy,loading,onProjectFolders
 }
 export function ProjectBriefing({workspace,revision,busy,project,onCommand,onProjectFolders,readSnapshot,sendAction}:ProjectBriefingProps){
  const id=useId();
- const feed=useBriefingFeed({workspace,revision,busy,onCommand,readSnapshot,sendAction});
+ const feed=useBriefingFeed({workspace,revision,busy,onCommand,readSnapshot,sendAction,reports:false});
  if(feed.expired)return null;
  const tile=feed.model.projects.find(row=>row.project.id===project.id);
  if(!tile)return <section className="project-briefing" aria-labelledby={`${id}-heading`}><header className="project-briefing-head"><h2 id={`${id}-heading`}>Briefing</h2></header><p className="home-quiet">This project is archived. Its saved briefings are kept; restore the project to brief it again.</p></section>;

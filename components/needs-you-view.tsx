@@ -60,7 +60,7 @@ export function NeedsYouContent({groups,briefings,onAttention}:{groups:NeedsGrou
 /** Everything that waits on the owner. It reads saved records only; opening an item navigates and
  * never changes anything. */
 export function NeedsYouView({workspace,revision,busy,onCommand,onProject,onTask,onAgents,onInbox,onAttention,readSnapshot,sendAction}:NeedsYouViewProps){
- const feed=useBriefingFeed({workspace,revision,busy,onCommand,readSnapshot,sendAction});
+ const feed=useBriefingFeed({workspace,revision,busy,onCommand,readSnapshot,sendAction,reports:false});
  if(feed.expired)return null;
  return <NeedsYouContent groups={needsYouGroups(feed.model,workspace,{onProject,onTask,onAgents,onInbox,onAttention})} briefings={feed.snapshot.feeds.briefings.status} onAttention={onAttention}/>;
 }

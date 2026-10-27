@@ -25,7 +25,9 @@ export function emptyFeedSnapshot():FeedSnapshot{
 }
 class FeedUnavailableError extends Error {constructor(message='Feed unavailable.'){super(message);this.name='FeedUnavailableError';}}
 class FeedUnconfiguredError extends Error {constructor(){super('Feed not configured.');this.name='FeedUnconfiguredError';}}
-export interface FeedReadOptions {fetch?:typeof fetch;signal?:AbortSignal;now?:()=>string;runtimeDecode?:(raw:unknown)=>Promise<{devices:RuntimeDeviceLike[]}>;deadlineMs?:number}
+export interface FeedReadOptions {fetch?:typeof fetch;signal?:AbortSignal;now?:()=>string;runtimeDecode?:(raw:unknown)=>Promise<{devices:RuntimeDeviceLike[]}>;deadlineMs?:number;
+ /** False skips the saved technical analysis reports; their feeds keep their previous values and state. */
+ reports?:boolean}
 async function readJson(fetcher:typeof fetch,url:string,options:FeedReadOptions):Promise<{status:number;body:unknown}>{
  const controller=new AbortController(),abort=()=>controller.abort();options.signal?.addEventListener('abort',abort,{once:true});if(options.signal?.aborted)controller.abort();
  const timer=setTimeout(()=>controller.abort(),options.deadlineMs??FEED_LIMITS.deadlineMs);
@@ -105,10 +107,13 @@ export async function readFeedSnapshot(previous:FeedSnapshot,options:FeedReadOpt
  next.connector=feeds.connector.status==='unconfigured'?null:connectorValue;
  if(options.includeSlow){
   const bounded={fetch:options.fetch,signal:options.signal,timeoutMs:options.deadlineMs??FEED_LIMITS.deadlineMs};
-  const [local,cloud,briefings]=await Promise.allSettled([loadSavedLocalAnalyses(bounded),loadSavedGithubAnalyses(bounded),loadSavedProjectBriefings(bounded)]);
-  const reportsOf=<R,>(outcome:PromiseSettledResult<{reports:R[]}>):PromiseSettledResult<R[]>=>outcome.status==='fulfilled'?{status:'fulfilled',value:outcome.value.reports}:outcome;
-  next.localReports=settle('local',reportsOf(local),previous.localReports,feeds,now);
-  next.cloudReports=settle('cloud',reportsOf(cloud),previous.cloudReports,feeds,now);
+  const reports=options.reports!==false;
+  const [local,cloud,briefings]=await Promise.allSettled([reports?loadSavedLocalAnalyses(bounded):null,reports?loadSavedGithubAnalyses(bounded):null,loadSavedProjectBriefings(bounded)]);
+  const reportsOf=<R,>(outcome:PromiseSettledResult<{reports:R[]}|null>):PromiseSettledResult<R[]>=>outcome.status==='fulfilled'?{status:'fulfilled',value:outcome.value?.reports??[]}:outcome;
+  if(reports){
+   next.localReports=settle('local',reportsOf(local),previous.localReports,feeds,now);
+   next.cloudReports=settle('cloud',reportsOf(cloud),previous.cloudReports,feeds,now);
+  }
   next.briefings=settle('briefings',briefings.status==='fulfilled'?{status:'fulfilled',value:briefings.value.briefings}:briefings,previous.briefings,feeds,now);
   next.slowFeedsAt=now;
  }
