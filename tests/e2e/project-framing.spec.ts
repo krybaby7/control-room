@@ -108,7 +108,7 @@ test('a folder registered by an overlapping PC picker requires one explicit Add 
  const chooser=list.getByRole('combobox',{name:'Folder to add',exact:true});await expect(chooser.locator('option[value="__browse__"]')).toHaveJSProperty('disabled',false);
  await page.route('**/api/workspace',async route=>{if(route.request().method()==='POST')saves++;await route.continue();});
  otherStarted=true;await chooser.selectOption('__browse__');
- await expect(list.getByRole('status')).toHaveText('Your PC added a folder while another folder window was open. Check the folder below and add it.');await expect(chooser).toHaveValue(candidate.key);
+ await expect(list.getByRole('status').filter({hasText:'Your PC added a folder'})).toHaveText('Your PC added a folder while another folder window was open. Check the folder below and add it.');await expect(chooser).toHaveValue(candidate.key);
  const add=list.getByRole('button',{name:'Add folder',exact:true});await expect(add).toBeEnabled();await chooser.selectOption(existing.key);await expect(chooser).toHaveValue(existing.key);await chooser.selectOption(candidate.key);await expect(chooser).toHaveValue(candidate.key);expect(saves).toBe(0);expect(actions).toEqual([{action:'browse',requestId:expect.any(String)}]);
  const before=(await workspace(page)).workspace.projects;expect(before.filter((row:{personalRepositoryKeys?:string[]})=>row.personalRepositoryKeys?.includes(candidate.key)||row.personalRepositoryKeys?.includes(existing.key))).toHaveLength(0);
  await add.click();await expect(list.getByRole('listitem').filter({hasText:candidate.name})).toHaveCount(1);await expect(add).toHaveCount(0);expect(saves).toBe(1);
