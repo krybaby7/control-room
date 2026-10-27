@@ -3,9 +3,13 @@ import {validateProjectBriefing,validateCompactPlan,validateProjectFraming,BRIEF
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/u;
 const ID=/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u,KEY=/^[A-Za-z0-9_-]{1,128}$/u,HASH=/^[a-f0-9]{64}$/u,HEAD=/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u;
 const statuses=['queued','claimed','completed','failed','cancelled'],providers=['codex','claude'],kinds=['browse','analyze','brief'];
+/** Protocol 0 is the undeclared, browse/analyze-only legacy PC app. */
+export const PERSONAL_COMPANION_PROTOCOL=1;
+export const PERSONAL_COMPANION_KINDS=Object.freeze(['browse','analyze','brief']);
+const minimumProtocol=Object.freeze({browse:0,analyze:0,brief:1});
 /** briefMs bounds one claimed briefing (fetch, chats and one model call); policies are per repository. */
 export const PERSONAL_LIMITS=Object.freeze({repositories:16,claimMs:300000,briefMs:600000,queueMs:600000,bodyBytes:65536,stateBytes:500000,policies:16,minIntervalMinutes:30,maxIntervalMinutes:1440,defaultIntervalMinutes:120});
-const requestKeys=['id','kind','status','createdAt','expiresAt','claimedAt','projectId','repositoryKey','repositoryKeys','provider','requestedModel','report','reportSha256','error','consumedAt','origin','plan','framing','briefing','fingerprint'];
+const requestKeys=['id','kind','status','createdAt','expiresAt','claimedAt','projectId','repositoryKey','repositoryKeys','provider','requestedModel','report','reportSha256','error','errorDetail','consumedAt','origin','plan','framing','briefing','fingerprint'];
 const briefOnly=['repositoryKeys','origin','plan','framing','briefing','fingerprint'];
 function fail(){throw new Error('Personal repository request is invalid.');}
 function obj(v,keys,required=keys){if(!v||typeof v!=='object'||Array.isArray(v)||Object.keys(v).some(k=>!keys.includes(k))||required.some(k=>!Object.hasOwn(v,k)))fail();return v;}
@@ -13,6 +17,20 @@ function text(v,max,pattern){if(typeof v!=='string'||!v.trim()||v.length>max||/[
 function stamp(v){if(typeof v!=='string'||!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/u.test(v)||!Number.isFinite(Date.parse(v)))fail();return v;}
 function bool(v){if(typeof v!=='boolean')fail();return v;}
 const modelFor=provider=>BRIEFING_MODELS[provider];
+export function parseCompanionDeclaration(v){
+ obj(v,['protocol','kinds','release'],['protocol','kinds']);
+ if(!Number.isSafeInteger(v.protocol)||v.protocol<0||v.protocol>255||!Array.isArray(v.kinds)||v.kinds.length>kinds.length||new Set(v.kinds).size!==v.kinds.length||v.kinds.some(kind=>!kinds.includes(kind)))fail();
+ if(Object.hasOwn(v,'release'))text(v.release,64,/^[A-Za-z0-9][A-Za-z0-9._+-]*$/u);
+ return structuredClone(v);
+}
+function companionSeen(declaration){return declaration?{...parseCompanionDeclaration(declaration),legacy:false}:{protocol:null,kinds:['browse','analyze'],legacy:true};}
+function validateCompanionSeen(v){
+ obj(v,['protocol','kinds','release','legacy'],['protocol','kinds','legacy']);bool(v.legacy);
+ if(v.legacy){if(v.protocol!==null||Object.hasOwn(v,'release')||JSON.stringify(v.kinds)!=='["browse","analyze"]')fail();}
+ else{const {legacy,...declaration}=v;void legacy;parseCompanionDeclaration(declaration);}
+}
+export function personalCompanionCanRun(kind,companion){return Object.hasOwn(minimumProtocol,kind)&&(companion?.kinds??['browse','analyze']).includes(kind)&&(companion?.protocol??0)>=minimumProtocol[kind];}
+function outdated(job,companion){job.status='failed';job.error='companion_outdated';job.errorDetail=`PC app ${companion.legacy?'did not declare a protocol (legacy)':`declared protocol ${companion.protocol}`}; ${job.kind} requires protocol ${minimumProtocol[job.kind]} and ${job.kind} support.`;}
 export function parseProviders(v){obj(v,['codex','claude']);for(const p of Object.values(v)){obj(p,['ready','detail']);bool(p.ready);if(!['ready','not_installed','auth_required','unavailable'].includes(p.detail))fail();}return structuredClone(v);}
 export function parseRepositories(v){if(!Array.isArray(v)||v.length>16)fail();for(const r of v){obj(r,['key','name','head','dirty','hasPreviousAnalysis']);text(r.key,128,KEY);text(r.name,100);if(/[\\/:]/u.test(r.name))fail();text(r.head,64,HEAD);bool(r.dirty);bool(r.hasPreviousAnalysis);}if(new Set(v.map(r=>r.key)).size!==v.length)fail();return structuredClone(v);}
 function folderKeys(v){if(!Array.isArray(v)||v.length<1||v.length>4||new Set(v).size!==v.length)fail();for(const key of v)text(key,128,KEY);return [...v];}
@@ -38,16 +56,17 @@ export function parseOwnerAction(v){
  return structuredClone(v);
 }
 export function parseDeviceAction(v){
- obj(v,['action','requestId','projectId','repositoryKey','providers','repositories','report','briefing','fingerprint','error'],['action']);
- const shapes={poll:['action','providers','repositories'],complete:['action','requestId','repositories','report','briefing','fingerprint'],fail:['action','requestId','error'],'auto-brief':['action','requestId','projectId','repositoryKey','fingerprint']};
+ obj(v,['action','requestId','projectId','repositoryKey','providers','repositories','report','briefing','fingerprint','error','companion'],['action']);
+ const shapes={poll:['action','providers','repositories','companion'],complete:['action','requestId','repositories','report','briefing','fingerprint'],fail:['action','requestId','error'],'auto-brief':['action','requestId','projectId','repositoryKey','fingerprint','companion']};
  const keys=shapes[v.action];if(!keys)fail();
  obj(v,keys,v.action==='poll'?['action']:v.action==='complete'?['action','requestId']:v.action==='auto-brief'?['action','requestId','fingerprint']:keys);if(v.action==='auto-brief'&&!v.projectId&&!v.repositoryKey)fail();if(Object.hasOwn(v,'projectId'))text(v.projectId,128,ID);
  if(Object.hasOwn(v,'requestId'))text(v.requestId,36,UUID);if(Object.hasOwn(v,'repositoryKey'))text(v.repositoryKey,128,KEY);
  if(Object.hasOwn(v,'providers'))parseProviders(v.providers);if(Object.hasOwn(v,'repositories'))parseRepositories(v.repositories);
+ if(Object.hasOwn(v,'companion'))parseCompanionDeclaration(v.companion);
  if(Object.hasOwn(v,'report'))validateLocalAnalysis(v.report);if(Object.hasOwn(v,'briefing'))validateProjectBriefing(v.briefing);
  if(Object.hasOwn(v,'fingerprint'))text(v.fingerprint,64,HASH);
  if(v.action==='complete'&&Object.hasOwn(v,'report')&&Object.hasOwn(v,'briefing'))fail();
- if(Object.hasOwn(v,'error')&&!['cancelled','folder_unavailable','provider_unavailable','analysis_failed','interrupted'].includes(v.error))fail();
+ if(Object.hasOwn(v,'error')&&!['cancelled','folder_unavailable','provider_unavailable','analysis_failed','interrupted','unsupported'].includes(v.error))fail();
  return structuredClone(v);
 }
 export function initialPersonalState(deviceId){text(deviceId,128,ID);return {version:1,deviceId,connected:true,epoch:0,lastSeenAt:null,providers:{codex:{ready:false,detail:'unavailable'},claude:{ready:false,detail:'unavailable'}},repositories:[],requests:[],policies:[]};}
@@ -82,14 +101,16 @@ function validateRequest(j){
   else if(j.reportSha256||j.consumedAt||j.status==='completed')fail();
  }
  if(j.consumedAt)stamp(j.consumedAt);
- if(j.error&&!['deadline_exceeded','cancelled','folder_unavailable','provider_unavailable','analysis_failed','interrupted','disconnected'].includes(j.error))fail();
+ if(j.error&&!['deadline_exceeded','cancelled','folder_unavailable','provider_unavailable','analysis_failed','interrupted','disconnected','companion_outdated','unsupported'].includes(j.error))fail();
+ if(Object.hasOwn(j,'errorDetail'))text(j.errorDetail,256);
 }
 export function validatePersonalState(v){
- obj(v,['version','deviceId','connected','epoch','lastSeenAt','providers','repositories','requests','policies'],['version','deviceId','connected','epoch','lastSeenAt','providers','repositories','requests']);
+ obj(v,['version','deviceId','connected','epoch','lastSeenAt','providers','repositories','requests','policies','companion'],['version','deviceId','connected','epoch','lastSeenAt','providers','repositories','requests']);
  if(v.version!==1||!Number.isSafeInteger(v.epoch)||v.epoch<0)fail();text(v.deviceId,128,ID);bool(v.connected);if(v.lastSeenAt!==null)stamp(v.lastSeenAt);parseProviders(v.providers);parseRepositories(v.repositories);
  if(!Array.isArray(v.requests))fail();for(const j of v.requests)validateRequest(j);
  if(new Set(v.requests.map(j=>j.id)).size!==v.requests.length)fail();
  if(Object.hasOwn(v,'policies'))parsePolicies(v.policies);
+ if(Object.hasOwn(v,'companion'))validateCompanionSeen(v.companion);
  if(new TextEncoder().encode(JSON.stringify(v)).byteLength>PERSONAL_LIMITS.stateBytes)fail();
  return structuredClone(v);
 }
@@ -126,8 +147,9 @@ export function transitionPersonalState(raw,action,now,actor,context={}){
  }
  if(!['poll','auto-brief'].includes(a.action)){const terminal=s.requests.find(j=>j.id===a.requestId);if(terminal&&['failed','cancelled'].includes(terminal.status))return s;}
  if(!s.connected){if(a.action==='poll')return s;throw new Error('Personal PC is disconnected.');}
+ if(['poll','auto-brief'].includes(a.action))s.companion=companionSeen(a.companion);
  if(a.action!=='poll')s.lastSeenAt=now;if(a.providers)s.providers=parseProviders(a.providers);
- if(a.action==='poll'){if(a.repositories)s.repositories=parseRepositories(a.repositories);if(!s.requests.some(j=>j.status==='claimed')){const j=s.requests.find(j=>j.status==='queued');if(j){j.status='claimed';j.claimedAt=now;j.expiresAt=claimWindow(j.kind);}}return s;}
+ if(a.action==='poll'){if(a.repositories)s.repositories=parseRepositories(a.repositories);if(!s.requests.some(j=>j.status==='claimed')){const j=s.requests.find(j=>j.status==='queued');if(j){if(!personalCompanionCanRun(j.kind,s.companion))outdated(j,s.companion);else{j.status='claimed';j.claimedAt=now;j.expiresAt=claimWindow(j.kind);}}}return s;}
  if(a.action==='auto-brief'){
   const existing=s.requests.find(j=>j.id===a.requestId);if(existing){if(existing.kind!=='brief'||existing.origin!=='auto'||(a.projectId?existing.projectId!==a.projectId:existing.repositoryKey!==a.repositoryKey))fail();return s;}
   const policy=s.policies.find(p=>(a.projectId?p.projectId===a.projectId:p.repositoryKey===a.repositoryKey)&&p.enabled);
@@ -136,7 +158,9 @@ export function transitionPersonalState(raw,action,now,actor,context={}){
   if(recent(policy.lastBriefAt)||recent(policy.lastAttemptAt)||policy.lastFingerprint===a.fingerprint)throw new Error('Automatic briefing is not due.');
   const framing=requireProjectFraming(context,policy.projectId);
   policy.lastAttemptAt=now;
-  s.requests.push({id:a.requestId,kind:'brief',status:'claimed',createdAt:now,expiresAt:claimWindow('brief'),claimedAt:now,projectId:policy.projectId,repositoryKey:projectedKeys(context,policy.repositoryKey)[0],repositoryKeys:projectedKeys(context,policy.repositoryKey),provider:policy.provider,requestedModel:modelFor(policy.provider),origin:'auto',framing,fingerprint:a.fingerprint});
+  const capable=personalCompanionCanRun('brief',s.companion);
+  const job={id:a.requestId,kind:'brief',status:capable?'claimed':'queued',createdAt:now,expiresAt:claimWindow('brief'),claimedAt:capable?now:null,projectId:policy.projectId,repositoryKey:projectedKeys(context,policy.repositoryKey)[0],repositoryKeys:projectedKeys(context,policy.repositoryKey),provider:policy.provider,requestedModel:modelFor(policy.provider),origin:'auto',framing,fingerprint:a.fingerprint};
+  if(!capable)outdated(job,s.companion);s.requests.push(job);
   return s;
  }
  const job=s.requests.find(j=>j.id===a.requestId);if(!job||job.status!=='claimed')fail();

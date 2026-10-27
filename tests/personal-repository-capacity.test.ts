@@ -1,3 +1,5 @@
+import {PERSONAL_COMPANION_PROTOCOL,PERSONAL_COMPANION_KINDS} from '../shared/personal-repository.mjs';
+const companion={protocol:PERSONAL_COMPANION_PROTOCOL,kinds:PERSONAL_COMPANION_KINDS};
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {database} from './helpers/sqlite.ts';
@@ -44,10 +46,10 @@ for(const count of [20,100])for(const action of ['browse','analyze','brief'] as 
    if(action==='brief'){assert.equal(stored.requests.at(-1).framing.projectId,'p1');assert.equal(stored.requests.at(-1).framing.includeTaskPlan,false);assert.equal(Object.hasOwn(stored.requests.at(-1),'plan'),false);}
    assert.deepEqual((await personalOwnerView(f.db,configuration,now)).completedBriefing?.briefing,briefing);
    assert.equal((await handlePersonalRepositoryHttp(post(command),'owner',deps)).status,200);
-   const polled=await changePersonalState(f.db,configuration,{action:'poll'},'device',now);
+   const polled=await changePersonalState(f.db,configuration,{action:'poll',companion},'device',now);
    assert.equal(polled.requests.length,count+1);
    assert.equal(personalDeviceView(polled).job?.id,requestId);
-   assert.equal(personalDeviceView(await changePersonalState(f.db,configuration,{action:'poll'},'device',now)).job?.id,requestId);
+   assert.equal(personalDeviceView(await changePersonalState(f.db,configuration,{action:'poll',companion},'device',now)).job?.id,requestId);
   }finally{f.sqlite.close();}
  });
 }
@@ -56,7 +58,7 @@ test('automatic briefing admits after 100 finished requests and still refuses a 
  const f=database();try{
   const state=history(100);await seed(f.db,state);
   await changePersonalState(f.db,configuration,{action:'keep-current',projectId:'p1',repositoryKey:'repo-b',provider:'codex',enabled:true},'owner',now);
-  const command={action:'auto-brief',requestId,repositoryKey:'repo-b',fingerprint:'f'.repeat(64)};
+  const command={action:'auto-brief',companion,requestId,repositoryKey:'repo-b',fingerprint:'f'.repeat(64)};
   const admitted=await changePersonalState(f.db,configuration,command,'device',now);
   assert.deepEqual(admitted.requests.slice(0,100),state.requests);
   assert.equal(admitted.requests.length,101);
