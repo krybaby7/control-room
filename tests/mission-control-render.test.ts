@@ -2,19 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createElement} from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
-import {build} from 'esbuild';
-import {mkdtemp,rm} from 'node:fs/promises';
-import {join} from 'node:path';
-import {createRequire} from 'node:module';
+import {loadClient} from './helpers/render-client.ts';
 import {buildDashboardModel} from '../lib/dashboard/model.ts';
 import {dashboardFixture,NOW,okFeeds} from './fixtures/dashboard.ts';
+import * as projectActionReasons from '../lib/project-action-reasons.ts';
+import ts from 'typescript';
+import {readFileSync} from 'node:fs';
 // Compile the actual client leaf, then render its pure presentation with React.
-const directory=await mkdtemp(join(process.cwd(),'.mission-control-render-'));
-let panels:typeof import('../components/mission-control-panels');
-try{await build({entryPoints:['components/mission-control-panels.tsx'],outfile:join(directory,'panels.cjs'),bundle:true,platform:'node',format:'cjs',packages:'external',jsx:'automatic',logLevel:'silent'});panels=createRequire(import.meta.url)(join(directory,'panels.cjs'));}
-finally{await rm(directory,{recursive:true,force:true});}
+const panels=await loadClient<typeof import('../components/mission-control-panels')>(new URL('../components/mission-control-panels.tsx',import.meta.url));
 const noop=()=>{};
-const actions={onProject:noop,onTask:noop,onTaskId:noop,onPin:noop,onProjects:noop,onAgents:noop,onRuntime:noop,onRepositories:noop,onInbox:noop,onAttention:noop,onWeekly:noop,busy:false,onBrief:noop,onKeepCurrent:noop,onAddFolder:noop,onRetrySave:noop,briefingNotices:{},briefingWorking:{}};
+const actions={onProject:noop,onTask:noop,onTaskId:noop,onPin:noop,onProjects:noop,onAgents:noop,onRuntime:noop,onRepositories:noop,onInbox:noop,onAttention:noop,onWeekly:noop,busy:false,onBrief:noop,onKeepCurrent:noop,onAddFolder:noop,onRetrySave:noop,briefingNotices:{},briefingWorking:{},projectActionReasons};
 async function model(){const fixture=await dashboardFixture();fixture.workspace.projects[1].personalRepositoryKeys=['repo-b'];return {fixture,model:buildDashboardModel({now:NOW,workspace:fixture.workspace,jobs:fixture.jobs,jobDetails:{'job-running':{provider:'codex',events:fixture.events['job-running']}},runtime:fixture.runtime,connector:fixture.connector,localReports:fixture.localReports,cloudReports:fixture.cloudReports,briefings:fixture.briefings,feeds:okFeeds()})};}
 test('HUD renders device, app readiness, agent and attention lights with plain-language detail',async()=>{
  const {model:value}=await model();
@@ -41,7 +38,7 @@ test('operations, attention and log panels render honest empty and populated sta
  assert.ok(log.includes('15 min ago'));assert.ok(log.includes('Created task: Inspect a complete trading cycle'));
  const empty=buildDashboardModel({now:NOW,workspace:fixture.workspace,jobs:null,jobDetails:{},runtime:null,connector:null,localReports:[],cloudReports:[],briefings:[],feeds:{jobs:{status:'failed',checkedAt:NOW,message:'x'},runtime:{status:'loading',checkedAt:null},connector:{status:'unconfigured',checkedAt:NOW},local:{status:'ok',checkedAt:NOW},cloud:{status:'ok',checkedAt:NOW},briefings:{status:'ok',checkedAt:NOW}}});
  const unconfigured=renderToStaticMarkup(createElement(panels.ProjectTile,{tile:empty.projects[0],now:NOW,actions,workspace:fixture.workspace}));
- assert.ok(unconfigured.includes('Connect your PC under Repositories'));assert.ok(!unconfigured.includes('Brief this project</button>')||unconfigured.includes('disabled'));
+ assert.ok(unconfigured.includes('Your PC is offline. Open the Control Room PC app on your PC.'));assert.ok(!unconfigured.includes('Brief this project</button>')||unconfigured.includes('disabled'));
  const emptyOps=renderToStaticMarkup(createElement(panels.OperationsPanel,{model:empty,actions}));
  assert.ok(emptyOps.includes('No agent is working right now'));
  const warning=renderToStaticMarkup(createElement(panels.FeedWarning,{model:empty}));
@@ -101,4 +98,39 @@ test('multi-folder briefing renders folder map tags, coverage and the changed fo
  tile.briefing.freshness={...tile.briefing.freshness,newWork:true,detail:'New commits in Map lab since this briefing.'};
  const html=renderToStaticMarkup(createElement(panels.BriefingCard,{tile,now:NOW,actions}));
  for(const text of ['Folder: Map lab','Coverage by folder','2 local commits on 1 branch','3 local commits on 2 branches','New commits in Map lab','Add folder','Map lab: PR #12'])assert.ok(html.includes(text),text);
+});
+
+test('disabled briefing controls explain the current reason through a visible description',async()=>{
+ const {model:value}=await model(),tile=value.projects[1];
+ tile.briefing.connector='away';tile.briefing.canRequest=false;
+ const html=renderToStaticMarkup(createElement(panels.BriefingCard,{tile,now:NOW,actions}));
+ assert.match(html,/<button[^>]*disabled=""[^>]*aria-describedby="([^"]+)"[^>]*>[\s\S]*?Refresh briefing/);
+ assert.ok(html.includes('Your PC is offline. Open the Control Room PC app on your PC.'));
+});
+test('Today folder navigation stays available while its four folders can be reviewed',async()=>{
+ const {model:value}=await model(),tile=value.projects[1];
+ tile.briefing.repositories=['a','b','c','d'].map(key=>({key,name:key}));
+ const html=renderToStaticMarkup(createElement(panels.BriefingCard,{tile,now:NOW,actions:{...actions,busy:true}}));
+ const add=html.match(/<button[^>]*>Add folder<\/button>/)?.[0];assert.ok(add);assert.ok(!add.includes('disabled'));
+ assert.ok(html.includes('A project can have up to four folders.'));
+});
+test('Today shows loading or failure guidance until the deferred action reasons are available',async()=>{
+ const {model:value}=await model(),tile=value.projects[1];
+ const loading=renderToStaticMarkup(createElement(panels.BriefingCard,{tile,now:NOW,actions:{...actions,projectActionReasons:undefined}}));
+ assert.ok(loading.includes('Loading folder actions…'));assert.ok(!loading.includes('>Refresh briefing</button>'));
+ const failed=renderToStaticMarkup(createElement(panels.BriefingCard,{tile,now:NOW,actions:{...actions,projectActionReasons:undefined,folderActionsError:'Folder actions could not be loaded. Reload this page to try again.'}}));
+ assert.ok(failed.includes('role="alert"'));assert.ok(failed.includes('Folder actions could not be loaded. Reload this page to try again.'));
+});
+test('new folder helpers stay outside static shell and Today imports and load in a passive effect',()=>{
+ for(const file of ['control-center','mission-control','mission-control-panels','briefing-card']){
+  const source=readFileSync(new URL(`../components/${file}.tsx`,import.meta.url),'utf8');
+  const emitted=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,jsx:ts.JsxEmit.ReactJSX}}).outputText;
+  const ast=ts.createSourceFile(`${file}.js`,emitted,ts.ScriptTarget.Latest,true,ts.ScriptKind.JS);
+  for(const statement of ast.statements)if(ts.isImportDeclaration(statement)&&ts.isStringLiteral(statement.moduleSpecifier))assert.doesNotMatch(statement.moduleSpecifier.text,/project-(?:action-reasons|assistant-preference|folder-picker)/,`${file} must not statically import a new folder helper`);
+  if(file==='mission-control'){
+   let effectLoadsHelper=false;
+   const visit=(node:ts.Node)=>{if(ts.isCallExpression(node)&&ts.isIdentifier(node.expression)&&node.expression.text==='useEffect'){const search=(child:ts.Node)=>{if(ts.isCallExpression(child)&&child.expression.kind===ts.SyntaxKind.ImportKeyword&&child.arguments.some(argument=>ts.isStringLiteral(argument)&&argument.text.includes('project-action-reasons')))effectLoadsHelper=true;ts.forEachChild(child,search);};ts.forEachChild(node,search);}ts.forEachChild(node,visit);};
+   visit(ast);assert.ok(effectLoadsHelper,'the reason helper must load after the first render in useEffect');
+  }
+ }
 });
