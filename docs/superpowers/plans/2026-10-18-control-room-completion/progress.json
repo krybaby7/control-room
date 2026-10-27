@@ -1,4 +1,32 @@
 {
+  "simpleFolders": {
+    "date": "2026-10-27",
+    "base": "23e9ed3",
+    "branch": "feat/simple-folders",
+    "status": "implemented_reviewed_focused_checks_passed_build_browser_and_commits_blocked",
+    "verification": "docs/superpowers/verification/2026-10-27-simple-folders.md",
+    "workerModelParameter": "gpt-6.1-sol",
+    "acceptedWorkers": ["/root/folders_integrator", "/root/repositories_ui", "/root/owner_flow_tests"],
+    "constraints": "No server/companion contracts, deployment, push, merge, paid inference or owner data changes.",
+    "environment": "Node 24.14.1. install:ci and build blocked by spawn EPERM; default Node test workers and browser execution also blocked. Affected tests run with test isolation disabled without changing their assertions. Git index is outside the writable checkout and cannot be locked; no commits can be made.",
+    "checks": {
+      "affectedTestsPassed": 121,
+      "affectedTestsFailed": 0,
+      "affectedTestsSkipped": 0,
+      "typecheck": "passed",
+      "lint": "passed, 0 errors and 15 existing warnings",
+      "browserDiscovered": 12,
+      "browserExecuted": 0,
+      "browserExecution": "blocked by spawn EPERM",
+      "build": "blocked by spawn EPERM during Vite configuration resolution",
+      "diffCheck": "passed",
+      "fullSuite": "not run; Linux CI remains the merge gate"
+    },
+    "commitsMade": 0,
+    "pushed": false,
+    "deployed": false,
+    "ownerHandoff": "Original owner-message timestamps are not supplied, so no timestamped verbatim turns are invented."
+  },
   "cloudChatIntentions": {
     "date": "2026-10-25",
     "status": "verified_private_site_v24_companion_installed_real_claude_cloud_briefing_saved_draft_pr_7_unmerged",
