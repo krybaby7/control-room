@@ -296,3 +296,23 @@ test('combined project fingerprint is stable across folder order and changes wit
  assert.equal(original,combineProjectWorkFingerprints([...parts].reverse()));assert.notEqual(original,combineProjectWorkFingerprints(parts.slice(0,1)));
  for(let i=0;i<2;i++){const changed=structuredClone(parts);changed[i][1]='c'.repeat(64);assert.notEqual(original,combineProjectWorkFingerprints(changed));}
 });
+
+test('a working tree beyond the source reader bounds still yields evidence with a coarser change fingerprint',async()=>{
+ const f=await fixture();try{
+  // The source reader's 4 MiB file listing overflowed on a real project folder with a very large working tree.
+  const overflow=Object.assign(new RangeError('stdout maxBuffer length exceeded'),{code:'ERR_CHILD_PROCESS_STDIO_MAXBUFFER'});
+  const options={fetchRemote:false,codexHome:f.codexHome,claudeHome:f.claudeHome,snapshot:async()=>{throw overflow;}};
+  const first=await collectBriefingEvidence(f.root,options);
+  assert.equal(first.summary.local.uncommittedFiles,1);assert.match(first.fingerprint,/^[a-f0-9]{64}$/u);
+  validateBriefingEvidence({...first.summary,framing:null});
+  await writeFile(join(f.root,'main.js'),'export const x=22;');
+  const second=await collectBriefingEvidence(f.root,options);
+  assert.equal(second.summary.local.uncommittedFiles,2);assert.notEqual(second.fingerprint,first.fingerprint);
+  const {collectProjectBriefingEvidence}=await import('../companion/briefing-evidence.mjs');
+  const {repositoryIdentity}=await import('../companion/snapshot.mjs');
+  const pack=await collectProjectBriefingEvidence([{key:(await repositoryIdentity(f.root)).key,root:f.root}],options);
+  assert.equal(pack.summary.repositories[0].local.uncommittedFiles,2);
+  const controller=new AbortController();controller.abort();
+  await assert.rejects(collectBriefingEvidence(f.root,{...options,signal:controller.signal}),{name:'AbortError'});
+ }finally{await f.close();}
+});
