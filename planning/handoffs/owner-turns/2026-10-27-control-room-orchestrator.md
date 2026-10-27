@@ -40,3 +40,10 @@ Got this error in the UI.  The last briefing attempt did not finish: it took lon
 ```text
 should i explain the map lab repo somewhere or no need ?
 ```
+
+## 2026-10-27T10:26:21.061786Z
+```text
+Okay, the agent said this. What should I answer? 
+
+The local companion has 0 TAMENNI registrations and no receipt from today. Which PC companion instance handled the 09:29 UTC request, or should I use the 2 local folders named TAMENNI and tameni-map-lab for the evidence timings?
+```
