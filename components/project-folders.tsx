@@ -29,7 +29,7 @@ export function ProjectFolderList({keys,repositories,busy,archived=false,onAdd,o
  </section>;
 }
 
-export function ProjectFolders({project,projects,busy,onCommand,onToday}:{project:Project;projects:readonly Project[];busy:boolean;onCommand?:(command:Command)=>Promise<void>;onToday?:()=>void}){
+export function ProjectFolders({project,projects,busy,onCommand,onHome}:{project:Project;projects:readonly Project[];busy:boolean;onCommand?:(command:Command)=>Promise<void>;onHome?:()=>void}){
  const id=useId(),[connector,setConnector]=useState<PersonalConnectorView|null>(null),[chooser,setChooser]=useState(false),[selected,setSelected]=useState(''),[working,setWorking]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[requested,setRequested]=useState(false),[provider,setProvider]=useState<'codex'|'claude'>('codex');
  const [recoveryReady,setRecoveryReady]=useState(false),[original,setOriginal]=useState<PersonalRequestRecovery['pending']>(null),[confirmationRequired,setConfirmationRequired]=useState(false);
  const recovery=useRef<PersonalRequestRecovery|null>(null),controller=useRef<AbortController|null>(null),flight=useRef(false),providerPicked=useRef(false),latest=useRef({project,projects,busy,onCommand});latest.current={project,projects,busy,onCommand};
@@ -60,7 +60,7 @@ export function ProjectFolders({project,projects,busy,onCommand,onToday}:{projec
   signal?.throwIfAborted();try{await sendPersonalAction(action,{signal});signal?.throwIfAborted();}catch(cause){expire(cause,signal);if(cause instanceof PersonalActionError&&recovery.current?.reject(action,cause.definitive))setOriginal(null);throw cause;}
  }
  async function add(selection=selected){const signal=controller.current?.signal;if(!signal||flight.current||projectActionDisabledReason(selection==='__browse__'?'choose-folder':'add-folder',{archived,saving:busy||working,folderCount:keys.length,online:connector?.online??false,choosingFolder:choosing,folderSelected:!!selection})||(selection==='__browse__'&&pcReason))return;flight.current=true;setWorking(true);setError('');setNotice('');try{if(selection==='__browse__')picked(await browse(crypto.randomUUID(),signal));else await addExisting(selection,signal);}catch(cause){if(!signal.aborted)setError(cause instanceof Error?cause.message:'The folder request could not be confirmed.');}finally{flight.current=false;if(!signal.aborted)setWorking(false);}}
- async function brief(){const signal=controller.current?.signal;if(!signal||flight.current||briefReason)return;providerPicked.current=true;flight.current=true;setWorking(true);setError('');try{await send(briefingRequest(project.id,keys[0],provider),false,signal);await readConnection(signal);setRequested(true);setNotice('Briefing requested. You can read it on Today when it is ready.');}catch(cause){if(!signal.aborted)setError(cause instanceof Error?cause.message:'The briefing request could not be confirmed.');}finally{flight.current=false;if(!signal.aborted)setWorking(false);}}
+ async function brief(){const signal=controller.current?.signal;if(!signal||flight.current||briefReason)return;providerPicked.current=true;flight.current=true;setWorking(true);setError('');try{await send(briefingRequest(project.id,keys[0],provider),false,signal);await readConnection(signal);setRequested(true);setNotice('Briefing requested. You can read it at the top of this page and on Home when it is ready.');}catch(cause){if(!signal.aborted)setError(cause instanceof Error?cause.message:'The briefing request could not be confirmed.');}finally{flight.current=false;if(!signal.aborted)setWorking(false);}}
  async function retry(){const signal=controller.current?.signal;if(!signal||flight.current||!original||busy)return;flight.current=true;setWorking(true);setError('');try{if(original.action==='browse')picked(await browse(original.requestId,signal,true));else{await send(original,true,signal);await readConnection(signal);setNotice('Original PC request confirmed.');}}catch(cause){if(!signal.aborted)setError(cause instanceof Error?cause.message:'The original request is still unconfirmed.');}finally{flight.current=false;if(!signal.aborted)setWorking(false);}}
  return <ProjectFolderList keys={keys} repositories={connector?.repositories??[]} busy={busy||working} archived={archived} onAdd={()=>setChooser(true)} onRemove={key=>void remove(key)}>
   <ProjectFolderConnection connector={connector} projectId={project.id}/>
@@ -77,10 +77,10 @@ export function ProjectFolders({project,projects,busy,onCommand,onToday}:{projec
    <button type="button" className="text-button" disabled={working} aria-describedby={working?`${id}-working`:undefined} onClick={()=>void readConnection().catch(cause=>setError(cause instanceof Error?cause.message:'Your PC connection could not be checked.'))}>Refresh connection</button>
    {original&&<div role="status"><p>The original PC request is unconfirmed. Refresh the connection or retry this exact request before starting another.</p><button type="button" className="button secondary" disabled={working||busy} aria-describedby={working?`${id}-working`:busy?`${id}-saving`:undefined} onClick={()=>void retry()}>Retry original request</button>{busy&&<p id={`${id}-saving`} className="field-hint">Saving… wait a moment.</p>}</div>}
   </div>}
-  {error&&<p role="alert">{error}</p>}{notice&&<p role="status">{notice}{requested&&onToday&&<>
+  {error&&<p role="alert">{error}</p>}{notice&&<p role="status">{notice}{requested&&onHome&&<>
    {' '}
    {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- The shell callback preserves pending-change navigation guards. */}
-   <a href="/?view=today" onClick={event=>{event.preventDefault();onToday();}}>Today</a>
+   <a href="/?view=home" onClick={event=>{event.preventDefault();onHome();}}>Home</a>
   </>}</p>}
  </ProjectFolderList>;
 }
