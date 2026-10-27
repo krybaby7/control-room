@@ -10,7 +10,7 @@ async function pcPresence(page:Page){
 }
 async function openRepositories(page:Page){
  await setFixtureSession(page,'a');await page.goto('/?view=local-analysis&projectId=synthetic-project');
- await expect(page.getByRole('heading',{name:'Repositories',exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'This PC',exact:true}).click();await expect(page.getByRole('heading',{name:'Repositories',exact:true})).toBeVisible();
 }
 const offline=/^Your PC is offline \(last seen .+\)\. Open Control Room on this PC to continue\.$/u;
 
@@ -20,15 +20,15 @@ test('Analyze on a Today project opens Repositories with that project explained 
  await page.getByRole('button',{name:'Analyze',exact:true}).first().click();
  await expect(page.getByRole('heading',{name:'Repositories',exact:true})).toBeVisible();
  const projectId=new URL(page.url()).searchParams.get('projectId'),project=(await workspace(page)).workspace.projects.find((p:{id:string})=>p.id===projectId);
- expect(project).toBeTruthy();await expect(page.getByText(`Analyzing ${project.name}. Analysis runs on your PC`)).toBeVisible();
+ expect(project).toBeTruthy();await expect(page.getByText(`Folders for ${project.name}. Add a folder below, or open the project to request a briefing.`)).toBeVisible();
 });
 
 test('an offline PC shows when it was last seen and Refresh connection visibly reports a new check',async({page})=>{
  const pc=await pcPresence(page);await openRepositories(page);
- await expect(page.getByText('Analyzing Synthetic project. Analysis runs on your PC')).toBeVisible();
+ await expect(page.getByText('Folders for Synthetic project. Add a folder below, or open the project to request a briefing.')).toBeVisible();
  await expect(page.getByRole('status').filter({hasText:offline})).toBeVisible();
  await expect(page.getByText(/^Checked /u)).toHaveCount(0);const before=pc.reads();
- await page.getByRole('button',{name:'Refresh connection',exact:true}).click();
+ const technical=page.locator('details').filter({has:page.locator('summary').filter({hasText:'More: technical analysis'})});await expect(technical).not.toHaveAttribute('open','');await technical.locator('summary').click();await page.getByRole('button',{name:'Refresh connection',exact:true}).click();
  await expect(page.getByText(/^Checked .+\.$/u)).toBeVisible();expect(pc.reads()).toBeGreaterThan(before);
 });
 
@@ -38,8 +38,8 @@ test('an unhandled controlroom link explains how to set up the PC app and clears
  await expect(page.getByRole('status').filter({hasText:'Starting Control Room on your PC…'})).toBeVisible();
  const help=page.getByRole('alert').filter({hasText:'Your PC has not connected.'});
  await expect(help).toBeVisible();await expect(page.getByRole('status').filter({hasText:'Starting Control Room on your PC…'})).toHaveCount(0);
- await expect(help.getByRole('link',{name:'Download the PC app',exact:true})).toHaveAttribute('href','/control-room-companion.zip');
- await expect(help).toContainText('install-personal-companion.ps1');
+ await page.locator('summary').filter({hasText:'More: technical analysis'}).click();const technical=page.locator('details').filter({has:page.locator('summary').filter({hasText:'More: technical analysis'})});await expect(technical.getByRole('link',{name:'Download the PC app',exact:true})).toHaveAttribute('href','/control-room-companion.zip');
+ await expect(technical).toContainText('install-personal-companion.ps1');
  pc.connect();
  await expect(page.getByRole('status').filter({hasText:'Your PC is connected.'})).toBeVisible();
  await expect(help).toHaveCount(0);await expect(page.getByRole('link',{name:'Open Control Room on this PC',exact:true})).toHaveCount(0);
