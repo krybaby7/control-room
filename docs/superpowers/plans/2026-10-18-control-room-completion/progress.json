@@ -1,4 +1,37 @@
 {
+  "outdatedCompanion": {
+    "date": "2026-10-27",
+    "base": "3e6e020",
+    "branch": "feat/outdated-companion-fails-fast",
+    "status": "implemented_reviewed_focused_verified_integrator_gates_and_commit_pending",
+    "verification": "docs/superpowers/verification/2026-10-27-outdated-companion.md",
+    "workerModelParameter": "gpt-6.1-sol",
+    "acceptedWorkers": ["/root/companion", "/root/ui", "/root/review"],
+    "checks": {
+      "serverHistoryExportPassed": 57,
+      "uiDashboardRecoveryPassed": 84,
+      "finalCombinedApplicationPassed": 141,
+      "finalCombinedApplicationFailed": 0,
+      "finalCombinedApplicationSkipped": 0,
+      "connectorWorkerPassed": 24,
+      "rootConnectorPackagePassed": 17,
+      "rootConnectorPackageBlockedByGitSpawn": 10,
+      "newConnectorPackageCasesPassed": 7,
+      "packageImportClosurePassed": 3,
+      "typecheck": "passed",
+      "lint": "passed, 0 errors and 15 existing warnings",
+      "installCi": "blocked: spawn EPERM; existing dependencies used",
+      "testCompanion": "blocked: all 17 test-file workers fail spawn EPERM before test bodies",
+      "buildAndPlaywright": "not run; integrator gates"
+    },
+    "review": "Missing archive dependency reproduced and fixed; final independent review has no remaining actionable findings.",
+    "commitsMade": 0,
+    "commitBlocker": "git add cannot create .git/index.lock: Permission denied",
+    "releaseOrder": ["deploy Site", "reinstall companion", "close old PC app and verify current check-in"],
+    "pushed": false,
+    "deployed": false,
+    "ownerHandoff": "Real original owner-message UTC timestamps unavailable; no timestamped turns fabricated."
+  },
   "simpleFolders": {
     "date": "2026-10-27",
     "base": "23e9ed3",
