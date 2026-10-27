@@ -59,3 +59,8 @@ I tried to add a project and to brief TAMENNI again, but honestly, the repositor
 
 When I try to brief TAMENNI again, I try to click the button, but it's unclickable. I want to make these changes that would make the Control Room a lot clearer and more usable, but I want to do this in local agents. Provide me with a prompt to take over your orchestrator work. So that I don't have to come back to you every time and tell you what the agents did or didn't do
 ```
+
+## 2026-10-27T18:28:47.471167Z
+```text
+I would like to send an explanation to someone about how control room works for me. So based on everything we talked about, my description for you, based on what I was seeking with control room so far, could you write that description for me?
+```
