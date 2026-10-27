@@ -36,9 +36,9 @@ export function useBriefingFeed({workspace,revision,busy,onCommand,readSnapshot,
  const [notices,setNotices]=useState<Record<string,BriefingNotice>>({});
  const [working,setWorkingState]=useState<Record<string,boolean>>({});
  const snapshotRef=useRef(snapshot),scheduler=useRef<LiveFeedScheduler|null>(null),reader=useRef(readSnapshot??readFeedSnapshot),sender=useRef(sendAction??sendPersonalAction),saver=useRef(onCommand);
- const includeReports=useRef(reports);includeReports.current=reports;
+ const includeReports=useRef(reports);
  const saveAttempts=useRef(new Set<string>()),saveRecovery=useRef(new PersonalCompletedSaveRecovery()),mounted=useRef(true);
- useEffect(()=>{reader.current=readSnapshot??readFeedSnapshot;sender.current=sendAction??sendPersonalAction;saver.current=onCommand;},[readSnapshot,sendAction,onCommand]);
+ useEffect(()=>{reader.current=readSnapshot??readFeedSnapshot;sender.current=sendAction??sendPersonalAction;saver.current=onCommand;includeReports.current=reports;},[readSnapshot,sendAction,onCommand,reports]);
  useEffect(()=>{snapshotRef.current=snapshot;},[snapshot]);
  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
  const expire=useCallback(()=>window.dispatchEvent(new Event('control-room-session-expired')),[]);
