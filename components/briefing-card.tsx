@@ -4,6 +4,7 @@ import {AlertTriangle,ArrowRight,Ban,Check,CheckCheck,CircleDashed,CircleDot,Cor
 import type {BriefingAreaRow,BriefingIntentionRow,BriefingLedger,ProjectTile as ProjectTileModel,SignalTone} from '@/lib/dashboard/model';
 import {AREA_STATE} from '@/lib/dashboard/model';
 import {relativeTime} from '@/lib/dashboard/format';
+import {firstDisabledReason,projectActionDisabledReason} from '@/lib/project-action-reasons';
 import {dateLabel} from './ui';
 import {Chip,StatusLight,type DashboardActions} from './mission-control-panels';
 
@@ -109,8 +110,6 @@ function BriefingControls({tile,actions}:{tile:ProjectTileModel;actions:Dashboar
  const repositoryKey=view.repositoryKey??'';
  const ready=view.providers.find(row=>row.id===provider)?.ready??false;
  const keepCurrent=view.policy?.enabled??false;
- if(!actions.projectActionReasons)return <div className="mc-brief-controls"><p role={actions.folderActionsError?'alert':'status'}>{actions.folderActionsError??'Loading folder actions…'}</p></div>;
- const {firstDisabledReason,projectActionDisabledReason}=actions.projectActionReasons;
  const savingReason=projectActionDisabledReason('remove-folder',{saving:working||actions.busy});
  const requestReason=firstDisabledReason(projectActionDisabledReason('brief',{archived:!!tile.project.archivedAt,saving:working||actions.busy,folderCount:view.repositories.length,online:view.connector==='online',choosingFolder:actions.choosingFolder,briefingRunning:!!view.activeJob,assistantReady:ready,assistant:provider}),!repositoryKey&&'The linked folder is unavailable on your PC. Add it again from the project page.',!view.canRequest&&view.requestHint);
  const folderReason=projectActionDisabledReason('add-folder',{folderCount:view.repositories.length});

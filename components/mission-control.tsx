@@ -34,14 +34,11 @@ export function MissionControl({workspace,revision,busy,onProject,onProjectFolde
  const [now,setNow]=useState(()=>new Date().toISOString());
  const [briefingNotices,setBriefingNotices]=useState<Record<string,Notice>>({});
  const [briefingWorking,setBriefingWorking]=useState<Record<string,boolean>>({});
- const [projectActionReasons,setProjectActionReasons]=useState<DashboardActions['projectActionReasons']>();
- const [folderActionsError,setFolderActionsError]=useState<string>();
  const snapshotRef=useRef(snapshot),scheduler=useRef<LiveFeedScheduler|null>(null),network=useRef<AbortController|null>(null),reader=useRef(readSnapshot??readFeedSnapshot),sender=useRef(sendAction??sendPersonalAction),saver=useRef(onCommand);
  const saveAttempts=useRef(new Set<string>()),saveRecovery=useRef(new PersonalCompletedSaveRecovery()),mounted=useRef(true);
  useEffect(()=>{reader.current=readSnapshot??readFeedSnapshot;sender.current=sendAction??sendPersonalAction;saver.current=onCommand;},[readSnapshot,sendAction,onCommand]);
  useEffect(()=>{snapshotRef.current=snapshot;},[snapshot]);
  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
- useEffect(()=>{if(expired)return;let active=true;void import('@/lib/project-action-reasons').then(value=>{if(active)setProjectActionReasons(value);}).catch(()=>{if(active)setFolderActionsError('Folder actions could not be loaded. Reload this page to try again.');});return()=>{active=false;};},[expired]);
  const expire=useCallback(()=>window.dispatchEvent(new Event('control-room-session-expired')),[]);
  useEffect(()=>{
   if(expired)return;
@@ -106,7 +103,7 @@ export function MissionControl({workspace,revision,busy,onProject,onProjectFolde
   finally{setWorking(projectId,false);}
  },[notify,setWorking,refreshSoon]);
  const actions:DashboardActions=useMemo(()=>({onProject,onTask,onTaskId:id=>{const task=workspace.tasks.find(row=>row.id===id);if(task)onTask(task);},onPin,onProjects:()=>onNavigate('projects'),onAgents:()=>onNavigate('agents'),onRuntime:()=>onNavigate('runtime'),onRepositories,onAddFolder:projectId=>{const project=workspace.projects.find(row=>row.id===projectId);if(project)(onProjectFolders??onProject)(project);},onInbox:()=>onNavigate('inbox'),onAttention:()=>onNavigate('attention'),onWeekly:()=>onNavigate('weekly'),busy,
-  onBrief:(projectId,repositoryKey,provider)=>void brief(projectId,repositoryKey,provider),onKeepCurrent:(projectId,repositoryKey,provider,enabled)=>void keepCurrent(projectId,repositoryKey,provider,enabled),onRetrySave:projectId=>void saveCompleted(projectId,true),briefingNotices,briefingWorking,projectActionReasons,folderActionsError,choosingFolder:snapshot.connector?.jobs.some(job=>job.kind==='browse'&&(job.status==='queued'||job.status==='claimed'))??false}),[projectActionReasons,folderActionsError,snapshot.connector,onProject,onProjectFolders,onTask,onPin,onNavigate,onRepositories,workspace,busy,brief,keepCurrent,saveCompleted,briefingNotices,briefingWorking]);
+  onBrief:(projectId,repositoryKey,provider)=>void brief(projectId,repositoryKey,provider),onKeepCurrent:(projectId,repositoryKey,provider,enabled)=>void keepCurrent(projectId,repositoryKey,provider,enabled),onRetrySave:projectId=>void saveCompleted(projectId,true),briefingNotices,briefingWorking,choosingFolder:snapshot.connector?.jobs.some(job=>job.kind==='browse'&&(job.status==='queued'||job.status==='claimed'))??false}),[snapshot.connector,onProject,onProjectFolders,onTask,onPin,onNavigate,onRepositories,workspace,busy,brief,keepCurrent,saveCompleted,briefingNotices,briefingWorking]);
  if(expired)return null;
  return <div className="mc-root">
   <header className="page-heading today-heading mc-heading"><div><p className="eyebrow date-line"><CalendarDays size={13}/>{dateLabel(cairoToday(),true)}<span>CAIRO</span></p><h1>Mission control</h1><p>Every project, every agent, every open loop. One glance.</p></div><div className="dialog-actions"><button type="button" className="button secondary" disabled={busy} onClick={()=>void scheduler.current?.refresh()}><RefreshCw size={15}/>Refresh feeds</button><button type="button" className="button primary" onClick={onCapture}><Plus size={17}/>Capture</button></div></header>

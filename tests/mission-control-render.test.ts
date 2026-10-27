@@ -5,13 +5,13 @@ import {renderToStaticMarkup} from 'react-dom/server';
 import {loadClient} from './helpers/render-client.ts';
 import {buildDashboardModel} from '../lib/dashboard/model.ts';
 import {dashboardFixture,NOW,okFeeds} from './fixtures/dashboard.ts';
-import * as projectActionReasons from '../lib/project-action-reasons.ts';
 import ts from 'typescript';
-import {readFileSync} from 'node:fs';
+import {existsSync,readFileSync} from 'node:fs';
+import {fileURLToPath} from 'node:url';
 // Compile the actual client leaf, then render its pure presentation with React.
 const panels=await loadClient<typeof import('../components/mission-control-panels')>(new URL('../components/mission-control-panels.tsx',import.meta.url));
 const noop=()=>{};
-const actions={onProject:noop,onTask:noop,onTaskId:noop,onPin:noop,onProjects:noop,onAgents:noop,onRuntime:noop,onRepositories:noop,onInbox:noop,onAttention:noop,onWeekly:noop,busy:false,onBrief:noop,onKeepCurrent:noop,onAddFolder:noop,onRetrySave:noop,briefingNotices:{},briefingWorking:{},projectActionReasons};
+const actions={onProject:noop,onTask:noop,onTaskId:noop,onPin:noop,onProjects:noop,onAgents:noop,onRuntime:noop,onRepositories:noop,onInbox:noop,onAttention:noop,onWeekly:noop,busy:false,onBrief:noop,onKeepCurrent:noop,onAddFolder:noop,onRetrySave:noop,briefingNotices:{},briefingWorking:{}};
 async function model(){const fixture=await dashboardFixture();fixture.workspace.projects[1].personalRepositoryKeys=['repo-b'];return {fixture,model:buildDashboardModel({now:NOW,workspace:fixture.workspace,jobs:fixture.jobs,jobDetails:{'job-running':{provider:'codex',events:fixture.events['job-running']}},runtime:fixture.runtime,connector:fixture.connector,localReports:fixture.localReports,cloudReports:fixture.cloudReports,briefings:fixture.briefings,feeds:okFeeds()})};}
 test('HUD renders device, app readiness, agent and attention lights with plain-language detail',async()=>{
  const {model:value}=await model();
@@ -114,23 +114,32 @@ test('Today folder navigation stays available while its four folders can be revi
  const add=html.match(/<button[^>]*>Add folder<\/button>/)?.[0];assert.ok(add);assert.ok(!add.includes('disabled'));
  assert.ok(html.includes('A project can have up to four folders.'));
 });
-test('Today shows loading or failure guidance until the deferred action reasons are available',async()=>{
+test('Today renders briefing controls immediately without injected helpers',async()=>{
  const {model:value}=await model(),tile=value.projects[1];
- const loading=renderToStaticMarkup(createElement(panels.BriefingCard,{tile,now:NOW,actions:{...actions,projectActionReasons:undefined}}));
- assert.ok(loading.includes('Loading folder actions…'));assert.ok(!loading.includes('>Refresh briefing</button>'));
- const failed=renderToStaticMarkup(createElement(panels.BriefingCard,{tile,now:NOW,actions:{...actions,projectActionReasons:undefined,folderActionsError:'Folder actions could not be loaded. Reload this page to try again.'}}));
- assert.ok(failed.includes('role="alert"'));assert.ok(failed.includes('Folder actions could not be loaded. Reload this page to try again.'));
+ const html=renderToStaticMarkup(createElement(panels.BriefingCard,{tile,now:NOW,actions}));
+ for(const text of ['Folders on your PC','Add folder','Assistant','Refresh briefing','Keep current'])assert.ok(html.includes(text),text);
+ assert.ok(!html.includes('Loading folder actions'));
 });
-test('new folder helpers stay outside static shell and Today imports and load in a passive effect',()=>{
- for(const file of ['control-center','mission-control','mission-control-panels','briefing-card']){
-  const source=readFileSync(new URL(`../components/${file}.tsx`,import.meta.url),'utf8');
+test('new folder helpers stay outside the emitted static shell closure while Today stays deferred',()=>{
+ const root=new URL('../',import.meta.url),seen=new Set<string>();
+ function visit(file:URL){
+  if(seen.has(file.href))return;
+  seen.add(file.href);
+  const source=readFileSync(file,'utf8');
   const emitted=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,jsx:ts.JsxEmit.ReactJSX}}).outputText;
-  const ast=ts.createSourceFile(`${file}.js`,emitted,ts.ScriptTarget.Latest,true,ts.ScriptKind.JS);
-  for(const statement of ast.statements)if(ts.isImportDeclaration(statement)&&ts.isStringLiteral(statement.moduleSpecifier))assert.doesNotMatch(statement.moduleSpecifier.text,/project-(?:action-reasons|assistant-preference|folder-picker)/,`${file} must not statically import a new folder helper`);
-  if(file==='mission-control'){
-   let effectLoadsHelper=false;
-   const visit=(node:ts.Node)=>{if(ts.isCallExpression(node)&&ts.isIdentifier(node.expression)&&node.expression.text==='useEffect'){const search=(child:ts.Node)=>{if(ts.isCallExpression(child)&&child.expression.kind===ts.SyntaxKind.ImportKeyword&&child.arguments.some(argument=>ts.isStringLiteral(argument)&&argument.text.includes('project-action-reasons')))effectLoadsHelper=true;ts.forEachChild(child,search);};ts.forEachChild(node,search);}ts.forEachChild(node,visit);};
-   visit(ast);assert.ok(effectLoadsHelper,'the reason helper must load after the first render in useEffect');
+  const ast=ts.createSourceFile(`${file.href}.js`,emitted,ts.ScriptTarget.Latest,true,ts.ScriptKind.JS);
+  for(const statement of ast.statements){
+   if(!ts.isImportDeclaration(statement)&&!ts.isExportDeclaration(statement))continue;
+   const specifier=statement.moduleSpecifier;
+   if(!specifier||!ts.isStringLiteral(specifier))continue;
+   assert.doesNotMatch(specifier.text,/project-(?:action-reasons|assistant-preference|folder-picker)/,`${fileURLToPath(file)} must not statically import a new folder helper`);
+   if(!specifier.text.startsWith('.')&&!specifier.text.startsWith('@/'))continue;
+   const target=specifier.text.startsWith('@/')?new URL(specifier.text.slice(2),root):new URL(specifier.text,file);
+   const resolved=['','.ts','.tsx','.mts','.mjs','.js','/index.ts','/index.tsx'].map(extension=>new URL(target.href+extension)).find(candidate=>existsSync(candidate)&&/\.(?:tsx?|mts|m?js)$/.test(candidate.pathname));
+   assert.ok(resolved,`resolve static import ${specifier.text} from ${fileURLToPath(file)}`);
+   visit(resolved);
   }
  }
+ visit(new URL('../components/control-center.tsx',import.meta.url));
+ for(const file of ['mission-control','mission-control-panels','briefing-card'])assert.ok(!seen.has(new URL(`../components/${file}.tsx`,import.meta.url).href),`${file} must stay deferred`);
 });

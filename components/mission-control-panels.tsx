@@ -16,7 +16,6 @@ export interface DashboardActions {
  onAddFolder?:(projectId:string)=>void;onRepositories:(projectId?:string)=>void;onInbox:()=>void;onAttention:()=>void;onWeekly:()=>void;busy:boolean;
  onBrief:(projectId:string,repositoryKey:string,provider:'codex'|'claude')=>void;onKeepCurrent:(projectId:string,repositoryKey:string,provider:'codex'|'claude',enabled:boolean)=>void;onRetrySave:(projectId:string)=>void;
  briefingNotices:Record<string,{message:string;tone:SignalTone;retry?:boolean}>;briefingWorking:Record<string,boolean>;choosingFolder?:boolean;
- projectActionReasons?:Pick<typeof import('@/lib/project-action-reasons'),'firstDisabledReason'|'projectActionDisabledReason'>;folderActionsError?:string;
 }
 export function StatusLight({tone,label}:{tone:SignalTone;label?:string}){return <span className={`mc-light tone-${tone}`} role={label?'img':undefined} aria-label={label} aria-hidden={label?undefined:true}/>;}
 export function Meter({value,tone='good',label}:{value:number|null;tone?:SignalTone;label:string}){
