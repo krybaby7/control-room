@@ -1,9 +1,10 @@
 'use client';
-import {useMemo,useState} from 'react';
+import {useId,useMemo,useState} from 'react';
 import {AlertTriangle,ArrowRight,Ban,Check,CheckCheck,CircleDashed,CircleDot,CornerUpRight,Flag,Minus,Pause,RefreshCw,Sparkles,X} from 'lucide-react';
 import type {BriefingAreaRow,BriefingIntentionRow,BriefingLedger,ProjectTile as ProjectTileModel,SignalTone} from '@/lib/dashboard/model';
 import {AREA_STATE} from '@/lib/dashboard/model';
 import {relativeTime} from '@/lib/dashboard/format';
+import {firstDisabledReason,projectActionDisabledReason} from '@/lib/project-action-reasons';
 import {dateLabel} from './ui';
 import {Chip,StatusLight,type DashboardActions} from './mission-control-panels';
 
@@ -104,19 +105,23 @@ function PlanChanges({ledger}:{ledger:BriefingLedger}){
 }
 function BriefingControls({tile,actions}:{tile:ProjectTileModel;actions:DashboardActions}){
  const view=tile.briefing,id=tile.project.id,working=actions.briefingWorking[id]??false,notice=actions.briefingNotices[id]??null;
+ const descriptionId=useId();
  const [provider,setProvider]=useState<'codex'|'claude'>(view.policy?.provider??view.report?.run.provider??(view.providers.find(row=>row.ready)?.id??'codex'));
  const repositoryKey=view.repositoryKey??'';
  const ready=view.providers.find(row=>row.id===provider)?.ready??false;
- const canRequest=view.canRequest&&Boolean(repositoryKey)&&ready&&!working&&!actions.busy;
  const keepCurrent=view.policy?.enabled??false;
- const requestHint=!view.repositoryKey&&repositoryKey&&view.connector==='online'&&ready?null:view.requestHint;
+ const savingReason=projectActionDisabledReason('remove-folder',{saving:working||actions.busy});
+ const requestReason=firstDisabledReason(projectActionDisabledReason('brief',{archived:!!tile.project.archivedAt,saving:working||actions.busy,folderCount:view.repositories.length,online:view.connector==='online',choosingFolder:actions.choosingFolder,briefingRunning:!!view.activeJob,assistantReady:ready,assistant:provider}),!repositoryKey&&'The linked folder is unavailable on your PC. Add it again from the project page.',!view.canRequest&&view.requestHint);
+ const folderReason=projectActionDisabledReason('add-folder',{folderCount:view.repositories.length});
+ const keepReason=firstDisabledReason(savingReason,!keepCurrent&&projectActionDisabledReason('choose-folder',{online:view.connector==='online'}));
  return <div className="mc-brief-controls">
-  <div className="mc-brief-folders" aria-label="Project folders"><strong>Folders on your PC</strong>{view.repositories.length?<ul>{view.repositories.map(row=><li key={row.key}>{row.name}</li>)}</ul>:<p>No folders added yet.</p>}<button type="button" className="text-button" disabled={working||actions.busy||view.repositories.length>=4} onClick={()=>actions.onAddFolder?.(id)}>Add folder</button></div>
-  <label className="mc-brief-pick">Assistant<select value={provider} onChange={event=>setProvider(event.target.value as 'codex'|'claude')} disabled={working}>{view.providers.map(row=><option key={row.id} value={row.id}>{row.label}{row.ready?'':' (not signed in)'}</option>)}</select></label>
-  <button type="button" className="button secondary" disabled={!canRequest} onClick={()=>actions.onBrief(id,repositoryKey,provider)}><RefreshCw size={13}/>{view.report?'Refresh briefing':'Brief this project'}</button>
-  {repositoryKey&&<label className="mc-brief-toggle"><input type="checkbox" checked={keepCurrent} disabled={working||actions.busy||view.connector!=='online'&&!keepCurrent} onChange={event=>actions.onKeepCurrent(id,repositoryKey,provider,event.target.checked)}/><span>Keep current{keepCurrent&&view.policy?` · ${view.policy.provider==='codex'?'Codex':'Claude Code'}, at most every ${view.policy.minIntervalMinutes>=120?`${Math.round(view.policy.minIntervalMinutes/60)} h`:`${view.policy.minIntervalMinutes} min`}`:''}</span></label>}
-  {requestHint&&!view.activeJob&&<p className="mc-brief-hint">{requestHint}</p>}
-  {notice&&<p className={`mc-brief-notice tone-${notice.tone}`} role={notice.tone==='bad'?'alert':'status'}>{notice.message}{notice.retry&&<button type="button" className="text-button" disabled={working||actions.busy} onClick={()=>actions.onRetrySave(id)}>Retry save</button>}</p>}
+  <div className="mc-brief-folders" aria-label="Project folders"><strong>Folders on your PC</strong>{view.repositories.length?<ul>{view.repositories.map(row=><li key={row.key}>{row.name}</li>)}</ul>:<p>No folders added yet.</p>}<button type="button" className="text-button" onClick={()=>actions.onAddFolder?.(id)}>Add folder</button>{folderReason&&<p className="mc-brief-hint">{folderReason}</p>}</div>
+  <label className="mc-brief-pick">Assistant<select value={provider} onChange={event=>setProvider(event.target.value as 'codex'|'claude')} disabled={working} aria-describedby={working?`${descriptionId}-saving`:undefined}>{view.providers.map(row=><option key={row.id} value={row.id}>{row.label}{row.ready?'':' (not signed in)'}</option>)}</select></label>
+  <button type="button" className="button secondary" disabled={!!requestReason} aria-describedby={requestReason?`${descriptionId}-request`:undefined} onClick={()=>actions.onBrief(id,repositoryKey,provider)}><RefreshCw size={13}/>{view.report?'Refresh briefing':'Brief this project'}</button>
+  {requestReason&&<p id={`${descriptionId}-request`} className="mc-brief-hint">{requestReason}</p>}
+  {repositoryKey&&<><label className="mc-brief-toggle"><input type="checkbox" checked={keepCurrent} disabled={!!keepReason} aria-describedby={keepReason?`${descriptionId}-keep`:undefined} onChange={event=>actions.onKeepCurrent(id,repositoryKey,provider,event.target.checked)}/><span>Keep current{keepCurrent&&view.policy?` · ${view.policy.provider==='codex'?'Codex':'Claude Code'}, at most every ${view.policy.minIntervalMinutes>=120?`${Math.round(view.policy.minIntervalMinutes/60)} h`:`${view.policy.minIntervalMinutes} min`}`:''}</span></label>{keepReason&&<p id={`${descriptionId}-keep`} className="mc-brief-hint">{keepReason}</p>}</>}
+  {savingReason&&<p id={`${descriptionId}-saving`} className="mc-brief-hint">{savingReason}</p>}
+  {notice&&<p className={`mc-brief-notice tone-${notice.tone}`} role={notice.tone==='bad'?'alert':'status'}>{notice.message}{notice.retry&&<button type="button" className="text-button" disabled={!!savingReason} aria-describedby={savingReason?`${descriptionId}-saving`:undefined} onClick={()=>actions.onRetrySave(id)}>Retry save</button>}</p>}
  </div>;
 }
 export function BriefingCard({tile,now,actions}:{tile:ProjectTileModel;now:string;actions:DashboardActions}){

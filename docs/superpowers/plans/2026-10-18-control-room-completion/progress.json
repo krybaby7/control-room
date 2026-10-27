@@ -1,4 +1,55 @@
 {
+  "simpleFolders": {
+    "date": "2026-10-27",
+    "base": "23e9ed3",
+    "branch": "feat/simple-folders",
+    "status": "fix_round1_checked_integrator_browser_rerun_pending",
+    "verification": "docs/superpowers/verification/2026-10-27-simple-folders.md",
+    "workerModelParameter": "gpt-6.1-sol",
+    "acceptedWorkers": ["/root/folders_integrator", "/root/repositories_ui", "/root/owner_flow_tests"],
+    "constraints": "No server/companion contracts, deployment, push, merge, paid inference or owner data changes.",
+    "environment": "Node 24.14.1. install:ci and build blocked by spawn EPERM; default Node test workers and browser execution also blocked. Affected tests run with test isolation disabled without changing their assertions. Git index is outside the writable checkout and cannot be locked; no commits can be made.",
+    "checks": {
+      "affectedTestsPassed": 126,
+      "affectedTestsFailed": 0,
+      "affectedTestsSkipped": 0,
+      "typecheck": "passed",
+      "lint": "passed, 0 errors and 15 existing warnings",
+      "browserDiscovered": 13,
+      "browserExecuted": 0,
+      "browserExecution": "blocked by spawn EPERM",
+      "build": "blocked by spawn EPERM during Vite configuration resolution",
+      "diffCheck": "passed",
+      "fullSuite": "not run; Linux CI remains the merge gate"
+    },
+    "commitsMade": 0,
+    "fixRound1": {
+      "baseHead": "b6ada44",
+      "commitRequested": false,
+      "workerModelParameter": "gpt-6.1-sol",
+      "acceptedWorkers": ["/root/picker_fix_round1", "/root/today_css_fix_round1", "/root/e2e_fix_round1"],
+      "scope": "Concurrent picker tracking and explicit candidate confirmation; direct disclosure selectors and native disabled-option property checks; static reason helper within deferred Today; CSS class for PC folder rows.",
+      "affectedTestsPassed": 126,
+      "typecheck": "passed",
+      "lint": "passed, 0 errors and 15 existing warnings",
+      "browserDiscovered": 13,
+      "browserExecution": "blocked before fixture/browser startup by spawn EPERM; integrator rerun required",
+      "integratorReportedBeforeFix": {
+        "commits": "six commits from 50c42d5 through b6ada44",
+        "build": "passed outside worker sandbox",
+        "startupClosureFiles": 44,
+        "startupClosureGzipDeltaKB": 0.2,
+        "affectedUnitTestsPassed": 87,
+        "typecheck": "clean",
+        "lintErrors": 0,
+        "browserPassed": 14,
+        "browserFailed": 4
+      }
+    },
+    "pushed": false,
+    "deployed": false,
+    "ownerHandoff": "Original owner-message timestamps are not supplied, so no timestamped verbatim turns are invented."
+  },
   "cloudChatIntentions": {
     "date": "2026-10-25",
     "status": "verified_private_site_v24_companion_installed_real_claude_cloud_briefing_saved_draft_pr_7_unmerged",

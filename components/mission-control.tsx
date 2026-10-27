@@ -16,7 +16,7 @@ import {AttentionPanel,FeedWarning,HudStrip,MissionLog,OperationsPanel,ProjectTi
 
 export interface MissionControlProps {
  workspace:Workspace;revision:number;busy:boolean;
- onProject:(project:Project)=>void;onTask:(task:Task)=>void;onPin:(task:Task)=>void;onCapture:()=>void;
+ onProject:(project:Project)=>void;onProjectFolders?:(project:Project)=>void;onTask:(task:Task)=>void;onPin:(task:Task)=>void;onCapture:()=>void;
  onNavigate:(view:'projects'|'agents'|'runtime'|'inbox'|'attention'|'weekly'|'reviews')=>void;onRepositories:(projectId?:string)=>void;
  /** Saves an owner command (used for `project-briefing.save`); resolves false when the save is unconfirmed. */
  onCommand?:(command:WorkspaceCommand)=>Promise<boolean>;
@@ -28,7 +28,7 @@ type Notice={message:string;tone:SignalTone;retry?:boolean};
  * doing right now, and what needs me". Feeds are read-only. The only commands issued here are
  * the owner's own briefing requests, keep-current switches and the save of a briefing the PC
  * completed; nothing approves, completes or spends. */
-export function MissionControl({workspace,revision,busy,onProject,onTask,onPin,onCapture,onNavigate,onRepositories,onCommand,readSnapshot,sendAction}:MissionControlProps){
+export function MissionControl({workspace,revision,busy,onProject,onProjectFolders,onTask,onPin,onCapture,onNavigate,onRepositories,onCommand,readSnapshot,sendAction}:MissionControlProps){
  const expired=useContext(SessionExpiredContext);
  const [snapshot,setSnapshot]=useState<FeedSnapshot>(emptyFeedSnapshot);
  const [now,setNow]=useState(()=>new Date().toISOString());
@@ -102,8 +102,8 @@ export function MissionControl({workspace,revision,busy,onProject,onTask,onPin,o
   catch(error){notify(projectId,{message:error instanceof Error?error.message:'The change could not be confirmed.',tone:'bad'});}
   finally{setWorking(projectId,false);}
  },[notify,setWorking,refreshSoon]);
- const actions:DashboardActions=useMemo(()=>({onProject,onTask,onTaskId:id=>{const task=workspace.tasks.find(row=>row.id===id);if(task)onTask(task);},onPin,onProjects:()=>onNavigate('projects'),onAgents:()=>onNavigate('agents'),onRuntime:()=>onNavigate('runtime'),onRepositories,onAddFolder:projectId=>onRepositories(projectId),onInbox:()=>onNavigate('inbox'),onAttention:()=>onNavigate('attention'),onWeekly:()=>onNavigate('weekly'),busy,
-  onBrief:(projectId,repositoryKey,provider)=>void brief(projectId,repositoryKey,provider),onKeepCurrent:(projectId,repositoryKey,provider,enabled)=>void keepCurrent(projectId,repositoryKey,provider,enabled),onRetrySave:projectId=>void saveCompleted(projectId,true),briefingNotices,briefingWorking}),[onProject,onTask,onPin,onNavigate,onRepositories,workspace,busy,brief,keepCurrent,saveCompleted,briefingNotices,briefingWorking]);
+ const actions:DashboardActions=useMemo(()=>({onProject,onTask,onTaskId:id=>{const task=workspace.tasks.find(row=>row.id===id);if(task)onTask(task);},onPin,onProjects:()=>onNavigate('projects'),onAgents:()=>onNavigate('agents'),onRuntime:()=>onNavigate('runtime'),onRepositories,onAddFolder:projectId=>{const project=workspace.projects.find(row=>row.id===projectId);if(project)(onProjectFolders??onProject)(project);},onInbox:()=>onNavigate('inbox'),onAttention:()=>onNavigate('attention'),onWeekly:()=>onNavigate('weekly'),busy,
+  onBrief:(projectId,repositoryKey,provider)=>void brief(projectId,repositoryKey,provider),onKeepCurrent:(projectId,repositoryKey,provider,enabled)=>void keepCurrent(projectId,repositoryKey,provider,enabled),onRetrySave:projectId=>void saveCompleted(projectId,true),briefingNotices,briefingWorking,choosingFolder:snapshot.connector?.jobs.some(job=>job.kind==='browse'&&(job.status==='queued'||job.status==='claimed'))??false}),[snapshot.connector,onProject,onProjectFolders,onTask,onPin,onNavigate,onRepositories,workspace,busy,brief,keepCurrent,saveCompleted,briefingNotices,briefingWorking]);
  if(expired)return null;
  return <div className="mc-root">
   <header className="page-heading today-heading mc-heading"><div><p className="eyebrow date-line"><CalendarDays size={13}/>{dateLabel(cairoToday(),true)}<span>CAIRO</span></p><h1>Mission control</h1><p>Every project, every agent, every open loop. One glance.</p></div><div className="dialog-actions"><button type="button" className="button secondary" disabled={busy} onClick={()=>void scheduler.current?.refresh()}><RefreshCw size={15}/>Refresh feeds</button><button type="button" className="button primary" onClick={onCapture}><Plus size={17}/>Capture</button></div></header>

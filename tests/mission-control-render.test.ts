@@ -2,17 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createElement} from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
-import {build} from 'esbuild';
-import {mkdtemp,rm} from 'node:fs/promises';
-import {join} from 'node:path';
-import {createRequire} from 'node:module';
+import {loadClient} from './helpers/render-client.ts';
 import {buildDashboardModel} from '../lib/dashboard/model.ts';
 import {dashboardFixture,NOW,okFeeds} from './fixtures/dashboard.ts';
+import ts from 'typescript';
+import {existsSync,readFileSync} from 'node:fs';
+import {fileURLToPath} from 'node:url';
 // Compile the actual client leaf, then render its pure presentation with React.
-const directory=await mkdtemp(join(process.cwd(),'.mission-control-render-'));
-let panels:typeof import('../components/mission-control-panels');
-try{await build({entryPoints:['components/mission-control-panels.tsx'],outfile:join(directory,'panels.cjs'),bundle:true,platform:'node',format:'cjs',packages:'external',jsx:'automatic',logLevel:'silent'});panels=createRequire(import.meta.url)(join(directory,'panels.cjs'));}
-finally{await rm(directory,{recursive:true,force:true});}
+const panels=await loadClient<typeof import('../components/mission-control-panels')>(new URL('../components/mission-control-panels.tsx',import.meta.url));
 const noop=()=>{};
 const actions={onProject:noop,onTask:noop,onTaskId:noop,onPin:noop,onProjects:noop,onAgents:noop,onRuntime:noop,onRepositories:noop,onInbox:noop,onAttention:noop,onWeekly:noop,busy:false,onBrief:noop,onKeepCurrent:noop,onAddFolder:noop,onRetrySave:noop,briefingNotices:{},briefingWorking:{}};
 async function model(){const fixture=await dashboardFixture();fixture.workspace.projects[1].personalRepositoryKeys=['repo-b'];return {fixture,model:buildDashboardModel({now:NOW,workspace:fixture.workspace,jobs:fixture.jobs,jobDetails:{'job-running':{provider:'codex',events:fixture.events['job-running']}},runtime:fixture.runtime,connector:fixture.connector,localReports:fixture.localReports,cloudReports:fixture.cloudReports,briefings:fixture.briefings,feeds:okFeeds()})};}
@@ -41,7 +38,7 @@ test('operations, attention and log panels render honest empty and populated sta
  assert.ok(log.includes('15 min ago'));assert.ok(log.includes('Created task: Inspect a complete trading cycle'));
  const empty=buildDashboardModel({now:NOW,workspace:fixture.workspace,jobs:null,jobDetails:{},runtime:null,connector:null,localReports:[],cloudReports:[],briefings:[],feeds:{jobs:{status:'failed',checkedAt:NOW,message:'x'},runtime:{status:'loading',checkedAt:null},connector:{status:'unconfigured',checkedAt:NOW},local:{status:'ok',checkedAt:NOW},cloud:{status:'ok',checkedAt:NOW},briefings:{status:'ok',checkedAt:NOW}}});
  const unconfigured=renderToStaticMarkup(createElement(panels.ProjectTile,{tile:empty.projects[0],now:NOW,actions,workspace:fixture.workspace}));
- assert.ok(unconfigured.includes('Connect your PC under Repositories'));assert.ok(!unconfigured.includes('Brief this project</button>')||unconfigured.includes('disabled'));
+ assert.ok(unconfigured.includes('Your PC is offline. Open the Control Room PC app on your PC.'));assert.ok(!unconfigured.includes('Brief this project</button>')||unconfigured.includes('disabled'));
  const emptyOps=renderToStaticMarkup(createElement(panels.OperationsPanel,{model:empty,actions}));
  assert.ok(emptyOps.includes('No agent is working right now'));
  const warning=renderToStaticMarkup(createElement(panels.FeedWarning,{model:empty}));
@@ -101,4 +98,48 @@ test('multi-folder briefing renders folder map tags, coverage and the changed fo
  tile.briefing.freshness={...tile.briefing.freshness,newWork:true,detail:'New commits in Map lab since this briefing.'};
  const html=renderToStaticMarkup(createElement(panels.BriefingCard,{tile,now:NOW,actions}));
  for(const text of ['Folder: Map lab','Coverage by folder','2 local commits on 1 branch','3 local commits on 2 branches','New commits in Map lab','Add folder','Map lab: PR #12'])assert.ok(html.includes(text),text);
+});
+
+test('disabled briefing controls explain the current reason through a visible description',async()=>{
+ const {model:value}=await model(),tile=value.projects[1];
+ tile.briefing.connector='away';tile.briefing.canRequest=false;
+ const html=renderToStaticMarkup(createElement(panels.BriefingCard,{tile,now:NOW,actions}));
+ assert.match(html,/<button[^>]*disabled=""[^>]*aria-describedby="([^"]+)"[^>]*>[\s\S]*?Refresh briefing/);
+ assert.ok(html.includes('Your PC is offline. Open the Control Room PC app on your PC.'));
+});
+test('Today folder navigation stays available while its four folders can be reviewed',async()=>{
+ const {model:value}=await model(),tile=value.projects[1];
+ tile.briefing.repositories=['a','b','c','d'].map(key=>({key,name:key}));
+ const html=renderToStaticMarkup(createElement(panels.BriefingCard,{tile,now:NOW,actions:{...actions,busy:true}}));
+ const add=html.match(/<button[^>]*>Add folder<\/button>/)?.[0];assert.ok(add);assert.ok(!add.includes('disabled'));
+ assert.ok(html.includes('A project can have up to four folders.'));
+});
+test('Today renders briefing controls immediately without injected helpers',async()=>{
+ const {model:value}=await model(),tile=value.projects[1];
+ const html=renderToStaticMarkup(createElement(panels.BriefingCard,{tile,now:NOW,actions}));
+ for(const text of ['Folders on your PC','Add folder','Assistant','Refresh briefing','Keep current'])assert.ok(html.includes(text),text);
+ assert.ok(!html.includes('Loading folder actions'));
+});
+test('new folder helpers stay outside the emitted static shell closure while Today stays deferred',()=>{
+ const root=new URL('../',import.meta.url),seen=new Set<string>();
+ function visit(file:URL){
+  if(seen.has(file.href))return;
+  seen.add(file.href);
+  const source=readFileSync(file,'utf8');
+  const emitted=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,jsx:ts.JsxEmit.ReactJSX}}).outputText;
+  const ast=ts.createSourceFile(`${file.href}.js`,emitted,ts.ScriptTarget.Latest,true,ts.ScriptKind.JS);
+  for(const statement of ast.statements){
+   if(!ts.isImportDeclaration(statement)&&!ts.isExportDeclaration(statement))continue;
+   const specifier=statement.moduleSpecifier;
+   if(!specifier||!ts.isStringLiteral(specifier))continue;
+   assert.doesNotMatch(specifier.text,/project-(?:action-reasons|assistant-preference|folder-picker)/,`${fileURLToPath(file)} must not statically import a new folder helper`);
+   if(!specifier.text.startsWith('.')&&!specifier.text.startsWith('@/'))continue;
+   const target=specifier.text.startsWith('@/')?new URL(specifier.text.slice(2),root):new URL(specifier.text,file);
+   const resolved=['','.ts','.tsx','.mts','.mjs','.js','/index.ts','/index.tsx'].map(extension=>new URL(target.href+extension)).find(candidate=>existsSync(candidate)&&/\.(?:tsx?|mts|m?js)$/.test(candidate.pathname));
+   assert.ok(resolved,`resolve static import ${specifier.text} from ${fileURLToPath(file)}`);
+   visit(resolved);
+  }
+ }
+ visit(new URL('../components/control-center.tsx',import.meta.url));
+ for(const file of ['mission-control','mission-control-panels','briefing-card'])assert.ok(!seen.has(new URL(`../components/${file}.tsx`,import.meta.url).href),`${file} must stay deferred`);
 });
