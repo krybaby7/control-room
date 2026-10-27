@@ -30,3 +30,8 @@ So should I open it and do the test? Tell me how to open it.
 ```text
 I run the briefing, but I forgot to click on edit project and paste my text beforehand. What do we do now?
 ```
+
+## 2026-10-27T09:43:59.831121Z
+```text
+Got this error in the UI.  The last briefing attempt did not finish: it took longer than allowed (15 min ago).
+```
