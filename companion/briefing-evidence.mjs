@@ -28,10 +28,12 @@ async function defaultBranch(root,remote,locals,signal){
  for(const name of ['main','master'])if(locals.some(ref=>ref.name===name))return name;return locals[0]?.name??null;
 }
 async function compare(root,base,ref,signal){if(!base||base===ref)return {ahead:null,behind:null,merged:null};const counts=(await git(root,['rev-list','--left-right','--count',`${base}...${ref}`],{signal}).catch(()=>'')).trim().split(/\s+/);const behind=Number(counts[0]),ahead=Number(counts[1]);const merged=await git(root,['merge-base','--is-ancestor',ref,base],{signal}).then(()=>true,error=>error?.code===1?false:null);return {ahead:Number.isSafeInteger(ahead)?ahead:null,behind:Number.isSafeInteger(behind)?behind:null,merged};}
-async function readUncommitted(root,signal){const status=(await git(root,['status','--porcelain=v1','-z','--untracked-files=normal','--ignore-submodules=all'],{signal}).catch(()=>'')).split('\0').filter(Boolean);const paths=[];for(const entry of status){const path=entry.slice(3).replaceAll('\\','/');if(!path)continue;paths.push(forbiddenPath(path)?'[excluded path]':clean(path,160));}const shortstat=clean((await git(root,['diff','--shortstat','--ignore-submodules=all','HEAD'],{signal}).catch(()=>'')).trim(),200);const result={files:status.length,paths:paths.slice(0,EVIDENCE_LIMITS.uncommittedPaths),summary:shortstat||null};
+async function readUncommitted(root,signal,snapshot=snapshotRepository){const status=(await git(root,['status','--porcelain=v1','-z','--untracked-files=normal','--ignore-submodules=all'],{signal}).catch(()=>'')).split('\0').filter(Boolean);const paths=[];for(const entry of status){const path=entry.slice(3).replaceAll('\\','/');if(!path)continue;paths.push(forbiddenPath(path)?'[excluded path]':clean(path,160));}const shortstat=clean((await git(root,['diff','--shortstat','--ignore-submodules=all','HEAD'],{signal}).catch(()=>'')).trim(),200);const result={files:status.length,paths:paths.slice(0,EVIDENCE_LIMITS.uncommittedPaths),summary:shortstat||null};
  // Reuse the bounded source reader's path, link, secret and cancellation rules.
  // Only its digest participates locally; source excerpts never enter this bundle.
- if(status.length){const snapshot=await snapshotRepository(root,{signal});Object.defineProperty(result,'contentFingerprint',{value:snapshot.sha256});}
+ // A working tree beyond the source reader's bounds keeps a coarser digest of its status and change
+ // counts, so a large folder never stops the briefing itself.
+ if(status.length){const read=await snapshot(root,{signal}).catch(error=>{if(signal?.aborted)throw error;return null;});Object.defineProperty(result,'contentFingerprint',{value:read?read.sha256:digest(JSON.stringify({status,shortstat}))});}
  return result;}
 async function readPullRequests(remote,signal,{ghMs=EVIDENCE_LIMITS.ghMs}={}){
  const match=/^github\.com\/([^/]+\/[^/]+)$/.exec(remote??'');if(!match)return null;
@@ -151,7 +153,7 @@ async function readChats(root,{signal,codexHome,claudeHome,previousUntil=null,re
  return {chats:clean,owner,cloud,cloudOwnerSha256,cloudCoverageNotes};
 }
 /** Collect the evidence pack. `fetchRemote=false` skips the network read (stale remote refs are still used). */
-export async function collectBriefingEvidence(root,{signal,now=()=>new Date().toISOString(),days=EVIDENCE_LIMITS.days,fetchRemote=true,codexHome,claudeHome,pullRequests=readPullRequests,previous=null}={}){
+export async function collectBriefingEvidence(root,{signal,now=()=>new Date().toISOString(),days=EVIDENCE_LIMITS.days,fetchRemote=true,codexHome,claudeHome,pullRequests=readPullRequests,previous=null,snapshot=snapshotRepository}={}){
  signal?.throwIfAborted();
  const identity=await repositoryIdentity(root,{signal}),until=now(),since=new Date(Date.parse(until)-days*86400000).toISOString();
  const branch=(await git(identity.root,['symbolic-ref','-q','--short','HEAD'],{signal}).catch(()=>'')).trim()||null;
@@ -165,7 +167,7 @@ export async function collectBriefingEvidence(root,{signal,now=()=>new Date().to
  const seen=new Set();let total=0;
  async function describe(refs,scope){const result=[];for(const ref of refs){signal?.throwIfAborted();if(total>=EVIDENCE_LIMITS.commits)break;const commits=(await readCommits(identity.root,ref.name,since,signal,EVIDENCE_LIMITS.commitsPerBranch)).filter(row=>!seen.has(row.sha));for(const row of commits)seen.add(row.sha);total+=commits.length;const relation=await compare(identity.root,base,ref.name,signal);result.push({name:clean(ref.name,120),scope,lastCommitAt:ref.at,isDefault:ref.name===base,...relation,commits});}return result;}
  const localBranches=await describe(locals,'local'),cloudBranches=await describe(remotes,'cloud');
- const uncommitted=await readUncommitted(identity.root,signal);
+ const uncommitted=await readUncommitted(identity.root,signal,snapshot);
  const prs=remote&&/^github\.com\//.test(remote)?await pullRequests(remote,signal):null;
  const {chats,owner,cloud,cloudOwnerSha256,cloudCoverageNotes}=await readChats(identity.root,{signal,codexHome,claudeHome,previousUntil:previous?.until??null,refs:remotes.map(ref=>ref.sha)});
  const latest=rows=>rows.map(row=>row.lastCommitAt).filter(Boolean).sort().at(-1)??null;
