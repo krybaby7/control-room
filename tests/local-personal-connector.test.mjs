@@ -83,3 +83,28 @@ test('restart fails an already persisted running receipt without invoking picker
 test('encrypted configuration roundtrips through injected protection without plaintext disk',async()=>{const {savePersonalCredentials,loadPersonalCredentials}=await import('../companion/personal-credentials.mjs');const {readFile}=await import('node:fs/promises');const dir=await mkdtemp(join(tmpdir(),'credentials-'));try{await savePersonalCredentials(config,{stateDirectory:dir,secureDirectory:async()=>{},protect:async text=>Buffer.from(text).toString('base64')});assert.ok(!(await readFile(join(dir,'personal-connection.dat'),'utf8')).includes('service-token'));assert.deepEqual(await loadPersonalCredentials({stateDirectory:dir,unprotect:async text=>Buffer.from(text,'base64').toString()}),config);}finally{await rm(dir,{recursive:true,force:true});}});
 
 test('poll includes pre-existing registered repository metadata without local paths',async()=>{const {execFileSync}=await import('node:child_process');const {writeFile,realpath}=await import('node:fs/promises');const dir=await mkdtemp(join(tmpdir(),'registry-'));const root=await realpath(await mkdtemp(join(tmpdir(),'registry-repo-')));try{execFileSync('git',['init',root],{stdio:'ignore'});await writeFile(join(root,'main.js'),'export const x=1;');execFileSync('git',['-C',root,'add','.']);execFileSync('git',['-C',root,'-c','user.name=Fixture','-c','user.email=fixture@example.invalid','commit','-m','fixture'],{stdio:'ignore'});await writeFile(join(dir,'repositories.json'),JSON.stringify([root]));let body;const connector=await createPersonalConnector({config,stateDirectory:dir,fetch:async(url,options)=>{body=JSON.parse(options.body);return new Response(JSON.stringify({job:null}));}});await connector.tick();await connector.close();assert.equal(body.repositories.length,1);assert.equal(body.repositories[0].hasPreviousAnalysis,false);assert.equal(Object.hasOwn(body.repositories[0],'root'),false);assert.ok(!JSON.stringify(body).includes(root));}finally{await rm(dir,{recursive:true,force:true});await rm(root,{recursive:true,force:true});}});
+
+test('idle and active polls declare the finite companion protocol',async()=>{
+ const dir=await mkdtemp(join(tmpdir(),'connector-protocol-'));let connector;const polls=[];
+ const id='88888888-8888-4888-8888-888888888888';let announceActive,finishPick;
+ const activePoll=new Promise(resolve=>{announceActive=resolve;}),picked=new Promise(resolve=>{finishPick=resolve;});
+ try{
+  connector=await createPersonalConnector({config,stateDirectory:dir,pollIntervalMs:1000,picker:async()=>picked,fetch:async(url,options)=>{const body=JSON.parse(options.body);if(body.action==='poll'){polls.push(body);if(polls.length===2)announceActive();return new Response(JSON.stringify({job:polls.length===1?{id,kind:'browse',expiresAt:new Date(Date.now()+60000).toISOString()}:null}));}return new Response(JSON.stringify({ok:true}));}});
+  connector.start();await activePoll;finishPick({status:'cancelled'});await connector.close();
+  assert.ok(polls.length>=2);for(const poll of polls)assert.deepEqual(poll.companion,{protocol:1,kinds:['browse','analyze','brief']});
+ }finally{finishPick?.({status:'cancelled'});await connector?.close();await rm(dir,{recursive:true,force:true});}
+});
+for(const offline of [false,true])test('unknown work fails immediately with durable delivery retry '+offline,async()=>{
+ const {readFile}=await import('node:fs/promises');const dir=await mkdtemp(join(tmpdir(),'connector-unsupported-'));const id='99999999-9999-4999-8999-999999999999';let executes=0,deliveries=0,unavailable=offline;const sent=[];
+ const options={config,stateDirectory:dir,picker:async()=>{executes++;},analyze:async()=>{executes++;},brief:async()=>{executes++;},fetch:async(url,options)=>{const body=JSON.parse(options.body);sent.push(body);if(body.action==='poll')return new Response(JSON.stringify({job:{id,kind:'future-operation'}}));deliveries++;if(unavailable)throw Error('offline');return new Response(JSON.stringify({ok:true}));}};
+ try{
+  const first=await createPersonalConnector(options);if(offline)await assert.rejects(first.tick(),/offline/);else await first.tick();await first.close();
+  let saved=JSON.parse(await readFile(join(dir,'personal-job-receipts.json'),'utf8'));assert.equal(saved[id].status,'terminal');assert.equal(saved[id].delivered,!offline);assert.deepEqual(saved[id].diagnostic,{code:'unsupported'});
+  unavailable=false;const second=await createPersonalConnector(options);await second.tick();await second.close();saved=JSON.parse(await readFile(join(dir,'personal-job-receipts.json'),'utf8'));
+  assert.equal(saved[id].delivered,true);assert.equal(executes,0);assert.equal(deliveries,offline?2:1);assert.deepEqual(sent.find(body=>body.action==='fail'),{action:'fail',requestId:id,error:'unsupported'});
+ }finally{await rm(dir,{recursive:true,force:true});}
+});
+test('unknown work with invalid identity is rejected without receipt or delivery',async()=>{
+ const {readFile}=await import('node:fs/promises');const dir=await mkdtemp(join(tmpdir(),'connector-unsupported-id-'));let deliveries=0;
+ try{const connector=await createPersonalConnector({config,stateDirectory:dir,fetch:async(url,options)=>{if(JSON.parse(options.body).action!=='poll')deliveries++;return new Response(JSON.stringify({job:{id:'invalid',kind:'future-operation'}}));}});await assert.rejects(connector.tick(),/Invalid personal job/);await connector.close();assert.equal(deliveries,0);assert.deepEqual(JSON.parse(await readFile(join(dir,'personal-job-receipts.json'),'utf8')),{});}finally{await rm(dir,{recursive:true,force:true});}
+});
