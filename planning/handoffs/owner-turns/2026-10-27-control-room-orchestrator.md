@@ -47,3 +47,8 @@ Okay, the agent said this. What should I answer?
 
 The local companion has 0 TAMENNI registrations and no receipt from today. Which PC companion instance handled the 09:29 UTC request, or should I use the 2 local folders named TAMENNI and tameni-map-lab for the evidence timings?
 ```
+
+## 2026-10-27T14:39:20.488263Z
+```text
+When I brief the project, doesit work with the Claude Opus 5.5 model?
+```
