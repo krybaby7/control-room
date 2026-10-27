@@ -131,7 +131,7 @@ export function BriefingCard({tile,now,actions}:{tile:ProjectTileModel;now:strin
  return <section className={`mc-brief tone-${view.status.tone}`} aria-label={`Briefing for ${tile.project.name}`}>
   <header className="mc-brief-head"><Sparkles size={15}/><strong>Where we&apos;re at</strong><Chip tone={view.status.tone}>{view.status.label}</Chip>{report&&<small>as of {relativeTime(view.recordedAt,now)} · {view.providerLabel} · {view.originLabel}{view.source==='completed'?' · saving…':''}</small>}</header>
   {view.activeJob&&<p className="mc-brief-live" role="status"><StatusLight tone="live"/>{view.activeJob.status==='claimed'?`${view.activeJob.providerLabel} is writing the briefing on your PC`:'Waiting for your PC to pick up the briefing'}{view.activeJob.origin==='auto'?' (kept current)':''} · {relativeTime(view.activeJob.claimedAt??view.activeJob.createdAt,now)}</p>}
-  {view.lastFailure&&<p className="mc-brief-flag tone-bad"><AlertTriangle size={13}/>The last briefing attempt did not finish: {view.lastFailure.reason} ({relativeTime(view.lastFailure.at,now)}).</p>}
+  {view.lastFailure&&<p className="mc-brief-flag tone-bad"><AlertTriangle size={13}/>{view.lastFailure.standalone?view.lastFailure.reason:<>The last briefing attempt did not finish: {view.lastFailure.reason}</>} ({relativeTime(view.lastFailure.at,now)}).</p>}
   {report?<>
    <p className="mc-brief-reason">{report.status.reason}</p>
    <div className="mc-brief-aim"><span>The aim right now</span><p className="mc-brief-headline">{report.aim}</p></div>

@@ -1,7 +1,7 @@
 'use client';
 import {useCallback,useEffect,useId,useLayoutEffect,useRef,useState,type ButtonHTMLAttributes} from 'react';
 import type {Project} from '@/lib/types';
-import {firstDisabledReason,projectActionDisabledReason} from '@/lib/project-action-reasons';
+import {firstDisabledReason,projectActionDisabledReason,personalCompanionStatus,personalJobFailureReason,type PersonalCompanionObservation} from '@/lib/project-action-reasons';
 import {Field,FormDialog} from './form-dialog';
 import {repositoryDestination,repositoryBinding} from '@/lib/personal-repository-destination';
 import {PersonalRequestRecovery} from '@/lib/personal-repository-request-recovery';
@@ -12,11 +12,18 @@ import {validateLocalAnalysis,type Report} from '../shared/local-analysis.mjs';
 import type {PersonalJob,PersonalOwnerAction,PersonalProviders,PersonalRepository,PersonalProvider} from '../shared/personal-repository.mjs';
 import {ReportDetails,type LocalRepositoryOnboardingProps} from './local-repository-onboarding';
 
-interface OwnerState {configured:true;connected:boolean;online:boolean;lastSeenAt:string|null;providers:PersonalProviders;repositories:PersonalRepository[];jobs:PersonalJob[];completedReport:{requestId:string;projectId:string;report:Report;reportSha256:string}|null}
+interface OwnerState {companion?:PersonalCompanionObservation|null;configured:true;connected:boolean;online:boolean;lastSeenAt:string|null;providers:PersonalProviders;repositories:PersonalRepository[];jobs:PersonalJob[];completedReport:{requestId:string;projectId:string;report:Report;reportSha256:string}|null}
 interface SavedReport {evidenceId:string;version:number;projectId:string;report:Report;recordedAt:string}
 const providerName=(provider:PersonalProvider)=>provider==='codex'?'Codex':'Claude Code';
 const isActive=(job:PersonalJob)=>job.status==='queued'||job.status==='claimed';
 function providerDetail(detail:string){return detail==='ready'?'Signed in and ready':detail==='auth_required'?'Sign in on this PC':detail==='not_installed'?'Install on this PC':'Not available on this PC';}
+
+export function PersonalCompanionConnection({companion}:{companion?:PersonalCompanionObservation|null}){
+ const status=personalCompanionStatus(companion);return <div><p role="status">{status.label}</p><details><summary>PC app details</summary><p className="field-hint">{status.detail}</p></details></div>;
+}
+export function PersonalRepositoryJobFailure({job}:{job:{id:string;kind:string;status:string;error?:string;provider?:PersonalProvider}}){
+ const reason=personalJobFailureReason(job.error,job.kind);return <p className={job.status==='failed'?'form-error':'field-hint'} role={job.status==='failed'?'alert':undefined}>{reason??(job.status==='cancelled'?'Cancelled. You can add a folder or analyze again.':job.kind==='browse'?'Folder selection did not finish. Add a folder from this PC to try again.':job.kind==='brief'?`${providerName(job.provider??'codex')} could not finish the project briefing. Saved briefings are kept; request another from the project.`:`${providerName(job.provider??'codex')} could not finish this analysis. Your saved reports are kept; you can try again.`)}</p>;
+}
 
 export function RepositoryActionButton({reason,children,...props}:Omit<ButtonHTMLAttributes<HTMLButtonElement>,'disabled'> & {reason:string|null}){
  const id=useId();return <><button {...props} disabled={!!reason} aria-describedby={reason?id:undefined}>{children}</button>{reason&&<p className="field-hint" id={id}>{reason}</p>}</>;
@@ -122,6 +129,7 @@ export function PersonalRepositoryOnboarding(props:LocalRepositoryOnboardingProp
   <header className="section-heading"><div><h2 id="personal-repositories-heading">Repositories</h2><p>Add folders from this PC to your projects.</p></div></header>
   {focusProject&&<p className="field-hint">Folders for {focusProject.name}. Add a folder below, or open the project to request a briefing.</p>}
   <p role="status">{!loaded?'Connecting to your PC…':state?.online?'Your PC is connected.':state?.connected?`Your PC is offline${state.lastSeenAt?` (last seen ${new Date(state.lastSeenAt).toLocaleString()})`:' and has not connected yet'}. Open Control Room on this PC to continue.`:state?'Your PC is disconnected. Reconnect to add a folder.':'Waiting for your PC connection.'}</p>
+  {state&&<PersonalCompanionConnection companion={state.companion}/>}
   {state&&!state.connected&&<RepositoryActionButton type="button" className="button secondary" reason={firstDisabledReason(working&&'Wait for the current action to finish.')} onClick={()=>void act({action:'connect'})}>Connect this PC</RepositoryActionButton>}
   {(!state?.online||error)&&<p><a className="button secondary" href="controlroom://open" onClick={openOnPc}>Open Control Room on this PC</a></p>}
   {!state?.online&&launch==='waiting'&&<p role="status">Starting Control Room on your PC… This page updates when your PC connects.</p>}
@@ -139,7 +147,7 @@ export function PersonalRepositoryOnboarding(props:LocalRepositoryOnboardingProp
    {state&&<p className="field-hint">Codex: {providerDetail(state.providers.codex.detail)} · Claude Code: {providerDetail(state.providers.claude.detail)}</p>}
    <p className="field-hint">Uses your existing {providerName(provider)} sign-in for one read-only analysis. Suggested tasks stay available for your review.</p>
    {activeJobs.filter(job=>job.kind!=='browse').map(job=><div key={job.id} role="status"><p>{job.kind==='brief'?`${job.status==='queued'?'Waiting to write a project briefing':'Writing a project briefing'} with ${providerName(job.provider??'codex')}…`:`${job.status==='queued'?'Waiting to analyze':'Analyzing'} with ${providerName(job.provider??'codex')}…`}</p><RepositoryActionButton type="button" className="button secondary" reason={firstDisabledReason(working&&'Wait for the current action to finish.')} onClick={()=>void act({action:'cancel',requestId:job.id})}>Cancel {job.kind==='brief'?'briefing':'analysis'}</RepositoryActionButton></div>)}
-   {state?.jobs.slice(-1).filter(job=>job.status==='failed'||job.status==='cancelled').map(job=><p key={job.id} className={job.status==='failed'?'form-error':'field-hint'} role={job.status==='failed'?'alert':undefined}>{job.status==='cancelled'?'Cancelled. You can add a folder or analyze again.':job.kind==='browse'?'Folder selection did not finish. Add a folder from this PC to try again.':job.kind==='brief'?`${providerName(job.provider??'codex')} could not finish the project briefing. Saved briefings are kept; request another from the project.`:`${providerName(job.provider??'codex')} could not finish this analysis. Your saved reports are kept; you can try again.`}</p>)}
+   {state?.jobs.slice(-1).filter(job=>job.status==='failed'||job.status==='cancelled').map(job=><PersonalRepositoryJobFailure key={job.id} job={job}/>)}
    {state?.repositories.map(repository=>{const report=saved.find(row=>row.report.repository.key===repository.key),binding=repositoryBinding(repository.key,allProjects);return <article key={repository.key} className="capture-preview"><h3>{repository.name}</h3><p className="field-hint">{repository.dirty?'Includes uncommitted changes':'Working folder is clean'}{report?` · Last analyzed ${new Date(report.report.run.completedAt).toLocaleString()}`:' · Ready for its first analysis'}</p><RepositoryActionButton type="button" className="button secondary" reason={firstDisabledReason(analysisReason,!!binding?.archivedAt&&'Restore this folder’s project from Projects before analyzing.',projectActionDisabledReason('brief',{online:state.online,assistantReady:state.providers[provider].ready,assistant:provider}))} onClick={()=>{setRepositoryKey(repository.key);void analyze(repository.key);}}>{report||repository.hasPreviousAnalysis?'Analyze latest changes':'Analyze'}</RepositoryActionButton></article>;})}
    {completed&&<><h3>Completed analysis</h3><ReportDetails report={completed.report} onReviewTask={onReviewTask}/><p role="status">{saving?'Saving analysis to your project…':'Completed analysis is retained until its save is confirmed.'}</p>{saveError&&<p className="form-error" role="alert">{saveError}</p>}<PersonalCompletedSaveButton savedLoaded={savedLoaded} saving={saving} busy={busy} pending={pending} onRetry={()=>void saveCompleted(true)}/></>}
    <div className="section-heading"><h3>Saved project understanding</h3><button type="button" className="text-button" onClick={()=>{setSaveError('');setRefresh(v=>v+1);}}>Refresh saved reports</button></div>{technicalOpened&&!savedLoaded&&<p role="status">Loading saved reports…</p>}{saveError&&!completed&&<p className="form-error" role="alert">{saveError}</p>}{saved.map(row=><details key={row.evidenceId}><summary>{row.report.repository.name} · {envelope.workspace.projects.find(p=>p.id===row.projectId)?.name??'Project'} · Version {row.version}</summary><ReportDetails report={row.report} projectId={row.projectId} onReviewTask={onReviewTask}/></details>)}{savedLoaded&&!saved.length&&<p>Your saved analyses will appear here.</p>}

@@ -1,4 +1,4 @@
-import {initialPersonalState,parseOwnerAction,parseDeviceAction,transitionPersonalState,validatePersonalState,type PersonalState,type PersonalOwnerAction,type PersonalJob} from '../shared/personal-repository.mjs';
+import {initialPersonalState,parseOwnerAction,parseDeviceAction,transitionPersonalState,validatePersonalState,personalCompanionCanRun,type PersonalState,type PersonalOwnerAction,type PersonalJob} from '../shared/personal-repository.mjs';
 import {projectFraming,validateProjectBriefing,PROJECT_BRIEFING_MARKER,type ProjectFraming} from '../shared/project-briefing.mjs';
 import {canonical,contentHash} from './canonical-json.ts';
 import type {SqlDatabase} from './workspace-store.ts';
@@ -19,6 +19,7 @@ export async function personalOwnerView(db:SqlDatabase,c:PersonalConnectorConfig
  const completed=state.requests.find(j=>j.kind==='analyze'&&j.status==='completed'&&j.report&&!j.consumedAt);
  const briefed=state.requests.find(j=>j.kind==='brief'&&j.status==='completed'&&j.briefing&&!j.consumedAt);
  return {configured:true,deviceId:c.deviceId,connected:state.connected,online:state.connected&&lastSeenAt!==null&&Date.parse(now)-Date.parse(lastSeenAt)<20000,lastSeenAt,providers:state.providers,repositories:state.repositories,
+  companion:state.companion?{...state.companion,lastSeenAt}:null,
   jobs:state.requests.map(({report,briefing,plan,framing,...job})=>{void report;void briefing;void plan;void framing;return job;}),
   policies:(state.policies??[]).map(({lastFingerprint,...policy})=>{void lastFingerprint;return policy;}),
   completedReport:completed?{requestId:completed.id,projectId:completed.projectId!,report:completed.report!,reportSha256:completed.reportSha256!}:null,
@@ -61,7 +62,7 @@ export async function changePersonalState(db:SqlDatabase,c:PersonalConnectorConf
  }throw new RequestError('Personal PC state changed. Retry the same request.',409);}
 /** Device projection: the claimed job travels with its server-projected framing; policies tell the device which repositories may be briefed automatically. */
 export function personalDeviceView(s:PersonalState){
- const claimed=s.requests.find(j=>j.status==='claimed'&&(j.kind!=='brief'||j.framing))??null;
+ const claimed=s.requests.find(j=>j.status==='claimed'&&(j.kind!=='brief'||j.framing)&&personalCompanionCanRun(j.kind,s.companion))??null;
  const job:PersonalJob|null=claimed?(({report,briefing,...rest})=>{void report;void briefing;return rest;})(claimed):null;
  return{job,state:{connected:s.connected,epoch:s.epoch},activeJobs:s.requests.filter(j=>['queued','claimed','cancelled','failed'].includes(j.status)).map(j=>({id:j.id,status:j.status})),
   policies:(s.policies??[]).filter(p=>p.enabled&&(p.repositoryKeys??[p.repositoryKey]).every(key=>s.repositories.some(repository=>repository.key===key))).map(({projectId,repositoryKey,repositoryKeys,provider,minIntervalMinutes,lastBriefAt,lastAttemptAt,lastFingerprint})=>({projectId,repositoryKey,repositoryKeys:repositoryKeys??[repositoryKey],provider,minIntervalMinutes,lastBriefAt,lastAttemptAt,lastFingerprint}))};

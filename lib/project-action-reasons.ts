@@ -26,3 +26,17 @@ export function availableProjectFolders<T extends {key:string}>(repositories:rea
  const owned=new Set(projects.flatMap(project=>project.personalRepositoryKeys??(project.personalRepositoryKey?[project.personalRepositoryKey]:[])));
  return repositories.filter(repository=>!owned.has(repository.key));
 }
+
+/** Last observed PC poll; connectivity alone does not establish briefing support. */
+export interface PersonalCompanionObservation {protocol:number|null;kinds:readonly string[];legacy:boolean;release?:string;lastSeenAt:string|null}
+export function personalCompanionStatus(companion?:PersonalCompanionObservation|null):{state:'current'|'outdated'|'unknown';label:string;detail:string}{
+ if(!companion)return {state:'unknown',label:'PC app: not checked yet',detail:'Refresh the connection after the PC app checks in.'};
+ const current=!companion.legacy&&companion.protocol!==null&&companion.protocol>=1&&companion.kinds.includes('brief');
+ const details=[companion.protocol!==null?`Check-in version ${companion.protocol}.`:null,companion.release?`Release ${companion.release}.`:null,companion.legacy?'The last check-in came from an older PC app.':`The last check-in ${current?'supports':'does not support'} project briefings.`,companion.lastSeenAt?`Last check-in: ${companion.lastSeenAt}.`:null];
+ return {state:current?'current':'outdated',label:current?'PC app: current':'PC app: out of date — update it',detail:details.filter(Boolean).join(' ')};
+}
+export function personalJobFailureReason(error:string|undefined,kind:string):string|null{
+ if(error!=='companion_outdated'&&error!=='unsupported')return null;
+ const action=kind==='brief'?'run this briefing':kind==='browse'?'choose a folder':kind==='analyze'?'analyze this folder':'run this request';
+ return `Your Control Room PC app is out of date, so it couldn't ${action}. Close the old PC app; if it keeps happening, update the PC app.`;
+}

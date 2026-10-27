@@ -223,3 +223,7 @@ The approved refinement ranks already sanitized concise user messages before the
 ## Multi-folder increment — 2026-10-26
 
 Project folder ownership, project-wide briefing admission/ledger, merged bounded PC evidence, per-folder coverage and framing-first creation are implemented on `feat/multi-folder-projects` from `f43db3a`. See [the verification record](../../verification/2026-10-26-multi-folder-projects.md). Local checks and synthetic integration are distinct from full Linux PR gates, owner merge, private publication and companion installation. No real project briefing or paid inference is part of this increment.
+
+## Outdated PC companion increment — 2026-10-27
+
+G39/G41/G42/G45: explicit companion protocol/capabilities gate queued and automatic personal jobs; a legacy-first briefing fails on its next poll without a claim. Legacy browse/analyze and saved error records remain compatible. Repositories, Folders and Today show plain update guidance and the last check-in version. See [the verification record](../../verification/2026-10-27-outdated-companion.md) for synthetic regression results, accepted `gpt-6.1-sol` workers and the corrected archive import-closure proof. Typecheck/lint pass; sandbox child-process and Git-index restrictions prevent full companion execution and commits here. Build, Playwright, full companion, private Site publication first, then companion reinstall and actual device acceptance remain integrator actions. No deployment, inference or operational effects are claimed.

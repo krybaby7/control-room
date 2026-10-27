@@ -1,3 +1,5 @@
+import {PERSONAL_COMPANION_PROTOCOL,PERSONAL_COMPANION_KINDS} from '../shared/personal-repository.mjs';
+const companion={protocol:PERSONAL_COMPANION_PROTOCOL,kinds:PERSONAL_COMPANION_KINDS};
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {initialPersonalState,transitionPersonalState,parseOwnerAction,parseDeviceAction,parsePolicies} from '../shared/personal-repository.mjs';
@@ -14,7 +16,7 @@ test('keep-current updates one project policy even when the legacy selector chan
  s=transitionPersonalState(s,{action:'keep-current',projectId:'p1',repositoryKey:'map',provider:'claude',enabled:true},now,'owner',{repositoryKeys:['app','map']});
  assert.equal(s.policies.length,1);assert.deepEqual(s.policies[0].repositoryKeys,['app','map']);
  assert.throws(()=>parsePolicies([s.policies[0],{...s.policies[0],repositoryKey:'map'}]));
- const a=parseDeviceAction({action:'auto-brief',requestId:id,projectId:'p1',fingerprint:'f'.repeat(64)});
+ const a=parseDeviceAction({action:'auto-brief',companion,requestId:id,projectId:'p1',fingerprint:'f'.repeat(64)});
  s=transitionPersonalState(s,a,now,'device',{framing,repositoryKeys:['app','map']});assert.deepEqual(s.requests[0].repositoryKeys,['app','map']);
 });
 import {database} from './helpers/sqlite.ts';
@@ -26,10 +28,10 @@ test('server projects complete folder list and framing, completion updates both 
  const f=database();try{
  const c={version:1 as const,ownerId:'synthetic-multi',deviceId:'pc',keyHash:'a'.repeat(64),siteOrigin:'https://example.chatgpt.site'};
  await loadWorkspace(f.db,c.ownerId,()=>workspaceFixture({projects:[projectFixture({name:'Trade Graph',framing:'The app and map work together.',personalRepositoryKeys:['repo-b','map']})]}),now);
- await changePersonalState(f.db,c,{action:'poll',repositories:['repo-b','map'].map(key=>({key,name:key,head:'a'.repeat(40),dirty:false,hasPreviousAnalysis:false}))},'device',now);
+ await changePersonalState(f.db,c,{action:'poll',companion,repositories:['repo-b','map'].map(key=>({key,name:key,head:'a'.repeat(40),dirty:false,hasPreviousAnalysis:false}))},'device',now);
  await assert.rejects(changePersonalState(f.db,c,{action:'brief',requestId:id,projectId:'p1',provider:'claude',repositoryKeys:['map']},'owner',now));
  await changePersonalState(f.db,c,{action:'brief',requestId:id,projectId:'p1',provider:'claude'},'owner',now);
- let s=await changePersonalState(f.db,c,{action:'poll'},'device',now);const job=personalDeviceView(s).job!;
+ let s=await changePersonalState(f.db,c,{action:'poll',companion},'device',now);const job=personalDeviceView(s).job!;
  assert.deepEqual(job.repositoryKeys,['repo-b','map']);assert.equal(job.framing?.framing,'The app and map work together.');
  const b=briefingFixture({},id),framing=job.framing!;
  b.evidence.framing={workspaceRevision:framing.workspaceRevision,characters:framing.framing.length,includeTaskPlan:false,totalMilestones:framing.totalMilestones,totalTasks:framing.totalTasks,includedMilestones:0,includedTasks:0};
@@ -45,13 +47,13 @@ test('device polling reprojects enabled project folders after membership changes
  const c={version:1 as const,ownerId:'synthetic-policy',deviceId:'pc',keyHash:'a'.repeat(64),siteOrigin:'https://example.chatgpt.site'};
  await loadWorkspace(f.db,c.ownerId,()=>workspaceFixture({projects:[projectFixture({personalRepositoryKeys:['app']})]}),now);
  const repositories=['app','map'].map(key=>({key,name:key,head:'a'.repeat(40),dirty:false,hasPreviousAnalysis:false}));
- await changePersonalState(f.db,c,{action:'poll',repositories},'device',now);
+ await changePersonalState(f.db,c,{action:'poll',companion,repositories},'device',now);
  await changePersonalState(f.db,c,{action:'keep-current',projectId:'p1',provider:'codex',enabled:true},'owner',now);
  f.sqlite.prepare("UPDATE workspaces SET revision=revision+1,content=json_set(content,'$.projects[0].personalRepositoryKeys',json_array('app','map')) WHERE user_id=?").run(c.ownerId);
- let s=await changePersonalState(f.db,c,{action:'poll'},'device',now);assert.deepEqual(personalDeviceView(s).policies[0].repositoryKeys,['app','map']);
- s=await changePersonalState(f.db,c,{action:'poll',repositories:[repositories[0]]},'device',now);assert.equal(personalDeviceView(s).policies.length,0);assert.equal(s.policies[0].enabled,true);
+ let s=await changePersonalState(f.db,c,{action:'poll',companion},'device',now);assert.deepEqual(personalDeviceView(s).policies[0].repositoryKeys,['app','map']);
+ s=await changePersonalState(f.db,c,{action:'poll',companion,repositories:[repositories[0]]},'device',now);assert.equal(personalDeviceView(s).policies.length,0);assert.equal(s.policies[0].enabled,true);
  f.sqlite.prepare("UPDATE workspaces SET revision=revision+1,content=json_set(content,'$.projects[0].archivedAt',?) WHERE user_id=?").run(now,c.ownerId);
- s=await changePersonalState(f.db,c,{action:'poll',repositories},'device',now);assert.equal(s.policies[0].enabled,false);assert.equal(personalDeviceView(s).policies.length,0);
+ s=await changePersonalState(f.db,c,{action:'poll',companion,repositories},'device',now);assert.equal(s.policies[0].enabled,false);assert.equal(personalDeviceView(s).policies.length,0);
  }finally{f.sqlite.close();}
 });
 

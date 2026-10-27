@@ -5,6 +5,7 @@ import {renderToStaticMarkup} from 'react-dom/server';
 import {loadClient} from './helpers/render-client.ts';
 import {buildDashboardModel} from '../lib/dashboard/model.ts';
 import {dashboardFixture,NOW,okFeeds} from './fixtures/dashboard.ts';
+import {personalConnectorViewSchema} from '../lib/dashboard/contracts.ts';
 import ts from 'typescript';
 import {existsSync,readFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
@@ -13,6 +14,16 @@ const panels=await loadClient<typeof import('../components/mission-control-panel
 const noop=()=>{};
 const actions={onProject:noop,onTask:noop,onTaskId:noop,onPin:noop,onProjects:noop,onAgents:noop,onRuntime:noop,onRepositories:noop,onInbox:noop,onAttention:noop,onWeekly:noop,busy:false,onBrief:noop,onKeepCurrent:noop,onAddFolder:noop,onRetrySave:noop,briefingNotices:{},briefingWorking:{}};
 async function model(){const fixture=await dashboardFixture();fixture.workspace.projects[1].personalRepositoryKeys=['repo-b'];return {fixture,model:buildDashboardModel({now:NOW,workspace:fixture.workspace,jobs:fixture.jobs,jobDetails:{'job-running':{provider:'codex',events:fixture.events['job-running']}},runtime:fixture.runtime,connector:fixture.connector,localReports:fixture.localReports,cloudReports:fixture.cloudReports,briefings:fixture.briefings,feeds:okFeeds()})};}
+test('Today shows the outdated PC state and complete fast-failure recovery words',async()=>{
+ const fixture=await dashboardFixture();fixture.workspace.projects[1].personalRepositoryKeys=['repo-b'];
+ const connector=personalConnectorViewSchema.parse({...fixture.connector,companion:{protocol:null,kinds:['browse','analyze'],legacy:true,lastSeenAt:NOW},jobs:[{id:'outdated-fixture',kind:'brief',status:'failed',createdAt:NOW,claimedAt:null,projectId:fixture.projectB,error:'companion_outdated'}]});
+ const value=buildDashboardModel({now:NOW,workspace:fixture.workspace,jobs:fixture.jobs,jobDetails:{},runtime:fixture.runtime,connector,localReports:fixture.localReports,cloudReports:fixture.cloudReports,briefings:fixture.briefings,feeds:okFeeds()});
+ const status=renderToStaticMarkup(createElement(panels.HudStrip,{model:value,actions}));
+ assert.match(status,/PC app: out of date/u);
+ const html=renderToStaticMarkup(createElement(panels.BriefingCard,{tile:value.projects[1],now:NOW,actions}));
+ assert.ok(html.includes('Your Control Room PC app is out of date, so it couldn&#x27;t run this briefing. Close the old PC app; if it keeps happening, update the PC app.'));
+ assert.doesNotMatch(html,/did not finish: Your Control Room/u);
+});
 test('HUD renders device, app readiness, agent and attention lights with plain-language detail',async()=>{
  const {model:value}=await model();
  const html=renderToStaticMarkup(createElement(panels.HudStrip,{model:value,actions}));
