@@ -1,4 +1,36 @@
 {
+  "projectCoverageLine": {
+    "date": "2026-10-28",
+    "base": "270e403",
+    "branch": "fix/project-coverage-line",
+    "status": "implemented_reviewed_affected_tests_verified_uncommitted",
+    "scope": "Display-only aggregation of v4 multi-folder coverage in the deferred dashboard model; project-wide owner turns and exact single-folder/legacy output retained.",
+    "workerModelParameter": "gpt-6.1-sol",
+    "acceptedWorkers": ["/root/coverage_implementation", "/root/coverage_review"],
+    "verification": "docs/superpowers/verification/2026-10-28-project-coverage-line.md",
+    "checks": {
+      "node": "24.14.1",
+      "mainRegressionRed": "Validated synthetic fixture failed against original HEAD model with expected output assertion before restoring fix",
+      "dashboardModelPassed": 20,
+      "affectedTestsPassed": 99,
+      "affectedTestsFailed": 0,
+      "affectedTestsSkipped": 0,
+      "testIsolation": "none",
+      "typecheck": "passed",
+      "lint": "passed, zero errors and 15 existing warnings",
+      "independentReview": "no runtime findings; fixture-validity recommendations applied",
+      "installCi": "blocked: spawn EPERM; existing dependencies used",
+      "npmTest": "blocked: all 370 test-file subprocesses failed spawn EPERM before test bodies",
+      "build": "blocked: Vite configuration resolution spawn EPERM",
+      "diffCheck": "passed"
+    },
+    "commitsMade": 0,
+    "commitBlocker": "git add could not create .git/index.lock: Permission denied",
+    "ownerHandoff": "Original owner-message UTC timestamps unavailable; no owner turns or timestamps fabricated.",
+    "pushed": false,
+    "merged": false,
+    "deployed": false
+  },
   "privateImportedChats": {
     "providerCoverageFollowup": {
       "date": "2026-10-28",
