@@ -1,5 +1,15 @@
 {
   "simpleUi": {
+    "preMergeReviewFixes": {
+      "base": "e49fa2e",
+      "status": "reviewed_focused_verified_uncommitted_integrator_full_ci_pending",
+      "workerModelParameter": "gpt-6.1-sol",
+      "acceptedWorkers": ["/root/implement_races", "/root/review_fixes"],
+      "verification": "docs/superpowers/verification/2026-10-28-simple-ui.md#pre-merge-review-fixes",
+      "checks": {"node": "24.14.1", "affectedTestsPassed": 50, "affectedTestsFailed": 0, "affectedTestsSkipped": 0, "testIsolation": "none", "typecheck": "passed", "lintErrors": 0, "lintExistingWarnings": 15, "independentReview": "no remaining actionable findings"},
+      "limits": "install:ci and default Node test workers blocked by spawn EPERM. Browser navigation, measured feed GET rates, build, full CI and live PC/provider behavior were not re-verified. Original owner UTC message timestamps were unavailable; no handoff timestamps were invented.",
+      "constraints": "UI/client only; no commit, push, merge or deployment. Polling intervals, budgets, timeouts and existing assertions remain unchanged."
+    },
     "date": "2026-10-28",
     "base": "7f77a81",
     "branch": "feat/simple-ui",
