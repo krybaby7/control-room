@@ -21,6 +21,10 @@ export async function workspace(page:Page){const response=await page.request.get
 /** Open Advanced from the actual main navigation; preserve native click/scroll behavior. */
 export async function openAdvanced(page:Page){
  const navigation=page.getByRole('navigation',{name:'Main navigation',exact:true});
+ // The server draws the navigation, with Home current, before the app can respond to a
+ // click. The saved-workspace line appears only once the app has loaded the workspace,
+ // so wait for it as openFixture does; a click before then is lost.
+ await expect(page.getByRole('status').filter({hasText:/^Last saved /})).toBeVisible();
  // Reload paints the first screen before the saved URL view is applied. Wait for that
  // view's section before clicking, otherwise its restoration can race the click and
  // replace the intended navigation.
