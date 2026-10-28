@@ -3,10 +3,74 @@ import assert from 'node:assert/strict';
 import {buildDashboardModel,providerForModel,type DashboardInputs} from '../lib/dashboard/model.ts';
 import {dashboardFixture,NOW,okFeeds} from './fixtures/dashboard.ts';
 import {personalConnectorViewSchema} from '../lib/dashboard/contracts.ts';
+import {briefingFixtureV1,briefingFixtureV2,briefingFixtureV3} from './fixtures/briefing.ts';
+import {validateProjectBriefing} from '../shared/project-briefing.mjs';
 async function inputs(overrides:Partial<DashboardInputs>={}):Promise<DashboardInputs>{
  const fixture=await dashboardFixture();fixture.workspace.projects[1].personalRepositoryKeys=['repo-b'];
  return {now:NOW,workspace:fixture.workspace,jobs:fixture.jobs,jobDetails:{'job-running':{provider:'codex',events:fixture.events['job-running']}},runtime:fixture.runtime,connector:fixture.connector,localReports:fixture.localReports,cloudReports:fixture.cloudReports,briefings:fixture.briefings,feeds:okFeeds(),...overrides};
 }
+
+async function multiFolderInputs(){
+ const base=await inputs(),report=base.briefings[0].briefing,e=report.evidence;
+ e.ownerTurns={...e.ownerTurns,turns:56,sessions:11};
+ report.repositories=[report.repository,{...report.repository,key:'map',name:'Map lab'}];
+ report.evidence.repositories=[
+  {...e.repositories[0],ownerTurns:{...e.ownerTurns,turns:13,sessions:3},cloudTurns:[{provider:'claude-cloud',status:'unavailable',sessions:0,turns:0},{provider:'codex-cloud',status:'unavailable',sessions:0,turns:0}]},
+  {...structuredClone(e.repositories[0]),key:'map',name:'Map lab',ownerTurns:{...e.ownerTurns,turns:44,sessions:9},local:{...e.local,commits:5,branches:2,uncommittedFiles:1},cloud:{...e.cloud,status:'stale',commits:6,branches:2,pullRequests:2,openPullRequests:1},chats:[{...e.chats[0],sessions:1},{...e.chats[1],sessions:4}],cloudTurns:[{provider:'claude-cloud',status:'included',sessions:8,turns:43},{provider:'codex-cloud',status:'not-found',sessions:0,turns:0}]},
+ ];
+ validateProjectBriefing(report);
+ return base;
+}
+
+test('multi-folder briefing sums project evidence and cloud owner turns across folders',async()=>{
+ const base=await multiFolderInputs(),before=structuredClone(base.briefings[0].briefing);
+ assert.equal(buildDashboardModel(base).projects[1].briefing.evidenceLine,'17 local commits on 5 branches and 3 uncommitted files · 15 cloud commits on 6 GitHub branches, 2 open of 5 pull requests (as last fetched) · 4 Codex chats and 6 Claude Code chats · 56 messages of your own across 11 chats · 43 owner turns across 8 Claude Code cloud sessions · no Codex cloud sessions were available (unreadable or excluded) · Measured against your framing · Task plan excluded · carried forward from the briefing of 2026-10-18');
+ assert.deepEqual(base.briefings[0].briefing,before);
+});
+
+test('single-folder briefing evidence remains exact',async()=>{
+ assert.equal(buildDashboardModel(await inputs()).projects[1].briefing.evidenceLine,'12 local commits on 3 branches and 2 uncommitted files · 9 cloud commits on 4 GitHub branches, 1 open of 3 pull requests · 3 Codex chats and 2 Claude Code chats · 23 messages of your own across 4 chats · cloud chat coverage was not recorded in this saved briefing · Measured against your framing · Task plan excluded · carried forward from the briefing of 2026-10-18');
+});
+
+test('multi-folder GitHub coverage distinguishes partial data, absent remotes and unreachable remotes',async()=>{
+ const base=await multiFolderInputs(),rows=base.briefings[0].briefing.evidence.repositories;
+ rows[1].cloud={...rows[1].cloud,status:'no-remote',commits:999};
+ assert.match(buildDashboardModel(base).projects[1].briefing.evidenceLine,/9 cloud commits on 4 GitHub branches, 1 open of 3 pull requests \(GitHub not reached for 1 folder\)/);
+ rows[0].cloud.status='unavailable';
+ assert.match(buildDashboardModel(base).projects[1].briefing.evidenceLine,/GitHub could not be reached from your PC/);
+ rows[0].cloud.status='no-remote';
+ assert.match(buildDashboardModel(base).projects[1].briefing.evidenceLine,/no GitHub remote/);
+ rows[0].cloud.status='fetched';rows[1].cloud.status='fetched';rows[1].cloud.pullRequests=null;rows[1].cloud.openPullRequests=null;
+ assert.match(buildDashboardModel(base).projects[1].briefing.evidenceLine,/1 open of 3 pull requests \(pull requests unavailable for 1 folder\)/);
+});
+
+test('multi-folder cloud coverage prefers included sessions and preserves individual folder lines',async()=>{
+ const base=await multiFolderInputs(),rows=base.briefings[0].briefing.evidence.repositories;
+ rows[0].cloudTurns![0]={provider:'claude-cloud',status:'unavailable',sessions:0,turns:0};
+ rows[0].cloudTurns![1]={provider:'codex-cloud',status:'included',sessions:1,turns:4};
+ rows[1].cloudTurns![1]={provider:'codex-cloud',status:'unavailable',sessions:0,turns:0};
+ validateProjectBriefing(base.briefings[0].briefing);
+ let view=buildDashboardModel(base).projects[1].briefing;
+ assert.match(view.evidenceLine,/43 owner turns across 8 Claude Code cloud sessions/);
+ assert.match(view.evidenceLine,/4 owner turns across 1 Codex cloud session/);
+ assert.match(view.evidenceCoverage[0].line,/12 local commits on 3 branches/);
+ assert.match(view.evidenceCoverage[1].line,/5 local commits on 2 branches/);
+ rows[0].cloudTurns![0]={provider:'claude-cloud',status:'included',sessions:3,turns:13};
+ rows[0].cloudTurns![1]={provider:'codex-cloud',status:'not-found',sessions:0,turns:0};
+ validateProjectBriefing(base.briefings[0].briefing);
+ assert.match(buildDashboardModel(base).projects[1].briefing.evidenceLine,/56 owner turns across 11 Claude Code cloud sessions/);
+ rows[0].cloudTurns=undefined;rows[1].cloudTurns=undefined;
+ view=buildDashboardModel(base).projects[1].briefing;
+ assert.match(view.evidenceLine,/cloud chat coverage was not recorded in this saved briefing/);
+});
+
+test('legacy v1 through v3 briefing evidence output remains exact',async()=>{
+ const core='12 local commits on 3 branches and 2 uncommitted files · 9 cloud commits on 4 GitHub branches, 1 open of 3 pull requests · 3 Codex chats and 2 Claude Code chats';
+ for(const [fixture,suffix] of [[briefingFixtureV1(),' · cloud chat coverage was not recorded in this saved briefing'],[briefingFixtureV2(),' · 23 messages of your own across 4 chats · cloud chat coverage was not recorded in this saved briefing · carried forward from the briefing of 2026-10-18'],[briefingFixtureV3(),' · 23 messages of your own across 4 chats · cloud chat coverage was not recorded in this saved briefing · Measured against your framing · Task plan excluded · carried forward from the briefing of 2026-10-18']] as const){
+  const base=await inputs();base.briefings[0].briefing=validateProjectBriefing({...fixture,project:base.briefings[0].briefing.project});
+  assert.equal(buildDashboardModel(base).projects[1].briefing.evidenceLine,core+suffix);
+ }
+});
 
 test('dashboard decodes last PC declaration and gives an outdated briefing its plain reason',async()=>{
  const base=await inputs(),connector={...base.connector!,companion:{protocol:null,kinds:['browse','analyze'],legacy:true,lastSeenAt:NOW},jobs:[{id:'outdated-fixture',kind:'brief',status:'failed' as const,createdAt:NOW,claimedAt:null,projectId:base.workspace.projects[1].id,error:'companion_outdated'}]};

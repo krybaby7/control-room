@@ -1,5 +1,9 @@
 # Control Room Audit Gap Coverage
 
+## Project-wide briefing coverage line - 2026-10-28
+
+The bounded display fix on `fix/project-coverage-line` from `main` `270e403` aggregates version 4 multi-folder evidence in the project's briefing coverage line. Project-wide owner turns, individual folder lines and exact single-folder/version 1-3 output remain intact. Explicit `gpt-6.1-sol` implementation/review selections were accepted. The validated synthetic regression fails against the original model; 99 affected in-process tests pass, as do typecheck and lint (zero errors, 15 existing warnings). Installation, default test workers and build are blocked by `spawn EPERM`; Git-index permissions prevent commits. See [the verification record](../../verification/2026-10-28-project-coverage-line.md). No contract, stored data, companion, server, startup import, deployment or unrelated gap status changes.
+
 ## Private imported cloud chats — 2026-10-28
 
 The integrator's PC dry run exposed a provider-status bug: partial Claude sessions incorrectly made absent Codex evidence unavailable. The reviewed follow-up now tracks each provider's own availability and parse failures through caps/trimming, preserving all session truncation markers. Seven new regressions pass in process; the complete affected set is 42 passed, 45 Git-spawn fixture blockers and one Windows file-symlink skip. Typecheck/lint pass (0 errors, 15 existing warnings), as do seven package/prompt checks. No commit was requested or made. See [the provider coverage follow-up](../../verification/2026-10-28-private-imported-chats.md#provider-coverage-follow-up); no real-PC rerun, deployment or unrelated gap-status change is claimed.

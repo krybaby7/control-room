@@ -168,11 +168,32 @@ function analysis(localReports:SavedReportLike<LocalAnalysisReport>[],cloudRepor
 }
 const plural=(count:number,noun:string,many=noun+'s')=>`${count} ${count===1?noun:many}`;
 function evidenceLine(report:ProjectBriefing):string{
- const e=report.evidence,parts:string[]=[];
+ let e=report.evidence;
+ const parts:string[]=[],repositories=report.version===4&&e.repositories.length>1?e.repositories:null;
+ let partialCloud='';
+ if(repositories){
+  const reached=repositories.filter(row=>row.cloud.status==='fetched'||row.cloud.status==='stale');
+  const sum=(values:number[])=>values.reduce((total,value)=>total+value,0);
+  const missingFolders=repositories.length-reached.length,missingPullRequests=reached.filter(row=>row.cloud.pullRequests===null||row.cloud.openPullRequests===null).length;
+  partialCloud=[...(missingFolders?[`GitHub not reached for ${plural(missingFolders,'folder')}`]:[]),...(missingPullRequests?[`pull requests unavailable for ${plural(missingPullRequests,'folder')}`]:[])].join('; ');
+  const cloudStatus=reached.length?(reached.some(row=>row.cloud.status==='stale')?'stale':'fetched'):repositories.every(row=>row.cloud.status==='no-remote')?'no-remote':'unavailable';
+  e={...e,
+   local:{...e.local,commits:sum(repositories.map(row=>row.local.commits)),branches:sum(repositories.map(row=>row.local.branches)),uncommittedFiles:sum(repositories.map(row=>row.local.uncommittedFiles))},
+   cloud:{...e.cloud,status:cloudStatus,commits:sum(reached.map(row=>row.cloud.commits)),branches:sum(reached.map(row=>row.cloud.branches)),pullRequests:reached.some(row=>row.cloud.pullRequests!==null)?sum(reached.map(row=>row.cloud.pullRequests??0)):null,openPullRequests:reached.some(row=>row.cloud.openPullRequests!==null)?sum(reached.map(row=>row.cloud.openPullRequests??0)):null},
+   chats:(['codex','claude'] as const).map(provider=>{
+    const rows=repositories.flatMap(row=>row.chats).filter(row=>row.provider===provider&&row.status==='included');
+    return {provider,status:rows.length?'included':'not-found',sessions:sum(rows.map(row=>row.sessions)),messages:sum(rows.map(row=>row.messages)),latestAt:null};
+   }),
+   cloudTurns:repositories.some(row=>row.cloudTurns!==undefined)?(['claude-cloud','codex-cloud'] as const).map(provider=>{
+    const rows=repositories.flatMap(row=>row.cloudTurns??[]).filter(row=>row.provider===provider),included=rows.filter(row=>row.status==='included');
+    return {provider,status:included.length?'included':rows.some(row=>row.status==='unavailable')?'unavailable':'not-found',sessions:sum(included.map(row=>row.sessions)),turns:sum(included.map(row=>row.turns))};
+   }):undefined,
+  };
+ }
  parts.push(`${plural(e.local.commits,'local commit')} on ${plural(e.local.branches,'branch','branches')}${e.local.uncommittedFiles?` and ${plural(e.local.uncommittedFiles,'uncommitted file')}`:''}`);
  if(e.cloud.status==='no-remote')parts.push('no GitHub remote');
  else if(e.cloud.status==='unavailable')parts.push('GitHub could not be reached from your PC');
- else parts.push(`${plural(e.cloud.commits,'cloud commit')} on ${plural(e.cloud.branches,'GitHub branch','GitHub branches')}${e.cloud.pullRequests!==null?`, ${e.cloud.openPullRequests??0} open of ${plural(e.cloud.pullRequests,'pull request')}`:''}${e.cloud.status==='stale'?' (as last fetched)':''}`);
+ else parts.push(`${plural(e.cloud.commits,'cloud commit')} on ${plural(e.cloud.branches,'GitHub branch','GitHub branches')}${e.cloud.pullRequests!==null?`, ${e.cloud.openPullRequests??0} open of ${plural(e.cloud.pullRequests,'pull request')}`:''}${e.cloud.status==='stale'?' (as last fetched)':''}${partialCloud?` (${partialCloud})`:''}`);
  const chats=e.chats.filter(chat=>chat.status==='included').map(chat=>`${plural(chat.sessions,`${PROVIDER_LABELS[chat.provider]} chat`)}`);
  parts.push(chats.length?chats.join(' and '):'no recent local chats');
  if(e.ownerTurns.turns>0)parts.push(`${plural(e.ownerTurns.turns,'message')} of your own across ${plural(e.ownerTurns.sessions,'chat')}`);
