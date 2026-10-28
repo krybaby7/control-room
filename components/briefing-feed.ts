@@ -11,10 +11,60 @@ import {decodeRuntimeRead} from './runtime-view';
 
 export type BriefingNotice={message:string;tone:SignalTone;retry?:boolean};
 export interface FeedState {snapshot:FeedSnapshot;readAt:string}
+type CompletedBriefing={requestId:string;runId:string;reportSha256:string;report:JsonValue};
+interface CompletedSave {projectId:string;completed:CompletedBriefing;recovery:PersonalCompletedSaveRecovery;attempted:boolean;acknowledged:boolean;flight:Promise<void>|null}
+/** Save outcomes belong to the shared feed, rather than a screen's mount. Keep the exact
+ * uncertain command and acknowledgment until an explicit retry settles them. */
+class CompletedBriefingSaves {
+ private records=new Map<string,CompletedSave>();private generation=0;
+ private listeners=new Set<()=>void>();
+ private state:{notices:Record<string,BriefingNotice>;working:Record<string,boolean>}={notices:{},working:{}};
+ readonly subscribe=(listener:()=>void)=>{this.listeners.add(listener);return()=>{this.listeners.delete(listener);};};
+ readonly current=()=>this.state;
+ private readonly expired=()=>this.clear();
+ private publish(projectId:string,busy:boolean,notice:BriefingNotice|null){const notices={...this.state.notices},working={...this.state.working};if(notice)notices[projectId]=notice;else delete notices[projectId];if(busy)working[projectId]=true;else delete working[projectId];this.state={notices,working};for(const listener of [...this.listeners])listener();}
+ clear(){window.removeEventListener('control-room-session-expired',this.expired);this.generation++;this.records.clear();this.state={notices:{},working:{}};for(const listener of [...this.listeners])listener();}
+ save(projectId:string,completed:CompletedBriefing|null,explicit:boolean,getSaved:()=>FeedSnapshot['briefings'],saver:NonNullable<BriefingFeedOptions['onCommand']>,sender:typeof sendPersonalAction,refresh:()=>void):Promise<void>{
+  let record=completed?this.records.get(completed.requestId):[...this.records.values()].find(row=>row.projectId===projectId&&!row.acknowledged);
+  if(!record&&completed){if(this.records.size===0)window.addEventListener('control-room-session-expired',this.expired);record={projectId,completed:{...completed,report:structuredClone(completed.report)},recovery:new PersonalCompletedSaveRecovery(),attempted:false,acknowledged:false,flight:null};this.records.set(completed.requestId,record);}
+  if(!record||record.acknowledged)return Promise.resolve();
+  if(record.flight)return record.flight;
+  if(record.attempted&&!explicit)return Promise.resolve();
+  const pending=record,generation=this.generation,{requestId,runId,reportSha256,report}=pending.completed;
+  pending.attempted=true;this.publish(projectId,true,null);
+  // Defer invocation until the synchronous in-flight guard has been installed for every mount.
+  const flight=Promise.resolve().then(async()=>{
+   if(generation!==this.generation)return;
+   try{
+    const saved=getSaved(),existing=saved.some(row=>row.briefing.run.id===runId);
+    if(!pending.recovery.isConfirmed(requestId)){
+     // An uncertain mutation must reconcile with its original command even if its result is
+     // now visible in a read. A confirmed save only owes its PC acknowledgment.
+     if(!existing||pending.recovery.pendingCommand(requestId)){
+      const command=pending.recovery.commandFor(requestId,()=>{const previous=saved.find(row=>row.projectId===projectId);return {type:'project-briefing.save',projectId,...(previous?{evidenceId:previous.evidenceId,expectedVersion:previous.version}:{}),briefing:report} as unknown as WorkspaceCommand;});
+      const ok=await saver(command);if(generation!==this.generation)return;
+      if(!ok)throw new Error('The briefing could not be saved yet. It stays on your PC; retry the save.');
+     }
+     pending.recovery.markConfirmed(requestId);
+    }
+    if(generation!==this.generation)return;
+    await sender({action:'ack',requestId,runId,reportSha256});if(generation!==this.generation)return;
+    pending.acknowledged=true;pending.completed={requestId,runId,reportSha256,report:null};pending.recovery=new PersonalCompletedSaveRecovery();this.publish(projectId,false,null);refresh();
+   }catch(error){
+    if(generation!==this.generation)return;
+    if(!pending.recovery.isConfirmed(requestId)&&pending.recovery.releaseRejected(requestId,error))refresh();
+    this.publish(projectId,false,{message:error instanceof Error?error.message:'The briefing could not be saved yet. It stays on your PC.',tone:'bad',retry:true});
+   }finally{pending.flight=null;}
+  });
+  pending.flight=flight;return flight;
+ }
+}
 /** One live read of the owner feeds (PC connection, jobs, runtime and saved briefings), shared by
  * every mounted briefing view and the menu's Needs you count so that several readers never
- * multiply the polling. It reads only; it starts with its first user and stops after its last. */
+ * multiply the polling. The read loop starts with its first user and stops after its last;
+ * completed-save coordination also survives navigation until its outcome is settled. */
 export class FeedSource {
+ readonly completedSaves=new CompletedBriefingSaves();
  private state:FeedState={snapshot:emptyFeedSnapshot(),readAt:new Date().toISOString()};
  private readonly listeners=new Set<()=>void>();
  private users=0;private reportUsers=0;private revision:number|null=null;
@@ -45,7 +95,7 @@ export class FeedSource {
    this.publish({snapshot,readAt:new Date().toISOString()});
   },onError:()=>{if(active)this.publish({...this.state,readAt:new Date().toISOString()});},onExpire:()=>window.dispatchEvent(new Event('control-room-session-expired'))});
   // An expired session closes private content: stop reading and forget what was read.
-  const focus=()=>void loop.refresh(),visibility=()=>loop.setVisible(document.visibilityState!=='hidden'),expired=()=>{loop.setSignedIn(false);controller.abort();this.publish({snapshot:emptyFeedSnapshot(),readAt:new Date().toISOString()});};
+  const focus=()=>void loop.refresh(),visibility=()=>loop.setVisible(document.visibilityState!=='hidden'),expired=()=>{loop.setSignedIn(false);controller.abort();this.completedSaves.clear();this.publish({snapshot:emptyFeedSnapshot(),readAt:new Date().toISOString()});};
   window.addEventListener('focus',focus);window.addEventListener('online',focus);document.addEventListener('visibilitychange',visibility);window.addEventListener('control-room-session-expired',expired);
   this.loop=loop;
   this.halt=()=>{active=false;controller.abort();loop.dispose();window.removeEventListener('focus',focus);window.removeEventListener('online',focus);document.removeEventListener('visibilitychange',visibility);window.removeEventListener('control-room-session-expired',expired);};
@@ -102,7 +152,8 @@ export function useBriefingFeed({workspace,revision,busy,onCommand,readSnapshot,
  const [notices,setNotices]=useState<Record<string,BriefingNotice>>({});
  const [working,setWorkingState]=useState<Record<string,boolean>>({});
  const sender=useRef(sendAction??sendPersonalAction),saver=useRef(onCommand);
- const saveAttempts=useRef(new Set<string>()),saveRecovery=useRef(new PersonalCompletedSaveRecovery()),mounted=useRef(true);
+ const sharedSaves=useSyncExternalStore(source.completedSaves.subscribe,source.completedSaves.current,source.completedSaves.current);
+ const mounted=useRef(true);
  useEffect(()=>{sender.current=sendAction??sendPersonalAction;saver.current=onCommand;},[sendAction,onCommand]);
  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
  const modelRef=useRef(model);useEffect(()=>{modelRef.current=model;},[model]);
@@ -113,27 +164,11 @@ export function useBriefingFeed({workspace,revision,busy,onCommand,readSnapshot,
   * stops holding it. The original save command is retained until its outcome is known. */
  const saveCompleted=useCallback(async(projectId:string,explicit:boolean)=>{
   const view=modelRef.current.projects.find(tile=>tile.project.id===projectId)?.briefing;const report=view?.report;
-  if(!view?.unsaved||!report||!saver.current)return;
-  const requestId=view.unsaved.requestId;
-  if(!explicit&&saveAttempts.current.has(requestId))return;saveAttempts.current.add(requestId);
-  setWorking(projectId,true);
-  try{
-   const saved=source.current().snapshot.briefings,existing=saved.find(row=>row.briefing.run.id===report.run.id);
-   // Already saved elsewhere (another tab, an earlier retry): only the acknowledgment is still owed.
-   if(!existing){
-    const command=saveRecovery.current.commandFor(requestId,()=>{const previous=saved.find(row=>row.projectId===projectId);return {type:'project-briefing.save',projectId,...(previous?{evidenceId:previous.evidenceId,expectedVersion:previous.version}:{}),briefing:report as unknown as JsonValue} as unknown as WorkspaceCommand;});
-    const ok=await saver.current(command);
-    if(!ok)throw new Error('The briefing could not be saved yet. It stays on your PC; retry the save.');
-    saveRecovery.current.markConfirmed(requestId);
-   }
-   await sender.current({action:'ack',requestId,runId:report.run.id,reportSha256:view.unsaved.briefingSha256});
-   notify(projectId,null);refreshSoon();
-  }catch(error){
-   if(saveRecovery.current.releaseRejected(requestId,error))refreshSoon();
-   notify(projectId,{message:error instanceof Error?error.message:'The briefing could not be saved yet. It stays on your PC.',tone:'bad',retry:true});
-  }finally{setWorking(projectId,false);}
- },[source,notify,setWorking,refreshSoon]);
- useEffect(()=>{if(busy||expired||snapshot.feeds.briefings.status!=='ok')return;for(const tile of model.projects){const unsaved=tile.briefing.unsaved;if(unsaved&&!saveAttempts.current.has(unsaved.requestId)&&!working[tile.project.id])void saveCompleted(tile.project.id,false);}},[model,busy,expired,snapshot.feeds.briefings.status,working,saveCompleted]);
+  if(expired||!saver.current)return;
+  const completed=view?.unsaved&&report?{requestId:view.unsaved.requestId,runId:report.run.id,reportSha256:view.unsaved.briefingSha256,report:report as unknown as JsonValue}:null;
+  await source.completedSaves.save(projectId,completed,explicit,()=>source.current().snapshot.briefings,saver.current,sender.current,refreshSoon);
+ },[source,expired,refreshSoon]);
+ useEffect(()=>{if(busy||expired||snapshot.feeds.briefings.status!=='ok')return;for(const tile of model.projects){if(tile.briefing.unsaved&&!working[tile.project.id])void saveCompleted(tile.project.id,false);}},[model,busy,expired,snapshot.feeds.briefings.status,working,saveCompleted]);
  const brief=useCallback(async(projectId:string,repositoryKey:string,provider:'codex'|'claude')=>{
   setWorking(projectId,true);
   try{await sender.current(briefingRequest(projectId,repositoryKey,provider));notify(projectId,{message:`Briefing requested. Waiting for ${provider==='codex'?'Codex':'Claude Code'} on your PC to start.`,tone:'good'});refreshSoon();}
@@ -149,5 +184,5 @@ export function useBriefingFeed({workspace,revision,busy,onCommand,readSnapshot,
  const retrySave=useCallback((projectId:string)=>saveCompleted(projectId,true),[saveCompleted]);
  const refresh=useCallback(()=>source.refresh(),[source]);
  const choosingFolder=snapshot.connector?.jobs.some(job=>job.kind==='browse'&&(job.status==='queued'||job.status==='claimed'))??false;
- return {expired,model,snapshot,refresh,brief,keepCurrent,retrySave,notices,working,choosingFolder};
+ return {expired,model,snapshot,refresh,brief,keepCurrent,retrySave,notices:{...notices,...sharedSaves.notices},working:{...working,...sharedSaves.working},choosingFolder};
 }

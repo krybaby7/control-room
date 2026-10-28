@@ -36,6 +36,17 @@ test('saved technical reports are read only while a reader that shows them is op
  home();
 });
 
+test('opening Mission control during a briefing-only read keeps the queued technical-report read',async()=>{
+ const calls:{includeSlow:boolean;reports:boolean|undefined}[]=[];
+ let complete!:()=>void;
+ const source=new FeedSource(async(previous:FeedSnapshot,options:{includeSlow:boolean;reports?:boolean})=>{calls.push({includeSlow:options.includeSlow,reports:options.reports});if(calls.length===1)await new Promise<void>(resolve=>{complete=resolve;});return previous;});
+ const home=source.acquire(false);await flush();
+ const mission=source.acquire(true);await flush();
+ assert.deepEqual(calls,[{includeSlow:true,reports:false}],'the existing read is not overlapped');
+ try{complete();await flush();assert.deepEqual(calls,[{includeSlow:true,reports:false},{includeSlow:true,reports:true}],'Mission control gets slow reports immediately after Home finishes');}
+ finally{mission();home();}
+});
+
 test('an expired session stops the shared feed and forgets what it read',async()=>{
  const {calls,read}=recorder(),source=new FeedSource(read as never),release=source.acquire(false);await flush();
  assert.equal(source.current().snapshot.feeds.briefings.status,'ok');
