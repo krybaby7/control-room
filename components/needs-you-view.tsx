@@ -43,6 +43,11 @@ export function needsYouGroups(model:DashboardModel,workspace:Workspace,handlers
  for(const item of model.attention.filter(item=>item.kind!=='decision'&&(!item.projectId||!active.has(item.projectId)))){const key=item.projectId?`other:${item.projectId}`:'other',title=item.projectName??'Not tied to a project';let group=groups.find(row=>row.key===key);if(!group){group={key,title,items:[]};groups.push(group);}group.items.push(toItem(item));}
  return groups.filter(group=>group.items.length>0);
 }
+const ignore=()=>{};
+/** How many things wait on the owner: exactly the items the Needs you screen lists. */
+export function needsYouTotal(model:DashboardModel,workspace:Workspace):number{
+ return needsYouGroups(model,workspace,{onProject:ignore,onTask:ignore,onAgents:ignore,onInbox:ignore,onAttention:ignore}).reduce((sum,group)=>sum+group.items.length,0);
+}
 export function NeedsYouContent({groups,briefings,onAttention}:{groups:NeedsGroup[];briefings:FeedState['status'];onAttention:()=>void}){
  const id=useId(),total=groups.reduce((sum,group)=>sum+group.items.length,0);
  return <section className="needs-you" aria-labelledby={`${id}-heading`}>

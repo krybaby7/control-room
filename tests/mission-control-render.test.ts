@@ -152,7 +152,7 @@ test('new folder helpers, briefing feeds and every non-Home view stay outside th
   }
  }
  visit(new URL('../components/control-center.tsx',import.meta.url));
- for(const file of ['mission-control.tsx','mission-control-panels.tsx','briefing-card.tsx','briefing-feed.ts','briefing-actions.ts','home-briefings.tsx','needs-you-view.tsx','advanced-view.tsx','project-briefing.tsx','project-lanes-home.tsx','project-lanes.tsx'])assert.ok(!seen.has(new URL(`../components/${file}`,import.meta.url).href),`${file} must stay deferred`);
+ for(const file of ['mission-control.tsx','mission-control-panels.tsx','briefing-card.tsx','briefing-feed.ts','briefing-actions.ts','home-briefings.tsx','needs-you-view.tsx','needs-count.tsx','advanced-view.tsx','project-briefing.tsx','project-lanes-home.tsx','project-lanes.tsx'])assert.ok(!seen.has(new URL(`../components/${file}`,import.meta.url).href),`${file} must stay deferred`);
  // Home's first paint is in the startup code; its briefings, feeds and helpers are not.
  assert.ok(seen.has(new URL('../components/home-view.tsx',import.meta.url).href),'the Home frame paints with the first screen');
  for(const file of ['../lib/dashboard/feed.ts','../lib/dashboard/model.ts','../lib/project-briefing-client.ts'])assert.ok(!seen.has(new URL(file,import.meta.url).href),`${file} must stay out of the startup code`);

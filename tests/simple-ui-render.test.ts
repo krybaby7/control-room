@@ -69,6 +69,7 @@ test('Needs you lists every waiting item by project, without the old eight-item 
  assert.deepEqual(opened,[`project:${fixture.projectB}`,`task:${fixture.workspace.tasks.find(task=>task.projectId===fixture.projectA&&task.status==='review')!.id}`,'agents']);
  const html=renderToStaticMarkup(createElement(needs.NeedsYouContent,{groups,briefings:'ok',onAttention:noop})),total=groups.reduce((sum,group)=>sum+group.items.length,0);
  assert.ok(text(html).includes(`${total} things wait on you.`));assert.ok(html.includes('Open Attention'));
+ assert.equal(needs.needsYouTotal(value,fixture.workspace),total,'the menu count is the Needs you screen total');
  const empty=text(renderToStaticMarkup(createElement(needs.NeedsYouContent,{groups:[],briefings:'ok',onAttention:noop})));assert.ok(empty.includes('Nothing waits on you right now.'));assert.ok(empty.includes('All clear'));
 });
 test('Advanced reaches every detailed tool with a plain description and shows connection details',()=>{

@@ -243,3 +243,6 @@
 .home-section ol{list-style:decimal}
 /* The back links sit on the page background; keep them at AA contrast. */
 .back-button{color:#5f6b80}
+/* The count beside Needs you: readable at AA contrast; on phones it sits at the icon's corner. */
+.nav-count{color:#433f9e;background:#e7e6f6;font-size:11px;font-weight:600;line-height:16px;min-width:20px;text-align:center}
+@media(max-width:700px){.main-nav .nav-item{position:relative}.main-nav .nav-count{position:absolute;top:3px;left:calc(50% + 6px);margin:0;padding:0 4px;font-size:10px;min-width:16px}}
