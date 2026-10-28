@@ -11,13 +11,13 @@ const defaultRunners={
 };
 /** One bounded briefing: evidence pack, one model call under the shared single slot, strict validation.
  * Returns the briefing plus the work fingerprint the evidence was taken at. */
-export async function runProjectBriefing({root,repositories,requestId,provider,framing,origin='owner',previous=null},{signal,collect=collectBriefingEvidence,collectProject=collectProjectBriefingEvidence,runners=defaultRunners,now=()=>new Date().toISOString(),fetchRemote=true,codexHome,claudeHome}={}){
+export async function runProjectBriefing({root,repositories,requestId,provider,framing,origin='owner',previous=null},{signal,collect=collectBriefingEvidence,collectProject=collectProjectBriefingEvidence,runners=defaultRunners,now=()=>new Date().toISOString(),fetchRemote=true,codexHome,claudeHome,importedChatsRoot}={}){
  if(!['codex','claude'].includes(provider)||!['owner','auto'].includes(origin)||(repositories===undefined&&typeof root!=='string')||!UUID.test(requestId))throw new Error('Invalid finite project briefing.');
  const checkedFraming=validateProjectFraming(framing),checkedPrevious=previous===null?null:validatePreviousLedger(previous);
  if(checkedPrevious&&checkedPrevious.runId===requestId)throw new Error('Invalid finite project briefing.');
  return withAnalysisSlot(async()=>{
   const deadline=AbortSignal.timeout(540000),bounded=signal?AbortSignal.any([signal,deadline]):deadline;bounded.throwIfAborted();
-  const startedAt=now(),options={signal:bounded,now,fetchRemote,codexHome,claudeHome,previous:checkedPrevious};
+  const startedAt=now(),options={signal:bounded,now,fetchRemote,codexHome,claudeHome,importedChatsRoot,previous:checkedPrevious};
   let evidence;if(repositories!==undefined)evidence=await collectProject(repositories,options);else{evidence=await collect(root,options);if(!evidence.identities){evidence.identities=[{...evidence.identity,branch:evidence.branch}];evidence.summary.repositories=[{key:evidence.identity.key,name:evidence.identity.name,...Object.fromEntries(['local','cloud','chats','ownerTurns','cloudTurns'].filter(key=>evidence.summary[key]!==undefined).map(key=>[key,evidence.summary[key]]))}];}}
   const prompt=buildBriefingPrompt({bundle:evidence.bundle,framing:checkedFraming,previous:checkedPrevious});
   const result=await runners[provider]({prompt,signal:bounded});bounded.throwIfAborted();
