@@ -58,7 +58,7 @@ test('combined cloud evidence unions before counting and fingerprints filtered r
 });
 
 test('private reader pipeline combines original IDs once and detects rejected raw edits without Git or transport',async()=>{
- const base=await mkdtemp(join(tmpdir(),'private-cloud-evidence-'));try{
+ const base=await realpath(await mkdtemp(join(tmpdir(),'private-cloud-evidence-')));try{
   const {readImportedCloudOwnerTurns}=await import('../companion/cloud-owner-turns.mjs');const {combineCloudOwnerEvidence}=await import('../companion/briefing-evidence.mjs');
   const options={importedRoot:base,origin:{owner:'fixture',repo:'project'}};
   const rawId='session_session_shared',repository={status:'included',truncated:false,sessions:[{provider:'claude-cloud',sessionId:rawId,title:'Repository',origin:'repository-handoff',latestAt:stamp,messages:[{role:'user',text:'Original repository intent.',timestamp:stamp}],truncated:false}]};
@@ -78,7 +78,7 @@ test('private reader pipeline combines original IDs once and detects rejected ra
 });
 
 test('production private reader coverage keeps partial and rejected evidence specific to its provider',async()=>{
- const base=await mkdtemp(join(tmpdir(),'private-provider-coverage-'));try{
+ const base=await realpath(await mkdtemp(join(tmpdir(),'private-provider-coverage-')));try{
   const {readImportedCloudOwnerTurns}=await import('../companion/cloud-owner-turns.mjs');const {combineCloudOwnerEvidence,cloudTurnCoverage}=await import('../companion/briefing-evidence.mjs');
   const absent={status:'not-found',sessions:[],truncated:false},options={importedRoot:base,origin:{owner:'fixture',repo:'project'}};
   await addPrivateHandoff(base,'fixture__project',{sessionId:'partial-claude',coverageNotes:'Some earlier owner turns were not extracted.',turns:['Keep this Claude intention.']});
