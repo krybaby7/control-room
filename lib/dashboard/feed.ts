@@ -25,7 +25,9 @@ export function emptyFeedSnapshot():FeedSnapshot{
 }
 class FeedUnavailableError extends Error {constructor(message='Feed unavailable.'){super(message);this.name='FeedUnavailableError';}}
 class FeedUnconfiguredError extends Error {constructor(){super('Feed not configured.');this.name='FeedUnconfiguredError';}}
-export interface FeedReadOptions {fetch?:typeof fetch;signal?:AbortSignal;now?:()=>string;runtimeDecode?:(raw:unknown)=>Promise<{devices:RuntimeDeviceLike[]}>;deadlineMs?:number}
+export interface FeedReadOptions {fetch?:typeof fetch;signal?:AbortSignal;now?:()=>string;runtimeDecode?:(raw:unknown)=>Promise<{devices:RuntimeDeviceLike[]}>;deadlineMs?:number;
+ /** False skips the saved technical analysis reports; their feeds keep their previous values and state. */
+ reports?:boolean}
 async function readJson(fetcher:typeof fetch,url:string,options:FeedReadOptions):Promise<{status:number;body:unknown}>{
  const controller=new AbortController(),abort=()=>controller.abort();options.signal?.addEventListener('abort',abort,{once:true});if(options.signal?.aborted)controller.abort();
  const timer=setTimeout(()=>controller.abort(),options.deadlineMs??FEED_LIMITS.deadlineMs);
@@ -105,10 +107,13 @@ export async function readFeedSnapshot(previous:FeedSnapshot,options:FeedReadOpt
  next.connector=feeds.connector.status==='unconfigured'?null:connectorValue;
  if(options.includeSlow){
   const bounded={fetch:options.fetch,signal:options.signal,timeoutMs:options.deadlineMs??FEED_LIMITS.deadlineMs};
-  const [local,cloud,briefings]=await Promise.allSettled([loadSavedLocalAnalyses(bounded),loadSavedGithubAnalyses(bounded),loadSavedProjectBriefings(bounded)]);
-  const reportsOf=<R,>(outcome:PromiseSettledResult<{reports:R[]}>):PromiseSettledResult<R[]>=>outcome.status==='fulfilled'?{status:'fulfilled',value:outcome.value.reports}:outcome;
-  next.localReports=settle('local',reportsOf(local),previous.localReports,feeds,now);
-  next.cloudReports=settle('cloud',reportsOf(cloud),previous.cloudReports,feeds,now);
+  const reports=options.reports!==false;
+  const [local,cloud,briefings]=await Promise.allSettled([reports?loadSavedLocalAnalyses(bounded):null,reports?loadSavedGithubAnalyses(bounded):null,loadSavedProjectBriefings(bounded)]);
+  const reportsOf=<R,>(outcome:PromiseSettledResult<{reports:R[]}|null>):PromiseSettledResult<R[]>=>outcome.status==='fulfilled'?{status:'fulfilled',value:outcome.value?.reports??[]}:outcome;
+  if(reports){
+   next.localReports=settle('local',reportsOf(local),previous.localReports,feeds,now);
+   next.cloudReports=settle('cloud',reportsOf(cloud),previous.cloudReports,feeds,now);
+  }
   next.briefings=settle('briefings',briefings.status==='fulfilled'?{status:'fulfilled',value:briefings.value.briefings}:briefings,previous.briefings,feeds,now);
   next.slowFeedsAt=now;
  }
@@ -131,7 +136,7 @@ export interface SchedulerDependencies {
  * Reads never overlap; failures back off; slow feeds are re-read at most every 90 s. */
 export class LiveFeedScheduler {
  private readonly deps:SchedulerDependencies;private running=false;private disposed=false;private visible:boolean;private signedIn:boolean;private pace:'fast'|'slow'='slow';
- private timer:unknown=null;private inFlight:Promise<void>|null=null;private pending=false;private failures=0;private generation=0;private lastSlowAt:number|null=null;private lastReadAt:number|null=null;
+ private timer:unknown=null;private inFlight:Promise<void>|null=null;private pending=false;private failures=0;private generation=0;private slowGeneration=0;private lastSlowAt:number|null=null;private lastReadAt:number|null=null;
  constructor(deps:SchedulerDependencies){this.deps=deps;this.visible=deps.visible??true;this.signedIn=deps.signedIn??true;}
  snapshot(){return {running:this.running,visible:this.visible,signedIn:this.signedIn,pace:this.pace,inFlight:this.inFlight!==null,failures:this.failures,lastReadAt:this.lastReadAt,lastSlowAt:this.lastSlowAt};}
  private eligible(){return this.running&&!this.disposed&&this.visible&&this.signedIn;}
@@ -150,15 +155,15 @@ export class LiveFeedScheduler {
  /** Fast pace while any agent is working; switching paces re-schedules the next tick. */
  setPace(value:'fast'|'slow'){if(this.pace===value)return;this.pace=value;if(!this.inFlight)this.schedule();}
  /** Force the slow feeds (saved reports) on the next read, e.g. after the workspace changed. */
- invalidateSlow(){this.lastSlowAt=null;}
+ invalidateSlow(){this.slowGeneration++;this.lastSlowAt=null;}
  refresh():Promise<void>{
   if(!this.eligible())return Promise.resolve();
   if(this.inFlight){this.pending=true;return this.inFlight;}
   this.clear();this.pending=false;
-  const generation=this.generation,now=(this.deps.now??Date.now)(),includeSlow=this.lastSlowAt===null||now-this.lastSlowAt>=FEED_LIMITS.slowFeedMs;
+  const generation=this.generation,slowGeneration=this.slowGeneration,now=(this.deps.now??Date.now)(),includeSlow=this.lastSlowAt===null||now-this.lastSlowAt>=FEED_LIMITS.slowFeedMs;
   const flight=Promise.resolve().then(()=>this.deps.read(includeSlow)).then(()=>{
    if(generation!==this.generation||this.disposed)return;
-   this.failures=0;this.lastReadAt=(this.deps.now??Date.now)();if(includeSlow)this.lastSlowAt=this.lastReadAt;
+   this.failures=0;this.lastReadAt=(this.deps.now??Date.now)();if(includeSlow&&slowGeneration===this.slowGeneration)this.lastSlowAt=this.lastReadAt;
   }).catch(error=>{
    if(generation!==this.generation||this.disposed)return;
    if(error instanceof SessionExpiredError){this.setSignedIn(false);this.deps.onExpire?.();return;}

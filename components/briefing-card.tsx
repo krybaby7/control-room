@@ -1,11 +1,12 @@
 'use client';
 import {useId,useMemo,useState} from 'react';
 import {AlertTriangle,ArrowRight,Ban,Check,CheckCheck,CircleDashed,CircleDot,CornerUpRight,Flag,Minus,Pause,RefreshCw,Sparkles,X} from 'lucide-react';
-import type {BriefingAreaRow,BriefingIntentionRow,BriefingLedger,ProjectTile as ProjectTileModel,SignalTone} from '@/lib/dashboard/model';
+import type {BriefingAreaRow,BriefingIntentionRow,BriefingLedger,BriefingView,ProjectTile as ProjectTileModel,SignalTone} from '@/lib/dashboard/model';
 import {AREA_STATE} from '@/lib/dashboard/model';
 import {relativeTime} from '@/lib/dashboard/format';
 import {firstDisabledReason,projectActionDisabledReason} from '@/lib/project-action-reasons';
 import {dateLabel} from './ui';
+import {briefRequestReason,defaultBriefingProvider} from './briefing-actions';
 import {Chip,StatusLight,type DashboardActions} from './mission-control-panels';
 
 /* The owner's briefing card: the aim, where we left off, a map of the project's areas, the intention
@@ -95,7 +96,7 @@ export function IntentionTrail({ledger,area,onClearArea}:{ledger:BriefingLedger;
   {kept.length>shown.length&&<div className="mc-trail-more"><button type="button" className="text-button" onClick={()=>setExpanded(true)}>Show {kept.length-shown.length} earlier intention{kept.length-shown.length===1?'':'s'}</button></div>}
  </section>;
 }
-function PlanChanges({ledger}:{ledger:BriefingLedger}){
+export function PlanChanges({ledger}:{ledger:BriefingLedger}){
  const bends=[...ledger.intentions].reverse().filter(row=>row.bend);
  if(!bends.length)return null;
  return <section className="mc-brief-section" aria-label="How the plan changed">
@@ -103,15 +104,20 @@ function PlanChanges({ledger}:{ledger:BriefingLedger}){
   <div className="mc-bends">{bends.map((row,index)=><div key={index} className="mc-bend"><span className="mc-bend-date">{row.date?dateLabel(row.date):'undated'}</span><div className="mc-bend-fromto"><span><i>From</i><span>{row.bend!.from}</span></span><span><i>To</i><span className="to">{row.bend!.to}</span></span></div><p className="mc-bend-why">{row.bend!.why}</p></div>)}</div>
  </section>;
 }
+/** How a briefing was put together: the evidence window, per-folder coverage, references and limitations. */
+export function BriefingBasis({view,now}:{view:BriefingView;now:string}){
+ const report=view.report,ledger=view.ledger;
+ if(!report)return null;
+ return <details className="mc-brief-basis"><summary>How this briefing was put together</summary><p>Based on work up to {relativeTime(view.freshness.basedOnAt,now)}: {view.evidenceLine}. Written by {view.providerLabel} on your PC{report.run.observedModel?` (${report.run.observedModel})`:''}; chat text and code never leave your PC except inside that one request.</p>{view.evidenceCoverage.length>0&&<ul aria-label="Coverage by folder">{view.evidenceCoverage.map(row=><li key={row.key}><strong>{row.name}</strong>: {row.line}</li>)}</ul>}{ledger.intentions.some(row=>row.evidence.length>0)&&<p className="mc-brief-refs">References for your engineers: {ledger.intentions.flatMap(row=>row.evidence).map(ref=>typeof ref==='string'?ref:`${report.repositories.find(folder=>folder.key===ref.repositoryKey)?.name??ref.repositoryKey}: ${ref.ref}`).join(', ')}</p>}<ul>{report.limitations.map((text,index)=><li key={index}>{text}</li>)}</ul></details>;
+}
 function BriefingControls({tile,actions}:{tile:ProjectTileModel;actions:DashboardActions}){
  const view=tile.briefing,id=tile.project.id,working=actions.briefingWorking[id]??false,notice=actions.briefingNotices[id]??null;
  const descriptionId=useId();
- const [provider,setProvider]=useState<'codex'|'claude'>(view.policy?.provider??view.report?.run.provider??(view.providers.find(row=>row.ready)?.id??'codex'));
+ const [provider,setProvider]=useState<'codex'|'claude'>(()=>defaultBriefingProvider(view));
  const repositoryKey=view.repositoryKey??'';
- const ready=view.providers.find(row=>row.id===provider)?.ready??false;
  const keepCurrent=view.policy?.enabled??false;
  const savingReason=projectActionDisabledReason('remove-folder',{saving:working||actions.busy});
- const requestReason=firstDisabledReason(projectActionDisabledReason('brief',{archived:!!tile.project.archivedAt,saving:working||actions.busy,folderCount:view.repositories.length,online:view.connector==='online',choosingFolder:actions.choosingFolder,briefingRunning:!!view.activeJob,assistantReady:ready,assistant:provider}),!repositoryKey&&'The linked folder is unavailable on your PC. Add it again from the project page.',!view.canRequest&&view.requestHint);
+ const requestReason=briefRequestReason(tile,{working,busy:actions.busy,choosingFolder:actions.choosingFolder,provider});
  const folderReason=projectActionDisabledReason('add-folder',{folderCount:view.repositories.length});
  const keepReason=firstDisabledReason(savingReason,!keepCurrent&&projectActionDisabledReason('choose-folder',{online:view.connector==='online'}));
  return <div className="mc-brief-controls">
@@ -147,7 +153,7 @@ export function BriefingCard({tile,now,actions}:{tile:ProjectTileModel;now:strin
    </div>
    {report.tried.length>0&&<details className="mc-brief-fold"><summary>What was tried and did not work</summary><ul>{report.tried.map((text,index)=><li key={index}>{text}</li>)}</ul></details>}
    <details className="mc-brief-fold"><summary>Done and not yet done</summary><div className="mc-brief-columns"><div><strong><CheckCheck size={12}/>Done</strong>{report.done.length?<ul>{report.done.map((text,index)=><li key={index}>{text}</li>)}</ul>:<p>Nothing recorded as done yet.</p>}</div><div><strong><CircleDashed size={12}/>Not yet</strong>{report.notDone.length?<ul>{report.notDone.map((text,index)=><li key={index}>{text}</li>)}</ul>:<p>Nothing outstanding was identified.</p>}</div></div></details>
-   <details className="mc-brief-basis"><summary>How this briefing was put together</summary><p>Based on work up to {relativeTime(view.freshness.basedOnAt,now)}: {view.evidenceLine}. Written by {view.providerLabel} on your PC{report.run.observedModel?` (${report.run.observedModel})`:''}; chat text and code never leave your PC except inside that one request.</p>{view.evidenceCoverage.length>0&&<ul aria-label="Coverage by folder">{view.evidenceCoverage.map(row=><li key={row.key}><strong>{row.name}</strong>: {row.line}</li>)}</ul>}{ledger.intentions.some(row=>row.evidence.length>0)&&<p className="mc-brief-refs">References for your engineers: {ledger.intentions.flatMap(row=>row.evidence).map(ref=>typeof ref==='string'?ref:`${report.repositories.find(folder=>folder.key===ref.repositoryKey)?.name??ref.repositoryKey}: ${ref.ref}`).join(', ')}</p>}<ul>{report.limitations.map((text,index)=><li key={index}>{text}</li>)}</ul></details>
+   <BriefingBasis view={view} now={now}/>
   </>:!view.activeJob&&<div className="mc-brief-empty"><p>No briefing yet. Your PC can measure your intentions against your project framing using your own messages in Codex and Claude Code, the latest commits, and GitHub branches and pull requests. Your task plan is included only when you enable it in the project editor.</p></div>}
   <BriefingControls tile={tile} actions={actions}/>
  </section>;

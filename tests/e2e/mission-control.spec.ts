@@ -1,9 +1,9 @@
 import {expect,test} from '@playwright/test';
-import {openFixture,workspace} from './helpers';
+import {openFixture,workspace,clickFixtureNavigation} from './helpers';
 import type {Workspace} from '../../lib/types';
 
 test('mission control shows the status strip, project tiles, live operations and attention without saving',async({page})=>{
- await openFixture(page);await page.getByRole('button',{name:'Today',exact:true}).click();const before=await workspace(page);const saved=before.workspace as Workspace;
+ await openFixture(page);await clickFixtureNavigation(page,'Mission control');const before=await workspace(page);const saved=before.workspace as Workspace;
  await expect(page.getByRole('heading',{name:'Mission control',exact:true})).toBeVisible();
  const hud=page.getByRole('region',{name:'Status overview',exact:true});
  await expect(hud.getByRole('button').filter({hasText:/^PC /})).toBeVisible();
@@ -32,7 +32,7 @@ test('mission control shows the status strip, project tiles, live operations and
  const first=saved.projects.find(row=>!row.archivedAt)!;
  await page.getByRole('article',{name:`Project ${first.name}`,exact:true}).getByRole('button',{name:'Open project',exact:true}).click();
  await expect(page.getByRole('heading',{name:first.name,exact:true}).first()).toBeVisible();
- await page.getByRole('button',{name:'Today',exact:true}).click();
+ await clickFixtureNavigation(page,'Mission control');
  await expect(page.getByRole('heading',{name:'Mission control',exact:true})).toBeVisible();
  expect((await workspace(page)).revision).toBe(before.revision);
 });

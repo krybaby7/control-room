@@ -58,10 +58,10 @@ test('the bounded module deadline replaces a hung loading state and a late modul
  }finally{held.release();}
 });
 
-test('Today code stays off the initial lanes path and selection retains loading feedback and saved owner state',async({page})=>{
+test('Mission control code stays off the initial Home path and selection retains loading feedback and saved owner state',async({page})=>{
  const held=await holdPanel(page,/\/[^/]*mission-control[^/]*\.js(?:\?|$)/u);let posts=0;page.on('request',request=>{if(new URL(request.url()).pathname==='/api/workspace'&&request.method()==='POST')posts++;});
- try{await openFixture(page);await expect(page.getByRole('heading',{name:'Your projects',exact:true})).toBeVisible();const before=await workspace(page);expect(held.requests()).toBe(0);
-  await page.getByRole('navigation',{name:'Main navigation',exact:true}).getByRole('button',{name:'Today',exact:true}).click();await held.waiting;await expect(page.getByRole('status').filter({hasText:'Loading Today…'})).toBeVisible();await expect(page.getByRole('heading',{name:'Mission control',exact:true})).not.toBeVisible();
+ try{await openFixture(page);await expect(page.getByRole('heading',{name:'Home',exact:true})).toBeVisible();const before=await workspace(page);expect(held.requests()).toBe(0);
+  await clickFixtureNavigation(page,'Mission control');await held.waiting;await expect(page.getByRole('status').filter({hasText:'Loading Mission control…'})).toBeVisible();await expect(page.getByRole('heading',{name:'Mission control',exact:true})).not.toBeVisible();
   held.release();await expect(page.getByRole('heading',{name:'Mission control',exact:true})).toBeVisible();expect((await workspace(page)).revision).toBe(before.revision);expect(posts).toBe(0);
  }finally{held.release();}
 });

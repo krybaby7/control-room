@@ -1,4 +1,31 @@
 {
+  "simpleUi": {
+    "preMergeReviewFixes": {
+      "base": "e49fa2e",
+      "status": "reviewed_focused_verified_uncommitted_integrator_full_ci_pending",
+      "workerModelParameter": "gpt-6.1-sol",
+      "acceptedWorkers": ["/root/implement_races", "/root/review_fixes"],
+      "verification": "docs/superpowers/verification/2026-10-28-simple-ui.md#pre-merge-review-fixes",
+      "checks": {"node": "24.14.1", "affectedTestsPassed": 50, "affectedTestsFailed": 0, "affectedTestsSkipped": 0, "testIsolation": "none", "typecheck": "passed", "lintErrors": 0, "lintExistingWarnings": 15, "independentReview": "no remaining actionable findings"},
+      "limits": "install:ci and default Node test workers blocked by spawn EPERM. Browser navigation, measured feed GET rates, build, full CI and live PC/provider behavior were not re-verified. Original owner UTC message timestamps were unavailable; no handoff timestamps were invented.",
+      "constraints": "UI/client only; no commit, push, merge or deployment. Polling intervals, budgets, timeouts and existing assertions remain unchanged."
+    },
+    "date": "2026-10-28",
+    "base": "7f77a81",
+    "branch": "feat/simple-ui",
+    "draftPullRequest": "https://github.com/krybaby7/control-room/pull/16",
+    "status": "owner_answers_applied_draft_pr_awaiting_owner_review",
+    "checks": "All 13 checks passed on 24286b6 without re-runs. The follow-up applying the owner's answers is checked in its own CI run; its results are in the pull request description.",
+    "ownerAnswers": "2026-10-28T06:54:02.897420Z: one Brief button on the project page (done); count beside Needs you (done); Mission control name, active-only Home, assistant default and save guard kept.",
+    "plan": "docs/superpowers/plans/2026-10-28-simple-ui.md",
+    "verification": "docs/superpowers/verification/2026-10-28-simple-ui.md",
+    "scope": "UI and navigation only: Home, Projects, Needs you and Advanced; briefing-first project page. No data contract, stored format, migration, API route/payload or companion change.",
+    "workerModelParameter": "gpt-6.1-sol not selectable in this runtime; owner authorized direct implementation and review for this task",
+    "acceptedWorkers": [],
+    "ownerHandoff": "planning/handoffs/owner-turns/2026-10-28-simple-ui.md records the owner's answers verbatim; the session's first message was initiated by the launching Claude session and is not an owner turn.",
+    "merged": false,
+    "deployed": false
+  },
   "outdatedCompanion": {
     "date": "2026-10-27",
     "base": "3e6e020",

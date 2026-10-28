@@ -47,6 +47,17 @@ test('scheduler never overlaps reads and honours a refresh requested mid-flight'
  release!();await flush();loop.dispose();
 });
 
+test('slow invalidation during a read survives success without changing the polling cadence',async()=>{
+ const clock=new FakeClock(),reads:boolean[]=[];let complete!:()=>void;
+ const loop=new LiveFeedScheduler({read:async slow=>{reads.push(slow);if(reads.length===1)await new Promise<void>(resolve=>{complete=resolve;});},now:()=>clock.now,setTimer:clock.set,clearTimer:clock.clear,random:()=>0.5});
+ loop.start();await flush();loop.invalidateSlow();void loop.refresh();complete();await flush();
+ try{
+  assert.deepEqual(reads,[true,true]);assert.equal(clock.next(),FEED_LIMITS.slowMs);
+  await clock.advance(FEED_LIMITS.slowMs);assert.deepEqual(reads,[true,true,false]);
+  await clock.advance(FEED_LIMITS.slowMs);assert.deepEqual(reads,[true,true,false,true]);
+ }finally{loop.dispose();}
+});
+
 function json(body:unknown,status=200){return new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json'}});}
 async function fixtureFetch(overrides:Record<string,()=>Response|Promise<Response>>={}){
  const fixture=await dashboardFixture();
@@ -82,6 +93,16 @@ test('one snapshot read combines every feed, follows active event pages and tole
  const broken=await fixtureFetch({'/api/project-briefings':()=>json({revision:3,asOf:NOW,briefings:[{...fixture.briefings[0],briefing:{...fixture.briefings[0].briefing,aim:''}}]})});
  const rejected=await readFeedSnapshot(snapshot,{includeSlow:true,fetch:broken.fetcher,now:()=>NOW});
  assert.equal(rejected.feeds.briefings.status,'failed');assert.equal(rejected.briefings.length,1,'an invalid briefing feed keeps the last good briefings');assert.ok(!calls.slice(calls.length-6).includes('/api/local-analysis')||true);
+});
+test('briefing-only views read saved briefings but leave saved technical reports unread and untouched',async()=>{
+ const {fixture,fetcher,calls}=await fixtureFetch();
+ const snapshot=await readFeedSnapshot(emptyFeedSnapshot(),{includeSlow:true,fetch:fetcher,now:()=>NOW,reports:false});
+ assert.ok(!calls.some(url=>url.startsWith('/api/local-analysis')||url.startsWith('/api/github-analysis')),'technical reports stay lazy');
+ assert.ok(calls.includes('/api/project-briefings'));assert.equal(snapshot.briefings.length,fixture.briefings.length);assert.equal(snapshot.feeds.briefings.status,'ok');
+ assert.deepEqual(snapshot.localReports,[]);assert.deepEqual(snapshot.cloudReports,[]);assert.equal(snapshot.feeds.local.status,'loading');assert.equal(snapshot.feeds.cloud.status,'loading');
+ const kept=await readFeedSnapshot({...snapshot,localReports:fixture.localReports,cloudReports:fixture.cloudReports},{includeSlow:true,fetch:fetcher,now:()=>NOW,reports:false});
+ assert.equal(kept.localReports,fixture.localReports,'earlier reports are kept, not cleared');assert.equal(kept.cloudReports,fixture.cloudReports);
+ const full=await readFeedSnapshot(emptyFeedSnapshot(),{includeSlow:true,fetch:fetcher,now:()=>NOW});assert.equal(full.localReports.length,1);assert.equal(full.feeds.local.status,'ok');
 });
 test('an unconfigured personal connector is a state, not an error; 401 expires the session',async()=>{
  const {fetcher}=await fixtureFetch({'/api/personal-repositories':()=>json({configured:false,error:'Personal PC connection is unavailable.'},503)});

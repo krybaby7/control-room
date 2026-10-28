@@ -1,5 +1,5 @@
 import {test,expect,type Page} from '@playwright/test';
-import {setFixtureSession,openFixture,workspace} from './helpers';
+import {setFixtureSession,openFixture,workspace,clickFixtureNavigation} from './helpers';
 // Synthetic PC presence only: the fixture has no personal connector, so no device or provider is involved.
 const providers={codex:{ready:true,detail:'ready'},claude:{ready:false,detail:'auth_required'}};
 const lastSeenAt='2026-10-20T08:00:00.000Z';
@@ -14,9 +14,9 @@ async function openRepositories(page:Page){
 }
 const offline=/^Your PC is offline \(last seen .+\)\. Open Control Room on this PC to continue\.$/u;
 
-test('Analyze on a Today project opens Repositories with that project explained as the analysis target',async({page})=>{
+test('Analyze on a Mission control project opens Repositories with that project explained as the analysis target',async({page})=>{
  await pcPresence(page);await openFixture(page);
- await page.getByRole('navigation',{name:'Main navigation',exact:true}).getByRole('button',{name:'Today',exact:true}).click();
+ await clickFixtureNavigation(page,'Mission control');
  await page.getByRole('button',{name:'Analyze',exact:true}).first().click();
  await expect(page.getByRole('heading',{name:'Repositories',exact:true})).toBeVisible();
  const projectId=new URL(page.url()).searchParams.get('projectId'),project=(await workspace(page)).workspace.projects.find((p:{id:string})=>p.id===projectId);

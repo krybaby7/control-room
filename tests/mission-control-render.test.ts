@@ -131,7 +131,7 @@ test('Today renders briefing controls immediately without injected helpers',asyn
  for(const text of ['Folders on your PC','Add folder','Assistant','Refresh briefing','Keep current'])assert.ok(html.includes(text),text);
  assert.ok(!html.includes('Loading folder actions'));
 });
-test('new folder helpers stay outside the emitted static shell closure while Today stays deferred',()=>{
+test('new folder helpers, briefing feeds and every non-Home view stay outside the emitted static shell closure',()=>{
  const root=new URL('../',import.meta.url),seen=new Set<string>();
  function visit(file:URL){
   if(seen.has(file.href))return;
@@ -152,5 +152,8 @@ test('new folder helpers stay outside the emitted static shell closure while Tod
   }
  }
  visit(new URL('../components/control-center.tsx',import.meta.url));
- for(const file of ['mission-control','mission-control-panels','briefing-card'])assert.ok(!seen.has(new URL(`../components/${file}.tsx`,import.meta.url).href),`${file} must stay deferred`);
+ for(const file of ['mission-control.tsx','mission-control-panels.tsx','briefing-card.tsx','briefing-feed.ts','briefing-actions.ts','home-briefings.tsx','needs-you-view.tsx','needs-count.tsx','advanced-view.tsx','project-briefing.tsx','project-lanes-home.tsx','project-lanes.tsx'])assert.ok(!seen.has(new URL(`../components/${file}`,import.meta.url).href),`${file} must stay deferred`);
+ // Home's first paint is in the startup code; its briefings, feeds and helpers are not.
+ assert.ok(seen.has(new URL('../components/home-view.tsx',import.meta.url).href),'the Home frame paints with the first screen');
+ for(const file of ['../lib/dashboard/feed.ts','../lib/dashboard/model.ts','../lib/project-briefing-client.ts'])assert.ok(!seen.has(new URL(file,import.meta.url).href),`${file} must stay out of the startup code`);
 });
