@@ -4,6 +4,8 @@ import {promisify} from 'node:util';
 import {lstat,realpath,opendir,open} from 'node:fs/promises';
 import {constants} from 'node:fs';
 import path from 'node:path';
+import {homedir} from 'node:os';
+import {createHash} from 'node:crypto';
 import {forbiddenPath} from './snapshot.mjs';
 import {chatTextHasSecret,redactChatText} from './chat-context.mjs';
 const exec=promisify(execFile),DIRECTORY='planning/handoffs/owner-turns';
@@ -33,12 +35,13 @@ function validSource(value){
  const relative=/^[A-Za-z0-9][A-Za-z0-9_.-]*\/[A-Za-z0-9][A-Za-z0-9_.-]*@[a-f0-9]{40}(?:[a-f0-9]{24})?:(.+)$/u.exec(value)?.[1];
  return !!relative&&!/^[\\/]|^[A-Za-z]:|[\u0000-\u001f\u007f]/u.test(relative)&&relative.replaceAll('\\','/').split('/').every(part=>part!==''&&part!=='.'&&part!=='..');
 }
-function parse(buffer){
+function parse(buffer,{onProvider}={}){
  if(buffer.includes(0))throw new Error('Not text.');const text=new TextDecoder('utf-8',{fatal:true}).decode(buffer),lines=[];let offset=0;
  for(const raw of text.split('\n')){lines.push({text:raw.replace(/\r$/u,''),start:offset,crlf:raw.endsWith('\r')});offset+=raw.length+1;}
  let cursor=0;const skip=()=>{while(cursor<lines.length&&lines[cursor].text==='')cursor++;};
  if(lines[cursor++]?.text!=='# Owner turns')throw new Error('Invalid heading.');skip();
  const provider=/^Provider: (claude-cloud|codex-cloud)$/u.exec(lines[cursor++]?.text??'')?.[1];
+ if(provider)onProvider?.(provider);
  const sessionId=/^Session: ([A-Za-z0-9][A-Za-z0-9_-]{0,127})$/u.exec(lines[cursor++]?.text??'')?.[1];
  const rawTitle=/^Title: (.{1,200})$/u.exec(lines[cursor++]?.text??'')?.[1],title=rawTitle&&sanitize(rawTitle);
  if(!provider||!sessionId||chatTextHasSecret(sessionId)||!title)throw new Error('Invalid metadata.');
@@ -73,12 +76,18 @@ function parse(buffer){
  }
  if(!messages.length&&!metadata.coverageNotes)throw new Error('No safe owner turns or coverage.');return {provider,sessionId,title,...metadata,origin:'repository-handoff',latestAt,messages,truncated};
 }
+// Attribution comes from the same parser, once per buffer. Unreadable files and
+// content without a recognized header stay unassigned rather than implicating both providers.
+function providerTracker(){
+ const providerFailures={'claude-cloud':0,'codex-cloud':0},availableProviders=new Set();
+ return {providerFailures,availableProviders,parse(buffer){let provider;try{const session=parse(buffer,{onProvider:value=>{provider=value;}});availableProviders.add(session.provider);return session;}catch(error){if(provider)providerFailures[provider]++;throw error;}}};
+}
 /** Reads the actual checkout and supplied fetched origin refs/SHA objects. Never fetches or checks out. */
 export async function readCloudOwnerTurns({repositoryRoot,signal,refs=[]}={}){
  signal?.throwIfAborted();const timeout=AbortSignal.timeout(DEADLINE_MS),bounded=signal?AbortSignal.any([signal,timeout]):timeout;
- const check=()=>bounded.throwIfAborted();let truncated=false,unsafe=false,files=0,bytes=0;const sessions=new Map(),objects=new Set(),candidates=[];
+ const check=()=>bounded.throwIfAborted();let truncated=false,unsafe=false,files=0,bytes=0;const sessions=new Map(),objects=new Set(),candidates=[],providers=providerTracker();
  const reject=()=>{unsafe=true;truncated=true;};
- const accept=buffer=>{const session=parse(buffer),key=session.provider+'\0'+session.sessionId,previous=sessions.get(key);if(!previous||(session.latestAt??'')>(previous.latestAt??''))sessions.set(key,session);truncated||=session.truncated;};
+ const accept=buffer=>{const session=providers.parse(buffer),key=session.provider+'\0'+session.sessionId,previous=sessions.get(key);if(!previous||(session.latestAt??'')>(previous.latestAt??''))sessions.set(key,session);truncated||=session.truncated;};
  const reserve=size=>{if(!Number.isSafeInteger(size)||size<0||size>CLOUD_OWNER_LIMITS.fileBytes||bytes+size>CLOUD_OWNER_LIMITS.totalBytes){reject();return false;}bytes+=size;return true;};
  try{
   check();const root=await safeDirectory(repositoryRoot,check),top=(await git(root,['rev-parse','--show-toplevel'],bounded)).toString('utf8').trim();if(normalize(await realpath(top))!==normalize(root))throw new Error('Use repository root.');
@@ -123,5 +132,64 @@ export async function readCloudOwnerTurns({repositoryRoot,signal,refs=[]}={}){
   }
  }catch{if(signal?.aborted)signal.throwIfAborted();reject();}
  const ordered=[...sessions.values()].sort((a,b)=>(b.latestAt??'').localeCompare(a.latestAt??'')||a.provider.localeCompare(b.provider)||a.sessionId.localeCompare(b.sessionId));if(ordered.length>CLOUD_OWNER_LIMITS.sessions)truncated=true;
- const selected=ordered.slice(0,CLOUD_OWNER_LIMITS.sessions);return {status:selected.some(session=>session.messages.length)?'included':unsafe||truncated?'unavailable':'not-found',sessions:selected,truncated};
+ const selected=ordered.slice(0,CLOUD_OWNER_LIMITS.sessions);return {status:selected.some(session=>session.messages.length)?'included':unsafe||truncated?'unavailable':'not-found',sessions:selected,truncated,providerFailures:providers.providerFailures,availableProviders:[...providers.availableProviders].sort()};
+}
+
+const sha256=value=>createHash('sha256').update(value).digest('hex');
+const normalizedSessionId=value=>value.replace(/^(?:session_|cse_)(?=.)/u,'');
+const githubPart=value=>typeof value==='string'&&/^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$/u.test(value)&&value!=='.'&&value!=='..';
+function githubOrigin(raw){
+ if(typeof raw!=='string'||raw.length>4096)return null;
+ try{const url=new URL(raw.trim().replace(/^git@github\.com:/iu,'ssh://git@github.com/'));if(!['https:','ssh:','git:'].includes(url.protocol)||url.hostname.toLowerCase()!=='github.com'||url.port||url.search||url.hash)return null;const parts=url.pathname.replace(/^\/|\/$/gu,'').replace(/\.git$/iu,'').split('/');return parts.length===2&&parts.every(githubPart)?{owner:parts[0],repo:parts[1]}:null;}catch{return null;}
+}
+/** Combines already validated versions; branch-version selection remains the repository reader's job. */
+export function mergeCloudOwnerSessions(...sessionArrays){
+ const sessions=new Map();
+ for(const source of sessionArrays)for(const session of source){
+  const sessionId=normalizedSessionId(session.sessionId),key=session.provider+'\0'+sessionId,previous=sessions.get(key);
+  const latest=!previous||(session.latestAt??'')>(previous.latestAt??'')?session:previous,messages=[],seen=new Set();
+  for(const message of [...(previous?.messages??[]),...session.messages]){const identity=JSON.stringify([message.timestamp,message.text]);if(!seen.has(identity)){seen.add(identity);messages.push({...message});}}
+  messages.sort((a,b)=>a.timestamp.localeCompare(b.timestamp));
+  // Normalize matching keys only. Keeping the winning source ID makes repeated
+  // repository/import aggregation remove exactly one prefix from that source ID.
+  sessions.set(key,{...previous,...latest,messages,truncated:previous?.truncated===true||session.truncated});
+ }
+ return [...sessions.values()].sort((a,b)=>(b.latestAt??'').localeCompare(a.latestAt??'')||a.provider.localeCompare(b.provider)||a.sessionId.localeCompare(b.sessionId)).slice(0,CLOUD_OWNER_LIMITS.sessions);
+}
+/** Private local exports are read only for the registered folder's actual GitHub origin.
+ * The opaque fingerprint includes bounded raw source hashes, even rejected Markdown.
+ * No import path, filename, raw content or diagnostic error is returned or logged. */
+export async function readImportedCloudOwnerTurns({repositoryRoot,importedRoot,signal,origin}={}){
+ signal?.throwIfAborted();const timeout=AbortSignal.timeout(DEADLINE_MS),bounded=signal?AbortSignal.any([signal,timeout]):timeout,check=()=>bounded.throwIfAborted();
+ let truncated=false,rejected=0,files=0,accepted=0,bytes=0;const sessions=[],fingerprints=[],providers=providerTracker();
+ const reject=()=>{rejected++;truncated=true;};
+ const result=()=>{const selected=mergeCloudOwnerSessions(sessions);return {status:selected.some(session=>session.messages.length)?'included':rejected||truncated?'unavailable':'not-found',sessions:selected,truncated,fingerprint:sha256(JSON.stringify(fingerprints)),diagnostics:{files,accepted,rejected},providerFailures:providers.providerFailures,availableProviders:[...providers.availableProviders].sort()};};
+ const entries=async directory=>{const names=[],handle=await opendir(directory);for await(const entry of handle){check();if(names.length===MAX_ENTRIES){truncated=true;break;}names.push(entry.name);}return names.sort((a,b)=>a.localeCompare(b));};
+ try{
+  if(origin===undefined){try{const root=await safeDirectory(repositoryRoot,check);origin=githubOrigin((await git(root,['config','--local','--get','remote.origin.url'],bounded,4096)).toString('utf8'));}catch{check();origin=null;}}
+  if(!origin||!githubPart(origin.owner)||!githubPart(origin.repo))return result();
+  importedRoot??=path.join(process.platform==='win32'?process.env.USERPROFILE||homedir():homedir(),'.control-room','imported-chats');
+  let root;try{root=await safeDirectory(importedRoot,check);}catch(error){check();if(error?.code!=='ENOENT')reject();return result();}
+  const expected=(origin.owner+'__'+origin.repo).toLowerCase(),directories=(await entries(root)).filter(name=>name.toLowerCase()===expected);
+  for(const name of directories){
+   check();const directory=path.join(root,name);let names;
+   try{await safeDirectory(directory,check);names=await entries(directory);}catch(error){check();if(error?.code!=='ENOENT')reject();continue;}
+   for(const filename of names.filter(value=>/^[^/\\\u0000-\u001f\u007f]{1,251}\.md$/iu.test(value))){
+    check();if(files>=CLOUD_OWNER_LIMITS.files){truncated=true;break;}files++;const absolute=path.join(directory,filename),record=[name,filename];fingerprints.push(record);let opened;
+    try{
+     await safeDirectory(directory,check);const before=await lstat(absolute);record.push(before.size);
+     if(!before.isFile()||before.isSymbolicLink()||before.nlink!==1||!Number.isSafeInteger(before.size)||before.size<0||before.size>CLOUD_OWNER_LIMITS.fileBytes||bytes+before.size>CLOUD_OWNER_LIMITS.totalBytes){reject();continue;}
+     bytes+=before.size;
+     // Canonical-path and repeated ancestry checks also reject Windows junctions and swaps.
+     if(normalize(await realpath(absolute))!==normalize(absolute)||!normalize(absolute).startsWith(normalize(root)+path.sep))throw new Error('Escaping file.');
+     opened=await open(absolute,constants.O_RDONLY|(constants.O_NOFOLLOW??0));await safeDirectory(directory,check);if(!same(before,await opened.stat()))throw new Error('Unstable file.');
+     const buffer=Buffer.alloc(before.size);let received=0;while(received<buffer.length){check();const read=await opened.read(buffer,received,buffer.length-received,received);if(!read.bytesRead)throw new Error('Short file.');received+=read.bytesRead;}
+     await safeDirectory(directory,check);if(normalize(await realpath(absolute))!==normalize(absolute)||!same(before,await opened.stat())||!same(before,await lstat(absolute)))throw new Error('Changed file.');
+     record.push(sha256(buffer));const session=providers.parse(buffer);sessions.push(session);accepted++;truncated||=session.truncated;
+    }catch{check();reject();}finally{await opened?.close();}
+   }
+  }
+ }catch{if(signal?.aborted)signal.throwIfAborted();reject();}
+ if(new Set(sessions.map(session=>session.provider+'\0'+normalizedSessionId(session.sessionId))).size>CLOUD_OWNER_LIMITS.sessions)truncated=true;
+ return result();
 }
