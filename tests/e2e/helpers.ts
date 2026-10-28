@@ -31,5 +31,15 @@ export async function openAdvanced(page:Page){
  await expect(page.getByRole('heading',{name:'Advanced',exact:true})).toBeVisible();
 }
 export type AdvancedToolName='Project lanes'|'Mission control'|'Weekly planning'|'Search'|'Attention'|'Inbox'|'Change many tasks at once'|'History'|'Evidence & decisions'|'Sources, export and restore'|'Repositories'|'Briefs & automations'|'Runtime'|'Agents';
-/** Every detailed tool is one click under Advanced. */
-export async function clickFixtureNavigation(page:Page,name:AdvancedToolName){await openAdvanced(page);await page.getByRole('main').getByRole('button',{name,exact:true}).click();}
+const toolViews:Record<AdvancedToolName,string>={'Project lanes':'lanes','Mission control':'today','Weekly planning':'weekly',Search:'search',Attention:'attention',Inbox:'inbox','Change many tasks at once':'bulk',History:'history','Evidence & decisions':'evidence','Sources, export and restore':'sources',Repositories:'local-analysis','Briefs & automations':'reviews',Runtime:'runtime',Agents:'agents'};
+/** Every detailed tool is one click under Advanced. A reload restores the open tool; as
+ * clicking the current menu item did before, stay on it and prove it is the current tool
+ * instead of leaving it while its own start-up guards may still hold navigation. */
+export async function clickFixtureNavigation(page:Page,name:AdvancedToolName){
+ const params=new URL(page.url()).searchParams;
+ if(params.get('view')===toolViews[name]&&!params.has('entity')&&!params.has('subject')&&!params.has('review')){
+  await expect(page.getByRole('navigation',{name:'Main navigation',exact:true}).getByRole('button',{name:'Advanced',exact:true})).toHaveAttribute('aria-current','page');
+  await expect(page.locator('.breadcrumb strong')).toHaveText(name);return;
+ }
+ await openAdvanced(page);await page.getByRole('main').getByRole('button',{name,exact:true}).click();
+}

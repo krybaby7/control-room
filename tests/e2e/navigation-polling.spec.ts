@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { fixtureOrigin, openFixture, workspace, clickFixtureNavigation } from './helpers';
+import { fixtureOrigin, openFixture, workspace, clickFixtureNavigation, openAdvanced } from './helpers';
 import { entityHref } from '../../lib/entity-links';
 import type { WorkspaceEnvelope } from '../../lib/types';
 
@@ -156,8 +156,10 @@ test('Advanced tools remain usable immediately after restoring an Advanced tool 
     await clickFixtureNavigation(page, name);
     await page.reload();
     // Exercise the same immediate reload-to-navigation path as enrollment and
-    // encrypted-draft recovery, without waiting for a feature panel first.
-    await clickFixtureNavigation(page, name);
+    // encrypted-draft recovery, without waiting for a feature panel first:
+    // leave the restored tool for Advanced and open it again.
+    await openAdvanced(page);
+    await page.getByRole('main').getByRole('button', { name, exact: true }).click();
     await expect(navigation.getByRole('button', { name: 'Advanced', exact: true })).toHaveAttribute('aria-current', 'page');
     await expect(page.locator('.breadcrumb')).toContainText(name);
     await expect(page.getByRole('button', { name: 'Back to Advanced', exact: true })).toBeVisible();
