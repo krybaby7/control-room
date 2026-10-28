@@ -47,6 +47,17 @@ test('scheduler never overlaps reads and honours a refresh requested mid-flight'
  release!();await flush();loop.dispose();
 });
 
+test('slow invalidation during a read survives success without changing the polling cadence',async()=>{
+ const clock=new FakeClock(),reads:boolean[]=[];let complete!:()=>void;
+ const loop=new LiveFeedScheduler({read:async slow=>{reads.push(slow);if(reads.length===1)await new Promise<void>(resolve=>{complete=resolve;});},now:()=>clock.now,setTimer:clock.set,clearTimer:clock.clear,random:()=>0.5});
+ loop.start();await flush();loop.invalidateSlow();void loop.refresh();complete();await flush();
+ try{
+  assert.deepEqual(reads,[true,true]);assert.equal(clock.next(),FEED_LIMITS.slowMs);
+  await clock.advance(FEED_LIMITS.slowMs);assert.deepEqual(reads,[true,true,false]);
+  await clock.advance(FEED_LIMITS.slowMs);assert.deepEqual(reads,[true,true,false,true]);
+ }finally{loop.dispose();}
+});
+
 function json(body:unknown,status=200){return new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json'}});}
 async function fixtureFetch(overrides:Record<string,()=>Response|Promise<Response>>={}){
  const fixture=await dashboardFixture();
